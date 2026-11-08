@@ -41,7 +41,7 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
           godot --headless --path . --editor --quit
-          godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk
+          godot --headless --path . --install-android-build-template --export-debug "Android" build/StormGenerals-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
