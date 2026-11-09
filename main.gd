@@ -2459,7 +2459,7 @@ func _place_building(pos: Vector2) -> void:
 
 func _has_building(kind: String) -> bool:
 	for building in buildings:
-		if building.kind == kind:
+		if building.kind == kind and float(building.get("build_progress", 1.0)) >= 1.0:
 			return true
 	return false
 
