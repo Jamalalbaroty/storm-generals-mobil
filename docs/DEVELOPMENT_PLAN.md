@@ -54,6 +54,31 @@ All four factions share readable counters and fair core rules. Differences shoul
 - Once the candidate is available, perform one structured Android test pass using `docs/QA_CHECKLIST.md`, collect defects, fix them in a batch, and produce a release candidate for a final confirmation pass.
 - Keep the user informed about actual repository commits and build results; never describe a planned feature as implemented until it exists in the project.
 
+
+## 3D visual migration — approved direction
+
+The approved visual target is a cinematic, realistic 3D battlefield with an angled strategic camera. The migration is deliberately additive: keep `main.tscn` and the working 2D match as the active fallback while the 3D scene is developed and validated separately.
+
+### Current 3D prototype status
+
+- Added `prototype_3d/battlefield_3d.tscn` and `prototype_3d/battlefield_3d.gd` as an isolated Godot 3D scene.
+- The prototype currently creates a lit arena, a strategic camera, and three primitive tank proxies.
+- These tank proxies are greybox geometry, not finished realistic vehicle assets. The prototype is not yet connected to production movement, combat, AI, economy, or touch selection.
+- The main project remains on the Compatibility renderer and the existing 2D scene. Do not switch renderers or the startup scene until a verified Android test demonstrates that the chosen renderer and 3D content run reliably on target devices.
+
+### Migration gates
+
+1. **Scene foundation:** validate camera framing, lighting, mobile-friendly materials, and arena readability in the isolated scene.
+2. **Camera and input:** add touch-friendly pan and zoom without conflicting with unit selection; verify landscape and different screen sizes.
+3. **Asset quality:** replace proxies with original or properly licensed low-poly-to-high-detail military assets, with mobile-appropriate LODs, texture sizes, and draw calls.
+4. **World composition:** add terrain, roads, shoreline/water, bases, buildings, cover, and readable faction silhouettes.
+5. **Gameplay integration:** port unit navigation, targeting, combat, projectiles, health, selection, production, and AI in small testable slices.
+6. **Effects and audio:** integrate optimized muzzle flashes, tracers, explosions, smoke, vehicle audio, weapon audio, and mix controls.
+7. **Android performance gate:** profile frame time, memory, thermal behavior, and battery impact on the user's actual target phone before changing the default renderer or startup scene.
+8. **Integrated candidate:** only after the above gates pass should the 3D scene replace the active 2D match and be included in the next planned APK candidate.
+
+The visual goal is realistic and cinematic, but performance and legibility take priority over expensive effects on mobile. No stage is considered complete solely because a scene or asset file exists.
+
 ## Definition of done
 
 A feature is complete only when:
