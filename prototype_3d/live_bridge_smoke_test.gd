@@ -844,6 +844,37 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Critically damaged mobile troops should fall back to the nearest completed friendly asset.
+	var retreat_units: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 330.0), "team": "enemy", "kind": "tank", "hp": 30, "attack_cd": 0.0},
+		{"pos": Vector2(450.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	var retreat_assets: Array[Dictionary] = [
+		{"pos": Vector2(820.0, 330.0), "kind": "factory", "hp": 500, "build_progress": 1.0},
+		{"pos": Vector2(600.0, 330.0), "kind": "barracks", "hp": 0, "build_progress": 1.0}
+	]
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_base", Vector2(1100.0, 330.0))
+	game.set("enemy_buildings", retreat_assets)
+	game.set("buildings", no_buildings)
+	game.set("supply_points", no_supply_points)
+	game.set("units", retreat_units)
+	game.call("_process", 1.0)
+	var retreated_units: Array[Dictionary] = game.get("units")
+	if float(retreated_units[0].pos.x) <= 500.0 or not bool(retreated_units[0].get("retreating", false)) or int(retreated_units[1].get("hp", 150)) != 150:
+		push_error("Critically damaged enemy armor did not disengage and fall back toward its nearest completed asset")
+		quit(1)
+		return
+	var nearest_retreat_asset: Vector2 = game.call("_enemy_retreat_destination", Vector2(500.0, 330.0))
+	if nearest_retreat_asset.distance_to(Vector2(820.0, 330.0)) > 0.1:
+		push_error("Enemy retreat routing selected a destroyed asset instead of the nearest completed factory")
+		quit(1)
+		return
+
 	# A base guard must also protect a forward structure when the base itself is not threatened.
 	var protected_structure_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
