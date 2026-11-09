@@ -467,6 +467,8 @@ func _process(delta: float) -> void:
 								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
 							continue
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
+					if artillery_target >= 0 and not artillery_guard:
+						artillery_destination = _enemy_artillery_support_position(units[artillery_target].pos, enemy_base, i)
 					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -1081,6 +1083,17 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 		role_offset = -attack_direction * 22.0
 	return target_pos + role_offset + lateral_direction * lane_side * 22.0
 
+
+func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
+	# Artillery trails the armored line and keeps a lateral offset while staying inside its firing envelope.
+	var attack_direction: Vector2 = target_pos - assault_origin
+	if attack_direction.length_squared() <= 0.01:
+		attack_direction = Vector2.LEFT
+	else:
+		attack_direction = attack_direction.normalized()
+	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
+	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
+	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * 38.0
 
 func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 	# Landing infantry prioritize production and air facilities, then defensive assets.
