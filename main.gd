@@ -909,14 +909,14 @@ func _update_submarine_detection() -> void:
 		submarine[reveal_key] = detected
 
 func _select_enemy_ground_assault_target() -> int:
-	# Enemy forces coordinate around whichever asset is under the greatest immediate threat.
+	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
 		var candidate: Dictionary = units[candidate_index]
 		if candidate.team != "player" or candidate.get("hp", 0) <= 0:
 			continue
-		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "enemy"):
+		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
 		var asset_distance := candidate.pos.distance_to(enemy_base)
 		for protected_building in enemy_buildings:
@@ -927,8 +927,6 @@ func _select_enemy_ground_assault_target() -> int:
 				threat_priority = 85.0
 			"tank":
 				threat_priority = 65.0
-			"fighter", "helicopter":
-				threat_priority = 50.0
 			"infantry":
 				threat_priority = 15.0
 		var score := asset_distance - threat_priority
