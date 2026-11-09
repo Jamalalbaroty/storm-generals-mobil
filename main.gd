@@ -350,11 +350,14 @@ func _draw_hud(size: Vector2) -> void:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
-			draw_string(ThemeDB.fallback_font, r.position + Vector2(12, 34), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 24, 19, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(20, size.y - 18), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 40, 17, Color.WHITE)
+			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 137), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x - 910 + index * 91, size.y - 76), Vector2(87, 52))
+	var column := index % 5
+	var row := int(index / 5)
+	var button_width := (size.x - 48.0) / 5.0
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 58.0), Vector2(button_width, 52.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
