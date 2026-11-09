@@ -84,13 +84,13 @@ func _initialize() -> void:
 		push_error("Gameplay unit synchronization did not create all 3D counterparts")
 		quit(1)
 		return
-	var tank_key := "player|0|tank"
+	var tank_key := "player|1|tank"
 	var tank_3d := battlefield.game_unit_nodes.get(tank_key) as Node3D
 	if tank_3d == null or tank_3d.get_meta("gameplay_unit_kind", "") != "tank":
 		push_error("Synchronized tank metadata is incorrect")
 		quit(1)
 		return
-	if tank_3d.position.distance_to(Vector3(-10.64, 0.0, -10.64)) > 0.02:
+	if tank_3d.position.distance_to(Vector3(-9.576, 0.0, -9.576)) > 0.02:
 		push_error("Gameplay unit map-to-world transform is incorrect")
 		quit(1)
 		return
@@ -101,10 +101,12 @@ func _initialize() -> void:
 		push_error("Gameplay unit movement or health synchronization failed")
 		quit(1)
 		return
-	unit_records.remove_at(2)
+	var infantry_key := "player|2|infantry"
+	var infantry_3d := battlefield.game_unit_nodes.get(infantry_key) as Node3D
+	unit_records.remove_at(0)
 	unit_count = int(battlefield.call("sync_game_units", unit_records, map_rect))
-	if unit_count != 2 or battlefield.game_unit_nodes.size() != 2:
-		push_error("Removed gameplay units were not reconciled from the 3D scene")
+	if unit_count != 2 or battlefield.game_unit_nodes.size() != 2 or battlefield.game_unit_nodes.has(tank_key) or battlefield.game_unit_nodes.get(infantry_key) != infantry_3d:
+		push_error("Stable gameplay unit identities or stale unit removal failed")
 		quit(1)
 		return
 
