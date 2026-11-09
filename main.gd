@@ -1438,34 +1438,70 @@ func _draw_base(p: Vector2, color: Color, label: String) -> void:
 	draw_string(ThemeDB.fallback_font, p + Vector2(-48, 66), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 16, Color.WHITE)
 
 func _draw_hud(size: Vector2) -> void:
-	draw_rect(Rect2(0, 0, size.x, 58), Color(0.06, 0.08, 0.09, 0.9))
-	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 500.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 155, 19, Color.WHITE)
-	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 320.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 155, 17, Color("#9fe6d2"))
-	if game_started:
-		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
-		for i in labels.size():
-			var r = _button_rect(i, size)
-			draw_rect(r, Color("#263d50"), true)
-			draw_rect(r, Color("#8fa8b8"), false, 2)
-			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
-		draw_string(ThemeDB.fallback_font, Vector2(16, 103), _terrain_effect_label(), HORIZONTAL_ALIGNMENT_LEFT, 360, 14, Color("#d8e6c2"))
-		var power_capacity := _player_power_capacity()
-		var power_demand := _player_power_demand()
-		var power_label := "الطاقة: %d / %d" % [power_capacity, power_demand]
-		if power_demand > power_capacity:
-			power_label += " — عجز، بعض المنشآت متوقفة"
-		draw_string(ThemeDB.fallback_font, Vector2(16, 124), power_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color("#ff9c82") if power_demand > power_capacity else Color("#a8e6b0"))
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
-		if not production_orders.is_empty():
-			var first_order: Dictionary = production_orders[0]
-			var progress_text := "الإنتاج: %s — %.0f%% | بالطابور: %d" % [String(first_order.kind), (1.0 - float(first_order.remaining) / maxf(1.0, float(first_order.duration))) * 100.0, production_orders.size()]
-			draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 390), progress_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 14, Color("#a8e6b0"))
-		var pause_button := _pause_rect(size)
-		draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
-		draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
-		draw_string(ThemeDB.fallback_font, pause_button.position + Vector2(0, 30), "استئناف" if paused else "إيقاف", HORIZONTAL_ALIGNMENT_CENTER, pause_button.size.x, 17, Color.WHITE)
+	# Compact mobile command deck: resources, grid power, threat state and production.
+	draw_rect(Rect2(0, 0, size.x, 58), Color(0.035, 0.055, 0.065, 0.96))
+	draw_line(Vector2(0, 58), Vector2(size.x, 58), Color("#71858a"), 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(14, 36), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, minf(210.0, size.x * 0.48), 19, Color("#f4d77a"))
+	if not game_started:
+		return
+	var margin := 10.0
+	var gap := 6.0
+	var metric_width := (size.x - margin * 2.0 - gap * 3.0) / 4.0
+	var metric_y := 66.0
+	var metric_h := 42.0
+	var power_capacity := _player_power_capacity()
+	var power_demand := _player_power_demand()
+	var hostile_count := 0
+	var nearby_threats := 0
+	for contact in units:
+		if String(contact.get("team", "")) == "enemy" and int(contact.get("hp", 0)) > 0:
+			hostile_count += 1
+			if contact.pos.distance_to(base_pos) < 280.0:
+				nearby_threats += 1
+	for metric_index in range(4):
+		var metric_rect := Rect2(Vector2(margin + metric_index * (metric_width + gap), metric_y), Vector2(metric_width, metric_h))
+		draw_rect(metric_rect, Color("#17272d"), true)
+		draw_rect(metric_rect, Color("#425b62"), false, 1.0)
+	var metric_values := [
+		{"label": "الموارد", "value": str(credits), "color": Color("#f2d47b")},
+		{"label": "الإمداد", "value": str(supplies), "color": Color("#9fe6d2")},
+		{"label": "الطاقة", "value": "%d / %d" % [power_demand, power_capacity], "color": Color("#ff9c82") if power_demand > power_capacity else Color("#a8e6b0")},
+		{"label": "التهديد", "value": "خطر %d" % nearby_threats if nearby_threats > 0 else "آمن %d" % hostile_count, "color": Color("#ff766b") if nearby_threats > 0 else Color("#a8e6b0")}
+	]
+	for metric_index in range(metric_values.size()):
+		var metric_rect := Rect2(Vector2(margin + metric_index * (metric_width + gap), metric_y), Vector2(metric_width, metric_h))
+		var metric: Dictionary = metric_values[metric_index]
+		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 15), String(metric.label), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, 11, Color("#b6c7c8"))
+		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 34), String(metric.value), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, 14, metric.color)
+	var theatre_text := "%s  |  %s" % [map_type, _terrain_effect_label()]
+	draw_string(ThemeDB.fallback_font, Vector2(12, 126), theatre_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 12, Color("#d8e6c2"))
+	var power_state := "شبكة الطاقة مستقرة" if power_demand <= power_capacity else "تحذير: عجز الطاقة — بعض المنشآت متوقفة"
+	draw_string(ThemeDB.fallback_font, Vector2(12, 145), power_state, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 12, Color("#a8e6b0") if power_demand <= power_capacity else Color("#ff9c82"))
+	# Production panel remains visible even when the queue is empty.
+	var production_rect := Rect2(Vector2(10, 154), Vector2(size.x - 20, 43))
+	draw_rect(production_rect, Color(0.035, 0.055, 0.065, 0.86), true)
+	draw_rect(production_rect, Color("#425b62"), false, 1.0)
+	if production_orders.is_empty():
+		draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 18), "الإنتاج: لا توجد أوامر قيد التنفيذ", HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#c0cece"))
+	else:
+		var first_order: Dictionary = production_orders[0]
+		var duration := maxf(1.0, float(first_order.get("duration", 1.0)))
+		var progress := clampf(1.0 - float(first_order.get("remaining", duration)) / duration, 0.0, 1.0)
+		var production_text := "الإنتاج: %s  |  %d طلبات" % [String(first_order.get("kind", "وحدة")), production_orders.size()]
+		draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 16), production_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#e4eee8"))
+		var bar_rect := Rect2(production_rect.position + Vector2(9, 25), Vector2(size.x - 38, 8))
+		draw_rect(bar_rect, Color("#26383d"), true)
+		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
+	for i in labels.size():
+		var r = _button_rect(i, size)
+		draw_rect(r, Color("#263d50"), true)
+		draw_rect(r, Color("#8fa8b8"), false, 2)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+	var pause_button := _pause_rect(size)
+	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
+	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
+	draw_string(ThemeDB.fallback_font, pause_button.position + Vector2(0, 30), "استئناف" if paused else "إيقاف", HORIZONTAL_ALIGNMENT_CENTER, pause_button.size.x, 17, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column = index % 4
