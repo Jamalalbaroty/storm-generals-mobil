@@ -38,7 +38,7 @@ All four factions share readable counters and fair core rules. Differences shoul
 
 ## Next milestones
 
-1. **Build verification:** inspect the latest Android workflow result; fix export, import, or signing failures before adding risky changes.
+1. **Build verification — completed for build 130:** GitHub Actions passed the Godot headless startup smoke test and exported `StormGenerals-debug.apk`. The user confirmed that the installed game launches on their phone. This verifies the current debug build path, not full gameplay or release readiness; see `docs/BUILD_HISTORY.md`.
 2. **Combat QA:** test unit-vs-unit damage, range, cooldowns, splash damage, terrain modifiers, and death/removal behavior.
 3. **AI QA:** verify production limits, defense assignments, objective capture, attack timing, and recovery after losing buildings.
 4. **Mobile usability:** verify touch targets, drag selection, HUD readability, landscape scaling, and safe-area behavior on a real phone.
