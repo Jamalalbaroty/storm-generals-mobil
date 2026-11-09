@@ -1074,6 +1074,13 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
+	if not _enemy_has_building("shipyard") and enemy_credits >= 700:
+		enemy_credits -= 700
+		var naval_site := Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		enemy_buildings.append({"pos": naval_site, "kind": "shipyard", "hp": 500, "attack_cd": 0.0})
+		notice = "العدو أنشأ حوض سفن ساحلياً"
+		notice_time = 2.0
+		return
 	if not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
 		enemy_credits -= AA_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
@@ -1085,6 +1092,7 @@ func _enemy_ai_turn() -> void:
 	var enemy_artillery := 0
 	var enemy_fighters := 0
 	var enemy_helicopters := 0
+	var enemy_destroyers := 0
 	for unit in units:
 		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
 			continue
@@ -1096,9 +1104,16 @@ func _enemy_ai_turn() -> void:
 			enemy_fighters += 1
 		elif unit.kind == "helicopter":
 			enemy_helicopters += 1
+		elif unit.kind == "destroyer":
+			enemy_destroyers += 1
 		else:
 			enemy_infantry += 1
-	if _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < 2:
+	if _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
+		enemy_credits -= 900
+		enemy_supplies -= 4
+		var enemy_dock_pos: Vector2 = enemy_base + Vector2(-120, get_viewport_rect().size.y * 0.82 - enemy_base.y)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "hp": 260, "target": base_pos, "attack_cd": 0.0})
+	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < 2:
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
@@ -1227,7 +1242,13 @@ func _spawn_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "faction": faction, "hp": 260 if kind == "destroyer" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))), "attack_cd": 0.0})
+	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
+	if kind == "destroyer":
+		for dock in buildings:
+			if dock.kind == "shipyard":
+				unit_spawn = dock.pos
+				break
+	units.append({"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": 260 if kind == "destroyer" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))), "attack_cd": 0.0})
 	var unit_name := "مدمرة بحرية" if kind == "destroyer" else ("جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية"))))
 	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
