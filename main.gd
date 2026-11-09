@@ -467,6 +467,7 @@ func _process(delta: float) -> void:
 					var target: Vector2 = unit.target
 					if unit.pos.distance_to(target) > 8.0:
 						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+		_update_unit_facing(delta)
 		queue_redraw()
 
 func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Color, duration: float, radius: float) -> void:
@@ -707,6 +708,40 @@ func _unit_weapon_angle(unit: Dictionary) -> float:
 func _unit_rotated_point(origin: Vector2, local_point: Vector2, angle: float) -> Vector2:
 	return origin + local_point.rotated(angle)
 
+
+func _unit_polygon_points(origin: Vector2, local_points: PackedVector2Array, angle: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for local_point in local_points:
+		points.append(_unit_rotated_point(origin, local_point, angle))
+	return points
+
+
+func _rotated_rect_points(center: Vector2, dimensions: Vector2, angle: float) -> PackedVector2Array:
+	var half := dimensions * 0.5
+	return _unit_polygon_points(center, PackedVector2Array([
+		Vector2(-half.x, -half.y),
+		Vector2(half.x, -half.y),
+		Vector2(half.x, half.y),
+		Vector2(-half.x, half.y)
+	]), angle)
+
+
+func _unit_facing_angle(unit: Dictionary) -> float:
+	return float(unit.get("facing", _unit_weapon_angle(unit)))
+
+
+func _update_unit_facing(delta: float) -> void:
+	for unit in units:
+		var current_pos: Vector2 = unit.pos
+		var previous_pos: Vector2 = unit.get("visual_previous_pos", current_pos)
+		var movement := current_pos - previous_pos
+		if movement.length_squared() > 4.0:
+			var desired_angle := movement.angle()
+			var current_angle := float(unit.get("facing", desired_angle))
+			unit.facing = lerp_angle(current_angle, desired_angle, clampf(delta * 9.0, 0.0, 1.0))
+		unit.visual_previous_pos = current_pos
+
+
 func _draw() -> void:
 	var size := get_viewport_rect().size
 	_draw_terrain(size)
@@ -765,51 +800,57 @@ func _draw() -> void:
 			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
 		elif u.kind == "helicopter":
 			var heli_color := _helicopter_color(u)
-			draw_circle(u.pos + Vector2(0, 4), 13, Color(0, 0, 0, 0.22))
+			var heli_angle := _unit_facing_angle(u)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(0, 4), heli_angle), 13, Color(0, 0, 0, 0.22))
 			draw_circle(u.pos, 10, Color("#263238"))
-			draw_circle(u.pos + Vector2(1, -2), 8, heli_color)
-			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(8, -4), u.pos + Vector2(30, -1), u.pos + Vector2(9, 4)]), heli_color)
-			draw_line(u.pos + Vector2(-19, -14), u.pos + Vector2(18, -14), Color("#252b2b"), 4)
-			draw_line(u.pos + Vector2(0, -14), u.pos + Vector2(0, -23), Color("#252b2b"), 2)
-			draw_line(u.pos + Vector2(-14, -23), u.pos + Vector2(14, -23), Color("#252b2b"), 2)
-			draw_circle(u.pos + Vector2(0, -14), 3, Color("#c7d0cd"))
-			draw_line(u.pos + Vector2(-5, 8), u.pos + Vector2(9, 12), Color("#252b2b"), 2)
-			draw_line(u.pos + Vector2(-11, 4), u.pos + Vector2(-22, 10), Color("#343b3b"), 2)
-			draw_line(u.pos + Vector2(3, 7), u.pos + Vector2(14, 12), Color("#343b3b"), 2)
-			draw_circle(u.pos + Vector2(5, -3), 3, Color("#9ed5df"))
+			draw_circle(_unit_rotated_point(u.pos, Vector2(1, -2), heli_angle), 8, heli_color)
+			draw_colored_polygon(_unit_polygon_points(u.pos, PackedVector2Array([Vector2(8, -4), Vector2(30, -1), Vector2(9, 4)]), heli_angle), heli_color)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-19, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(18, -14), heli_angle), Color("#252b2b"), 4)
+			draw_line(_unit_rotated_point(u.pos, Vector2(0, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(0, -23), heli_angle), Color("#252b2b"), 2)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-14, -23), heli_angle), _unit_rotated_point(u.pos, Vector2(14, -23), heli_angle), Color("#252b2b"), 2)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(0, -14), heli_angle), 3, Color("#c7d0cd"))
+			draw_line(_unit_rotated_point(u.pos, Vector2(-5, 8), heli_angle), _unit_rotated_point(u.pos, Vector2(9, 12), heli_angle), Color("#252b2b"), 2)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-11, 4), heli_angle), _unit_rotated_point(u.pos, Vector2(-22, 10), heli_angle), Color("#343b3b"), 2)
+			draw_line(_unit_rotated_point(u.pos, Vector2(3, 7), heli_angle), _unit_rotated_point(u.pos, Vector2(14, 12), heli_angle), Color("#343b3b"), 2)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(5, -3), heli_angle), 3, Color("#9ed5df"))
 		elif u.kind == "fighter":
 			var plane_color := Color("#d7e4e8") if u.team == "player" else Color("#d95b51")
-			var plane := PackedVector2Array([u.pos + Vector2(24, 0), u.pos + Vector2(-8, -6), u.pos + Vector2(-23, -20), u.pos + Vector2(-16, 0), u.pos + Vector2(-23, 20), u.pos + Vector2(-8, 6)])
-			draw_colored_polygon(plane, Color(0, 0, 0, 0.18))
-			draw_colored_polygon(plane, plane_color)
-			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(7, 0), u.pos + Vector2(-7, -4), u.pos + Vector2(-13, 0), u.pos + Vector2(-7, 4)]), Color("#52636d"))
-			draw_line(u.pos + Vector2(-4, 0), u.pos + Vector2(24, 0), Color("#303a42"), 3)
-			draw_line(u.pos + Vector2(-12, -8), u.pos + Vector2(-18, -17), Color("#e4d9a7"), 2)
-			draw_line(u.pos + Vector2(-12, 8), u.pos + Vector2(-18, 17), Color("#e4d9a7"), 2)
-			draw_circle(u.pos + Vector2(7, 0), 3, Color("#9bd5e5"))
+			var plane_angle := _unit_facing_angle(u)
+			var plane_shape := PackedVector2Array([Vector2(24, 0), Vector2(-8, -6), Vector2(-23, -20), Vector2(-16, 0), Vector2(-23, 20), Vector2(-8, 6)])
+			draw_colored_polygon(_unit_polygon_points(u.pos, plane_shape, plane_angle), Color(0, 0, 0, 0.18))
+			draw_colored_polygon(_unit_polygon_points(u.pos, plane_shape, plane_angle), plane_color)
+			draw_colored_polygon(_unit_polygon_points(u.pos, PackedVector2Array([Vector2(7, 0), Vector2(-7, -4), Vector2(-13, 0), Vector2(-7, 4)]), plane_angle), Color("#52636d"))
+			draw_line(_unit_rotated_point(u.pos, Vector2(-4, 0), plane_angle), _unit_rotated_point(u.pos, Vector2(24, 0), plane_angle), Color("#303a42"), 3)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-12, -8), plane_angle), _unit_rotated_point(u.pos, Vector2(-18, -17), plane_angle), Color("#e4d9a7"), 2)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-12, 8), plane_angle), _unit_rotated_point(u.pos, Vector2(-18, 17), plane_angle), Color("#e4d9a7"), 2)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(7, 0), plane_angle), 3, Color("#9bd5e5"))
 		elif u.kind == "tank":
+			var facing := _unit_facing_angle(u)
 			var track_color := Color("#20292b")
-			draw_rect(Rect2(u.pos + Vector2(-20, -13), Vector2(42, 26)), track_color)
-			draw_rect(Rect2(u.pos + Vector2(-17, -10), Vector2(36, 20)), c)
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(42, 26), facing), track_color)
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(36, 20), facing), c)
 			for wheel in range(4):
-				draw_circle(u.pos + Vector2(-12 + wheel * 8, 11), 3.2, Color("#69736f"))
-				draw_circle(u.pos + Vector2(-12 + wheel * 8, -11), 3.2, Color("#69736f"))
-			draw_rect(Rect2(u.pos + Vector2(-8, -8), Vector2(19, 16)), Color("#3d4a45"))
+				draw_circle(_unit_rotated_point(u.pos, Vector2(-12 + wheel * 8, 11), facing), 3.2, Color("#69736f"))
+				draw_circle(_unit_rotated_point(u.pos, Vector2(-12 + wheel * 8, -11), facing), 3.2, Color("#69736f"))
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(19, 16), facing), Color("#3d4a45"))
 			var tank_aim := _unit_weapon_angle(u)
-			draw_circle(u.pos + Vector2(1, 0), 7, Color("#7f927f"))
-			draw_line(_unit_rotated_point(u.pos, Vector2(4, 0), tank_aim), _unit_rotated_point(u.pos, Vector2(29, 0), tank_aim), Color("#252c2c"), 5)
-			draw_line(_unit_rotated_point(u.pos, Vector2(-13, -5), tank_aim), _unit_rotated_point(u.pos, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
-			draw_circle(_unit_rotated_point(u.pos, Vector2(-1, -5), tank_aim), 2.5, Color("#d5c99d"))
+			var turret_center := _unit_rotated_point(u.pos, Vector2(1, 0), facing)
+			draw_circle(turret_center, 7, Color("#7f927f"))
+			draw_line(_unit_rotated_point(turret_center, Vector2(3, 0), tank_aim), _unit_rotated_point(turret_center, Vector2(28, 0), tank_aim), Color("#252c2c"), 5)
+			draw_line(_unit_rotated_point(turret_center, Vector2(-13, -5), tank_aim), _unit_rotated_point(turret_center, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
+			draw_circle(_unit_rotated_point(turret_center, Vector2(-1, -5), tank_aim), 2.5, Color("#d5c99d"))
 		elif u.kind == "artillery":
-			draw_rect(Rect2(u.pos + Vector2(-19, -11), Vector2(39, 22)), Color("#20292b"))
-			draw_rect(Rect2(u.pos + Vector2(-16, -8), Vector2(33, 16)), c)
+			var facing := _unit_facing_angle(u)
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(39, 22), facing), Color("#20292b"))
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(33, 16), facing), c)
 			for wheel in range(4):
-				draw_circle(u.pos + Vector2(-12 + wheel * 8, 10), 3.2, Color("#59645e"))
-			draw_rect(Rect2(u.pos + Vector2(-8, -5), Vector2(17, 10)), Color("#45534c"))
+				draw_circle(_unit_rotated_point(u.pos, Vector2(-12 + wheel * 8, 10), facing), 3.2, Color("#59645e"))
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(17, 10), facing), Color("#45534c"))
 			var artillery_aim := _unit_weapon_angle(u)
-			draw_line(_unit_rotated_point(u.pos, Vector2(0, -2), artillery_aim), _unit_rotated_point(u.pos, Vector2(32, -2), artillery_aim), Color("#252b2b"), 7)
-			draw_line(_unit_rotated_point(u.pos, Vector2(0, -2), artillery_aim), _unit_rotated_point(u.pos, Vector2(32, -2), artillery_aim), Color("#aeb7a5"), 3)
-			draw_circle(u.pos + Vector2(-3, 0), 4, Color("#d4c59a"))
+			var artillery_pivot := _unit_rotated_point(u.pos, Vector2(0, -2), facing)
+			draw_line(artillery_pivot, _unit_rotated_point(artillery_pivot, Vector2(32, 0), artillery_aim), Color("#252b2b"), 7)
+			draw_line(artillery_pivot, _unit_rotated_point(artillery_pivot, Vector2(32, 0), artillery_aim), Color("#aeb7a5"), 3)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(-3, 0), facing), 4, Color("#d4c59a"))
 		else:
 			draw_line(u.pos + Vector2(-5, 6), u.pos + Vector2(5, 6), Color("#283137"), 4)
 			draw_line(u.pos + Vector2(-3, 2), u.pos + Vector2(-5, 10), Color("#283137"), 3)
