@@ -483,11 +483,14 @@ func _initialize() -> void:
 	game.set("enemy_base", Vector2(500.0, 360.0))
 	game.set("units", [
 		{"pos": Vector2(450.0, 360.0), "team": "player", "kind": "tank", "hp": 150},
-		{"pos": Vector2(900.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+		{"pos": Vector2(900.0, 360.0), "team": "player", "kind": "infantry", "hp": 100}
 	])
+	game.set("enemy_buildings", [])
+	var target_without_destroyed_assets := int(game.call("_select_enemy_ground_assault_target"))
 	game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 0}])
-	if int(game.call("_select_enemy_ground_assault_target")) != 0:
-		push_error("Enemy ground assault target selection treated a destroyed factory as a protected asset")
+	var target_with_destroyed_assets := int(game.call("_select_enemy_ground_assault_target"))
+	if target_with_destroyed_assets != target_without_destroyed_assets:
+		push_error("Enemy ground assault target changed after adding a destroyed factory: baseline=" + str(target_without_destroyed_assets) + ", with_destroyed_asset=" + str(target_with_destroyed_assets))
 		quit(1)
 		return
 	game.set("game_started", true)
