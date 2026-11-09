@@ -32,6 +32,10 @@ var aircraft_rotors: Array[Node3D] = []
 var aircraft_clock := 0.0
 var air_defense_nodes: Array[Node3D] = []
 var air_defense_cooldowns: Array[float] = []
+var radar_nodes: Array[Node3D] = []
+var radar_sweeps: Array[Node3D] = []
+var radar_blips: Dictionary = {}
+var radar_alert_clock := 0.0
 
 func _ready() -> void:
 	_build_environment()
@@ -54,6 +58,7 @@ func _process(delta: float) -> void:
 	_update_infantry_animation(delta)
 	_update_aircraft_animation(delta)
 	_update_air_defenses(delta)
+	_update_radar_network(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -300,6 +305,7 @@ func _build_showcase_units() -> void:
 	_build_showcase_infantry()
 	_build_showcase_aircraft()
 	_build_showcase_air_defenses()
+	_build_showcase_radars()
 
 
 func _build_showcase_aircraft() -> void:
@@ -541,6 +547,89 @@ func _resolve_air_defense_hit(missile: Node3D, target: Node3D) -> void:
 	if not is_instance_valid(target):
 		return
 	_resolve_showcase_hit(null, target, 35.0)
+
+
+func _build_showcase_radars() -> void:
+	_add_radar_station(Vector3(-14.0, 0.0, -7.0), "american")
+	_add_radar_station(Vector3(14.0, 0.0, 8.0), "chinese")
+
+func _add_radar_station(at: Vector3, faction_id: String) -> void:
+	var station := Node3D.new()
+	station.position = at
+	station.set_meta("faction_id", faction_id)
+	add_child(station)
+	var mast := MeshInstance3D.new()
+	var mast_mesh := CylinderMesh.new()
+	mast_mesh.top_radius = 0.10
+	mast_mesh.bottom_radius = 0.15
+	mast_mesh.height = 3.2
+	mast.mesh = mast_mesh
+	mast.position.y = 1.6
+	mast.material_override = _make_armour_material(Color(0.19, 0.21, 0.19))
+	station.add_child(mast)
+	var pivot := Node3D.new()
+	pivot.position.y = 3.15
+	station.add_child(pivot)
+	var dish := MeshInstance3D.new()
+	var dish_mesh := SphereMesh.new()
+	dish_mesh.radius = 0.72
+	dish_mesh.height = 0.28
+	dish.mesh = dish_mesh
+	dish.rotation_degrees.x = -18.0
+	dish.material_override = _make_armour_material(Color(0.38, 0.43, 0.38))
+	pivot.add_child(dish)
+	var scanner := MeshInstance3D.new()
+	var scanner_mesh := BoxMesh.new()
+	scanner_mesh.size = Vector3(0.12, 0.12, 2.0)
+	scanner.mesh = scanner_mesh
+	scanner.position.z = -0.85
+	scanner.material_override = _make_armour_material(Color(0.20, 0.78, 0.48))
+	pivot.add_child(scanner)
+	radar_nodes.append(station)
+	radar_sweeps.append(pivot)
+
+func _update_radar_network(delta: float) -> void:
+	radar_alert_clock += delta
+	for radar_index in range(radar_nodes.size()):
+		var radar := radar_nodes[radar_index]
+		if not is_instance_valid(radar):
+			continue
+		var sweep := radar_sweeps[radar_index]
+		if is_instance_valid(sweep):
+			sweep.rotation.y += delta * 2.8
+		var radar_faction := str(radar.get_meta("faction_id", ""))
+		for aircraft in showcase_tanks:
+			if not is_instance_valid(aircraft):
+				continue
+			var aircraft_type := str(aircraft.get_meta("unit_type", "tank"))
+			if aircraft_type != "helicopter" and aircraft_type != "fighter":
+				continue
+			var is_hostile := str(aircraft.get_meta("faction_id", "")) != radar_faction
+			var in_range := radar.global_position.distance_to(aircraft.global_position) <= 26.0
+			var blip_key := str(radar.get_instance_id()) + ":" + str(aircraft.get_instance_id())
+			if is_hostile and in_range:
+				var blip: MeshInstance3D = radar_blips.get(blip_key) as MeshInstance3D
+				if not is_instance_valid(blip):
+					blip = MeshInstance3D.new()
+					var blip_mesh := SphereMesh.new()
+					blip_mesh.radius = 0.22
+					blip_mesh.height = 0.44
+					blip.mesh = blip_mesh
+					var blip_material := StandardMaterial3D.new()
+					blip_material.albedo_color = Color(1.0, 0.16, 0.10)
+					blip_material.emission_enabled = true
+					blip_material.emission = Color(1.0, 0.08, 0.03)
+					blip_material.emission_energy_multiplier = 1.8
+					blip.material_override = blip_material
+					add_child(blip)
+					radar_blips[blip_key] = blip
+				blip.global_position = aircraft.global_position + Vector3.UP * (1.4 + sin(radar_alert_clock * 5.0) * 0.12)
+				blip.visible = true
+			elif radar_blips.has(blip_key):
+				var old_blip := radar_blips[blip_key] as MeshInstance3D
+				if is_instance_valid(old_blip):
+					old_blip.queue_free()
+				radar_blips.erase(blip_key)
 
 func _build_showcase_infantry() -> void:
 	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25), "american")
