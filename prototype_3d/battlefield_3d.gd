@@ -23,6 +23,8 @@ var selection_ring: MeshInstance3D
 var order_marker: MeshInstance3D
 var touch_start_positions: Dictionary = {}
 var touch_moved: Dictionary = {}
+var attack_target: Node3D
+var attack_cooldown := 0.0
 
 func _ready() -> void:
 	_build_environment()
@@ -40,6 +42,7 @@ func _process(delta: float) -> void:
 		if is_instance_valid(pivot) and i < showcase_tanks.size() and showcase_tanks[i] != selected_tank:
 			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
 	_update_showcase_orders(delta)
+	_update_showcase_combat(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -289,6 +292,7 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 	tank.position = at
 	add_child(tank)
 	showcase_tanks.append(tank)
+	tank.set_meta("health", 100.0)
 
 	var hull := MeshInstance3D.new()
 	var hull_mesh := BoxMesh.new()
@@ -403,7 +407,13 @@ func _build_order_indicators() -> void:
 func _handle_world_tap(screen_position: Vector2) -> void:
 	var tapped_tank := _tank_at_screen_position(screen_position)
 	if tapped_tank != null:
+		if is_instance_valid(selected_tank) and tapped_tank != selected_tank:
+			attack_target = tapped_tank
+			has_selected_destination = false
+			order_marker.visible = false
+			return
 		selected_tank = tapped_tank
+		attack_target = null
 		has_selected_destination = false
 		selection_ring.visible = true
 		order_marker.visible = false
@@ -462,6 +472,58 @@ func _update_showcase_orders(delta: float) -> void:
 	var heading := direction.normalized()
 	selected_tank.global_position += heading * minf(3.2 * delta, direction.length())
 	selected_tank.rotation.y = atan2(-heading.x, -heading.z)
+
+
+func _update_showcase_combat(delta: float) -> void:
+	if not is_instance_valid(selected_tank) or not is_instance_valid(attack_target):
+		attack_target = null
+		return
+	var tank_index := showcase_tanks.find(selected_tank)
+	if tank_index < 0 or tank_index >= showcase_turrets.size():
+		return
+	var pivot := showcase_turrets[tank_index]
+	var target_position := attack_target.global_position + Vector3.UP * 1.0
+	pivot.look_at(target_position, Vector3.UP)
+	attack_cooldown -= delta
+	if attack_cooldown > 0.0:
+		return
+	attack_cooldown = 1.25
+	_fire_showcase_projectile(pivot, attack_target)
+
+func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
+	var projectile := MeshInstance3D.new()
+	var projectile_mesh := SphereMesh.new()
+	projectile_mesh.radius = 0.13
+	projectile_mesh.height = 0.26
+	projectile.mesh = projectile_mesh
+	var projectile_material := StandardMaterial3D.new()
+	projectile_material.albedo_color = Color(1.0, 0.58, 0.16)
+	projectile_material.emission_enabled = true
+	projectile_material.emission = Color(1.0, 0.32, 0.06)
+	projectile_material.emission_energy_multiplier = 2.0
+	projectile.material_override = projectile_material
+	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
+	add_child(projectile)
+	var destination := target.global_position + Vector3.UP * 0.95
+	var tween := create_tween()
+	tween.tween_property(projectile, "global_position", destination, 0.32)
+	tween.tween_callback(_resolve_showcase_hit.bind(projectile, target))
+
+func _resolve_showcase_hit(projectile: Node3D, target: Node3D) -> void:
+	if is_instance_valid(projectile):
+		projectile.queue_free()
+	if not is_instance_valid(target):
+		return
+	var remaining_health := float(target.get_meta("health", 100.0)) - 25.0
+	target.set_meta("health", remaining_health)
+	if remaining_health <= 0.0:
+		if target == attack_target:
+			attack_target = null
+		if target == selected_tank:
+			selected_tank = null
+			selection_ring.visible = false
+		showcase_tanks.erase(target)
+		target.queue_free()
 
 func _make_armour_material(tint: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
