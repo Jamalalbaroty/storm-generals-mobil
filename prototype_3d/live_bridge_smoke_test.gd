@@ -732,6 +732,40 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Sending a mobile unit to reinforce a threatened resource point must not pull the base guard away.
+	var guarded_reinforcement_points: Array[Dictionary] = [
+		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	var guarded_reinforcement_units: Array[Dictionary] = [
+		{"pos": Vector2(760.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0},
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0)},
+		{"pos": Vector2(560.0, 300.0), "team": "player", "kind": "infantry", "hp": 60}
+	]
+	game.set("enemy_base", Vector2(1090.0, 330.0))
+	game.set("enemy_credits", 0)
+	game.set("units", guarded_reinforcement_units)
+	game.set("supply_points", guarded_reinforcement_points)
+	game.call("_process", 0.5)
+	var guarded_reinforcement_result: Array[Dictionary] = game.get("units")
+	if float(guarded_reinforcement_result[0].pos.x) >= 760.0 or guarded_reinforcement_result[1].pos.distance_to(Vector2(1000.0, 330.0)) > 0.1:
+		push_error("Enemy AI left its base guard post while dispatching mobile armor to reinforce a supply point")
+		quit(1)
+		return
+
+	# A base guard must leave its anchor and engage when player armor actually threatens the base.
+	var base_threat_units: Array[Dictionary] = [
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
+		{"pos": Vector2(900.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("units", base_threat_units)
+	game.set("supply_points", empty_supply_points)
+	game.call("_process", 0.5)
+	var base_guard_response: Array[Dictionary] = game.get("units")
+	if int(base_guard_response[1].get("hp", 150)) >= 150:
+		push_error("Enemy base guard failed to engage player armor threatening the base")
+		quit(1)
+		return
+
 	# Enemy armor reinforces an owned supply point when player forces threaten an undefended position.
 	var threatened_enemy_point: Array[Dictionary] = [
 		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
