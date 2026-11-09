@@ -150,8 +150,17 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var submarine := battlefield.game_unit_nodes.get("player|7|submarine") as Node3D
-	if submarine == null or submarine.position.y >= 0.0:
-		push_error("Submarine was not placed below the waterline")
+	var destroyer := battlefield.game_unit_nodes.get("player|5|destroyer") as Node3D
+	if battlefield.get_node_or_null("CoastalWater") == null or battlefield.get_node_or_null("CoastalShore") == null:
+		push_error("Coastal water or shoreline is missing from the 3D battlefield")
+		quit(1)
+		return
+	if submarine == null or submarine.position.y > -0.5:
+		push_error("Submarine was not placed beneath the coastal waterline")
+		quit(1)
+		return
+	if destroyer == null or destroyer.position.y <= 0.0 or destroyer.get_node_or_null("Hull") == null:
+		push_error("Surface ship hull was not positioned at the water surface")
 		quit(1)
 		return
 	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D

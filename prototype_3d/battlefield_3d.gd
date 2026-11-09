@@ -233,6 +233,45 @@ func _build_terrain() -> void:
 	ground.position.y = -0.12
 	add_child(ground)
 
+	# A shallow coastal shelf gives naval units a dedicated, readable operating area.
+	var water := MeshInstance3D.new()
+	water.name = "CoastalWater"
+	var water_mesh := PlaneMesh.new()
+	water_mesh.size = Vector2(ARENA_SIZE, ARENA_SIZE * 0.415)
+	water.mesh = water_mesh
+	var water_material := StandardMaterial3D.new()
+	water_material.albedo_color = Color(0.035, 0.14, 0.19)
+	water_material.roughness = 0.28
+	water_material.metallic = 0.12
+	water_material.emission_enabled = true
+	water_material.emission = Color(0.008, 0.035, 0.05)
+	water_material.emission_energy_multiplier = 0.35
+	water.material_override = water_material
+	water.position = Vector3(0.0, -0.085, ARENA_SIZE * 0.2925)
+	add_child(water)
+
+	var shoreline := MeshInstance3D.new()
+	shoreline.name = "CoastalShore"
+	var shore_mesh := BoxMesh.new()
+	shore_mesh.size = Vector3(ARENA_SIZE, 0.075, 2.2)
+	shoreline.mesh = shore_mesh
+	shoreline.position = Vector3(0.0, -0.055, 2.45)
+	shoreline.material_override = _make_armour_material(Color(0.53, 0.46, 0.32))
+	add_child(shoreline)
+
+	var foam_material := StandardMaterial3D.new()
+	foam_material.albedo_color = Color(0.54, 0.72, 0.72, 0.34)
+	foam_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	foam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for foam_index in range(5):
+		var foam := MeshInstance3D.new()
+		var foam_mesh := BoxMesh.new()
+		foam_mesh.size = Vector3(5.5 + float(foam_index % 2) * 2.0, 0.025, 0.045)
+		foam.mesh = foam_mesh
+		foam.position = Vector3(-13.0 + float(foam_index) * 6.3, -0.035, 4.2 + float(foam_index % 2) * 0.32)
+		foam.material_override = foam_material
+		add_child(foam)
+
 	# Low-cost boundary markers make the prototype arena readable from the RTS camera.
 	for i in range(9):
 		var marker := MeshInstance3D.new()
@@ -267,7 +306,8 @@ func _build_battlefield_features() -> void:
 		add_child(berm)
 
 	# Two broad access roads crossing the arena.
-	_add_road(Vector3(0.0, -0.045, 0.0), Vector2(5.2, ARENA_SIZE), 0.0)
+	# The central access road ends at the beach instead of continuing across the sea.
+	_add_road(Vector3(0.0, -0.045, -ARENA_SIZE * 0.2357), Vector2(5.2, ARENA_SIZE * 0.5357), 0.0)
 	_add_road(Vector3(0.0, -0.04, 0.0), Vector2(ARENA_SIZE, 4.2), 0.0)
 	_add_road_markings()
 
@@ -347,7 +387,7 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 		var hull_mesh := BoxMesh.new()
 		hull_mesh.size = Vector3(4.2, 0.8, 10.0) if kind == "carrier" else (Vector3(3.0, 0.75, 7.0) if kind == "landing_craft" else Vector3(2.8, 0.8, 8.2))
 		hull.mesh = hull_mesh
-		hull.position.y = 0.45
+		hull.position.y = 0.24
 	hull.material_override = _make_armour_material(tint.darkened(0.18))
 	vessel.add_child(hull)
 
@@ -424,7 +464,7 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 			turret.mesh = turret_mesh
 			turret.position = Vector3(0.0, 1.0, turret_z)
 			turret.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
-				vessel.add_child(turret)
+			vessel.add_child(turret)
 
 	# Every selectable unit owns an aim pivot so shared combat arrays stay index-aligned.
 	var weapon_pivot := Node3D.new()
@@ -456,7 +496,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		active_keys[key] = true
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
-		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else (-0.42 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
+		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
