@@ -1556,39 +1556,38 @@ func _enemy_has_building(kind: String) -> bool:
 
 func _enemy_ai_turn() -> void:
 	var build_pos := _enemy_build_position()
-	if build_pos.x < 0.0:
-		return
-	if not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
+	# A full base must not freeze the enemy's production and combat decisions.
+	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
 		enemy_credits -= BARRACKS_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "barracks", "hp": 400, "attack_cd": 0.0})
 		notice = "العدو أنشأ ثكنة عسكرية"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("factory") and enemy_credits >= FACTORY_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("factory") and enemy_credits >= FACTORY_COST:
 		enemy_credits -= FACTORY_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "factory", "hp": 500, "attack_cd": 0.0})
 		notice = "العدو أنشأ مصنع دبابات"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("turret") and enemy_credits >= TURRET_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("turret") and enemy_credits >= TURRET_COST:
 		enemy_credits -= TURRET_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "turret", "hp": 350, "attack_cd": 0.0})
 		notice = "العدو نشر برجاً دفاعياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("airfield") and enemy_credits >= AIRFIELD_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("airfield") and enemy_credits >= AIRFIELD_COST:
 		enemy_credits -= AIRFIELD_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "airfield", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو أنشأ مطاراً حربياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("missile_silo") and enemy_credits >= MISSILE_SILO_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("missile_silo") and enemy_credits >= MISSILE_SILO_COST:
 		enemy_credits -= MISSILE_SILO_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "missile_silo", "hp": 500, "attack_cd": 8.0})
 		notice = "العدو أنشأ منصة صواريخ"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
 		enemy_credits -= MISSILE_DEFENSE_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "missile_defense", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو نشر دفاعاً صاروخياً"
@@ -1601,7 +1600,7 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو أنشأ حوض سفن ساحلياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
+	if build_pos.x >= 0.0 and not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
 		enemy_credits -= AA_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
