@@ -208,6 +208,24 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Naval counter-production must launch destroyers from the coastal shipyard.
+	game.set("units", [])
+	game.set("enemy_buildings", [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500}])
+	game.set("enemy_base", Vector2(900.0, 320.0))
+	game.set("enemy_credits", 10000)
+	game.set("enemy_supplies", 100)
+	var produced_naval_counter := bool(game.call("_enemy_counter_production", "naval_control", 0, 0, 0, 0))
+	var produced_units: Array = game.get("units")
+	if not produced_naval_counter or produced_units.size() != 1 or String(produced_units[0].get("kind", "")) != "destroyer":
+		push_error("Naval-control AI failed to produce its destroyer counter")
+		quit(1)
+		return
+	var expected_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
+	if (produced_units[0].get("pos") as Vector2).distance_to(expected_dock) > 0.1:
+		push_error("Naval counter destroyer did not spawn at the coastal shipyard")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
