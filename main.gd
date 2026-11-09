@@ -452,15 +452,7 @@ func _process(delta: float) -> void:
 							_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
 							unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
 							if target_building.hp <= 0:
-								enemy_buildings.remove_at(building_target)
-								selected_enemy_building = -1
-								for other in units:
-									if other.has("attack_building") and int(other.attack_building) == building_target:
-										other.erase("attack_building")
-									elif other.has("attack_building") and int(other.attack_building) > building_target:
-										other.attack_building = int(other.attack_building) - 1
-								notice = "تم تدمير مبنى العدو!"
-								notice_time = 2.5
+								_remove_destroyed_buildings("enemy")
 					else:
 						unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
 					continue
