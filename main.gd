@@ -1420,6 +1420,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			buildings.clear()
 			enemy_buildings.clear()
 			selected.clear()
+			selected_enemy_building = -1
+			dragging = false
 			build_mode = ""
 			credits = STARTING_CREDITS
 			supplies = 5
@@ -1432,6 +1434,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			enemy_income_timer = 0.0
 			enemy_timer = 0.0
 			visual_effects.clear()
+			environment_particles.clear()
 			missiles.clear()
 			enemy_missile_timer = 0.0
 			queue_redraw()
@@ -1453,6 +1456,10 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				buildings.clear()
 				enemy_buildings.clear()
 				selected.clear()
+				selected_enemy_building = -1
+				dragging = false
+				visual_effects.clear()
+				environment_particles.clear()
 				build_mode = ""
 				enemy_credits = STARTING_CREDITS
 				enemy_income_timer = 0.0
