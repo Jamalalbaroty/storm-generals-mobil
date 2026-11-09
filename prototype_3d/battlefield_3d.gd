@@ -307,7 +307,6 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 		unit.set_meta("health", maxf(0.0, health))
 		unit.set_meta("max_health", maxf(1.0, health))
 		unit.set_meta("source_gameplay_unit", true)
-		_create_showcase_health_bar(unit)
 	return unit
 
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
