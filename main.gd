@@ -180,7 +180,7 @@ func _process(delta: float) -> void:
 				continue
 			if unit.team == "enemy":
 				if _is_naval_kind(String(unit.kind)):
-					var naval_target := _nearest_naval_unit(unit.pos, "player")
+					var naval_target := _best_naval_target(unit.pos, "player", String(unit.kind))
 					var naval_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
 					var target_shipyard := -1
 					for bi in buildings.size():
@@ -342,7 +342,7 @@ func _process(delta: float) -> void:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
 				if _is_naval_kind(String(unit.kind)):
-					var naval_target := _nearest_naval_unit(unit.pos, "enemy")
+					var naval_target := _best_naval_target(unit.pos, "enemy", String(unit.kind))
 					var naval_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
 					var target_shipyard := -1
 					for bi in enemy_buildings.size():
@@ -632,18 +632,43 @@ func _nearest_friendly_carrier(from_pos: Vector2, team: String) -> int:
 			best_index = i
 	return best_index
 
-func _nearest_naval_unit(from_pos: Vector2, target_team: String) -> int:
+func _best_naval_target(from_pos: Vector2, target_team: String, attacker_kind: String) -> int:
+	# Naval units select targets by tactical value, not distance alone.
+	# Submarines remain hidden until a destroyer/helicopter provides sonar detection.
 	var best_index := -1
-	var best_distance := INF
+	var best_score := INF
 	var observer_team := "enemy" if target_team == "player" else "player"
 	for i in units.size():
-		if units[i].team != target_team or not _is_naval_kind(String(units[i].kind)) or units[i].get("hp", 0) <= 0:
+		var candidate: Dictionary = units[i]
+		if candidate.team != target_team or not _is_naval_kind(String(candidate.kind)) or candidate.get("hp", 0) <= 0:
 			continue
-		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], observer_team):
+		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, observer_team):
 			continue
-		var distance := from_pos.distance_to(units[i].pos)
-		if distance < best_distance:
-			best_distance = distance
+		var priority := 0.0
+		match attacker_kind:
+			"destroyer":
+				match String(candidate.kind):
+					"submarine": priority = 210.0
+					"landing_craft": priority = 105.0
+					"carrier": priority = 85.0
+					"destroyer": priority = 65.0
+			"submarine":
+				match String(candidate.kind):
+					"carrier": priority = 190.0
+					"destroyer": priority = 125.0
+					"landing_craft": priority = 95.0
+					"submarine": priority = 35.0
+			"carrier":
+				match String(candidate.kind):
+					"destroyer": priority = 115.0
+					"carrier": priority = 90.0
+					"landing_craft": priority = 70.0
+					"submarine": priority = 45.0
+			_:
+				priority = 0.0
+		var score := from_pos.distance_to(candidate.pos) - priority
+		if score < best_score:
+			best_score = score
 			best_index = i
 	return best_index
 
