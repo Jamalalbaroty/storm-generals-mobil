@@ -218,8 +218,7 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_army := String(unit.get("faction", _enemy_faction()))
-							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if naval_army == "وطن" else (44 if naval_army == "الأمريكي" else (42 if naval_army == "الجيش العربي" else 40)))))
+							var naval_damage := _naval_damage(unit, naval_target)
 							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#ffb66f"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ff995c"), 0.5, 38.0)
 							if naval_target >= 0:
@@ -383,7 +382,7 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if faction == "وطن" else (44 if faction == "الأمريكي" else (42 if faction == "الجيش العربي" else 40)))))
+							var naval_damage := _naval_damage(unit, naval_target)
 							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#a8eaff"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ffbd78"), 0.5, 40.0)
 							if naval_target >= 0:
@@ -643,6 +642,26 @@ func _helicopter_color(unit: Dictionary) -> Color:
 	if army == "الجيش العربي":
 		return Color("#c0a36b")
 	return Color("#d5b64e")
+
+func _naval_damage(unit: Dictionary, target_index: int) -> int:
+	# Keep naval faction damage consistent for player and AI fleets.
+	var kind := String(unit.get("kind", ""))
+	if kind == "destroyer" and target_index >= 0 and target_index < units.size() and String(units[target_index].get("kind", "")) == "submarine":
+		return 78
+	if kind == "submarine":
+		return 62
+	if kind == "carrier":
+		return 24
+	match String(unit.get("faction", faction)):
+		"وطن":
+			return 50
+		"الأمريكي":
+			return 44
+		"الجيش العربي":
+			return 42
+		_:
+			return 40
+
 
 func _is_naval_kind(kind: String) -> bool:
 	return kind in ["destroyer", "carrier", "submarine", "landing_craft"]
