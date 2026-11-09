@@ -242,7 +242,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var points: Array = touch_points.values()
 				last_pinch_distance = points[0].distance_to(points[1])
 		else:
-			var was_tap := touch_start_positions.has(touch.index) and not touch_moved.get(touch.index, true) and touch_points.size() == 1
+			var was_tap: bool = touch_start_positions.has(touch.index) and not bool(touch_moved.get(touch.index, true)) and touch_points.size() == 1
 			if was_tap:
 				_handle_world_tap(touch.position)
 			touch_points.erase(touch.index)
