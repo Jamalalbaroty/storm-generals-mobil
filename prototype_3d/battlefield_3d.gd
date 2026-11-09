@@ -1084,6 +1084,26 @@ func _screen_to_ground(screen_position: Vector2) -> Variant:
 		return null
 	return Plane(Vector3.UP, 0.0).intersects_ray(ray_origin, ray_direction)
 
+func _unit_separation_vector(unit: Node3D) -> Vector3:
+	var push := Vector3.ZERO
+	var unit_type := str(unit.get_meta("unit_type", "tank"))
+	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
+	var clearance := 3.4 if unit_type == "tank" else (2.5 if unit_type == "infantry" else 4.2)
+	for other in showcase_tanks:
+		if not is_instance_valid(other) or other == unit:
+			continue
+		var other_type := str(other.get_meta("unit_type", "tank"))
+		var other_is_aircraft := other_type == "helicopter" or other_type == "fighter"
+		if is_aircraft != other_is_aircraft:
+			continue
+		var offset := unit.global_position - other.global_position
+		if not is_aircraft:
+			offset.y = 0.0
+		var distance := offset.length()
+		if distance > 0.05 and distance < clearance:
+			push += offset / distance * ((clearance - distance) / clearance)
+	return push
+
 func _update_showcase_orders(delta: float) -> void:
 	if not is_instance_valid(selected_tank):
 		selected_tank = null
@@ -1180,6 +1200,25 @@ func _spawn_impact_flash(at: Vector3, is_destruction: bool = false) -> void:
 	tween.tween_property(flash, "scale", burst_scale, 0.22)
 	tween.tween_property(flash, "scale", Vector3.ONE * 0.05, 0.16)
 	tween.tween_callback(flash.queue_free)
+	if is_destruction:
+		var smoke := MeshInstance3D.new()
+		var smoke_mesh := SphereMesh.new()
+		smoke_mesh.radius = 0.38
+		smoke_mesh.height = 0.76
+		smoke.mesh = smoke_mesh
+		var smoke_material := StandardMaterial3D.new()
+		smoke_material.albedo_color = Color(0.16, 0.17, 0.15, 0.62)
+		smoke_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		smoke_material.roughness = 1.0
+		smoke.material_override = smoke_material
+		smoke.position = at + Vector3.UP * 0.85
+		add_child(smoke)
+		var smoke_tween := create_tween()
+		smoke_tween.set_parallel(true)
+		smoke_tween.tween_property(smoke, "position", smoke.position + Vector3.UP * 2.0, 0.85)
+		smoke_tween.tween_property(smoke, "scale", Vector3.ONE * 2.1, 0.85)
+		smoke_tween.tween_property(smoke_material, "albedo_color", Color(0.16, 0.17, 0.15, 0.0), 0.85)
+		smoke_tween.chain().tween_callback(smoke.queue_free)
 
 func _update_showcase_combat(delta: float) -> void:
 	if not is_instance_valid(selected_tank) or not is_instance_valid(attack_target):
