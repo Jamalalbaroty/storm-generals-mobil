@@ -1,6 +1,7 @@
 extends Node2D
 
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
@@ -19,6 +20,7 @@ const MISSILE_DEFENSE_COST := 700
 const MISSILE_COST := 650
 
 var faction := ""
+var map_type := "الساحل الصحراوي"
 var credits := STARTING_CREDITS
 var supplies := 5
 var enemy_supplies := 5
@@ -49,6 +51,7 @@ var missiles: Array[Dictionary] = []
 var enemy_missile_timer := 0.0
 
 func _ready() -> void:
+	randomize()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
 
@@ -528,18 +531,7 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 
 func _draw() -> void:
 	var size := get_viewport_rect().size
-	draw_rect(Rect2(Vector2.ZERO, size), Color("#526b45"))
-	for x in range(0, int(size.x), 64):
-		draw_line(Vector2(x, 0), Vector2(x, size.y), Color(1, 1, 1, 0.035), 1)
-	for y in range(0, int(size.y), 64):
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.035), 1)
-	# Main road and terrain details
-	draw_rect(Rect2(0, 292, size.x, 76), Color("#8b8064"))
-	draw_rect(Rect2(0, 300, size.x, 60), Color("#a99a76"))
-	for i in range(18):
-		var p := Vector2(40 + i * 71, 80 + float((i * 47) % 510))
-		draw_circle(p, 13, Color("#304b32"))
-		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
+	_draw_terrain(size)
 	# Layered coastline, beach and navigable sea lane
 	draw_rect(Rect2(0, size.y * 0.675, size.x, size.y * 0.065), Color("#b6a078"))
 	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#1d435d"))
@@ -681,6 +673,7 @@ func _draw_hud(size: Vector2) -> void:
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
@@ -754,6 +747,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		for i in FACTIONS.size():
 			if _faction_rect(i, size).has_point(pos):
 				faction = FACTIONS[i]
+				map_type = MAP_TYPES[randi_range(0, MAP_TYPES.size() - 1)]
 				battle_result = ""
 				credits = STARTING_CREDITS
 				supplies = 5
@@ -773,7 +767,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				player_base_hp = 1000
 				enemy_base_hp = 1000
 				game_started = true
-				notice = "بدأت المعركة — %s" % faction
+				notice = "بدأت المعركة — %s | %s" % [faction, map_type]
 				notice_time = 3.0
 				queue_redraw()
 				return
@@ -961,6 +955,61 @@ func _update_supply_control(delta: float) -> void:
 			if supply_points[i].supply_payout >= supply_interval:
 				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / supply_interval))
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
+
+func _draw_terrain(size: Vector2) -> void:
+	var ground := Color("#9a835d")
+	var road := Color("#b5a17c")
+	match map_type:
+		"ساحل الغابات":
+			ground = Color("#405b43")
+			road = Color("#8e9271")
+		"الساحل الجبلي":
+			ground = Color("#686d68")
+			road = Color("#aaa99a")
+		"المدينة الساحلية":
+			ground = Color("#596168")
+			road = Color("#a3a6a5")
+	draw_rect(Rect2(Vector2.ZERO, size), ground)
+	for x in range(0, int(size.x), 64):
+		draw_line(Vector2(x, 0), Vector2(x, size.y * 0.675), Color(1, 1, 1, 0.025), 1)
+	for y in range(0, int(size.y * 0.675), 64):
+		draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.025), 1)
+	# A continuous military road connects both bases in every coastal theater
+	draw_rect(Rect2(0, size.y * 0.365, size.x, 76), Color("#766b57"))
+	draw_rect(Rect2(0, size.y * 0.375, size.x, 58), road)
+	match map_type:
+		"الساحل الصحراوي":
+			for i in range(18):
+				var p := Vector2(float((i * 137 + 38) % int(size.x)), 78.0 + float((i * 83) % maxi(1, int(size.y * 0.53))))
+				draw_arc(p, 22.0 + float(i % 3) * 7.0, 3.3, 6.1, 28, Color("#d4bd8b", 0.35), 3.0)
+				draw_circle(p + Vector2(18, 9), 2.0, Color("#d8c49a", 0.5))
+		"ساحل الغابات":
+			for i in range(26):
+				var p := Vector2(float((i * 97 + 35) % int(size.x)), 75.0 + float((i * 61) % maxi(1, int(size.y * 0.55))))
+				if absf(p.y - size.y * 0.40) < 52.0:
+					continue
+				draw_rect(Rect2(p + Vector2(-3, 7), Vector2(6, 13)), Color("#554432"))
+				draw_circle(p, 15.0, Color("#294b35"))
+				draw_circle(p + Vector2(-5, -5), 9.0, Color("#507348"))
+		"الساحل الجبلي":
+			for i in range(11):
+				var x := float(i) * size.x / 10.0
+				var y := 105.0 + float((i * 59) % maxi(1, int(size.y * 0.40)))
+				var peak := Vector2(x, y)
+				var mountain := PackedVector2Array([peak + Vector2(-48, 58), peak + Vector2(0, -38 - float(i % 3) * 12.0), peak + Vector2(55, 58)])
+				draw_colored_polygon(mountain, Color("#505b58"))
+				draw_line(peak + Vector2(0, -30), peak + Vector2(20, 4), Color("#c0c3b9", 0.55), 3.0)
+		"المدينة الساحلية":
+			for row in range(3):
+				for col in range(10):
+					var p := Vector2(24.0 + col * size.x / 10.0, 85.0 + row * 155.0)
+					if absf(p.y - size.y * 0.40) < 72.0:
+						continue
+					var block_color := Color("#747d83") if (row + col) % 2 == 0 else Color("#69737a")
+					draw_rect(Rect2(p, Vector2(35, 27)), block_color)
+					draw_rect(Rect2(p + Vector2(5, 5), Vector2(8, 6)), Color("#d2c59a", 0.55))
+					draw_rect(Rect2(p + Vector2(21, 5), Vector2(8, 6)), Color("#d2c59a", 0.45))
+	# Bases, supply nodes and the shoreline remain in clear tactical lanes
 
 func _draw_supply_points() -> void:
 	for point in supply_points:
