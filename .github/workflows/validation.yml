@@ -37,3 +37,5 @@ jobs:
           fi
       - name: Smoke test isolated 3D battlefield
         run: godot --headless --path . --script res://prototype_3d/smoke_test.gd
+      - name: Smoke test live 2D-to-3D gameplay bridge
+        run: godot --headless --path . --script res://prototype_3d/live_bridge_smoke_test.gd
