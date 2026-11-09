@@ -515,6 +515,12 @@ func _initialize() -> void:
 			push_error("Faction balance profile is incomplete for " + army)
 			quit(1)
 			return
+		var army_helicopter: Dictionary = {"kind": "helicopter", "faction": army}
+		var army_destroyer: Dictionary = {"kind": "destroyer", "faction": army}
+		if int(game.call("_helicopter_cost", army)) != int(army_profile["helicopter_cost"]) or int(game.call("_helicopter_damage", army_helicopter)) != int(army_profile["helicopter_damage"]) or not is_equal_approx(float(game.call("_helicopter_cooldown", army_helicopter)), float(army_profile["helicopter_cooldown"])) or int(game.call("_missile_cost", army)) != int(army_profile["missile_cost"]) or int(game.call("_missile_damage", army)) != int(army_profile["missile_damage"]) or not is_equal_approx(float(game.call("_missile_cooldown", army)), float(army_profile["missile_cooldown"])) or int(game.call("_naval_damage", army_destroyer, -1)) != int(army_profile["naval_damage"]):
+			push_error("Faction combat helpers do not apply the balance profile consistently for " + army)
+			quit(1)
+			return
 		var army_signature := str(army_profile["helicopter_cost"]) + ":" + str(army_profile["helicopter_damage"]) + ":" + str(army_profile["helicopter_cooldown"]) + ":" + str(army_profile["missile_cost"]) + ":" + str(army_profile["missile_damage"]) + ":" + str(army_profile["missile_cooldown"]) + ":" + str(army_profile["naval_damage"])
 		if faction_signatures.has(army_signature):
 			push_error("Two armies unexpectedly share the same faction balance profile")
