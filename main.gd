@@ -17,7 +17,10 @@ const HELICOPTER_COST := 650
 
 var faction := ""
 var credits := STARTING_CREDITS
+var supplies := 5
+var enemy_supplies := 5
 var income_timer := 0.0
+var supply_points: Array[Dictionary] = []
 var units: Array[Dictionary] = []
 var selected: Array[int] = []
 var buildings: Array[Dictionary] = []
@@ -57,6 +60,7 @@ func _process(delta: float) -> void:
 		if income_timer >= 1.0:
 			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
 			income_timer = 0.0
+		_update_supply_control(delta)
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
 			queue_redraw()
@@ -149,6 +153,11 @@ func _process(delta: float) -> void:
 				var destination: Vector2 = base_pos
 				if player_target >= 0:
 					destination = units[player_target].pos
+				else:
+					for point in supply_points:
+						if point.owner != "enemy":
+							destination = point.pos
+								break
 				var distance_to_target := unit.pos.distance_to(destination)
 				if player_target >= 0 and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -325,6 +334,7 @@ func _draw() -> void:
 		var p := Vector2(40 + i * 71, 80 + float((i * 47) % 510))
 		draw_circle(p, 13, Color("#304b32"))
 		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
+	_draw_supply_points()
 	_draw_base(base_pos, Color("#3977bd"), "قاعدتك")
 	_draw_base(enemy_base, Color("#b94b42"), "قاعدة العدو")
 	_draw_base_health(base_pos, player_base_hp)
@@ -417,7 +427,8 @@ func _draw_base(p: Vector2, color: Color, label: String) -> void:
 func _draw_hud(size: Vector2) -> void:
 	draw_rect(Rect2(0, 0, size.x, 58), Color(0.06, 0.08, 0.09, 0.9))
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
 		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "إلغاء"]
 		for i in 11:
@@ -480,6 +491,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			selected.clear()
 			build_mode = ""
 			credits = STARTING_CREDITS
+			supplies = 5
+			enemy_supplies = 5
+			supply_points.clear()
 			enemy_credits = STARTING_CREDITS
 			player_base_hp = 1000
 			enemy_base_hp = 1000
@@ -495,6 +509,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				faction = FACTIONS[i]
 				battle_result = ""
 				credits = STARTING_CREDITS
+				supplies = 5
+				enemy_supplies = 5
+				_initialize_supply_points(size)
 				income_timer = 0.0
 				units.clear()
 				buildings.clear()
@@ -596,6 +613,81 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 						units[idx].erase("attack_base")
 	queue_redraw()
 
+func _initialize_supply_points(size: Vector2) -> void:
+	supply_points = [
+		{"pos": Vector2(size.x * 0.34, size.y * 0.28), "owner": "player", "payout": 0.0, "supply_payout": 0.0},
+		{"pos": Vector2(size.x * 0.66, size.y * 0.72), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0}
+	]
+
+func _update_supply_control(delta: float) -> void:
+	for i in range(supply_points.size()):
+		var point_pos: Vector2 = supply_points[i].pos
+		var player_near := false
+		var enemy_near := false
+		for unit in units:
+			if unit.get("hp", 0) <= 0 or unit.pos.distance_to(point_pos) > 62.0:
+				continue
+			if unit.team == "player":
+				player_near = true
+			else:
+				enemy_near = true
+		if player_near and not enemy_near:
+			if supply_points[i].owner != "player":
+				supply_points[i].owner = "player"
+				supply_points[i].payout = 0.0
+				supply_points[i].supply_payout = 0.0
+				notice = "سيطر جيشك على نقطة إمداد!"
+				notice_time = 2.5
+		elif enemy_near and not player_near:
+			if supply_points[i].owner != "enemy":
+				supply_points[i].owner = "enemy"
+				supply_points[i].payout = 0.0
+				supply_points[i].supply_payout = 0.0
+				notice = "العدو استولى على نقطة إمداد!"
+				notice_time = 2.5
+		if player_near and enemy_near:
+			continue
+		if supply_points[i].owner == "player":
+			supply_points[i].payout += delta
+			supply_points[i].supply_payout += delta
+			if supply_points[i].payout >= 1.0:
+				credits = mini(MAX_CREDITS, credits + 4 * int(supply_points[i].payout))
+				supply_points[i].payout = fmod(supply_points[i].payout, 1.0)
+			if supply_points[i].supply_payout >= 8.0:
+				supplies = mini(99, supplies + int(supply_points[i].supply_payout / 8.0))
+				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, 8.0)
+		elif supply_points[i].owner == "enemy":
+			supply_points[i].payout += delta
+			supply_points[i].supply_payout += delta
+			if supply_points[i].payout >= 1.0:
+				enemy_credits = mini(MAX_CREDITS, enemy_credits + 4 * int(supply_points[i].payout))
+				supply_points[i].payout = fmod(supply_points[i].payout, 1.0)
+			if supply_points[i].supply_payout >= 8.0:
+				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / 8.0))
+				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, 8.0)
+
+func _draw_supply_points() -> void:
+	for point in supply_points:
+		var p: Vector2 = point.pos
+		var owner: String = point.owner
+		var tint := Color("#438bd2") if owner == "player" else Color("#d65349")
+		draw_circle(p, 34, Color(tint, 0.18))
+		draw_arc(p, 34, 0.0, TAU, 48, tint, 4.0)
+		draw_circle(p, 12, Color("#d7c58a"))
+		draw_rect(Rect2(p + Vector2(-4, -19), Vector2(8, 38)), Color("#493d2d"))
+		draw_rect(Rect2(p + Vector2(4, -17), Vector2(18, 10)), tint)
+		var label := "إمدادك" if owner == "player" else "إمداد العدو"
+		draw_string(ThemeDB.fallback_font, p + Vector2(-48, 55), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 15, Color.WHITE)
+
+func _unit_supply_cost(kind: String) -> int:
+	if kind == "helicopter":
+		return 3
+	if kind == "fighter" or kind == "artillery":
+		return 2
+	if kind == "tank":
+		return 1
+	return 0
+
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
 		if building.kind == kind:
@@ -654,18 +746,22 @@ func _enemy_ai_turn() -> void:
 			enemy_helicopters += 1
 		else:
 			enemy_infantry += 1
-	if _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_fighters < 2:
+	if _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < 2:
 		enemy_credits -= FIGHTER_COST
+		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_helicopters < 2:
+	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_supplies >= 3 and enemy_helicopters < 2:
 		enemy_credits -= HELICOPTER_COST
+		enemy_supplies -= 3
 		var rival_faction: String = FACTIONS[(FACTIONS.find(faction) + 1) % FACTIONS.size()]
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_tanks >= 2 and enemy_artillery < 2:
+	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < 2:
 		enemy_credits -= ARTILLERY_COST
+		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
+	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_supplies >= 1 and enemy_tanks < 4:
 		enemy_credits -= TANK_COST
+		enemy_supplies -= 1
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST and enemy_infantry < 8:
 		enemy_credits -= INFANTRY_COST
@@ -752,11 +848,17 @@ func _spawn_unit(kind: String) -> void:
 		notice_time = 2.5
 		return
 	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST)))
+	var supply_cost := _unit_supply_cost(kind)
+	if supplies < supply_cost:
+		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
+		notice_time = 2.5
+		return
 	if credits < cost:
 		notice = "لا توجد موارد كافية"
 		notice_time = 2.0
 		return
 	credits -= cost
+	supplies -= supply_cost
 	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "faction": faction, "hp": 180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)), "attack_cd": 0.0})
 	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية")))
 	notice = "تم إنتاج %s" % unit_name
