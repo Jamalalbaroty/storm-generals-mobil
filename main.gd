@@ -136,10 +136,16 @@ func _process(delta: float) -> void:
 						if unit.launch_cd <= 0.0 and enemy_air < 3:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120, "attack_cd": 0.0, "target": base_pos})
 							unit.launch_cd = 18.0
-					if unit.kind == "landing_craft" and not unit.get("landed", false) and unit.pos.distance_to(naval_attack_destination) <= 55.0:
-						for marine in 3:
-							units.append({"pos": Vector2(base_pos.x + 55.0 - marine * 20.0, base_pos.y + 38.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 80, "attack_cd": 0.0, "target": base_pos})
-						unit.landed = true
+					if unit.kind == "landing_craft":
+						var landing_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
+						if not unit.get("landed", false):
+							if unit.pos.distance_to(landing_destination) <= 55.0:
+								for marine in 3:
+									units.append({"pos": landing_destination + Vector2(48.0 - marine * 18.0, -34.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 80, "attack_cd": 0.0, "target": base_pos})
+								unit.landed = true
+							else:
+								unit.pos += (landing_destination - unit.pos).normalized() * delta * 30.0
+						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
@@ -256,10 +262,16 @@ func _process(delta: float) -> void:
 						if unit.launch_cd <= 0.0 and friendly_air < 3:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base})
 							unit.launch_cd = 18.0
-					if unit.kind == "landing_craft" and not unit.get("landed", false) and unit.pos.distance_to(naval_attack_destination) <= 55.0:
-						for marine in 3:
-							units.append({"pos": Vector2(enemy_base.x - 55.0 + marine * 20.0, enemy_base.y + 38.0), "team": "player", "kind": "infantry", "faction": faction, "hp": 100, "attack_cd": 0.0, "attack_base": true})
-						unit.landed = true
+					if unit.kind == "landing_craft":
+						var landing_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
+						if not unit.get("landed", false):
+							if unit.pos.distance_to(landing_destination) <= 55.0:
+								for marine in 3:
+									units.append({"pos": landing_destination + Vector2(-48.0 + marine * 18.0, -34.0), "team": "player", "kind": "infantry", "faction": faction, "hp": 100, "attack_cd": 0.0, "attack_base": true})
+								unit.landed = true
+							else:
+								unit.pos += (landing_destination - unit.pos).normalized() * delta * 34.0
+						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
