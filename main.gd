@@ -545,7 +545,7 @@ func _process(delta: float) -> void:
 					if unit.attack_cd <= 0.0:
 						units[player_target].hp = maxi(0, int(units[player_target].hp) - _terrain_adjusted_damage(units[player_target], 10))
 						unit.attack_cd = 0.9
-				elif not engage_player and nearest_objective_distance == INF and distance_to_target <= 145.0:
+				elif not is_defender and not engage_player and nearest_objective_distance == INF and distance_to_target <= 145.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
 						player_base_hp = maxi(0, player_base_hp - 10)
