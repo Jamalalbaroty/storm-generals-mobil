@@ -134,6 +134,7 @@ Do not treat this direction document as proof that any listed feature has alread
 - This is an initial construction-authorization and movement slice. Production queues, prerequisites, power management, rally points, repair/sell, and worker pathing remain future work.
 - Player-placed buildings now take time to finish (6–13 seconds depending on type), show a construction progress bar, and cannot produce units or fire defenses until complete. AI-placed buildings retain the existing instant-completion behavior for now; AI construction timing remains a balancing task.
 - Android/Godot smoke validation for this latest source commit is pending; do not describe this feature as device-tested until the relevant workflow and a phone test pass.
+- Construction now advances only while a living player builder is within 48 units of the site. On placement, the selected builder receives a movement order to the site; if the builder is destroyed or cannot reach the site, progress pauses until a builder returns. On completion, the worker is released.
 
 ## Definition of done
 
