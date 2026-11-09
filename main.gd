@@ -2458,7 +2458,7 @@ func _enemy_has_building(kind: String) -> bool:
 	return false
 
 func _update_enemy_defense_assignments() -> void:
-	# Keep a small, stable reserve near the enemy base without sacrificing its attack force.
+	# Keep a compact reserve: one base guard, then guards for the most valuable forward assets.
 	var eligible_indices: Array[int] = []
 	for unit_index in range(units.size()):
 		var candidate: Dictionary = units[unit_index]
@@ -2467,11 +2467,40 @@ func _update_enemy_defense_assignments() -> void:
 			units[unit_index]["defense_guard"] = false
 			units[unit_index].erase("defense_anchor")
 	var desired_guards := mini(3, maxi(1, int((eligible_indices.size() + 3) / 4))) if not eligible_indices.is_empty() else 0
+	var assigned_buildings: Array[int] = []
 	for guard_slot in range(desired_guards):
-		var best_index = -1
+		var guard_asset_pos: Vector2 = enemy_base
+		if guard_slot > 0:
+			var best_building_index := -1
+			var best_building_score := -INF
+			for building_index in range(enemy_buildings.size()):
+				if assigned_buildings.has(building_index):
+					continue
+				var building: Dictionary = enemy_buildings[building_index]
+				if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+					continue
+				var building_priority := 0
+				match String(building.get("kind", "")):
+					"factory", "barracks":
+						building_priority = 5
+					"airfield":
+						building_priority = 4
+					"shipyard", "missile_silo":
+						building_priority = 3
+				if building_priority <= 0:
+					continue
+				# Prefer critical production assets, then those furthest from the main base.
+				var building_score: float = float(building_priority) * 10000.0 + enemy_base.distance_to(building.pos)
+				if building_score > best_building_score:
+					best_building_score = building_score
+					best_building_index = building_index
+			if best_building_index >= 0:
+				assigned_buildings.append(best_building_index)
+				guard_asset_pos = enemy_buildings[best_building_index].pos
+		var best_index := -1
 		var best_distance := INF
 		for candidate_index in eligible_indices:
-			var distance: float = units[candidate_index].pos.distance_squared_to(enemy_base)
+			var distance: float = units[candidate_index].pos.distance_squared_to(guard_asset_pos)
 			if distance < best_distance:
 				best_distance = distance
 				best_index = candidate_index
@@ -2480,7 +2509,7 @@ func _update_enemy_defense_assignments() -> void:
 		var side := -1.0 if guard_slot % 2 == 0 else 1.0
 		var lane := 48.0 + float(guard_slot / 2) * 32.0
 		units[best_index]["defense_guard"] = true
-		units[best_index]["defense_anchor"] = enemy_base + Vector2(-54.0, side * lane)
+		units[best_index]["defense_anchor"] = guard_asset_pos + Vector2(-54.0, side * lane)
 		eligible_indices.erase(best_index)
 
 

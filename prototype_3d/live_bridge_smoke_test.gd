@@ -752,6 +752,42 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Defense reserves must cover the main base and a valuable forward production asset.
+	var defense_assignment_units: Array[Dictionary] = [
+		{"pos": Vector2(1360.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150},
+		{"pos": Vector2(1320.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60},
+		{"pos": Vector2(520.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150},
+		{"pos": Vector2(560.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100},
+		{"pos": Vector2(900.0, 200.0), "team": "enemy", "kind": "tank", "hp": 150},
+		{"pos": Vector2(950.0, 400.0), "team": "enemy", "kind": "infantry", "hp": 60},
+		{"pos": Vector2(700.0, 200.0), "team": "enemy", "kind": "tank", "hp": 150},
+		{"pos": Vector2(750.0, 400.0), "team": "enemy", "kind": "artillery", "hp": 100}
+	]
+	var defense_assignment_buildings: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 330.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
+	]
+	game.set("enemy_base", Vector2(1400.0, 330.0))
+	game.set("units", defense_assignment_units)
+	game.set("enemy_buildings", defense_assignment_buildings)
+	game.call("_update_enemy_defense_assignments")
+	var assigned_guard_units: Array[Dictionary] = game.get("units")
+	var base_guard_assigned := false
+	var factory_guard_assigned := false
+	var assigned_guard_count := 0
+	for assigned_guard in assigned_guard_units:
+		if not bool(assigned_guard.get("defense_guard", false)):
+			continue
+		assigned_guard_count += 1
+		var anchor: Vector2 = assigned_guard.get("defense_anchor", Vector2.ZERO)
+		if anchor.distance_to(Vector2(1400.0, 330.0)) < 100.0:
+			base_guard_assigned = true
+		if anchor.distance_to(Vector2(500.0, 330.0)) < 100.0:
+			factory_guard_assigned = true
+	if assigned_guard_count != 2 or not base_guard_assigned or not factory_guard_assigned:
+		push_error("Enemy defense assignment failed to distribute its reserve between the main base and forward factory")
+		quit(1)
+		return
+
 	# A base guard must leave its anchor and engage when player armor actually threatens the base.
 	var base_threat_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
