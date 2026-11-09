@@ -47,6 +47,7 @@ var player_base_hp := 1000
 var enemy_base_hp := 1000
 var battle_result := ""
 var visual_effects: Array[Dictionary] = []
+var environment_particles: Array[Dictionary] = []
 var missiles: Array[Dictionary] = []
 var enemy_missile_timer := 0.0
 var audio_players: Array[AudioStreamPlayer] = []
@@ -124,6 +125,7 @@ func _process(delta: float) -> void:
 		visual_effects[effect_index].life = float(visual_effects[effect_index].life) - delta
 		if visual_effects[effect_index].life <= 0.0:
 			visual_effects.remove_at(effect_index)
+	_update_environment_particles(delta)
 	if game_started:
 		if battle_result != "":
 			return
@@ -481,6 +483,55 @@ func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Col
 		"duration": duration,
 		"radius": radius
 	})
+	if kind == "explosion":
+		_spawn_environment_particle(finish + Vector2(-5.0, -10.0), Vector2(-8.0, -24.0), 10.0, 1.25, Color("#66645f"), "smoke")
+		_spawn_environment_particle(finish + Vector2(7.0, -5.0), Vector2(5.0, -19.0), 8.0, 0.95, Color("#817a6d"), "smoke")
+		for dust_index in range(3):
+			_spawn_environment_particle(finish + Vector2(randf_range(-10.0, 10.0), randf_range(-5.0, 7.0)), Vector2(randf_range(-18.0, 18.0), randf_range(-14.0, 2.0)), randf_range(5.0, 9.0), 0.55, Color("#b9a17d"), "dust")
+
+func _update_environment_particles(delta: float) -> void:
+	# Expire and drift lightweight smoke/dust particles without touching combat logic.
+	for particle_index in range(environment_particles.size() - 1, -1, -1):
+		var particle: Dictionary = environment_particles[particle_index]
+		particle.life = float(particle.life) - delta
+		particle.pos = particle.pos + particle.velocity * delta
+		particle.velocity = particle.velocity * (0.96 if particle.kind == "smoke" else 0.82)
+		if particle.life <= 0.0:
+			environment_particles.remove_at(particle_index)
+	# Emit short dust puffs behind moving ground forces.
+	if game_started:
+		for unit in units:
+			if unit.get("hp", 0) <= 0 or not String(unit.kind) in ["tank", "infantry", "artillery"]:
+				continue
+			var previous_pos: Vector2 = unit.get("environment_prev_pos", unit.pos)
+			var moved_distance := previous_pos.distance_to(unit.pos)
+			unit["environment_prev_pos"] = unit.pos
+			unit["environment_cd"] = maxf(0.0, float(unit.get("environment_cd", 0.0)) - delta)
+			if moved_distance > 1.5 and float(unit.environment_cd) <= 0.0:
+				var is_tank := unit.kind == "tank"
+				var puff_count := 2 if is_tank else 1
+				for puff_index in range(puff_count):
+					var offset := Vector2(randf_range(-7.0, 7.0), randf_range(-5.0, 5.0))
+					_spawn_environment_particle(unit.pos + offset, Vector2(randf_range(-10.0, -2.0), randf_range(-8.0, -2.0)), 5.5 if is_tank else 3.5, 0.58 if is_tank else 0.42, Color("#bba98b") if map_type == "الساحل الصحراوي" else Color("#85877c"), "dust")
+				unit["environment_cd"] = 0.12 if is_tank else 0.2
+	while environment_particles.size() > 110:
+		environment_particles.pop_front()
+
+func _spawn_environment_particle(pos: Vector2, velocity: Vector2, radius: float, life: float, tint: Color, particle_kind: String) -> void:
+	environment_particles.append({"pos": pos, "velocity": velocity, "radius": radius, "life": life, "max_life": life, "color": tint, "kind": particle_kind})
+
+func _draw_environment_particles() -> void:
+	for particle in environment_particles:
+		var life_ratio := clampf(float(particle.life) / maxf(0.01, float(particle.max_life)), 0.0, 1.0)
+		var fade := life_ratio * 0.42
+		var center: Vector2 = particle.pos
+		var radius := float(particle.radius) * (1.0 + (1.0 - life_ratio) * (1.25 if particle.kind == "smoke" else 0.55))
+		var tint: Color = particle.color
+		if particle.kind == "smoke":
+			draw_circle(center, radius * 1.25, Color(tint.r * 0.72, tint.g * 0.74, tint.b * 0.76, fade * 0.42))
+			draw_circle(center + Vector2(-radius * 0.28, -radius * 0.22), radius * 0.72, Color(tint.r, tint.g, tint.b, fade * 0.52))
+		else:
+			draw_circle(center, radius, Color(tint.r, tint.g, tint.b, fade * 0.62))
 
 func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 	# Infantry use natural cover in forest, mountain and dense urban theaters.
@@ -758,6 +809,7 @@ func _draw() -> void:
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
 			draw_arc(u.pos, 17, 0, TAU, 32, Color("#ffe45c"), 3)
+	_draw_environment_particles()
 	for effect in visual_effects:
 		var progress := 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
 		var fade := 1.0 - progress
