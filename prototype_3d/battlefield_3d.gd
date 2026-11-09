@@ -45,6 +45,7 @@ var radar_sweep_widget: ColorRect
 var radar_blip_widgets: Dictionary = {}
 var combat_fire_audio: AudioStreamWAV
 var combat_impact_audio: AudioStreamWAV
+var engine_audio_player: AudioStreamPlayer3D
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -57,6 +58,7 @@ func _ready() -> void:
 	_build_showcase_units()
 	_build_order_indicators()
 	_build_tactical_radar_hud()
+	_setup_engine_audio()
 
 func _process(delta: float) -> void:
 	turret_scan_clock += delta
@@ -72,6 +74,7 @@ func _process(delta: float) -> void:
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
+	_update_engine_audio()
 
 func _make_combat_audio(is_impact: bool) -> AudioStreamWAV:
 	var sample_rate := 22050
@@ -95,6 +98,48 @@ func _make_combat_audio(is_impact: bool) -> AudioStreamWAV:
 	stream.stereo = false
 	stream.data = samples
 	return stream
+
+func _setup_engine_audio() -> void:
+	var sample_rate := 22050
+	var sample_count := sample_rate / 2
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / float(sample_rate)
+		var wave := sin(t * TAU * 54.0) * 0.34 + sin(t * TAU * 108.0) * 0.12 + sin(t * TAU * 162.0) * 0.05
+		var pulse := 0.82 + 0.18 * sin(t * TAU * 2.0)
+		samples.encode_s16(i * 2, int(clampf(wave * pulse, -1.0, 1.0) * 32767.0))
+	var engine_stream := AudioStreamWAV.new()
+	engine_stream.format = AudioStreamWAV.FORMAT_16_BITS
+	engine_stream.mix_rate = sample_rate
+	engine_stream.stereo = false
+	engine_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	engine_stream.loop_begin = 0
+	engine_stream.loop_end = sample_count
+	engine_stream.data = samples
+	engine_audio_player = AudioStreamPlayer3D.new()
+	engine_audio_player.stream = engine_stream
+	engine_audio_player.volume_db = -22.0
+	engine_audio_player.unit_size = 12.0
+	engine_audio_player.max_distance = 72.0
+	add_child(engine_audio_player)
+
+func _update_engine_audio() -> void:
+	if not is_instance_valid(engine_audio_player):
+		return
+	if not is_instance_valid(selected_tank) or not has_selected_destination:
+		if engine_audio_player.playing:
+			engine_audio_player.stop()
+		return
+	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
+	if unit_type == "infantry":
+		if engine_audio_player.playing:
+			engine_audio_player.stop()
+		return
+	engine_audio_player.global_position = selected_tank.global_position
+	engine_audio_player.volume_db = -17.0 if unit_type == "tank" else -20.0
+	if not engine_audio_player.playing:
+		engine_audio_player.play()
 
 func _play_combat_audio(at: Vector3, is_impact: bool) -> void:
 	var player := AudioStreamPlayer3D.new()
