@@ -848,6 +848,15 @@ func _missile_damage(army: String) -> int:
 		return 195
 	return 185
 
+func _missile_cooldown(army: String) -> float:
+	if army == "وطن":
+		return 11.0
+	if army == "الجيش العربي":
+		return 12.0
+	if army == "الأمريكي":
+		return 13.0
+	return 14.0
+
 func _launch_player_missile() -> void:
 	if not _has_building("missile_silo"):
 		notice = "ابنِ منصة صواريخ أولاً"
@@ -873,7 +882,7 @@ func _launch_player_missile() -> void:
 		target_kind = "building"
 	credits -= MISSILE_COST
 	supplies -= 4
-	buildings[silo_index].attack_cd = 14.0
+	buildings[silo_index].attack_cd = _missile_cooldown(faction)
 	missiles.append({"pos": buildings[silo_index].pos + Vector2(0, -24), "target": target_pos, "target_kind": target_kind, "team": "player", "damage": _missile_damage(faction), "life": 8.0})
 	notice = "انطلق الصاروخ!"
 	notice_time = 2.0
@@ -881,6 +890,8 @@ func _launch_player_missile() -> void:
 func _launch_enemy_missile() -> void:
 	if enemy_credits < MISSILE_COST or enemy_supplies < 4:
 		return
+	var player_faction_index := FACTIONS.find(faction)
+	var enemy_faction := FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
 	var silo_index := -1
 	for i in enemy_buildings.size():
 		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
@@ -890,8 +901,7 @@ func _launch_enemy_missile() -> void:
 		return
 	enemy_credits -= MISSILE_COST
 	enemy_supplies -= 4
-	enemy_buildings[silo_index].attack_cd = 18.0
-	var enemy_faction := "الأمريكي" if faction != "الأمريكي" else "الصيني"
+	enemy_buildings[silo_index].attack_cd = _missile_cooldown(enemy_faction)
 	missiles.append({"pos": enemy_buildings[silo_index].pos + Vector2(0, -24), "target": base_pos, "target_kind": "base", "team": "enemy", "damage": _missile_damage(enemy_faction), "life": 8.0})
 
 func _update_missiles(delta: float) -> void:
@@ -931,7 +941,13 @@ func _update_missiles(delta: float) -> void:
 				else:
 					for building_index in range(enemy_buildings.size() - 1, -1, -1):
 						if enemy_buildings[building_index].pos.distance_to(destination) < 36.0:
-							enemy_buildings.remove_at(building_index)
+							enemy_buildings[building_index].hp = maxi(0, int(enemy_buildings[building_index].get("hp", 400)) - int(missile.damage))
+							if enemy_buildings[building_index].hp <= 0:
+								enemy_buildings.remove_at(building_index)
+								if selected_enemy_building == building_index:
+									selected_enemy_building = -1
+								elif selected_enemy_building > building_index:
+									selected_enemy_building -= 1
 							break
 			else:
 				player_base_hp = maxi(0, player_base_hp - int(missile.damage))
