@@ -1003,7 +1003,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch_points.size() >= 2:
 			var points: Array = touch_points.values()
 			var distance: float = points[0].distance_to(points[1])
-			var center := (points[0] + points[1]) * 0.5
+			var center: Vector2 = (points[0] as Vector2 + points[1] as Vector2) * 0.5
 			if last_pinch_distance > 0.0 and distance > 1.0:
 				_zoom_camera(last_pinch_distance / distance)
 				_pan_camera(center - last_pinch_center)
