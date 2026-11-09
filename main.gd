@@ -60,6 +60,7 @@ var supply_points: Array[Dictionary] = []
 var units: Array[Dictionary] = []
 var selected: Array[int] = []
 var buildings: Array[Dictionary] = []
+var production_orders: Array[Dictionary] = []
 var build_mode := ""
 var selected_enemy_building := -1
 var notice := "اختر جيشك لبدء المعركة"
@@ -169,6 +170,7 @@ func _process(delta: float) -> void:
 			income_timer = fmod(income_timer, 1.0)
 		_update_supply_control(delta)
 		_update_building_construction(delta)
+		_update_production_queues(delta)
 		_update_building_capture(delta)
 		_update_submarine_detection()
 		_update_missiles(delta)
@@ -1449,6 +1451,10 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, 103), _terrain_effect_label(), HORIZONTAL_ALIGNMENT_LEFT, 360, 14, Color("#d8e6c2"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		if not production_orders.is_empty():
+			var first_order: Dictionary = production_orders[0]
+			var progress_text := "الإنتاج: %s — %.0f%% | بالطابور: %d" % [String(first_order.kind), (1.0 - float(first_order.remaining) / maxf(1.0, float(first_order.duration))) * 100.0, production_orders.size()]
+			draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 390), progress_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 14, Color("#a8e6b0"))
 		var pause_button := _pause_rect(size)
 		draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 		draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
@@ -1548,6 +1554,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				missiles.clear()
 				enemy_missile_timer = 0.0
 				buildings.clear()
+				production_orders.clear()
 				enemy_buildings.clear()
 				selected.clear()
 				selected_enemy_building = -1
@@ -1571,9 +1578,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	for i in 22:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
-				_spawn_unit("infantry")
+				_enqueue_unit("infantry")
 			elif i == 1:
-				_spawn_unit("tank")
+				_enqueue_unit("tank")
 			elif i == 2:
 				build_mode = "barracks"
 				notice = "المس موقعاً في منطقتك لبناء الثكنة"
@@ -1587,19 +1594,19 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice = "المس موقعاً في منطقتك لبناء برج الدفاع"
 				notice_time = 3.0
 			elif i == 5:
-				_spawn_unit("artillery")
+				_enqueue_unit("artillery")
 			elif i == 6:
 				build_mode = "airfield"
 				notice = "المس موقعاً مناسباً لبناء المطار"
 				notice_time = 3.0
 			elif i == 7:
-				_spawn_unit("fighter")
+				_enqueue_unit("fighter")
 			elif i == 8:
 				build_mode = "anti_air"
 				notice = "المس موقعاً مناسباً لنشر الدفاع المضاد للطائرات"
 				notice_time = 3.0
 			elif i == 9:
-				_spawn_unit("helicopter")
+				_enqueue_unit("helicopter")
 			elif i == 10:
 				_capture_selected_building()
 			elif i == 11:
@@ -1623,15 +1630,15 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice = "اختر منطقة ساحلية في أسفل الخريطة لبناء حوض السفن"
 				notice_time = 3.0
 			elif i == 17:
-				_spawn_unit("destroyer")
+				_enqueue_unit("destroyer")
 			elif i == 18:
-				_spawn_unit("carrier")
+				_enqueue_unit("carrier")
 			elif i == 19:
-				_spawn_unit("submarine")
+				_enqueue_unit("submarine")
 			elif i == 20:
-				_spawn_unit("landing_craft")
+				_enqueue_unit("landing_craft")
 			elif i == 21:
-				_spawn_unit("builder")
+				_enqueue_unit("builder")
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -2484,6 +2491,92 @@ func _team_unit_count(team: String) -> int:
 			count += 1
 	return count
 
+
+func _production_building_for(kind: String) -> String:
+	if kind in ["infantry", "builder"]:
+		return "barracks"
+	if kind in ["tank", "artillery"]:
+		return "factory"
+	if kind in ["fighter", "helicopter"]:
+		return "airfield"
+	if kind in ["destroyer", "carrier", "submarine", "landing_craft"]:
+		return "shipyard"
+	return ""
+
+func _production_duration(kind: String) -> float:
+	match kind:
+		"infantry": return 3.0
+		"builder": return 8.0
+		"tank": return 7.0
+		"artillery": return 9.0
+		"fighter": return 8.0
+		"helicopter": return 10.0
+		"destroyer": return 13.0
+		"submarine": return 12.0
+		"landing_craft": return 11.0
+		"carrier": return 20.0
+	return 6.0
+
+func _enqueue_unit(kind: String) -> void:
+	var producer_kind := _production_building_for(kind)
+	var producer_pos := Vector2(-9999, -9999)
+	for building in buildings:
+		if building.kind == producer_kind and float(building.get("build_progress", 1.0)) >= 1.0:
+			producer_pos = building.pos
+			break
+	if producer_kind == "" or producer_pos.x < -9000.0:
+		notice = "لا يوجد مبنى إنتاج مكتمل لهذه الوحدة"
+		notice_time = 2.5
+		return
+	var reserved_units := production_orders.size()
+	if _team_unit_count("player") + reserved_units >= MAX_TEAM_UNITS:
+		notice = "لا توجد سعة كافية للقوات أو طوابير الإنتاج"
+		notice_time = 2.5
+		return
+	var cost := _unit_cost(kind, faction)
+	var supply_cost := _unit_supply_cost(kind)
+	if supplies < supply_cost:
+		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
+		notice_time = 2.5
+		return
+	if credits < cost:
+		notice = "لا توجد موارد كافية"
+		notice_time = 2.0
+		return
+	credits -= cost
+	supplies -= supply_cost
+	production_orders.append({"producer_pos": producer_pos, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
+	notice = "أضيفت الوحدة إلى طابور الإنتاج"
+	notice_time = 2.0
+	queue_redraw()
+
+func _update_production_queues(delta: float) -> void:
+	var active_producers: Array[Vector2] = []
+	for i in range(production_orders.size()):
+		var order: Dictionary = production_orders[i]
+		var producer_pos: Vector2 = order.producer_pos
+		if active_producers.has(producer_pos):
+			continue
+		active_producers.append(producer_pos)
+		var producer_ready := false
+		for building in buildings:
+			if building.pos.distance_to(producer_pos) < 2.0 and float(building.get("build_progress", 1.0)) >= 1.0:
+				producer_ready = true
+				break
+		if not producer_ready:
+			continue
+		order.remaining = maxf(0.0, float(order.remaining) - delta)
+		production_orders[i] = order
+		if float(order.remaining) <= 0.0:
+			var completed_kind := String(order.kind)
+			production_orders.remove_at(i)
+			credits = mini(MAX_CREDITS, credits + _unit_cost(completed_kind, faction))
+			supplies += _unit_supply_cost(completed_kind)
+			_spawn_unit(completed_kind)
+			if notice.begins_with("تم إنتاج"):
+				notice = "اكتمل إنتاج الوحدة — أُضيفت إلى ساحة المعركة"
+			queue_redraw()
+			return
 
 func _spawn_unit(kind: String) -> void:
 	if _team_unit_count("player") >= MAX_TEAM_UNITS:
