@@ -112,7 +112,56 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	print("3D battlefield, 10 building archetypes, building sync, and gameplay unit sync smoke tests passed")
+	# Verify dedicated artillery and naval silhouettes plus the shared combat-array invariant.
+	var archetype_kinds := ["artillery", "destroyer", "carrier", "submarine", "landing_craft"]
+	var archetype_records: Array = []
+	for archetype_index in range(archetype_kinds.size()):
+		archetype_records.append({
+			"pos": Vector2(120.0 + float(archetype_index) * 150.0, 420.0),
+			"team": "player",
+			"kind": archetype_kinds[archetype_index],
+			"faction": "american",
+			"hp": 180,
+			"max_hp": 240
+		})
+	var archetype_count := int(battlefield.call("sync_game_units", archetype_records, map_rect))
+	if archetype_count != archetype_kinds.size():
+		push_error("Dedicated artillery and naval unit archetypes did not synchronize")
+		quit(1)
+		return
+	if battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():
+		push_error("Unit aim pivots are not index-aligned with selectable units")
+		quit(1)
+		return
+	for archetype_index in range(archetype_kinds.size()):
+		var kind: String = archetype_kinds[archetype_index]
+		var key := "player|%s|%s" % [str(archetype_index + 4), kind]
+		var archetype := battlefield.game_unit_nodes.get(key) as Node3D
+		if archetype == null or archetype.get_meta("gameplay_unit_kind", "") != kind or archetype.get_meta("unit_type", "") != kind:
+			push_error("Dedicated 3D unit identity or visual archetype missing for: " + kind)
+			quit(1)
+			return
+		if archetype.get_node_or_null("HealthBar") == null or archetype.get_child_count() < 3:
+			push_error("Health bar or model geometry missing for: " + kind)
+			quit(1)
+			return
+		if absf(float(archetype.get_meta("max_health", 0.0)) - 240.0) > 0.001:
+			push_error("Maximum health was not preserved for: " + kind)
+			quit(1)
+			return
+	var submarine := battlefield.game_unit_nodes.get("player|7|submarine") as Node3D
+	if submarine == null or submarine.position.y >= 0.0:
+		push_error("Submarine was not placed below the waterline")
+		quit(1)
+		return
+	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D
+	battlefield.call("sync_game_units", archetype_records, map_rect)
+	if battlefield.game_unit_nodes.get("player|4|artillery") != stable_artillery or battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():
+		push_error("Repeated naval/artillery sync created duplicates or broke aim-pivot alignment")
+		quit(1)
+		return
+
+	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery and naval archetypes passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)

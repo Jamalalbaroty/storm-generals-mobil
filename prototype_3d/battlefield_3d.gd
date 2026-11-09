@@ -424,7 +424,13 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 			turret.mesh = turret_mesh
 			turret.position = Vector3(0.0, 1.0, turret_z)
 			turret.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
-			vessel.add_child(turret)
+				vessel.add_child(turret)
+
+	# Every selectable unit owns an aim pivot so shared combat arrays stay index-aligned.
+	var weapon_pivot := Node3D.new()
+	weapon_pivot.position = Vector3(0.0, 1.0, 0.0)
+	vessel.add_child(weapon_pivot)
+	showcase_turrets.append(weapon_pivot)
 	return vessel
 
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
@@ -450,7 +456,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		active_keys[key] = true
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
-		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else 0.0)
+		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else (-0.42 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
