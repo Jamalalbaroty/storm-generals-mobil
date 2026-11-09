@@ -533,6 +533,43 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify the centralized economy tables feed every live building/unit cost and supply helper.
+	var expected_building_costs: Dictionary = {
+		"barracks": 250, "factory": 450, "turret": 350, "airfield": 600,
+		"anti_air": 400, "missile_silo": 800, "missile_defense": 700,
+		"shipyard": 700, "power_plant": 450
+	}
+	for building_kind in expected_building_costs:
+		if int(game.call("_building_cost", String(building_kind))) != int(expected_building_costs[building_kind]):
+			push_error("Building economy helper returned an incorrect cost for " + String(building_kind))
+			quit(1)
+			return
+	var expected_unit_costs: Dictionary = {
+		"infantry": 100, "tank": 300, "builder": 600, "artillery": 450,
+		"fighter": 500, "destroyer": 900, "carrier": 1600,
+		"submarine": 1100, "landing_craft": 800
+	}
+	for army in faction_names:
+		for unit_kind in expected_unit_costs:
+			if int(game.call("_unit_cost", String(unit_kind), army)) != int(expected_unit_costs[unit_kind]):
+				push_error("Unit economy helper returned an incorrect cost for " + String(unit_kind) + " in " + army)
+				quit(1)
+				return
+		if int(game.call("_unit_cost", "helicopter", army)) != int(game.call("_helicopter_cost", army)):
+			push_error("Faction-specific helicopter production cost was not applied for " + army)
+			quit(1)
+			return
+	var expected_supply_costs: Dictionary = {
+		"infantry": 0, "tank": 1, "builder": 0, "artillery": 2, "fighter": 2,
+		"helicopter": 3, "destroyer": 4, "landing_craft": 4,
+		"submarine": 5, "carrier": 8
+	}
+	for unit_kind in expected_supply_costs:
+		if int(game.call("_unit_supply_cost", String(unit_kind))) != int(expected_supply_costs[unit_kind]):
+			push_error("Unit supply helper returned an incorrect requirement for " + String(unit_kind))
+			quit(1)
+			return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
