@@ -163,6 +163,16 @@ func _initialize() -> void:
 		push_error("Surface ship hull was not positioned at the water surface")
 		quit(1)
 		return
+	if battlefield.naval_propellers.size() < 6 or destroyer.get_node_or_null("PropellerLeft") == null or destroyer.get_node_or_null("PropellerRight") == null:
+		push_error("Surface naval vessels are missing animated propeller assemblies")
+		quit(1)
+		return
+	var propeller_before := battlefield.naval_propellers[0].rotation.z
+	battlefield._update_naval_animation(0.1)
+	if battlefield.naval_propellers[0].rotation.z <= propeller_before:
+		push_error("Naval propeller animation did not advance")
+		quit(1)
+		return
 	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D
 	battlefield.call("sync_game_units", archetype_records, map_rect)
 	if battlefield.game_unit_nodes.get("player|4|artillery") != stable_artillery or battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():

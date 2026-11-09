@@ -56,6 +56,8 @@ var wheel_last_positions: Dictionary = {}
 var game_building_nodes: Dictionary = {}
 var game_unit_nodes: Dictionary = {}
 var next_game_unit_sync_id := 1
+var naval_propellers: Array[Node3D] = []
+var naval_animation_clock := 0.0
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -81,6 +83,7 @@ func _process(delta: float) -> void:
 	_update_showcase_health_bars()
 	_update_infantry_animation(delta)
 	_update_aircraft_animation(delta)
+	_update_naval_animation(delta)
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
@@ -466,6 +469,10 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 			turret.position = Vector3(0.0, 1.0, turret_z)
 			turret.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
 			vessel.add_child(turret)
+
+	if kind != "submarine":
+		_add_naval_propeller(vessel, "PropellerLeft", -0.72)
+		_add_naval_propeller(vessel, "PropellerRight", 0.72)
 
 	# Every selectable unit owns an aim pivot so shared combat arrays stay index-aligned.
 	var weapon_pivot := Node3D.new()
@@ -1153,6 +1160,47 @@ func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> v
 	weapon_pivot.position.y = -0.12
 	fighter.add_child(weapon_pivot)
 	showcase_turrets.append(weapon_pivot)
+
+func _add_naval_propeller(vessel: Node3D, propeller_name: String, side_x: float) -> void:
+	var propeller := Node3D.new()
+	propeller.name = propeller_name
+	propeller.position = Vector3(side_x, 0.08, 3.85)
+	vessel.add_child(propeller)
+	var hub := MeshInstance3D.new()
+	var hub_mesh := CylinderMesh.new()
+	hub_mesh.top_radius = 0.13
+	hub_mesh.bottom_radius = 0.13
+	hub_mesh.height = 0.28
+	hub.mesh = hub_mesh
+	hub.material_override = _make_armour_material(Color(0.12, 0.14, 0.15))
+	propeller.add_child(hub)
+	for blade_index in range(3):
+		var blade := MeshInstance3D.new()
+		var blade_mesh := BoxMesh.new()
+		blade_mesh.size = Vector3(0.10, 0.07, 0.72)
+		blade.mesh = blade_mesh
+		blade.rotation.y = TAU * float(blade_index) / 3.0
+		blade.position.z = 0.32
+		blade.material_override = _make_armour_material(Color(0.20, 0.23, 0.23))
+		propeller.add_child(blade)
+	naval_propellers.append(propeller)
+
+func _update_naval_animation(delta: float) -> void:
+	naval_animation_clock += delta
+	for propeller in naval_propellers:
+		if is_instance_valid(propeller):
+			propeller.rotation.z += delta * 12.0
+	for vessel in showcase_tanks:
+		if not is_instance_valid(vessel):
+			continue
+		var vessel_kind := str(vessel.get_meta("unit_type", ""))
+		if vessel_kind in ["destroyer", "carrier", "landing_craft"]:
+			var base_height := float(vessel.get_meta("waterline_height", 0.12))
+			vessel.position.y = base_height + sin(naval_animation_clock * 1.45 + float(vessel.get_instance_id() % 11)) * 0.035
+			vessel.rotation.z = sin(naval_animation_clock * 0.72 + float(vessel.get_instance_id() % 7)) * 0.008
+		elif vessel_kind == "submarine":
+			var submerged_height := float(vessel.get_meta("waterline_height", -0.62))
+			vessel.position.y = submerged_height + sin(naval_animation_clock * 0.8 + float(vessel.get_instance_id() % 5)) * 0.012
 
 func _update_aircraft_animation(delta: float) -> void:
 	aircraft_clock += delta
