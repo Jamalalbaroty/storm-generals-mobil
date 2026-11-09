@@ -1970,6 +1970,11 @@ func _enemy_ai_turn() -> void:
 		if player_unit.team == "player" and player_unit.get("hp", 0) > 0 and (player_unit.kind == "fighter" or player_unit.kind == "helicopter"):
 			player_air_threat += 1
 	var build_pos := _enemy_build_position()
+	var player_missile_threat := _has_building("missile_silo")
+	for incoming_missile in missiles:
+		if String(incoming_missile.get("team", "")) == "player":
+			player_missile_threat = true
+			break
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
 		enemy_credits -= BARRACKS_COST
@@ -2001,7 +2006,7 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو أنشأ منصة صواريخ"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
+	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
 		enemy_credits -= MISSILE_DEFENSE_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "missile_defense", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو نشر دفاعاً صاروخياً"
