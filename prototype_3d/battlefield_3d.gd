@@ -376,6 +376,7 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 	_create_showcase_health_bar(vessel)
 
 	var hull := MeshInstance3D.new()
+	hull.name = "Hull"
 	if kind == "submarine":
 		var hull_mesh := CapsuleMesh.new()
 		hull_mesh.radius = 0.72
