@@ -2053,22 +2053,22 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= 1600
 		enemy_supplies -= 8
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": "الصيني", "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
 	elif _enemy_has_building("shipyard") and enemy_credits >= 1100 and enemy_supplies >= 5 and enemy_submarines < 1 and enemy_destroyers >= 1:
 		enemy_credits -= 1100
 		enemy_supplies -= 5
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": "الصيني", "hp": 210, "attack_cd": 0.0})
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
 	elif _enemy_has_building("shipyard") and enemy_credits >= 800 and enemy_supplies >= 4 and enemy_landing_craft < 1 and enemy_destroyers >= 1:
 		enemy_credits -= 800
 		enemy_supplies -= 4
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": "الصيني", "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
+		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
 	elif _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
 		enemy_credits -= 900
 		enemy_supplies -= 4
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 260, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": _enemy_faction(), "hp": 260, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
