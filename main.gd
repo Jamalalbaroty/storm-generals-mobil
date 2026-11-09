@@ -87,6 +87,9 @@ var audio_players: Array[AudioStreamPlayer] = []
 var audio_streams: Dictionary = {}
 var audio_player_cursor := 0
 var sound_cooldowns: Dictionary = {"weapon": 0.0, "explosion": 0.0}
+var air_alert_active := false
+var ground_alert_active := false
+var missile_alert_active := false
 
 func _ready() -> void:
 	randomize()
@@ -174,6 +177,7 @@ func _process(delta: float) -> void:
 		_update_building_capture(delta)
 		_update_submarine_detection()
 		_update_missiles(delta)
+		_update_combat_alerts()
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
 			queue_redraw()
@@ -2218,6 +2222,47 @@ func _update_enemy_defense_assignments() -> void:
 		units[best_index]["defense_guard"] = true
 		units[best_index]["defense_anchor"] = enemy_base + Vector2(-54.0, side * lane)
 		eligible_indices.erase(best_index)
+
+
+func _update_combat_alerts() -> void:
+	# Transition-based alerts avoid spamming the command channel every frame.
+	var hostile_air := 0
+	var hostile_ground := 0
+	var incoming_missile := false
+	for contact in units:
+		if String(contact.get("team", "")) != "enemy" or int(contact.get("hp", 0)) <= 0:
+			continue
+		var kind := String(contact.get("kind", ""))
+		var distance: float = contact.pos.distance_to(base_pos)
+		if kind in ["fighter", "helicopter"] and distance <= 460.0:
+			hostile_air += 1
+		elif kind in ["tank", "artillery", "infantry"] and distance <= 260.0:
+			hostile_ground += 1
+	for missile in missiles:
+		if String(missile.get("team", "")) == "enemy":
+			incoming_missile = true
+			break
+	if incoming_missile and not missile_alert_active:
+		notice = "إنذار صاروخي! مقذوف معادٍ باتجاه القاعدة"
+		notice_time = 4.0
+	elif not incoming_missile and missile_alert_active:
+		notice = "انتهى الإنذار الصاروخي — تحقق من الأضرار"
+		notice_time = 3.0
+	elif hostile_air > 0 and not air_alert_active:
+		notice = "تحذير جوي! %d طائرة معادية تقترب من القاعدة" % hostile_air
+		notice_time = 3.8
+	elif hostile_ground > 0 and not ground_alert_active:
+		notice = "تحذير بري! قوات معادية تقترب من محيط القاعدة"
+		notice_time = 3.5
+	elif air_alert_active and hostile_air == 0:
+		notice = "المجال الجوي القريب خالٍ من التهديدات"
+		notice_time = 2.5
+	elif ground_alert_active and hostile_ground == 0:
+		notice = "تم تأمين محيط القاعدة برياً"
+		notice_time = 2.5
+	air_alert_active = hostile_air > 0
+	ground_alert_active = hostile_ground > 0
+	missile_alert_active = incoming_missile
 
 
 func _enemy_ai_turn() -> void:
