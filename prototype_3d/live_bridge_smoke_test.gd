@@ -145,7 +145,23 @@ func _initialize() -> void:
 		push_error("Group attack did not issue an attack order to every selected friendly unit")
 		quit(1)
 		return
-	var open_ground_screen: Vector2 = bridge.rts_camera.unproject_position(Vector3(0.0, 0.0, 10.0))
+	var open_ground_screen := Vector2.ZERO
+	var found_open_ground := false
+	var visible_rect: Rect2 = bridge.get_viewport().get_visible_rect()
+	for world_x in [-15.0, -10.0, 0.0, 10.0, 15.0]:
+		for world_z in [-15.0, -10.0, 0.0, 10.0, 15.0]:
+			var candidate: Vector2 = bridge.rts_camera.unproject_position(Vector3(world_x, 0.0, world_z))
+			var candidate_ground: Variant = bridge.call("_screen_to_ground", candidate)
+			if visible_rect.has_point(candidate) and candidate_ground != null and bridge.call("_tank_at_screen_position", candidate) == null:
+				open_ground_screen = candidate
+				found_open_ground = true
+				break
+		if found_open_ground:
+			break
+	if not found_open_ground:
+		push_error("Could not find visible empty ground for group movement validation")
+		quit(1)
+		return
 	bridge.call("_handle_world_tap", open_ground_screen)
 	multi_units = game.get("units")
 	if not multi_units[0].has("target") or not multi_units[2].has("target") or multi_units[0].target.distance_to(multi_units[2].target) < 1.0:
