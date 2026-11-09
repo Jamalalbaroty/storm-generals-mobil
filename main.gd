@@ -361,7 +361,21 @@ func _place_building(pos: Vector2) -> void:
 	notice_time = 2.0
 	build_mode = ""
 
+func _has_building(kind: String) -> bool:
+	for building in buildings:
+		if building.kind == kind:
+			return true
+	return false
+
 func _spawn_unit(kind: String) -> void:
+	if kind == "infantry" and not _has_building("barracks"):
+		notice = "ابنِ ثكنة أولاً لإنتاج المشاة"
+		notice_time = 2.5
+		return
+	if kind == "tank" and not _has_building("factory"):
+		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
+		notice_time = 2.5
+		return
 	var cost := INFANTRY_COST if kind == "infantry" else TANK_COST
 	if credits < cost:
 		notice = "لا توجد موارد كافية"
