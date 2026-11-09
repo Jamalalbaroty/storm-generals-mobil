@@ -232,7 +232,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target := _nearest_player_unit(unit.pos)
+					var heli_target := _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["tank", "artillery", "infantry"])
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -251,7 +251,7 @@ func _process(delta: float) -> void:
 						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _nearest_player_unit(unit.pos)
+					var air_target := _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["fighter", "helicopter"])
 					var air_destination: Vector2 = base_pos if air_target < 0 else units[air_target].pos
 					if unit.pos.distance_to(air_destination) <= 280.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -394,7 +394,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target := _nearest_enemy_unit(unit.pos, 380.0)
+					var heli_target := _nearest_unit_by_priority(unit.pos, 380.0, "enemy", ["tank", "artillery", "infantry"])
 					if heli_target >= 0:
 						var heli_enemy: Dictionary = units[heli_target]
 						if unit.pos.distance_to(heli_enemy.pos) <= 235.0:
@@ -421,7 +421,7 @@ func _process(delta: float) -> void:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _nearest_enemy_unit(unit.pos, 300.0)
+					var air_target := _nearest_unit_by_priority(unit.pos, 300.0, "enemy", ["fighter", "helicopter"])
 					if air_target >= 0:
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= 270.0:
@@ -697,6 +697,29 @@ func _select_enemy_ground_assault_target() -> int:
 			best_score = score
 			best_index = candidate_index
 	return best_index
+
+
+func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_team: String, preferred_kinds: Array) -> int:
+	# Air units prefer targets suited to their role, then fall back to the nearest visible enemy.
+	var observer_team := "player" if target_team == "enemy" else "enemy"
+	for priority_pass in range(2):
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if candidate.team != target_team or candidate.get("hp", 0) <= 0:
+				continue
+			if candidate.kind == "submarine" and not _is_submarine_detected(candidate, observer_team):
+				continue
+			if priority_pass == 0 and not preferred_kinds.has(String(candidate.kind)):
+				continue
+			var distance := from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
 
 
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
