@@ -550,7 +550,7 @@ func _process(delta: float) -> void:
 					if unit.attack_cd <= 0.0:
 						player_base_hp = maxi(0, player_base_hp - 10)
 						unit.attack_cd = 0.9
-				elif distance_to_target > 34.0:
+				elif distance_to_target > (4.0 if is_defender else 34.0):
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
 				if _is_naval_kind(String(unit.kind)):
