@@ -119,6 +119,40 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Multi-unit selection must select only live friendly units inside the drag rectangle.
+	var multi_units: Array[Dictionary] = game.get("units")
+	multi_units.append({"pos": Vector2(260.0, 220.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 130.0, "max_hp": 150.0})
+	game.set("units", multi_units)
+	game.call("_sync_3d_gameplay_bridge")
+	var second_player := bridge.game_unit_nodes.get("player|3|tank") as Node3D
+	if second_player == null:
+		push_error("Live bridge did not create the second friendly unit for multi-selection")
+		quit(1)
+		return
+	var first_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
+	var second_screen: Vector2 = bridge.rts_camera.unproject_position(second_player.global_position + Vector3.UP)
+	var drag_start := Vector2(minf(first_screen.x, second_screen.x) - 42.0, minf(first_screen.y, second_screen.y) - 42.0)
+	var drag_finish := Vector2(maxf(first_screen.x, second_screen.x) + 42.0, maxf(first_screen.y, second_screen.y) + 42.0)
+	bridge.call("_select_live_units_in_screen_rect", drag_start, drag_finish)
+	var selected_live: Array = bridge.get("selected_live_units")
+	if selected_live.size() != 2 or not selected_live.has(player_tank) or not selected_live.has(second_player):
+		push_error("Drag rectangle did not select both friendly live units")
+		quit(1)
+		return
+	bridge.call("_handle_world_tap", enemy_screen)
+	multi_units = game.get("units")
+	if int(multi_units[0].get("attack_target", -1)) != 1 or int(multi_units[2].get("attack_target", -1)) != 1:
+		push_error("Group attack did not issue an attack order to every selected friendly unit")
+		quit(1)
+		return
+	var open_ground_screen: Vector2 = bridge.rts_camera.unproject_position(Vector3(0.0, 0.0, 10.0))
+	bridge.call("_handle_world_tap", open_ground_screen)
+	multi_units = game.get("units")
+	if not multi_units[0].has("target") or not multi_units[2].has("target") or multi_units[0].target.distance_to(multi_units[2].target) < 1.0:
+		push_error("Group movement did not assign distinct formation destinations to all selected units")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
