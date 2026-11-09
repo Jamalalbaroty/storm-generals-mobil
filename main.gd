@@ -286,9 +286,9 @@ func _process(delta: float) -> void:
 					continue
 				if unit.kind == "builder":
 					if unit.has("target"):
-						var builder_target: Vector2 = unit.target
-						if unit.pos.distance_to(builder_target) > 8.0:
-							unit.pos += (builder_target - unit.pos).normalized() * delta * 32.0
+						var enemy_builder_target: Vector2 = unit.target
+						if unit.pos.distance_to(enemy_builder_target) > 8.0:
+							unit.pos += (enemy_builder_target - unit.pos).normalized() * delta * 32.0
 						else:
 							unit.erase("target")
 					continue
@@ -466,9 +466,9 @@ func _process(delta: float) -> void:
 					continue
 				if unit.kind == "builder":
 					if unit.has("target"):
-						var builder_target: Vector2 = unit.target
-						if unit.pos.distance_to(builder_target) > 8.0:
-							unit.pos += (builder_target - unit.pos).normalized() * delta * 32.0
+						var player_builder_target: Vector2 = unit.target
+						if unit.pos.distance_to(player_builder_target) > 8.0:
+							unit.pos += (player_builder_target - unit.pos).normalized() * delta * 32.0
 						else:
 							unit.erase("target")
 					continue
