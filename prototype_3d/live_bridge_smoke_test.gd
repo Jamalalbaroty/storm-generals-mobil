@@ -233,6 +233,56 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
+	var shore := Vector2(700.0, 520.0)
+	var home_dock := Vector2(180.0, 520.0)
+	var landing_craft: Dictionary = {
+		"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
+		"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
+	}
+	var landing_units: Array[Dictionary] = [landing_craft]
+	game.set("units", landing_units)
+	game.call("_update_landing_craft", landing_units[0], 0.1, shore)
+	var unloaded_units: Array[Dictionary] = game.get("units")
+	var unloaded_marines := 0
+	for landed_unit in unloaded_units:
+		if landed_unit.get("team") == "player" and landed_unit.get("kind") == "infantry" and bool(landed_unit.get("landing_assault", false)):
+			unloaded_marines += 1
+	if unloaded_units.size() != 4 or unloaded_marines != 3 or String(unloaded_units[0].get("landing_state", "")) != "returning" or int(unloaded_units[0].get("passengers", -1)) != 0:
+		push_error("Landing craft did not unload exactly three marines and enter returning state")
+		quit(1)
+		return
+
+	unloaded_units[0]["pos"] = home_dock
+	game.set("units", unloaded_units)
+	game.call("_update_landing_craft", unloaded_units[0], 0.1, shore)
+	var returning_units: Array[Dictionary] = game.get("units")
+	if String(returning_units[0].get("landing_state", "")) != "loading" or absf(float(returning_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
+		push_error("Landing craft did not enter its five-second dock loading phase")
+		quit(1)
+		return
+	game.call("_update_landing_craft", returning_units[0], 5.1, shore)
+	var reloaded_units: Array[Dictionary] = game.get("units")
+	if String(reloaded_units[0].get("landing_state", "")) != "outbound" or int(reloaded_units[0].get("passengers", 0)) != 3 or reloaded_units.size() != 4:
+		push_error("Landing craft failed to reload three passengers for its next sortie")
+		quit(1)
+		return
+
+	# A full team must make the craft wait at shore without duplicate or partial unloading.
+	var capacity_units: Array[Dictionary] = [{
+		"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
+		"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
+	}]
+	for marine_index in range(39):
+		capacity_units.append({"pos": home_dock, "team": "player", "kind": "infantry", "hp": 100})
+	game.set("units", capacity_units)
+	game.call("_update_landing_craft", capacity_units[0], 0.1, shore)
+	var capacity_result: Array[Dictionary] = game.get("units")
+	if capacity_result.size() != 40 or String(capacity_result[0].get("landing_state", "")) != "outbound" or int(capacity_result[0].get("passengers", 0)) != 3:
+		push_error("Landing craft did not wait safely when its team reached unit capacity")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
