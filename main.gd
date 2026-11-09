@@ -862,7 +862,10 @@ func _draw() -> void:
 	_draw_base_health(base_pos, player_base_hp)
 	_draw_base_health(enemy_base, enemy_base_hp)
 	for building in buildings:
-		_draw_building(building.pos, building.kind, false)
+		var is_captured := bool(building.get("captured", false))
+		_draw_building(building.pos, building.kind, false, is_captured)
+		if is_captured:
+			_draw_building_health(building.pos, int(building.get("hp", 400)))
 	for building_index in enemy_buildings.size():
 		var building: Dictionary = enemy_buildings[building_index]
 		_draw_building(building.pos, building.kind, true)
@@ -1445,6 +1448,7 @@ func _update_building_capture(delta: float) -> void:
 			if building.capture_progress >= 3.0:
 				var captured := building.duplicate(true)
 				captured.erase("capture_progress")
+				captured["captured"] = true
 				buildings.append(captured)
 				enemy_buildings.remove_at(i)
 				selected_enemy_building = -1
@@ -1849,8 +1853,8 @@ func _enemy_build_position() -> Vector2:
 			return candidate
 	return Vector2(-1.0, -1.0)
 
-func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
-	var team_color := Color("#4c91d0") if not is_enemy else Color("#d65349")
+func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_captured: bool = false) -> void:
+	var team_color := Color("#79d47b") if is_captured else (Color("#4c91d0") if not is_enemy else Color("#d65349"))
 	var shell := Color("#a9b4ad") if not is_enemy else Color("#a87870")
 	var dark := Color("#303b40")
 	var accent := Color("#d8c58e") if not is_enemy else Color("#e0a18c")
@@ -1935,7 +1939,8 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
 		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
 	var label := "حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "برج دفاع"))))))
-	draw_string(ThemeDB.fallback_font, p + Vector2(-42, 43), label, HORIZONTAL_ALIGNMENT_CENTER, 84, 13, Color.WHITE)
+	var display_label := "مستولى عليها: " + label if is_captured else label
+	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
 	var cost := 700 if build_mode == "shipyard" else (MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST))))))
