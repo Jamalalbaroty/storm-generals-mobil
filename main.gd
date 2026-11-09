@@ -1342,15 +1342,24 @@ func _draw() -> void:
 		var tint: Color = effect.color
 		tint.a = fade
 		if effect.kind == "tracer":
-			draw_line(effect.start, effect.finish, tint, 3.0)
+			# Two-pass tracer: a soft colored halo beneath a crisp hot core.
+			var tracer_tint := Color(tint.r, tint.g, tint.b, fade * 0.24)
+			draw_line(effect.start, effect.finish, tracer_tint, 7.0)
+			draw_line(effect.start, effect.finish, tint, 2.6)
+			draw_line(effect.start.lerp(effect.finish, 0.72), effect.finish, Color(1.0, 0.94, 0.76, fade * 0.9), 1.0)
 			draw_circle(effect.finish, 3.0 * fade + 1.0, tint)
 		elif effect.kind == "flash":
-			draw_circle(effect.finish, float(effect.radius) * (0.45 + progress), tint)
+			var flash_radius: float = float(effect.radius) * (0.45 + progress)
+			draw_circle(effect.finish, flash_radius, Color(tint.r, tint.g, tint.b, fade * 0.16))
+			draw_circle(effect.finish, flash_radius * 0.42, Color(1.0, 0.94, 0.76, fade * 0.62))
 			draw_arc(effect.finish, float(effect.radius) * (0.8 + progress), 0.0, TAU, 20, tint, 2.0)
 		elif effect.kind == "explosion":
 			var blast_radius: float = float(effect.radius) * (0.25 + progress)
 			var shock_radius: float = float(effect.radius) * (0.35 + progress * 1.35)
+			# Layered heat, dark debris and a bright core give explosions more depth.
+			draw_circle(effect.finish, blast_radius * 1.22, Color(tint.r, tint.g * 0.42, tint.b * 0.16, fade * 0.18))
 			draw_circle(effect.finish, blast_radius, Color(tint.r, tint.g * 0.62, tint.b * 0.28, fade * 0.42))
+			draw_circle(effect.finish, blast_radius * 0.34, Color(1.0, 0.88, 0.62, fade * 0.72))
 			draw_arc(effect.finish, blast_radius, 0.0, TAU, 32, tint, 4.0 * fade + 1.0)
 			# Expanding pressure ring and deterministic sparks keep the effect light on mobile.
 			draw_arc(effect.finish, shock_radius, 0.0, TAU, 36, Color(1.0, 0.78, 0.42, fade * 0.72), 2.0 * fade + 0.5)
