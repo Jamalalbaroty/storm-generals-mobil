@@ -603,6 +603,41 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify supply-point capture, contested-point income pause and timed supply income.
+	var controlled_point: Array[Dictionary] = [
+		{"pos": Vector2(300.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	var capturing_units: Array[Dictionary] = [
+		{"pos": Vector2(310.0, 300.0), "team": "player", "kind": "infantry", "hp": 60}
+	]
+	game.set("supply_points", controlled_point)
+	game.set("units", capturing_units)
+	game.set("credits", 0)
+	game.set("supplies", 0)
+	game.call("_update_supply_control", 1.0)
+	var captured_points: Array[Dictionary] = game.get("supply_points")
+	if String(captured_points[0].get("owner", "")) != "player" or int(game.get("credits")) != 4 or float(captured_points[0].get("supply_payout", 0.0)) < 0.99:
+		push_error("Player capture did not grant control and the expected first income tick")
+		quit(1)
+		return
+	var contested_units: Array[Dictionary] = [
+		{"pos": Vector2(310.0, 300.0), "team": "player", "kind": "infantry", "hp": 60},
+		{"pos": Vector2(305.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60}
+	]
+	game.set("units", contested_units)
+	game.call("_update_supply_control", 8.0)
+	var contested_points: Array[Dictionary] = game.get("supply_points")
+	if int(game.get("credits")) != 4 or int(game.get("supplies")) != 0 or float(contested_points[0].get("supply_payout", 0.0)) < 0.99:
+		push_error("Contested supply point incorrectly generated income")
+		quit(1)
+		return
+	game.set("units", capturing_units)
+	game.call("_update_supply_control", 7.0)
+	if int(game.get("supplies")) != 1 or int(game.get("credits")) != 32:
+		push_error("Secured supply point failed to resume timed credit and supply income")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
