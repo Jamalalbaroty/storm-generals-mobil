@@ -209,7 +209,8 @@ func _initialize() -> void:
 		return
 
 	# Naval counter-production must launch destroyers from the coastal shipyard.
-	game.set("units", [])
+	var naval_test_units: Array[Dictionary] = []
+	game.set("units", naval_test_units)
 	var ai_shipyards: Array[Dictionary] = [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0}]
 	game.set("enemy_buildings", ai_shipyards)
 	game.set("enemy_base", Vector2(900.0, 320.0))
