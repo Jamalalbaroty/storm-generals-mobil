@@ -28,6 +28,10 @@ Building credit costs and unit credit/supply costs are mapped in `ECONOMY_BALANC
 | Unit | Submarine | 1,100 | 5 |
 | Unit | Carrier | 1,600 | 8 |
 
+## Income tick precision
+
+Both player and AI passive-income timers retain their fractional-second remainder after each one-second payout. This avoids systematically discarding the small frame-time overshoot at each tick and keeps the two sides on the same accumulation rule. The configured rate remains 6 credits/second; this is a precision correction, not an economy-rate or balance change.
+
 ## Existing shared economy values
 
 | Setting | Current value |

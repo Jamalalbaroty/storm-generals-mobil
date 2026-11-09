@@ -9,7 +9,7 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Restarting a match resets all state (credits, units, buildings, health, missiles, effects, and timers).
 
 ## 2. Economy and construction
-- [ ] Passive income increases credits at the expected rate and respects the maximum balance.
+- [ ] Passive income increases credits at the expected rate, preserves fractional timer remainder across income ticks, and respects the maximum balance; player and AI rates remain symmetric.
 - [ ] Capturing a supply point changes ownership and income as intended.
 - [ ] A purchase with insufficient credits is rejected with clear feedback.
 - [ ] Player and AI use the same centralized building/unit credit costs and unit supply costs for every production category, including all naval units.
