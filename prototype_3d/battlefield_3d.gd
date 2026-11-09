@@ -54,6 +54,7 @@ var tank_wheels: Dictionary = {}
 var tank_barrels: Dictionary = {}
 var wheel_last_positions: Dictionary = {}
 var game_building_nodes: Dictionary = {}
+var game_unit_nodes: Dictionary = {}
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -284,6 +285,73 @@ func _build_base_complex(origin: Vector3, tint: Color, faction_id: String) -> vo
 func spawn_game_building(kind: String, at: Vector3, faction_id: String, tint: Color, build_progress: float = 0.0) -> Node3D:
 	# Public bridge for the gameplay layer to create a 3D counterpart for a logical building.
 	return _add_base_building(at, kind, tint, faction_id, build_progress, true)
+
+func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color, health: float = 100.0) -> Node3D:
+	var unit: Node3D
+	match kind:
+		"fighter":
+			_add_placeholder_fighter(at, tint, faction_id)
+			unit = showcase_tanks.back()
+		"helicopter":
+			_add_placeholder_helicopter(at, tint, faction_id)
+			unit = showcase_tanks.back()
+		"infantry", "builder", "marine":
+			_add_placeholder_infantry_squad(at, tint, faction_id)
+			unit = showcase_tanks.back()
+		_:
+			_add_placeholder_tank(at, tint, faction_id)
+			unit = showcase_tanks.back()
+	if is_instance_valid(unit):
+		unit.set_meta("gameplay_unit_kind", kind)
+		unit.set_meta("health", maxf(0.0, health))
+		unit.set_meta("source_gameplay_unit", true)
+	return unit
+
+func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
+	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
+		return 0
+	var active_keys: Dictionary = {}
+	var synced_count := 0
+	for index in range(unit_records.size()):
+		var record_value = unit_records[index]
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		if not record.has("pos") or not record.get("pos") is Vector2:
+			continue
+		var source_pos: Vector2 = record.pos
+		var team := String(record.get("team", "player"))
+		var kind := String(record.get("kind", "tank"))
+		var faction_id := String(record.get("faction", "american"))
+		var key := "%s|%d|%s" % [team, index, kind]
+		active_keys[key] = true
+		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
+		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
+		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else 0.0)
+		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
+		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
+		var unit := game_unit_nodes.get(key) as Node3D
+		if not is_instance_valid(unit):
+			unit = spawn_game_unit(kind, world_pos, faction_id, tint, float(record.get("hp", 100.0)))
+			if not is_instance_valid(unit):
+				continue
+			unit.set_meta("source_unit_key", key)
+			unit.set_meta("source_team", team)
+			game_unit_nodes[key] = unit
+		else:
+			unit.global_position = world_pos
+			unit.set_meta("health", maxf(0.0, float(record.get("hp", unit.get_meta("health", 100.0)))))
+			unit.set_meta("faction_id", faction_id)
+		synced_count += 1
+	for existing_key in game_unit_nodes.keys():
+		if not active_keys.has(existing_key):
+			var stale_unit := game_unit_nodes[existing_key] as Node3D
+			if is_instance_valid(stale_unit):
+				if selected_tank == stale_unit:
+					selected_tank = null
+				stale_unit.queue_free()
+			game_unit_nodes.erase(existing_key)
+	return synced_count
 
 func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_rect: Rect2, player_faction: String, enemy_faction: String) -> int:
 	# Reconcile logical 2D building records with persistent 3D counterparts.
