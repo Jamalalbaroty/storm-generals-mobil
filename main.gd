@@ -168,6 +168,7 @@ func _process(delta: float) -> void:
 			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
 			income_timer = fmod(income_timer, 1.0)
 		_update_supply_control(delta)
+		_update_building_construction(delta)
 		_update_building_capture(delta)
 		_update_submarine_detection()
 		_update_missiles(delta)
@@ -189,7 +190,7 @@ func _process(delta: float) -> void:
 			_enemy_ai_turn()
 			_update_enemy_defense_assignments()
 		for building in buildings:
-			if building.kind == "turret" or building.kind == "anti_air":
+			if (building.kind == "turret" or building.kind == "anti_air") and float(building.get("build_progress", 1.0)) >= 1.0:
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
 				var target := _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
@@ -1226,6 +1227,8 @@ func _draw() -> void:
 	for building in buildings:
 		var is_captured = bool(building.get("captured", false))
 		_draw_building(building.pos, building.kind, false, is_captured)
+		if float(building.get("build_progress", 1.0)) < 1.0:
+			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
 		if is_captured:
 			_draw_building_health(building.pos, int(building.get("hp", 400)))
 	for building_index in enemy_buildings.size():
@@ -1851,6 +1854,20 @@ func _unit_supply_cost(kind: String) -> int:
 	return int(costs.get(kind, 0))
 
 
+func _update_building_construction(delta: float) -> void:
+	for i in range(buildings.size()):
+		var building: Dictionary = buildings[i]
+		var progress := float(building.get("build_progress", 1.0))
+		if progress >= 1.0:
+			continue
+		var duration := maxf(1.0, float(building.get("build_duration", 8.0)))
+		progress = minf(1.0, progress + delta / duration)
+		building["build_progress"] = progress
+		buildings[i] = building
+		if progress >= 1.0:
+			notice = "اكتمل إنشاء المبنى — أصبح جاهزاً للعمل"
+			notice_time = 2.5
+
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
 		var building: Dictionary = enemy_buildings[i]
@@ -1930,6 +1947,12 @@ func _draw_building_health(p: Vector2, hp: int) -> void:
 	var ratio = clampf(float(hp) / 400.0, 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50, 5)), Color("#292929"))
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50.0 * ratio, 5)), Color("#79d47b"))
+
+func _draw_construction_progress(p: Vector2, progress: float) -> void:
+	var ratio := clampf(progress, 0.0, 1.0)
+	draw_rect(Rect2(p + Vector2(-29, 34), Vector2(58, 7)), Color("#252525"))
+	draw_rect(Rect2(p + Vector2(-28, 35), Vector2(56.0 * ratio, 5)), Color("#e5bd58"))
+	draw_string(ThemeDB.fallback_font, p + Vector2(-38, 53), "قيد الإنشاء %d%%" % int(ratio * 100.0), HORIZONTAL_ALIGNMENT_CENTER, 76, 10, Color("#ffe7a5"))
 
 func _draw_capture_progress(p: Vector2, progress: float) -> void:
 	var ratio = clampf(progress / 3.0, 0.0, 1.0)
@@ -2100,7 +2123,7 @@ func _draw_missiles() -> void:
 
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
-		if building.kind == kind:
+		if building.kind == kind and float(building.get("build_progress", 1.0)) >= 1.0:
 			return true
 	return false
 
@@ -2422,9 +2445,15 @@ func _place_building(pos: Vector2) -> void:
 		notice_time = 2.0
 		return
 	credits -= cost
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0})
+	var construction_duration := 8.0
+	match build_mode:
+		"turret", "anti_air": construction_duration = 6.0
+		"factory", "airfield": construction_duration = 10.0
+		"missile_silo", "shipyard": construction_duration = 13.0
+		"missile_defense": construction_duration = 9.0
+	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
 	var building_name := "حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
-	notice = "تم إنشاء %s" % building_name
+	notice = "بدأ إنشاء %s — انتظر اكتمال البناء" % building_name
 	notice_time = 2.0
 	build_mode = ""
 
