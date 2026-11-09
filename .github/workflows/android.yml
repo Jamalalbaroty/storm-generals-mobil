@@ -78,6 +78,12 @@ jobs:
           echo "Configured Godot Android SDK: $ANDROID_HOME"
           echo "Configured Godot Java SDK: $JAVA_HOME"
           godot --headless --path . --editor --quit --verbose
+          set -o pipefail
+          godot --headless --path . --quit-after 3 --verbose 2>&1 | tee /tmp/godot-smoke.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" /tmp/godot-smoke.log; then
+            echo "Godot startup smoke test failed"
+            exit 1
+          fi
           godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk --verbose
       - name: Upload APK
         uses: actions/upload-artifact@v4
