@@ -570,6 +570,39 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+	# Validate real production transactions: affordability, supply reservation and successful queueing.
+	var economy_test_buildings: Array[Dictionary] = [
+		{"pos": Vector2(260.0, 360.0), "kind": "power_plant", "hp": 450, "build_progress": 1.0},
+		{"pos": Vector2(340.0, 360.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
+	]
+	game.set("buildings", economy_test_buildings)
+	var no_economy_units: Array[Dictionary] = []
+	var no_economy_orders: Array[Dictionary] = []
+	game.set("units", no_economy_units)
+	game.set("production_orders", no_economy_orders)
+	game.set("faction", "الأمريكي")
+	game.set("credits", 1000)
+	game.set("supplies", 0)
+	game.call("_enqueue_unit", "tank")
+	if int(game.get("credits")) != 1000 or int(game.get("supplies")) != 0 or not (game.get("production_orders") as Array).is_empty():
+		push_error("Tank production consumed resources or queued without the required supply")
+		quit(1)
+		return
+	game.set("supplies", 1)
+	game.set("credits", 299)
+	game.call("_enqueue_unit", "tank")
+	if int(game.get("credits")) != 299 or int(game.get("supplies")) != 1 or not (game.get("production_orders") as Array).is_empty():
+		push_error("Tank production consumed resources or queued without sufficient credits")
+		quit(1)
+		return
+	game.set("credits", 1000)
+	game.call("_enqueue_unit", "tank")
+	var economy_orders: Array[Dictionary] = game.get("production_orders")
+	if int(game.get("credits")) != 700 or int(game.get("supplies")) != 0 or economy_orders.size() != 1 or String(economy_orders[0].get("kind", "")) != "tank":
+		push_error("Successful tank production did not reserve exactly 300 credits and one supply")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
