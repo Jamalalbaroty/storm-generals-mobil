@@ -461,7 +461,9 @@ func _process(delta: float) -> void:
 					if point.owner != "enemy":
 						var objective_distance: float = unit.pos.distance_to(point.pos)
 						var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
-						var objective_priority: float = objective_distance / income_weight
+						# Recapturing a player-held point is more urgent than taking an unclaimed one.
+						var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
+						var objective_priority: float = objective_distance / (income_weight * ownership_weight)
 						if objective_priority < best_objective_priority:
 							best_objective_priority = objective_priority
 							nearest_objective_distance = objective_distance
