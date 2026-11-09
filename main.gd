@@ -178,6 +178,8 @@ func _process(delta: float) -> void:
 			var unit := units[i]
 			if unit.get("hp", 0) <= 0:
 				continue
+			if unit.kind == "fighter" and _update_carrier_fighter(unit, delta):
+				continue
 			if unit.team == "enemy":
 				if _is_naval_kind(String(unit.kind)):
 					var naval_target := _best_naval_target(unit.pos, "player", String(unit.kind))
@@ -203,7 +205,7 @@ func _process(delta: float) -> void:
 							if air_unit.team == "enemy" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
 								enemy_air += 1
 						if unit.launch_cd <= 0.0 and enemy_air < 3:
-							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120, "attack_cd": 0.0, "target": base_pos})
+							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120, "attack_cd": 0.0, "target": base_pos, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
 						var landing_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
@@ -365,7 +367,7 @@ func _process(delta: float) -> void:
 							if air_unit.team == "player" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
 								friendly_air += 1
 						if unit.launch_cd <= 0.0 and friendly_air < 3:
-							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base})
+							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
 						var landing_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
@@ -619,6 +621,33 @@ func _helicopter_color(unit: Dictionary) -> Color:
 
 func _is_naval_kind(kind: String) -> bool:
 	return kind in ["destroyer", "carrier", "submarine", "landing_craft"]
+
+
+func _update_carrier_fighter(unit: Dictionary, delta: float) -> bool:
+	# Carrier-launched fighters return for recovery and rearm after each sortie.
+	if not bool(unit.get("carrier_home", false)):
+		return false
+	var carrier_index := _nearest_friendly_carrier(unit.pos, String(unit.team))
+	if carrier_index < 0:
+		unit.erase("carrier_home")
+		unit.erase("carrier_returning")
+		return false
+	var carrier_pos: Vector2 = units[carrier_index].pos
+	if bool(unit.get("carrier_returning", false)):
+		if unit.pos.distance_to(carrier_pos) <= 44.0:
+			unit.hp = 120
+			unit.attack_cd = 0.0
+			unit.carrier_returning = false
+			unit.sortie_timer = 24.0
+			_add_visual_effect("flash", carrier_pos, carrier_pos, Color("#9ce5f0"), 0.45, 34.0)
+			return true
+		unit.pos += (carrier_pos - unit.pos).normalized() * delta * 112.0
+		return true
+	unit.sortie_timer = float(unit.get("sortie_timer", 24.0)) - delta
+	if unit.sortie_timer <= 0.0:
+		unit.carrier_returning = true
+		unit.target = carrier_pos
+	return false
 
 func _nearest_friendly_carrier(from_pos: Vector2, team: String) -> int:
 	var best_index := -1
