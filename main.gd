@@ -501,7 +501,7 @@ func _update_environment_particles(delta: float) -> void:
 	# Emit short dust puffs behind moving ground forces.
 	if game_started:
 		for unit in units:
-			if unit.get("hp", 0) <= 0 or not String(unit.kind) in ["tank", "infantry", "artillery"]:
+			if unit.get("hp", 0) <= 0 or not ["tank", "infantry", "artillery"].has(String(unit.kind)):
 				continue
 			var previous_pos: Vector2 = unit.get("environment_prev_pos", unit.pos)
 			var moved_distance := previous_pos.distance_to(unit.pos)
