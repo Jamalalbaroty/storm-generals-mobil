@@ -305,7 +305,7 @@ func _process(delta: float) -> void:
 						var threatens_asset := candidate.pos.distance_to(enemy_base) <= 250.0
 						if not threatens_asset:
 							for protected_building in enemy_buildings:
-								if candidate.pos.distance_to(protected_building.pos) <= 185.0:
+								if candidate.pos.distance_to(protected_building.pos) <= 350.0:
 									threatens_asset = true
 									break
 						if threatens_asset:
@@ -1595,8 +1595,8 @@ func _update_enemy_defense_assignments() -> void:
 		var candidate: Dictionary = units[unit_index]
 		if candidate.team == "enemy" and candidate.get("hp", 0) > 0 and ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			eligible_indices.append(unit_index)
-			candidate["defense_guard"] = false
-			candidate.erase("defense_anchor")
+			units[unit_index]["defense_guard"] = false
+			units[unit_index].erase("defense_anchor")
 	var desired_guards := mini(3, maxi(1, int((eligible_indices.size() + 3) / 4))) if not eligible_indices.is_empty() else 0
 	for guard_slot in range(desired_guards):
 		var best_index := -1
