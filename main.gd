@@ -460,7 +460,7 @@ func _process(delta: float) -> void:
 				for point in supply_points:
 					if point.owner != "enemy":
 						var objective_distance: float = unit.pos.distance_to(point.pos)
-						var income_weight := 1.25 if String(point.get("kind", "supply")) == "port" else 1.0
+						var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
 						var objective_priority: float = objective_distance / income_weight
 						if objective_priority < best_objective_priority:
 							best_objective_priority = objective_priority
