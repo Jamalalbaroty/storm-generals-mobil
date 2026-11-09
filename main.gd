@@ -209,7 +209,7 @@ func _process(delta: float) -> void:
 							if air_unit.team == "enemy" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
 								enemy_air += 1
 						if unit.launch_cd <= 0.0 and enemy_air < 3:
-							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120, "attack_cd": 0.0, "target": base_pos, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
+							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "attack_cd": 0.0, "target": base_pos, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
 						var landing_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
@@ -218,7 +218,8 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (46 if unit.kind == "destroyer" else 40)))
+							var naval_army := String(unit.get("faction", _enemy_faction()))
+							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if naval_army == "وطن" else (44 if naval_army == "الأمريكي" else (42 if naval_army == "الجيش العربي" else 40)))))
 							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#ffb66f"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ff995c"), 0.5, 38.0)
 							if naval_target >= 0:
@@ -1757,6 +1758,12 @@ func _draw_capture_progress(p: Vector2, progress: float) -> void:
 	draw_rect(Rect2(p + Vector2(-27, -40), Vector2(54.0 * ratio, 5)), Color("#f2d15c"))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-40, -46), "جارٍ الاستيلاء", HORIZONTAL_ALIGNMENT_CENTER, 80, 11, Color("#ffe58a"))
 
+func _enemy_faction() -> String:
+	var player_faction_index := FACTIONS.find(faction)
+	if player_faction_index < 0:
+		return "الصيني"
+	return FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
+
 func _missile_damage(army: String) -> int:
 	if army == "وطن":
 		return 230
@@ -1808,8 +1815,7 @@ func _launch_player_missile() -> void:
 func _launch_enemy_missile() -> void:
 	if enemy_credits < MISSILE_COST or enemy_supplies < 4:
 		return
-	var player_faction_index := FACTIONS.find(faction)
-	var enemy_faction := FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
+	var enemy_faction := _enemy_faction()
 	var silo_index := -1
 	for i in enemy_buildings.size():
 		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
@@ -2066,23 +2072,23 @@ func _enemy_ai_turn() -> void:
 	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
-		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_supplies >= 3 and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= HELICOPTER_COST
 		enemy_supplies -= 3
-		var rival_faction: String = FACTIONS[(FACTIONS.find(faction) + 1) % FACTIONS.size()]
+		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < (3 if player_heavy_ground_threat >= 4 else 2):
 		enemy_credits -= ARTILLERY_COST
 		enemy_supplies -= 2
-		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_supplies >= 1 and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
 		enemy_credits -= TANK_COST
 		enemy_supplies -= 1
-		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST and enemy_infantry < 8:
 		enemy_credits -= INFANTRY_COST
-		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
 
 func _enemy_build_position() -> Vector2:
 	var size := get_viewport_rect().size
