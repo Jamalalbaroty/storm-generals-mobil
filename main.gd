@@ -25,6 +25,7 @@ var units: Array[Dictionary] = []
 var selected: Array[int] = []
 var buildings: Array[Dictionary] = []
 var build_mode := ""
+var selected_enemy_building := -1
 var notice := "اختر جيشك لبدء المعركة"
 var notice_time := 4.0
 var enemy_timer := 0.0
@@ -61,6 +62,7 @@ func _process(delta: float) -> void:
 			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
 			income_timer = 0.0
 		_update_supply_control(delta)
+		_update_building_capture(delta)
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
 			queue_redraw()
@@ -212,6 +214,34 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * 65.0
 					continue
+				if unit.has("attack_building"):
+					var building_target := int(unit.attack_building)
+					if building_target < 0 or building_target >= enemy_buildings.size():
+						unit.erase("attack_building")
+						continue
+					var target_building: Dictionary = enemy_buildings[building_target]
+					var building_distance := unit.pos.distance_to(target_building.pos)
+					var building_range := 350.0 if unit.kind == "artillery" else 75.0
+					if building_distance <= building_range:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							var building_damage := 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8)
+							target_building.hp = maxi(0, int(target_building.get("hp", 400)) - building_damage)
+							_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
+							unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
+							if target_building.hp <= 0:
+								enemy_buildings.remove_at(building_target)
+								selected_enemy_building = -1
+								for other in units:
+									if other.has("attack_building") and int(other.attack_building) == building_target:
+										other.erase("attack_building")
+									elif other.has("attack_building") and int(other.attack_building) > building_target:
+										other.attack_building = int(other.attack_building) - 1
+								notice = "تم تدمير مبنى العدو!"
+								notice_time = 2.5
+					else:
+						unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
+					continue
 				if unit.get("attack_base", false):
 					var base_distance := unit.pos.distance_to(enemy_base)
 					var base_range := 360.0 if unit.kind == "artillery" else 155.0
@@ -341,8 +371,12 @@ func _draw() -> void:
 	_draw_base_health(enemy_base, enemy_base_hp)
 	for building in buildings:
 		_draw_building(building.pos, building.kind, false)
-	for building in enemy_buildings:
+	for building_index in enemy_buildings.size():
+		var building: Dictionary = enemy_buildings[building_index]
 		_draw_building(building.pos, building.kind, true)
+		if building_index == selected_enemy_building:
+			draw_arc(building.pos, 39.0, 0.0, TAU, 48, Color("#ffe27a"), 3.0)
+		_draw_building_health(building.pos, int(building.get("hp", 400)))
 	for i in units.size():
 		var u := units[i]
 		if u.get("hp", 0) <= 0:
@@ -430,19 +464,19 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "إلغاء"]
-		for i in 11:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء"]
+		for i in 13:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 195), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 252), "حدد مبنى العدو ثم اختر السيطرة أو التدمير • السيطرة تحتاج مشاة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 4
 	var row := int(index / 4)
 	var button_width := (size.x - 40.0) / 4.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 184.0 + row * 58.0), Vector2(button_width, 52.0))
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 242.0 + row * 58.0), Vector2(button_width, 52.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -561,8 +595,13 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice_time = 3.0
 			elif i == 9:
 				_spawn_unit("helicopter")
+			elif i == 10:
+				_capture_selected_building()
+			elif i == 11:
+				_order_destroy_selected_building()
 			else:
 				selected.clear()
+				selected_enemy_building = -1
 				build_mode = ""
 			queue_redraw()
 			return
@@ -571,12 +610,24 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		queue_redraw()
 		return
 	if drag_start.distance_to(pos) > 24.0:
+		selected_enemy_building = -1
 		selected.clear()
 		var area := Rect2(drag_start, pos - drag_start).abs()
 		for i in units.size():
 			if units[i].team == "player" and area.has_point(units[i].pos):
 				selected.append(i)
 	else:
+		var building_found := -1
+		for i in enemy_buildings.size():
+			if enemy_buildings[i].pos.distance_to(pos) < 38.0:
+				building_found = i
+				break
+		if building_found >= 0:
+			selected_enemy_building = building_found
+			notice = "تم تحديد مبنى العدو — اختر السيطرة أو التدمير"
+			notice_time = 3.0
+			queue_redraw()
+			return
 		var enemy_found := -1
 		for i in units.size():
 			if units[i].team == "enemy" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 30:
@@ -687,6 +738,75 @@ func _unit_supply_cost(kind: String) -> int:
 	if kind == "tank":
 		return 1
 	return 0
+
+func _update_building_capture(delta: float) -> void:
+	for i in range(enemy_buildings.size() - 1, -1, -1):
+		var building: Dictionary = enemy_buildings[i]
+		var infantry_near := false
+		var enemy_guard_near := false
+		for unit in units:
+			if unit.get("hp", 0) <= 0 or unit.pos.distance_to(building.pos) > 48.0:
+				continue
+			if unit.team == "player" and unit.kind == "infantry":
+				infantry_near = true
+			elif unit.team == "enemy":
+				enemy_guard_near = true
+		if infantry_near and not enemy_guard_near:
+			building.capture_progress = float(building.get("capture_progress", 0.0)) + delta
+			if building.capture_progress >= 3.0:
+				var captured := building.duplicate(true)
+				captured.erase("capture_progress")
+				buildings.append(captured)
+				enemy_buildings.remove_at(i)
+				selected_enemy_building = -1
+				notice = "استوليت على مبنى العدو وأصبح تحت قيادتك!"
+				notice_time = 3.0
+		elif enemy_guard_near:
+			building.capture_progress = 0.0
+
+func _capture_selected_building() -> void:
+	if selected_enemy_building < 0 or selected_enemy_building >= enemy_buildings.size():
+		notice = "حدد مبنى للعدو أولاً"
+		notice_time = 2.0
+		return
+	var assigned := 0
+	var target: Vector2 = enemy_buildings[selected_enemy_building].pos
+	for unit in units:
+		if unit.team == "player" and unit.kind == "infantry" and unit.get("hp", 0) > 0:
+			unit.target = target
+			unit.erase("attack_base")
+			unit.erase("attack_target")
+			unit.erase("attack_building")
+			assigned += 1
+	if assigned == 0:
+		notice = "تحتاج مشاة أحياء للسيطرة على المبنى"
+	else:
+		notice = "تتقدم قوات المشاة للاستيلاء — أمّن المنطقة!"
+	notice_time = 3.0
+
+func _order_destroy_selected_building() -> void:
+	if selected_enemy_building < 0 or selected_enemy_building >= enemy_buildings.size():
+		notice = "حدد مبنى للعدو أولاً"
+		notice_time = 2.0
+		return
+	var assigned := 0
+	for unit in units:
+		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery" or unit.kind == "infantry"):
+			unit.attack_building = selected_enemy_building
+			unit.erase("attack_base")
+			unit.erase("attack_target")
+			unit.erase("target")
+			assigned += 1
+	if assigned == 0:
+		notice = "أنت بحاجة إلى قوات برية لتدمير المبنى"
+	else:
+		notice = "صدرت أوامر تدمير المبنى المحدد!"
+	notice_time = 3.0
+
+func _draw_building_health(p: Vector2, hp: int) -> void:
+	var ratio := clampf(float(hp) / 400.0, 0.0, 1.0)
+	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50, 5)), Color("#292929"))
+	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50.0 * ratio, 5)), Color("#79d47b"))
 
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
