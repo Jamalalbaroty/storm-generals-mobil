@@ -434,8 +434,8 @@ func _initialize() -> void:
 	game.set("units", enemy_landing_support_units)
 	game.call("_process", 0.1)
 	var enemy_supported_units: Array[Dictionary] = game.get("units")
-	if not bool(enemy_supported_units[0].get("landing_support_active", false)) or int(enemy_supported_units[0].get("landing_support_target", -1)) != 2:
-		push_error("Enemy tank did not protect its landed marines from a nearby player tank")
+	if not bool(enemy_supported_units[0].get("landing_support_active", false)) or int(enemy_supported_units[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_units[2].get("hp", 150)) >= 150:
+		push_error("Enemy tank did not engage the nearby player tank to protect its landed marines")
 		quit(1)
 		return
 	var cleared_enemy_support: Array[Dictionary] = [enemy_supported_units[0], enemy_supported_units[1]]
@@ -455,8 +455,8 @@ func _initialize() -> void:
 	game.set("units", enemy_artillery_support_units)
 	game.call("_process", 0.1)
 	var enemy_supported_artillery: Array[Dictionary] = game.get("units")
-	if not bool(enemy_supported_artillery[0].get("landing_support_active", false)) or int(enemy_supported_artillery[0].get("landing_support_target", -1)) != 2:
-		push_error("Enemy artillery did not protect its landed marines from a nearby player tank")
+	if not bool(enemy_supported_artillery[0].get("landing_support_active", false)) or int(enemy_supported_artillery[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_artillery[2].get("hp", 150)) >= 150:
+		push_error("Enemy artillery did not fire on the nearby player tank to protect its landed marines")
 		quit(1)
 		return
 
