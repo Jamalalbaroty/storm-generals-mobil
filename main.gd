@@ -662,6 +662,30 @@ func _draw() -> void:
 			draw_arc(u.pos + Vector2(0, -8), 6, 3.2, 6.1, 16, Color("#30383a"), 3)
 			draw_line(u.pos + Vector2(4, 0), u.pos + Vector2(13, -5), Color("#252b2b"), 2.5)
 			draw_circle(u.pos + Vector2(-7, 1), 3, Color("#5d6c58"))
+		# Additional deck fittings and ship silhouettes for the naval visual pass.
+		if u.kind == "carrier":
+			draw_line(u.pos + Vector2(-27, -9), u.pos + Vector2(23, -9), Color("#e1e7e8"), 1.5)
+			draw_line(u.pos + Vector2(-27, 9), u.pos + Vector2(23, 9), Color("#56636a"), 1.5)
+			draw_rect(Rect2(u.pos + Vector2(-7, -10), Vector2(12, 7)), Color("#52636b"))
+			draw_rect(Rect2(u.pos + Vector2(-4, -12), Vector2(5, 3)), Color("#d7e1e1"))
+			for deck_plane in range(3):
+				var plane_x := -20.0 + deck_plane * 12.0
+				draw_colored_polygon(PackedVector2Array([u.pos + Vector2(plane_x + 3, 4), u.pos + Vector2(plane_x - 3, 2), u.pos + Vector2(plane_x - 5, -1), u.pos + Vector2(plane_x - 4, 4), u.pos + Vector2(plane_x - 5, 8), u.pos + Vector2(plane_x - 3, 6)]), Color("#d7e1e1"))
+		elif u.kind == "destroyer":
+			draw_line(u.pos + Vector2(-25, -6), u.pos + Vector2(21, -6), Color("#d7e0df"), 1.3)
+			draw_line(u.pos + Vector2(-25, 6), u.pos + Vector2(21, 6), Color("#52616a"), 1.3)
+			draw_rect(Rect2(u.pos + Vector2(-6, -10), Vector2(11, 6)), Color("#aab8ba"))
+			for turret_pos in [Vector2(15, 0), Vector2(-19, 0)]:
+				draw_circle(u.pos + turret_pos, 3.2, Color("#303b42"))
+				draw_line(u.pos + turret_pos, u.pos + turret_pos + Vector2(7, -1), Color("#d7dedb"), 2.0)
+		elif u.kind == "submarine":
+			draw_line(u.pos + Vector2(-19, 2), u.pos + Vector2(18, 2), Color("#89999b"), 1.5)
+			draw_rect(Rect2(u.pos + Vector2(-2, -13), Vector2(5, 4)), Color("#53646a"))
+			draw_line(u.pos + Vector2(0, -12), u.pos + Vector2(0, -18), Color("#cbd5d5"), 1.5)
+		elif u.kind == "landing_craft":
+			draw_line(u.pos + Vector2(18, -7), u.pos + Vector2(23, 0), Color("#e4e1d0"), 2.0)
+			draw_line(u.pos + Vector2(18, 7), u.pos + Vector2(23, 0), Color("#e4e1d0"), 2.0)
+			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
 		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
