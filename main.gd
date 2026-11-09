@@ -262,7 +262,7 @@ func _process(delta: float) -> void:
 				else:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
 					continue
-				if unit.kind == "helicopter":				if unit.kind == "helicopter":
+				if unit.kind == "helicopter":
 					var heli_target := _nearest_enemy_unit(unit.pos, 380.0)
 					if heli_target >= 0:
 						var heli_enemy: Dictionary = units[heli_target]
