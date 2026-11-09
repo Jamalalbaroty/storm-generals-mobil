@@ -293,6 +293,24 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+
+	# Enemy craft must complete the same return-and-reload cycle after its assault.
+	var enemy_home: Vector2 = Vector2(enemy_craft_test.get("home_pos", Vector2.ZERO))
+	enemy_landed_units[0]["pos"] = enemy_home
+	game.set("units", enemy_landed_units)
+	game.call("_update_landing_craft", enemy_landed_units[0], 0.1, Vector2(700.0, 520.0))
+	var enemy_loading_units: Array[Dictionary] = game.get("units")
+	if String(enemy_loading_units[0].get("landing_state", "")) != "loading" or absf(float(enemy_loading_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
+		push_error("Enemy landing craft did not return to dock for its five-second reload")
+		quit(1)
+		return
+	game.call("_update_landing_craft", enemy_loading_units[0], 5.1, Vector2(700.0, 520.0))
+	var enemy_reloaded_units: Array[Dictionary] = game.get("units")
+	if String(enemy_reloaded_units[0].get("landing_state", "")) != "outbound" or int(enemy_reloaded_units[0].get("passengers", 0)) != 3 or enemy_reloaded_units.size() != 4:
+		push_error("Enemy landing craft failed to reload and prepare a second amphibious sortie")
+		quit(1)
+		return
+
 	# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
 	var shore := Vector2(700.0, 520.0)
 	var home_dock := Vector2(180.0, 520.0)
