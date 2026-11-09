@@ -425,6 +425,41 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Enemy armor must also defend its own landed marines against nearby player ground forces.
+	var enemy_landing_support_units: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "target": Vector2(200.0, 360.0)},
+		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
+		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("units", enemy_landing_support_units)
+	game.call("_process", 0.1)
+	var enemy_supported_units: Array[Dictionary] = game.get("units")
+	if not bool(enemy_supported_units[0].get("landing_support_active", false)) or int(enemy_supported_units[0].get("landing_support_target", -1)) != 2:
+		push_error("Enemy tank did not protect its landed marines from a nearby player tank")
+		quit(1)
+		return
+	var cleared_enemy_support: Array[Dictionary] = [enemy_supported_units[0], enemy_supported_units[1]]
+	game.set("units", cleared_enemy_support)
+	game.call("_process", 0.1)
+	var released_enemy_units: Array[Dictionary] = game.get("units")
+	if bool(released_enemy_units[0].get("landing_support_active", false)) or released_enemy_units[0].has("landing_support_target"):
+		push_error("Enemy tank did not release its temporary landing-defense assignment after the threat disappeared")
+		quit(1)
+		return
+
+	var enemy_artillery_support_units: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "target": Vector2(200.0, 360.0)},
+		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
+		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("units", enemy_artillery_support_units)
+	game.call("_process", 0.1)
+	var enemy_supported_artillery: Array[Dictionary] = game.get("units")
+	if not bool(enemy_supported_artillery[0].get("landing_support_active", false)) or int(enemy_supported_artillery[0].get("landing_support_target", -1)) != 2:
+		push_error("Enemy artillery did not protect its landed marines from a nearby player tank")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
