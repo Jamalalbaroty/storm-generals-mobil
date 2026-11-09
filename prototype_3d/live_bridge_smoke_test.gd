@@ -758,7 +758,7 @@ func _initialize() -> void:
 		{"pos": Vector2(900.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
 	]
 	game.set("units", base_threat_units)
-	game.set("supply_points", empty_supply_points)
+	game.set("supply_points", no_supply_points)
 	game.call("_process", 0.5)
 	var base_guard_response: Array[Dictionary] = game.get("units")
 	if int(base_guard_response[1].get("hp", 150)) >= 150:
