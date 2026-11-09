@@ -268,11 +268,129 @@ func _build_battlefield_features() -> void:
 	_add_road(Vector3(0.0, -0.04, 0.0), Vector2(ARENA_SIZE, 4.2), 0.0)
 	_add_road_markings()
 
-	# Compact field outposts placed away from the showcase vehicles.
-	_add_field_structure(Vector3(-14.0, 0.0, -7.0), Vector3(5.0, 2.8, 4.0), Color(0.34, 0.38, 0.30), true)
-	_add_field_structure(Vector3(14.0, 0.0, 8.0), Vector3(5.0, 3.2, 4.5), Color(0.39, 0.36, 0.29), false)
-	_add_watch_tower(Vector3(17.0, 0.0, -15.0))
-	_add_watch_tower(Vector3(-17.0, 0.0, 16.0))
+	# Two opposing modular base complexes frame the central battlefield.
+	_build_base_complex(Vector3(-20.0, 0.0, 0.0), Color(0.28, 0.36, 0.27), "american")
+	_build_base_complex(Vector3(20.0, 0.0, 0.0), Color(0.39, 0.31, 0.25), "chinese")
+	_add_watch_tower(Vector3(-12.0, 0.0, -20.0))
+	_add_watch_tower(Vector3(12.0, 0.0, 20.0))
+
+func _build_base_complex(origin: Vector3, tint: Color, faction_id: String) -> void:
+	_add_base_building(origin + Vector3(0.0, 0.0, -12.0), "command", tint, faction_id)
+	_add_base_building(origin + Vector3(0.0, 0.0, -4.0), "barracks", tint, faction_id)
+	_add_base_building(origin + Vector3(0.0, 0.0, 4.0), "factory", tint, faction_id)
+	_add_base_building(origin + Vector3(0.0, 0.0, 12.0), "airfield", tint, faction_id)
+
+func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String) -> void:
+	var building := Node3D.new()
+	building.name = faction_id + "_" + kind
+	building.position = at
+	building.set_meta("building_kind", kind)
+	building.set_meta("faction_id", faction_id)
+	add_child(building)
+
+	if kind == "airfield":
+		var apron := MeshInstance3D.new()
+		var apron_mesh := PlaneMesh.new()
+		apron_mesh.size = Vector2(9.0, 7.0)
+		apron.mesh = apron_mesh
+		apron.position.y = 0.025
+		var apron_material := _make_armour_material(Color(0.16, 0.18, 0.17))
+		apron_material.roughness = 1.0
+		apron.material_override = apron_material
+		building.add_child(apron)
+
+	var body := MeshInstance3D.new()
+	var body_mesh := BoxMesh.new()
+	body_mesh.size = Vector3(6.2, 3.0, 5.2)
+	body.mesh = body_mesh
+	body.position.y = 1.5
+	body.material_override = _make_armour_material(tint)
+	building.add_child(body)
+
+	var roof := MeshInstance3D.new()
+	var roof_mesh := BoxMesh.new()
+	roof_mesh.size = Vector3(6.5, 0.28, 5.5)
+	roof.mesh = roof_mesh
+	roof.position.y = 3.08
+	roof.material_override = _make_armour_material(tint.darkened(0.30))
+	building.add_child(roof)
+
+	var faction_stripe := MeshInstance3D.new()
+	var stripe_mesh := BoxMesh.new()
+	stripe_mesh.size = Vector3(5.5, 0.20, 0.12)
+	faction_stripe.mesh = stripe_mesh
+	faction_stripe.position = Vector3(0.0, 2.72, -2.67)
+	var stripe_color := Color(0.20, 0.48, 0.82) if faction_id == "american" else Color(0.82, 0.20, 0.16)
+	faction_stripe.material_override = _make_armour_material(stripe_color)
+	building.add_child(faction_stripe)
+
+	var door := MeshInstance3D.new()
+	var door_mesh := BoxMesh.new()
+	door_mesh.size = Vector3(1.15, 1.75, 0.10)
+	door.mesh = door_mesh
+	door.position = Vector3(0.0, 0.88, -2.66)
+	door.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
+	building.add_child(door)
+
+	for side in [-1.0, 1.0]:
+		var window := MeshInstance3D.new()
+		var window_mesh := BoxMesh.new()
+		window_mesh.size = Vector3(1.0, 0.58, 0.08)
+		window.mesh = window_mesh
+		window.position = Vector3(side * 1.72, 2.05, -2.67)
+		var glass := StandardMaterial3D.new()
+		glass.albedo_color = Color(0.12, 0.25, 0.30)
+		glass.metallic = 0.35
+		glass.roughness = 0.18
+		glass.emission_enabled = true
+		glass.emission = Color(0.035, 0.10, 0.13)
+		glass.emission_energy_multiplier = 0.45
+		window.material_override = glass
+		building.add_child(window)
+
+	if kind == "command":
+		var command_tower := MeshInstance3D.new()
+		var tower_mesh := BoxMesh.new()
+		tower_mesh.size = Vector3(1.7, 1.35, 1.7)
+		command_tower.mesh = tower_mesh
+		command_tower.position = Vector3(0.0, 3.85, 0.0)
+		command_tower.material_override = _make_armour_material(tint.lightened(0.12))
+		building.add_child(command_tower)
+		var antenna := MeshInstance3D.new()
+		var antenna_mesh := CylinderMesh.new()
+		antenna_mesh.top_radius = 0.025
+		antenna_mesh.bottom_radius = 0.045
+		antenna_mesh.height = 1.8
+		antenna.mesh = antenna_mesh
+		antenna.position = Vector3(0.0, 5.42, 0.0)
+		antenna.material_override = _make_armour_material(Color(0.12, 0.14, 0.13))
+		building.add_child(antenna)
+	elif kind == "factory":
+		for side in [-1.0, 1.0]:
+			var vent := MeshInstance3D.new()
+			var vent_mesh := CylinderMesh.new()
+			vent_mesh.top_radius = 0.28
+			vent_mesh.bottom_radius = 0.38
+			vent_mesh.height = 1.15
+			vent.mesh = vent_mesh
+			vent.position = Vector3(side * 2.0, 3.78, 1.25)
+			vent.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
+			building.add_child(vent)
+	elif kind == "airfield":
+		for side in [-1.0, 1.0]:
+			var runway_light := MeshInstance3D.new()
+			var light_mesh := SphereMesh.new()
+			light_mesh.radius = 0.11
+			light_mesh.height = 0.22
+			runway_light.mesh = light_mesh
+			runway_light.position = Vector3(side * 3.8, 0.18, 0.0)
+			var light_material := StandardMaterial3D.new()
+			light_material.albedo_color = Color(0.18, 0.72, 0.95)
+			light_material.emission_enabled = true
+			light_material.emission = light_material.albedo_color
+			light_material.emission_energy_multiplier = 1.3
+			runway_light.material_override = light_material
+			building.add_child(runway_light)
 
 func _add_road(at: Vector3, dimensions: Vector2, _angle: float) -> void:
 	var road := MeshInstance3D.new()
