@@ -36,12 +36,17 @@ jobs:
           cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
           export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
           export ANDROID_HOME="${ANDROID_HOME:-/usr/lib/android-sdk}"
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la "$ANDROID_HOME" || true
+          ls -la /opt/android-sdk || true
           keytool -genkeypair -noprompt -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH=/tmp/debug.keystore
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
-          godot --headless --path . --editor --quit
-          godot --headless --path . --install-android-build-template --export-debug "Android" build/StormGenerals-debug.apk
+          godot --headless --path . --editor --quit --verbose
+          godot --headless --path . --install-android-build-template --verbose
+          godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk --verbose
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
