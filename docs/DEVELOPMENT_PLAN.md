@@ -131,7 +131,8 @@ Do not treat this direction document as proof that any listed feature has alread
 - A separate production button can purchase an additional construction vehicle for 600 credits; it uses no supply points.
 - Building placement now requires a selected, living player construction vehicle within 220 world/screen units of the proposed site.
 - The builder has its own visible vehicle silhouette and 220 HP. The existing barracks/factory/airfield/defense and naval-yard placement flow is retained.
-- This is an initial construction-authorization and movement slice. Buildings still appear immediately after valid placement; construction timers, queues, prerequisites, power management, rally points, repair/sell, and worker pathing remain future work.
+- This is an initial construction-authorization and movement slice. Production queues, prerequisites, power management, rally points, repair/sell, and worker pathing remain future work.
+- Player-placed buildings now take time to finish (6–13 seconds depending on type), show a construction progress bar, and cannot produce units or fire defenses until complete. AI-placed buildings retain the existing instant-completion behavior for now; AI construction timing remains a balancing task.
 - Android/Godot smoke validation for this latest source commit is pending; do not describe this feature as device-tested until the relevant workflow and a phone test pass.
 
 ## Definition of done
