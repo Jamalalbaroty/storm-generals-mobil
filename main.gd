@@ -554,8 +554,39 @@ func _process(delta: float) -> void:
 					var target: Vector2 = unit.target
 					if unit.pos.distance_to(target) > 8.0:
 						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+		_cleanup_destroyed_units()
 		_update_unit_facing(delta)
 		queue_redraw()
+
+
+func _cleanup_destroyed_units() -> void:
+	# Remove destroyed units to prevent unbounded array growth during long matches.
+	# Remap every index-based selection and attack order before the next frame.
+	if units.is_empty():
+		selected.clear()
+		return
+	var old_to_new: Dictionary = {}
+	var survivors: Array[Dictionary] = []
+	for old_index in range(units.size()):
+		var candidate: Dictionary = units[old_index]
+		if int(candidate.get("hp", 0)) > 0:
+			old_to_new[old_index] = survivors.size()
+			survivors.append(candidate)
+	units = survivors
+	var remapped_selection: Array[int] = []
+	for old_index in selected:
+		if old_to_new.has(old_index):
+			remapped_selection.append(int(old_to_new[old_index]))
+	selected = remapped_selection
+	for survivor in units:
+		if not survivor.has("attack_target"):
+			continue
+		var old_target := int(survivor.attack_target)
+		if old_to_new.has(old_target):
+			survivor.attack_target = int(old_to_new[old_target])
+		else:
+			survivor.erase("attack_target")
+
 
 func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Color, duration: float, radius: float) -> void:
 	if kind == "explosion":
