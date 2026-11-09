@@ -74,6 +74,45 @@ func _initialize() -> void:
 		quit(1)
 		return
 	game.call("_set_3d_view_enabled", true)
+	# Two-finger gestures must enter pinch mode and must not become a unit-selection tap.
+	var touch_one := InputEventScreenTouch.new()
+	touch_one.index = 0
+	touch_one.pressed = true
+	touch_one.position = Vector2(240.0, 260.0)
+	bridge.call("_unhandled_input", touch_one)
+	var touch_two := InputEventScreenTouch.new()
+	touch_two.index = 1
+	touch_two.pressed = true
+	touch_two.position = Vector2(440.0, 260.0)
+	bridge.call("_unhandled_input", touch_two)
+	if not bool(bridge.get("touch_multi_gesture")) or float(bridge.get("last_pinch_distance")) < 199.0:
+		push_error("Two-finger touch did not enter mobile pinch gesture mode")
+		quit(1)
+		return
+	var touch_drag := InputEventScreenDrag.new()
+	touch_drag.index = 1
+	touch_drag.position = Vector2(480.0, 280.0)
+	touch_drag.relative = Vector2(40.0, 20.0)
+	bridge.call("_unhandled_input", touch_drag)
+	var pinch_center: Vector2 = bridge.get("last_pinch_center")
+	if pinch_center.distance_to(Vector2(360.0, 270.0)) > 0.1:
+		push_error("Two-finger camera gesture did not track the pinch center for camera panning")
+		quit(1)
+		return
+	var release_one := InputEventScreenTouch.new()
+	release_one.index = 0
+	release_one.pressed = false
+	release_one.position = Vector2(240.0, 260.0)
+	bridge.call("_unhandled_input", release_one)
+	var release_two := InputEventScreenTouch.new()
+	release_two.index = 1
+	release_two.pressed = false
+	release_two.position = Vector2(480.0, 280.0)
+	bridge.call("_unhandled_input", release_two)
+	if bool(bridge.get("touch_multi_gesture")) or not (bridge.get("selected_live_units") as Array).is_empty():
+		push_error("Ending a pinch gesture left gesture state active or triggered unintended unit selection")
+		quit(1)
+		return
 	var enemy_screen: Vector2 = bridge.rts_camera.unproject_position(enemy_fighter.global_position + Vector3.UP)
 	var player_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
 	bridge.call("_handle_world_tap", enemy_screen)
