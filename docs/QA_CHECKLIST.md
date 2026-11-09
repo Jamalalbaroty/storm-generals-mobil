@@ -38,6 +38,8 @@ Use this checklist for each candidate build. Record device model, Android versio
 ## 5. Missiles and naval combat
 - [ ] Missile launch consumes the correct resources and respects cooldown/stock limits.
 - [ ] Missile defense can detect/intercept valid incoming missiles.
+- [ ] Missile defense intercepts incoming missiles with a 0.75-second per-building cooldown; consecutive missiles are tested against the 190-unit interception radius.
+- [ ] Missile launch cost is faction-aware on both sides: وطن 850 credits; American, Chinese, and Arab Army 650 credits; all consume four supplies, with faction-specific warhead damage and silo cooldown preserved.
 - [ ] Destroyers, submarines, carriers, and landing craft retain distinct behaviors.
 - [ ] Landing craft unload troops at valid shore positions and do not strand units outside the map.
 - [ ] Naval escorts remain near their assigned transports/carriers when required.

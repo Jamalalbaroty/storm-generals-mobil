@@ -23,9 +23,9 @@ This is a static review of `main.gd`, not a measured win-rate report. No balance
 | Helicopter | 650 |
 | Missile silo | 800 |
 | Missile defense | 700 |
-| Missile | 650 |
+| Missile | 650 (850 for وطن) |
 
-Most costs are shared constants. Helicopters are now the explicit exception: وطن pays 850 credits while the American, Chinese, and Arab Army pay 650, and both player and AI production use the owning faction's cost.
+Most costs are shared constants. Helicopters and strategic missiles are the faction-aware exceptions: وطن pays 850 credits for each, while the American, Chinese, and Arab Army pay 650. Player and AI spending use the owning faction's cost.
 
 ## Existing faction-specific combat values
 
@@ -53,7 +53,7 @@ The player-side naval attack expression includes faction-specific base damage va
 
 ## Balance risks to validate
 
-1. **وطن's stacked premium bonuses:** it has the highest helicopter damage and fastest helicopter cadence, and the highest missile damage with the shortest missile cooldown. Its raw helicopter damage rate is about 55% above the Chinese value; its missile damage-per-cooldown rate is about 59% above the Chinese value. The helicopter now has a 200-credit surcharge for وطن; missile economy and the combined premium still require controlled testing.
+1. **وطن's stacked premium bonuses:** it has the highest helicopter damage and fastest helicopter cadence, and the highest missile damage with the shortest missile cooldown. Its raw helicopter damage rate is about 55% above the Chinese value; its missile damage-per-cooldown rate is about 59% above the Chinese value. Helicopters and strategic missiles each carry a 200-credit surcharge for وطن. Missile defense cooldown is 0.75 seconds per building (190-unit interception radius), reducing the previous 2-second gap that could allow a follow-up missile through.
 2. **Faction identity is concentrated in a few units:** the visible differences found in this review cluster around helicopters, missiles, and naval base damage. Confirm that other unit classes have intentional, documented differences before adding more bonuses.
 3. **Naval faction selection:** inspect both player and enemy naval damage paths during testing to ensure each side uses its own faction's values, rather than a shared player-faction variable.
 4. **Counterplay:** verify that anti-air can reliably punish helicopters, missile defense can mitigate strategic missiles, and these counters are affordable and available early enough to matter.
@@ -89,6 +89,8 @@ Do not tune based on one match. Prefer small changes to one variable at a time, 
 
 - Fighter combat parity: both teams now use a 300-unit air acquisition radius, 270-unit attack range, 30 base damage before terrain modifiers, 1.35-second cooldown, and matching pursuit/patrol speeds. Enemy fighters no longer inflict a base-only strike when no hostile aircraft target exists.
 - Helicopter premium trade-off: وطن retains its elite 38 damage / 1.10-second cadence, but its production cost is 850 credits rather than 650. Player and AI production both apply the unit owner's faction cost. Other factions retain 650 credits.
+- Strategic missile premium trade-off: وطن retains 230 damage and an 11-second silo cooldown, but each launch costs 850 credits rather than 650. Player and AI launches apply the firing faction's cost; other factions retain 650 credits.
+- Missile-defense response: each missile-defense building now has a 0.75-second interception cooldown, down from 2 seconds, while retaining the 190-unit interception radius.
 
 ## Next implementation step
 

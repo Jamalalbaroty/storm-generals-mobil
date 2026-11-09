@@ -24,6 +24,7 @@ const HELICOPTER_COST := 650
 const MISSILE_SILO_COST := 800
 const MISSILE_DEFENSE_COST := 700
 const MISSILE_COST := 650
+const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
 
 var faction := ""
 var map_type := "الساحل الصحراوي"
@@ -1345,7 +1346,7 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650", "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
 		for i in labels.size():
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
@@ -1819,6 +1820,10 @@ func _enemy_faction() -> String:
 		return "الصيني"
 	return FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
 
+func _missile_cost(army: String) -> int:
+	# وطن keeps the strongest warhead, balanced by a premium launch cost.
+	return 850 if army == "وطن" else MISSILE_COST
+
 func _missile_damage(army: String) -> int:
 	if army == "وطن":
 		return 230
@@ -1842,8 +1847,9 @@ func _launch_player_missile() -> void:
 		notice = "ابنِ منصة صواريخ أولاً"
 		notice_time = 2.5
 		return
-	if credits < MISSILE_COST or supplies < 4:
-		notice = "الصاروخ يحتاج 650 ذهب و4 إمدادات"
+	var missile_cost := _missile_cost(faction)
+	if credits < missile_cost or supplies < 4:
+		notice = "الصاروخ يحتاج %d ذهب و4 إمدادات" % missile_cost
 		notice_time = 2.5
 		return
 	var silo_index := -1
@@ -1860,7 +1866,7 @@ func _launch_player_missile() -> void:
 	if selected_enemy_building >= 0 and selected_enemy_building < enemy_buildings.size():
 		target_pos = enemy_buildings[selected_enemy_building].pos
 		target_kind = "building"
-	credits -= MISSILE_COST
+	credits -= missile_cost
 	supplies -= 4
 	buildings[silo_index].attack_cd = _missile_cooldown(faction)
 	missiles.append({"pos": buildings[silo_index].pos + Vector2(0, -24), "target": target_pos, "target_kind": target_kind, "team": "player", "damage": _missile_damage(faction), "life": 8.0})
@@ -1868,9 +1874,10 @@ func _launch_player_missile() -> void:
 	notice_time = 2.0
 
 func _launch_enemy_missile() -> void:
-	if enemy_credits < MISSILE_COST or enemy_supplies < 4:
-		return
 	var enemy_faction := _enemy_faction()
+	var missile_cost := _missile_cost(enemy_faction)
+	if enemy_credits < missile_cost or enemy_supplies < 4:
+		return
 	var silo_index := -1
 	for i in enemy_buildings.size():
 		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
@@ -1878,7 +1885,7 @@ func _launch_enemy_missile() -> void:
 			break
 	if silo_index < 0:
 		return
-	enemy_credits -= MISSILE_COST
+	enemy_credits -= missile_cost
 	enemy_supplies -= 4
 	enemy_buildings[silo_index].attack_cd = _missile_cooldown(enemy_faction)
 	missiles.append({"pos": enemy_buildings[silo_index].pos + Vector2(0, -24), "target": base_pos, "target_kind": "base", "team": "enemy", "damage": _missile_damage(enemy_faction), "life": 8.0})
@@ -1902,7 +1909,7 @@ func _update_missiles(delta: float) -> void:
 			if defense.kind != "missile_defense" or float(defense.get("attack_cd", 0.0)) > 0.0:
 				continue
 			if defense.pos.distance_to(missile.pos) <= 190.0:
-				defense.attack_cd = 2.0
+				defense.attack_cd = MISSILE_DEFENSE_INTERCEPT_COOLDOWN
 				_add_visual_effect("explosion", missile.pos, missile.pos, Color("#8ee8ff"), 0.5, 34.0)
 				missiles.remove_at(i)
 				intercepted = true
