@@ -316,9 +316,16 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		apron.material_override = apron_material
 		building.add_child(apron)
 
+	var body_size := Vector3(6.2, 3.0, 5.2)
+	if kind == "shipyard":
+		body_size = Vector3(8.0, 2.2, 6.5)
+	elif kind == "missile_silo" or kind == "missile_defense":
+		body_size = Vector3(5.8, 2.2, 5.0)
+	elif kind == "power_plant":
+		body_size = Vector3(6.8, 3.0, 5.8)
 	var body := MeshInstance3D.new()
 	var body_mesh := BoxMesh.new()
-	body_mesh.size = Vector3(6.2, 3.0, 5.2)
+	body_mesh.size = body_size
 	body.mesh = body_mesh
 	body.position.y = 1.5
 	body.material_override = _make_armour_material(tint)
@@ -408,6 +415,97 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			light_material.emission_energy_multiplier = 1.3
 			runway_light.material_override = light_material
 			building.add_child(runway_light)
+
+	elif kind == "turret" or kind == "anti_air":
+		var mount := MeshInstance3D.new()
+		var mount_mesh := CylinderMesh.new()
+		mount_mesh.top_radius = 1.05
+		mount_mesh.bottom_radius = 1.35
+		mount_mesh.height = 0.72
+		mount.mesh = mount_mesh
+		mount.position.y = 3.35
+		mount.material_override = _make_armour_material(tint.darkened(0.18))
+		building.add_child(mount)
+		for barrel_index in range(2 if kind == "anti_air" else 1):
+			var barrel := MeshInstance3D.new()
+			var barrel_mesh := BoxMesh.new()
+			barrel_mesh.size = Vector3(0.20, 0.22, 2.25)
+			barrel.mesh = barrel_mesh
+			barrel.position = Vector3(-0.22 + float(barrel_index) * 0.44, 3.55, -1.55)
+			barrel.material_override = _make_armour_material(Color(0.12, 0.14, 0.13))
+			building.add_child(barrel)
+	elif kind == "missile_silo":
+		var silo := MeshInstance3D.new()
+		var silo_mesh := CylinderMesh.new()
+		silo_mesh.top_radius = 0.82
+		silo_mesh.bottom_radius = 1.02
+		silo_mesh.height = 2.8
+		silo.mesh = silo_mesh
+		silo.position = Vector3(0.0, 4.65, 0.0)
+		silo.material_override = _make_armour_material(Color(0.24, 0.27, 0.24))
+		building.add_child(silo)
+		var hatch := MeshInstance3D.new()
+		var hatch_mesh := CylinderMesh.new()
+		hatch_mesh.top_radius = 1.12
+		hatch_mesh.bottom_radius = 1.12
+		hatch_mesh.height = 0.16
+		hatch.mesh = hatch_mesh
+		hatch.position = Vector3(0.0, 6.12, 0.0)
+		hatch.material_override = _make_armour_material(Color(0.48, 0.43, 0.31))
+		building.add_child(hatch)
+	elif kind == "missile_defense":
+		var radar_mast := MeshInstance3D.new()
+		var mast_mesh := CylinderMesh.new()
+		mast_mesh.top_radius = 0.06
+		mast_mesh.bottom_radius = 0.12
+		mast_mesh.height = 3.1
+		radar_mast.mesh = mast_mesh
+		radar_mast.position = Vector3(0.0, 4.75, 0.0)
+		radar_mast.material_override = _make_armour_material(Color(0.14, 0.17, 0.16))
+		building.add_child(radar_mast)
+		var dish := MeshInstance3D.new()
+		var dish_mesh := SphereMesh.new()
+		dish_mesh.radius = 0.78
+		dish_mesh.height = 0.28
+		dish.mesh = dish_mesh
+		dish.position = Vector3(0.0, 6.35, -0.12)
+		dish.rotation.x = -0.48
+		dish.material_override = _make_armour_material(Color(0.62, 0.68, 0.65))
+		building.add_child(dish)
+	elif kind == "power_plant":
+		for side in [-1.0, 1.0]:
+			var cooling_tower := MeshInstance3D.new()
+			var tower_mesh := CylinderMesh.new()
+			tower_mesh.top_radius = 0.62
+			tower_mesh.bottom_radius = 0.92
+			tower_mesh.height = 2.5
+			cooling_tower.mesh = tower_mesh
+			cooling_tower.position = Vector3(side * 1.8, 4.2, 0.5)
+			cooling_tower.material_override = _make_armour_material(Color(0.55, 0.54, 0.45))
+			building.add_child(cooling_tower)
+	elif kind == "shipyard":
+		var dock := MeshInstance3D.new()
+		var dock_mesh := BoxMesh.new()
+		dock_mesh.size = Vector3(10.0, 0.24, 8.5)
+		dock.mesh = dock_mesh
+		dock.position = Vector3(0.0, 0.12, 0.0)
+		dock.material_override = _make_armour_material(Color(0.22, 0.29, 0.30))
+		building.add_child(dock)
+		for side in [-1.0, 1.0]:
+			var crane_leg := MeshInstance3D.new()
+			var leg_mesh := BoxMesh.new()
+			leg_mesh.size = Vector3(0.22, 3.8, 0.22)
+			crane_leg.mesh = leg_mesh
+			crane_leg.position = Vector3(side * 3.3, 4.8, -1.8)
+			crane_leg.material_override = _make_armour_material(Color(0.78, 0.58, 0.20))
+			building.add_child(crane_leg)
+		var crane_beam := MeshInstance3D.new()
+		var beam_mesh := BoxMesh.new()
+		beam_mesh.size = Vector3(7.0, 0.24, 0.24)
+		crane_beam.mesh = beam_mesh
+		crane_beam.position = Vector3(0.0, 6.65, -1.8)
+		crane_beam.material_override = _make_armour_material(Color(0.78, 0.58, 0.20))
+		building.add_child(crane_beam)
 
 	if show_progress:
 		building.set_meta("construction_progress", clampf(build_progress, 0.0, 1.0))
