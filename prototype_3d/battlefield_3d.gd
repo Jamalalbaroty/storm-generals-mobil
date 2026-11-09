@@ -299,6 +299,22 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 		"infantry", "builder", "marine":
 			_add_placeholder_infantry_squad(at, tint, faction_id)
 			unit = showcase_tanks.back()
+		"destroyer", "carrier", "submarine", "landing_craft":
+			unit = _add_placeholder_naval_vessel(kind, at, tint, faction_id)
+		"artillery":
+			_add_placeholder_tank(at, tint, faction_id)
+			unit = showcase_tanks.back()
+			unit.set_meta("unit_type", "artillery")
+			var artillery_barrel := MeshInstance3D.new()
+			var artillery_mesh := CylinderMesh.new()
+			artillery_mesh.top_radius = 0.11
+			artillery_mesh.bottom_radius = 0.16
+			artillery_mesh.height = 4.2
+			artillery_barrel.mesh = artillery_mesh
+			artillery_barrel.rotation_degrees.x = 90.0
+			artillery_barrel.position = Vector3(0.0, 0.1, -2.6)
+			artillery_barrel.material_override = _make_armour_material(Color(0.15, 0.16, 0.14))
+			showcase_turrets.back().add_child(artillery_barrel)
 		_:
 			_add_placeholder_tank(at, tint, faction_id)
 			unit = showcase_tanks.back()
@@ -308,6 +324,108 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 		unit.set_meta("max_health", maxf(1.0, health))
 		unit.set_meta("source_gameplay_unit", true)
 	return unit
+
+func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, faction_id: String) -> Node3D:
+	var vessel := Node3D.new()
+	vessel.position = at
+	add_child(vessel)
+	showcase_tanks.append(vessel)
+	vessel.set_meta("health", 100.0)
+	vessel.set_meta("unit_type", kind)
+	vessel.set_meta("faction_id", faction_id)
+	_create_showcase_health_bar(vessel)
+
+	var hull := MeshInstance3D.new()
+	if kind == "submarine":
+		var hull_mesh := CapsuleMesh.new()
+		hull_mesh.radius = 0.72
+		hull_mesh.height = 7.4
+		hull.mesh = hull_mesh
+		hull.rotation_degrees.x = 90.0
+		hull.position.y = -0.05
+	else:
+		var hull_mesh := BoxMesh.new()
+		hull_mesh.size = Vector3(4.2, 0.8, 10.0) if kind == "carrier" else (Vector3(3.0, 0.75, 7.0) if kind == "landing_craft" else Vector3(2.8, 0.8, 8.2))
+		hull.mesh = hull_mesh
+		hull.position.y = 0.45
+	hull.material_override = _make_armour_material(tint.darkened(0.18))
+	vessel.add_child(hull)
+
+	if kind == "submarine":
+		var sail := MeshInstance3D.new()
+		var sail_mesh := BoxMesh.new()
+		sail_mesh.size = Vector3(0.9, 1.15, 1.5)
+		sail.mesh = sail_mesh
+		sail.position = Vector3(0.0, 0.78, 0.15)
+		sail.material_override = _make_armour_material(tint)
+		vessel.add_child(sail)
+		for side in [-1.0, 1.0]:
+			var fin := MeshInstance3D.new()
+			var fin_mesh := BoxMesh.new()
+			fin_mesh.size = Vector3(2.0, 0.12, 0.65)
+			fin.mesh = fin_mesh
+			fin.position = Vector3(side * 0.72, -0.2, 2.9)
+			fin.material_override = _make_armour_material(tint.darkened(0.25))
+			vessel.add_child(fin)
+	elif kind == "carrier":
+		var runway := MeshInstance3D.new()
+		var runway_mesh := BoxMesh.new()
+		runway_mesh.size = Vector3(2.8, 0.08, 8.4)
+		runway.mesh = runway_mesh
+		runway.position.y = 0.91
+		runway.material_override = _make_armour_material(Color(0.20, 0.22, 0.21))
+		vessel.add_child(runway)
+		var island := MeshInstance3D.new()
+		var island_mesh := BoxMesh.new()
+		island_mesh.size = Vector3(1.1, 2.0, 2.1)
+		island.mesh = island_mesh
+		island.position = Vector3(1.25, 1.75, -2.2)
+		island.material_override = _make_armour_material(tint.lightened(0.08))
+		vessel.add_child(island)
+		var mast := MeshInstance3D.new()
+		var mast_mesh := CylinderMesh.new()
+		mast_mesh.top_radius = 0.08
+		mast_mesh.bottom_radius = 0.13
+		mast_mesh.height = 1.4
+		mast.mesh = mast_mesh
+		mast.position = Vector3(1.25, 3.25, -2.2)
+		mast.material_override = _make_armour_material(Color(0.16, 0.18, 0.17))
+		vessel.add_child(mast)
+	elif kind == "landing_craft":
+		var ramp := MeshInstance3D.new()
+		var ramp_mesh := BoxMesh.new()
+		ramp_mesh.size = Vector3(2.4, 0.12, 1.3)
+		ramp.mesh = ramp_mesh
+		ramp.position = Vector3(0.0, 0.52, -4.0)
+		ramp.rotation_degrees.x = -18.0
+		ramp.material_override = _make_armour_material(tint.lightened(0.05))
+		vessel.add_child(ramp)
+		var cargo := MeshInstance3D.new()
+		var cargo_mesh := BoxMesh.new()
+		cargo_mesh.size = Vector3(1.9, 0.9, 2.2)
+		cargo.mesh = cargo_mesh
+		cargo.position = Vector3(0.0, 1.25, 0.1)
+		cargo.material_override = _make_armour_material(tint)
+		vessel.add_child(cargo)
+	else:
+		var bridge := MeshInstance3D.new()
+		var bridge_mesh := BoxMesh.new()
+		bridge_mesh.size = Vector3(1.6, 1.25, 1.8)
+		bridge.mesh = bridge_mesh
+		bridge.position = Vector3(0.0, 1.35, 0.6)
+		bridge.material_override = _make_armour_material(tint.lightened(0.06))
+		vessel.add_child(bridge)
+		for turret_z in [-2.4, 2.5]:
+			var turret := MeshInstance3D.new()
+			var turret_mesh := CylinderMesh.new()
+			turret_mesh.top_radius = 0.45
+			turret_mesh.bottom_radius = 0.5
+			turret_mesh.height = 0.42
+			turret.mesh = turret_mesh
+			turret.position = Vector3(0.0, 1.0, turret_z)
+			turret.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
+			vessel.add_child(turret)
+	return vessel
 
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
