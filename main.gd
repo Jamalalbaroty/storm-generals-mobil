@@ -377,6 +377,8 @@ func _draw() -> void:
 		if building_index == selected_enemy_building:
 			draw_arc(building.pos, 39.0, 0.0, TAU, 48, Color("#ffe27a"), 3.0)
 		_draw_building_health(building.pos, int(building.get("hp", 400)))
+		if float(building.get("capture_progress", 0.0)) > 0.0:
+			_draw_capture_progress(building.pos, float(building.capture_progress))
 	for i in units.size():
 		var u := units[i]
 		if u.get("hp", 0) <= 0:
@@ -763,6 +765,8 @@ func _update_building_capture(delta: float) -> void:
 				notice_time = 3.0
 		elif enemy_guard_near:
 			building.capture_progress = 0.0
+		else:
+			building.capture_progress = maxf(0.0, float(building.get("capture_progress", 0.0)) - delta * 0.5)
 
 func _capture_selected_building() -> void:
 	if selected_enemy_building < 0 or selected_enemy_building >= enemy_buildings.size():
@@ -807,6 +811,12 @@ func _draw_building_health(p: Vector2, hp: int) -> void:
 	var ratio := clampf(float(hp) / 400.0, 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50, 5)), Color("#292929"))
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50.0 * ratio, 5)), Color("#79d47b"))
+
+func _draw_capture_progress(p: Vector2, progress: float) -> void:
+	var ratio := clampf(progress / 3.0, 0.0, 1.0)
+	draw_rect(Rect2(p + Vector2(-28, -41), Vector2(56, 7)), Color("#252525"))
+	draw_rect(Rect2(p + Vector2(-27, -40), Vector2(54.0 * ratio, 5)), Color("#f2d15c"))
+	draw_string(ThemeDB.fallback_font, p + Vector2(-40, -46), "جارٍ الاستيلاء", HORIZONTAL_ALIGNMENT_CENTER, 80, 11, Color("#ffe58a"))
 
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
