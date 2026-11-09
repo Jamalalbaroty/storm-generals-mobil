@@ -402,6 +402,29 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Friendly artillery must also protect landed marines and restore its saved building order.
+	var artillery_support_units: Array[Dictionary] = [
+		{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "artillery", "hp": 110, "attack_building": 0, "attack_cd": 0.0},
+		{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
+		{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
+	]
+	game.set("units", artillery_support_units)
+	game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 500}])
+	game.call("_process", 0.1)
+	var supported_artillery: Array[Dictionary] = game.get("units")
+	if not bool(supported_artillery[0].get("landing_support_active", false)) or int(supported_artillery[0].get("attack_target", -1)) != 2 or supported_artillery[0].has("attack_building"):
+		push_error("Friendly artillery did not divert from its building order to protect the landed marine squad")
+		quit(1)
+		return
+	var cleared_artillery_support: Array[Dictionary] = [supported_artillery[0], supported_artillery[1]]
+	game.set("units", cleared_artillery_support)
+	game.call("_process", 0.1)
+	var restored_artillery: Array[Dictionary] = game.get("units")
+	if bool(restored_artillery[0].get("landing_support_active", false)) or int(restored_artillery[0].get("attack_building", -1)) != 0 or restored_artillery[0].has("attack_target"):
+		push_error("Friendly artillery did not resume its saved building order after landing threats were cleared")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
