@@ -666,7 +666,11 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 					"attack_cd": 0.0
 				}
 				if team == "player":
-					marine_unit["attack_base"] = true
+					var strategic_target := _strategic_enemy_building_index(landing_destination)
+					if marine == 0 and strategic_target >= 0:
+						marine_unit["attack_building"] = strategic_target
+					else:
+						marine_unit["attack_base"] = true
 				else:
 					marine_unit["target"] = base_pos
 				units.append(marine_unit)
@@ -701,6 +705,35 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 		if float(unit["landing_timer"]) <= 0.0:
 			unit["passengers"] = 3
 			unit["landing_state"] = "outbound"
+
+
+func _strategic_enemy_building_index(from_pos: Vector2) -> int:
+	# Landing infantry prioritize production and air facilities, then defensive assets.
+	var best_index := -1
+	var best_priority := -1
+	var best_distance := INF
+	for i in range(enemy_buildings.size()):
+		var building: Dictionary = enemy_buildings[i]
+		if int(building.get("hp", 0)) <= 0:
+			continue
+		var priority := 1
+		match String(building.get("kind", "")):
+			"barracks", "factory":
+				priority = 5
+			"airfield":
+				priority = 4
+			"shipyard", "missile_silo":
+				priority = 3
+			"turret", "anti_air", "missile_defense":
+				priority = 2
+			_:
+				priority = 1
+		var distance := from_pos.distance_to(building.pos)
+		if priority > best_priority or (priority == best_priority and distance < best_distance):
+			best_priority = priority
+			best_distance = distance
+			best_index = i
+	return best_index
 
 
 func _nearest_friendly_landing_craft(from_pos: Vector2, team: String) -> int:
@@ -1578,6 +1611,14 @@ func _update_building_capture(delta: float) -> void:
 				captured["captured"] = true
 				buildings.append(captured)
 				enemy_buildings.remove_at(i)
+				for assault_unit in units:
+					if not assault_unit.has("attack_building"):
+						continue
+					var assault_index := int(assault_unit.attack_building)
+					if assault_index == i:
+						assault_unit.erase("attack_building")
+					elif assault_index > i:
+						assault_unit.attack_building = assault_index - 1
 				selected_enemy_building = -1
 				notice = "استوليت على مبنى العدو وأصبح تحت قيادتك!"
 				notice_time = 3.0
