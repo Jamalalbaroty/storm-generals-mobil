@@ -1637,6 +1637,17 @@ func _enemy_ai_turn() -> void:
 			enemy_submarines += 1
 		else:
 			enemy_infantry += 1
+
+	# Read the player's visible force composition and scale counter-unit limits.
+	var player_air_threat := 0
+	var player_heavy_ground_threat := 0
+	for unit in units:
+		if unit.team != "player" or unit.get("hp", 0) <= 0:
+			continue
+		if unit.kind == "fighter" or unit.kind == "helicopter":
+			player_air_threat += 1
+		elif unit.kind == "tank" or unit.kind == "artillery":
+			player_heavy_ground_threat += 1
 	if _enemy_has_building("shipyard") and enemy_credits >= 1600 and enemy_supplies >= 8 and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= 1600
 		enemy_supplies -= 8
@@ -1657,20 +1668,20 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= 4
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 260, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < 2:
+	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_supplies >= 3 and enemy_helicopters < 2:
+	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_supplies >= 3 and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= HELICOPTER_COST
 		enemy_supplies -= 3
 		var rival_faction: String = FACTIONS[(FACTIONS.find(faction) + 1) % FACTIONS.size()]
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < 2:
+	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < (3 if player_heavy_ground_threat >= 4 else 2):
 		enemy_credits -= ARTILLERY_COST
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_supplies >= 1 and enemy_tanks < 4:
+	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_supplies >= 1 and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
 		enemy_credits -= TANK_COST
 		enemy_supplies -= 1
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
