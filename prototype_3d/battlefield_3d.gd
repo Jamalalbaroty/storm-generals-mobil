@@ -28,6 +28,8 @@ var attack_cooldown := 0.0
 var showcase_health_bars: Dictionary = {}
 var infantry_leg_pairs: Dictionary = {}
 var infantry_gait_clock := 0.0
+var aircraft_rotors: Array[Node3D] = []
+var aircraft_clock := 0.0
 
 func _ready() -> void:
 	_build_environment()
@@ -48,6 +50,7 @@ func _process(delta: float) -> void:
 	_update_showcase_combat(delta)
 	_update_showcase_health_bars()
 	_update_infantry_animation(delta)
+	_update_aircraft_animation(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -292,7 +295,147 @@ func _build_showcase_units() -> void:
 	_add_placeholder_tank(Vector3(0.0, 0.0, -2.0), Color(0.34, 0.37, 0.40))
 	_add_placeholder_tank(Vector3(7.0, 0.0, 1.0), Color(0.48, 0.39, 0.25))
 	_build_showcase_infantry()
+	_build_showcase_aircraft()
 
+
+func _build_showcase_aircraft() -> void:
+	_add_placeholder_helicopter(Vector3(-12.0, 5.2, -9.0), Color(0.28, 0.36, 0.25))
+	_add_placeholder_fighter(Vector3(12.0, 6.4, -10.0), Color(0.40, 0.43, 0.46))
+
+func _add_placeholder_helicopter(at: Vector3, tint: Color) -> void:
+	var helicopter := Node3D.new()
+	helicopter.position = at
+	add_child(helicopter)
+	showcase_tanks.append(helicopter)
+	helicopter.set_meta("health", 100.0)
+	helicopter.set_meta("unit_type", "helicopter")
+	_create_showcase_health_bar(helicopter)
+
+	var hull := MeshInstance3D.new()
+	var hull_mesh := CapsuleMesh.new()
+	hull_mesh.radius = 0.58
+	hull_mesh.height = 2.7
+	hull.mesh = hull_mesh
+	hull.rotation_degrees.x = 90.0
+	hull.material_override = _make_armour_material(tint)
+	helicopter.add_child(hull)
+
+	var cockpit := MeshInstance3D.new()
+	var cockpit_mesh := SphereMesh.new()
+	cockpit_mesh.radius = 0.48
+	cockpit_mesh.height = 0.75
+	cockpit.mesh = cockpit_mesh
+	cockpit.position = Vector3(0.0, 0.08, -1.0)
+	cockpit.material_override = _make_armour_material(Color(0.12, 0.20, 0.22))
+	helicopter.add_child(cockpit)
+
+	var tail := MeshInstance3D.new()
+	var tail_mesh := BoxMesh.new()
+	tail_mesh.size = Vector3(0.18, 0.18, 2.3)
+	tail.mesh = tail_mesh
+	tail.position.z = 2.0
+	tail.material_override = _make_armour_material(tint.darkened(0.18))
+	helicopter.add_child(tail)
+
+	var rotor_pivot := Node3D.new()
+	rotor_pivot.position.y = 0.72
+	helicopter.add_child(rotor_pivot)
+	aircraft_rotors.append(rotor_pivot)
+	for side in [-1.0, 1.0]:
+		var blade := MeshInstance3D.new()
+		var blade_mesh := BoxMesh.new()
+		blade_mesh.size = Vector3(0.18, 0.055, 5.0)
+		blade.mesh = blade_mesh
+		blade.rotation.y = PI * 0.25 if side < 0.0 else -PI * 0.25
+		blade.material_override = _make_armour_material(Color(0.12, 0.13, 0.12))
+		rotor_pivot.add_child(blade)
+
+	var weapon_pivot := Node3D.new()
+	weapon_pivot.position = Vector3(0.0, -0.32, -0.15)
+	helicopter.add_child(weapon_pivot)
+	showcase_turrets.append(weapon_pivot)
+	for side in [-1.0, 1.0]:
+		var rocket := MeshInstance3D.new()
+		var rocket_mesh := CylinderMesh.new()
+		rocket_mesh.top_radius = 0.10
+		rocket_mesh.bottom_radius = 0.10
+		rocket_mesh.height = 1.25
+		rocket.mesh = rocket_mesh
+		rocket.rotation_degrees.x = 90.0
+		rocket.position = Vector3(side * 0.78, -0.12, -0.35)
+		rocket.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
+		weapon_pivot.add_child(rocket)
+
+func _add_placeholder_fighter(at: Vector3, tint: Color) -> void:
+	var fighter := Node3D.new()
+	fighter.position = at
+	add_child(fighter)
+	showcase_tanks.append(fighter)
+	fighter.set_meta("health", 100.0)
+	fighter.set_meta("unit_type", "fighter")
+	_create_showcase_health_bar(fighter)
+
+	var fuselage := MeshInstance3D.new()
+	var fuselage_mesh := BoxMesh.new()
+	fuselage_mesh.size = Vector3(0.72, 0.48, 4.8)
+	fuselage.mesh = fuselage_mesh
+	fuselage.material_override = _make_armour_material(tint)
+	fighter.add_child(fuselage)
+
+	var nose := MeshInstance3D.new()
+	var nose_mesh := CylinderMesh.new()
+	nose_mesh.top_radius = 0.03
+	nose_mesh.bottom_radius = 0.34
+	nose_mesh.height = 1.0
+	nose.mesh = nose_mesh
+	nose.rotation_degrees.x = 90.0
+	nose.position.z = -2.55
+	nose.material_override = _make_armour_material(tint.lightened(0.08))
+	fighter.add_child(nose)
+
+	var wings := MeshInstance3D.new()
+	var wings_mesh := BoxMesh.new()
+	wings_mesh.size = Vector3(6.2, 0.16, 1.35)
+	wings.mesh = wings_mesh
+	wings.position.z = 0.15
+	wings.material_override = _make_armour_material(tint.darkened(0.12))
+	fighter.add_child(wings)
+
+	var tail_wing := MeshInstance3D.new()
+	var tail_wing_mesh := BoxMesh.new()
+	tail_wing_mesh.size = Vector3(2.0, 0.12, 0.65)
+	tail_wing.mesh = tail_wing_mesh
+	tail_wing.position.z = 1.85
+	tail_wing.material_override = _make_armour_material(tint.darkened(0.15))
+	fighter.add_child(tail_wing)
+
+	var cockpit := MeshInstance3D.new()
+	var cockpit_mesh := SphereMesh.new()
+	cockpit_mesh.radius = 0.28
+	cockpit_mesh.height = 0.48
+	cockpit.mesh = cockpit_mesh
+	cockpit.position = Vector3(0.0, 0.32, -0.65)
+	cockpit.material_override = _make_armour_material(Color(0.10, 0.19, 0.24))
+	fighter.add_child(cockpit)
+
+	var weapon_pivot := Node3D.new()
+	weapon_pivot.position.y = -0.12
+	fighter.add_child(weapon_pivot)
+	showcase_turrets.append(weapon_pivot)
+
+func _update_aircraft_animation(delta: float) -> void:
+	aircraft_clock += delta
+	for rotor in aircraft_rotors:
+		if is_instance_valid(rotor):
+			rotor.rotation.y += delta * 18.0
+	for unit in showcase_tanks:
+		if not is_instance_valid(unit):
+			continue
+		var unit_type := str(unit.get_meta("unit_type", "tank"))
+		if unit_type == "helicopter" and unit != selected_tank and not (unit == selected_tank and has_selected_destination):
+			unit.position.y = 5.2 + sin(aircraft_clock * 2.1 + float(unit.get_instance_id() % 9)) * 0.12
+		elif unit_type == "fighter" and unit != selected_tank and not (unit == selected_tank and has_selected_destination):
+			unit.position.y = 6.4 + sin(aircraft_clock * 1.7 + float(unit.get_instance_id() % 7)) * 0.16
 
 func _build_showcase_infantry() -> void:
 	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25))
@@ -589,19 +732,27 @@ func _update_showcase_orders(delta: float) -> void:
 		selection_ring.visible = false
 		return
 	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
-	var ring_scale := 0.62 if selected_tank.get_meta("unit_type", "tank") == "infantry" else 1.0
+	var ring_type := str(selected_tank.get_meta("unit_type", "tank"))
+	var ring_scale := 0.62 if ring_type == "infantry" else (1.18 if ring_type == "helicopter" or ring_type == "fighter" else 1.0)
 	selection_ring.scale = Vector3.ONE * ring_scale
 	if not has_selected_destination:
 		return
-	var direction := selected_destination - selected_tank.global_position
-	direction.y = 0.0
+	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
+	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
+	var destination := selected_destination
+	if is_aircraft:
+		destination.y = 5.2 if unit_type == "helicopter" else 6.4
+	var direction := destination - selected_tank.global_position
+	if not is_aircraft:
+		direction.y = 0.0
 	if direction.length() < 0.22:
-		selected_tank.global_position = selected_destination
+		selected_tank.global_position = destination
 		has_selected_destination = false
 		order_marker.visible = false
 		return
 	var heading := direction.normalized()
-	selected_tank.global_position += heading * minf(3.2 * delta, direction.length())
+	var movement_speed := 7.0 if is_aircraft else 3.2
+	selected_tank.global_position += heading * minf(movement_speed * delta, direction.length())
 	selected_tank.rotation.y = atan2(-heading.x, -heading.z)
 
 
@@ -679,29 +830,31 @@ func _update_showcase_combat(delta: float) -> void:
 	attack_cooldown -= delta
 	if attack_cooldown > 0.0:
 		return
-	var is_infantry := selected_tank.get_meta("unit_type", "tank") == "infantry"
-	attack_cooldown = 0.42 if is_infantry else 1.25
+	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
+	attack_cooldown = 0.42 if unit_type == "infantry" else (0.72 if unit_type == "helicopter" or unit_type == "fighter" else 1.25)
 	_fire_showcase_projectile(pivot, attack_target)
 
 func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
-	var is_infantry := selected_tank.get_meta("unit_type", "tank") == "infantry"
+	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
+	var is_infantry := unit_type == "infantry"
+	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
 	var projectile := MeshInstance3D.new()
 	var projectile_mesh := SphereMesh.new()
-	projectile_mesh.radius = 0.055 if is_infantry else 0.13
-	projectile_mesh.height = 0.12 if is_infantry else 0.26
+	projectile_mesh.radius = 0.055 if is_infantry else (0.09 if is_aircraft else 0.13)
+	projectile_mesh.height = 0.12 if is_infantry else (0.18 if is_aircraft else 0.26)
 	projectile.mesh = projectile_mesh
 	var projectile_material := StandardMaterial3D.new()
-	projectile_material.albedo_color = Color(1.0, 0.86, 0.34) if is_infantry else Color(1.0, 0.58, 0.16)
+	projectile_material.albedo_color = Color(1.0, 0.86, 0.34) if is_infantry or is_aircraft else Color(1.0, 0.58, 0.16)
 	projectile_material.emission_enabled = true
-	projectile_material.emission = Color(1.0, 0.72, 0.18) if is_infantry else Color(1.0, 0.32, 0.06)
+	projectile_material.emission = Color(1.0, 0.72, 0.18) if is_infantry or is_aircraft else Color(1.0, 0.32, 0.06)
 	projectile_material.emission_energy_multiplier = 2.0
 	projectile.material_override = projectile_material
 	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
 	add_child(projectile)
 	var destination := target.global_position + Vector3.UP * 0.95
 	var tween := create_tween()
-	tween.tween_property(projectile, "global_position", destination, 0.22 if is_infantry else 0.32)
-	var damage := 12.5 if is_infantry else 25.0
+	tween.tween_property(projectile, "global_position", destination, 0.22 if is_infantry else (0.28 if is_aircraft else 0.32))
+	var damage := 12.5 if is_infantry else (20.0 if is_aircraft else 25.0)
 	tween.tween_callback(_resolve_showcase_hit.bind(projectile, target, damage))
 
 func _resolve_showcase_hit(projectile: Node3D, target: Node3D, damage: float) -> void:
