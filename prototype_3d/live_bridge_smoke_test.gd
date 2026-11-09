@@ -793,6 +793,7 @@ func _initialize() -> void:
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
 		{"pos": Vector2(900.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
 	]
+	game.set("enemy_base", Vector2(1000.0, 330.0))
 	game.set("units", base_threat_units)
 	var no_enemy_buildings: Array[Dictionary] = []
 	game.set("enemy_buildings", no_enemy_buildings)
