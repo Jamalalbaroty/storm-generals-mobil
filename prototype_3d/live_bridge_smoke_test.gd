@@ -808,7 +808,7 @@ func _initialize() -> void:
 	# After a base threat is neutralized, the defender must return to its assigned anchor.
 	var returning_guard_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
-		{"pos": Vector2(800.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+		{"pos": Vector2(845.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
 	]
 	game.set("game_started", true)
 	game.set("paused", false)
@@ -824,8 +824,14 @@ func _initialize() -> void:
 	game.call("_process", 0.5)
 	var engaged_guard_units: Array[Dictionary] = game.get("units")
 	var guard_after_engagement: Vector2 = engaged_guard_units[0].pos
-	if guard_after_engagement.distance_to(Vector2(1000.0, 330.0)) < 5.0 or int(engaged_guard_units[1].get("hp", 150)) >= 150:
-		push_error("Base guard did not leave its anchor and engage the approaching armor")
+	if guard_after_engagement.distance_to(Vector2(1000.0, 330.0)) < 5.0:
+		push_error("Base guard failed to leave its anchor and advance toward the approaching armor")
+		quit(1)
+		return
+	game.call("_process", 0.5)
+	engaged_guard_units = game.get("units")
+	if int(engaged_guard_units[1].get("hp", 150)) >= 150:
+		push_error("Base guard advanced into firing range but failed to engage the approaching armor")
 		quit(1)
 		return
 	engaged_guard_units[1]["hp"] = 0
