@@ -427,7 +427,7 @@ func _initialize() -> void:
 
 	# Enemy armor must also defend its own landed marines against nearby player ground forces.
 	var enemy_landing_support_units: Array[Dictionary] = [
-		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "target": Vector2(200.0, 360.0)},
+		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
 		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
 		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
 	]
@@ -448,7 +448,7 @@ func _initialize() -> void:
 		return
 
 	var enemy_artillery_support_units: Array[Dictionary] = [
-		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "target": Vector2(200.0, 360.0)},
+		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
 		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
 		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
 	]
