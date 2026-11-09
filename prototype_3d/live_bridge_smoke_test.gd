@@ -707,6 +707,43 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Enemy armor reinforces an owned supply point when player forces threaten an undefended position.
+	var threatened_enemy_point: Array[Dictionary] = [
+		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	var reinforcement_units: Array[Dictionary] = [
+		{"pos": Vector2(760.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0},
+		{"pos": Vector2(560.0, 300.0), "team": "player", "kind": "infantry", "hp": 60}
+	]
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_strategy", "balanced")
+	game.set("units", reinforcement_units)
+	game.set("supply_points", threatened_enemy_point)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_buildings)
+	game.call("_process", 0.5)
+	var reinforced_units: Array[Dictionary] = game.get("units")
+	if float(reinforced_units[0].pos.x) >= 760.0 or float(reinforced_units[0].pos.x) <= 520.0:
+		push_error("Enemy armor failed to reinforce its threatened, undefended supply point")
+		quit(1)
+		return
+	# A point that already has an enemy garrison must not pull a second unit away.
+	var held_point_units: Array[Dictionary] = [
+		{"pos": Vector2(540.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60},
+		{"pos": Vector2(760.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0},
+		{"pos": Vector2(560.0, 300.0), "team": "player", "kind": "infantry", "hp": 60}
+	]
+	game.set("units", held_point_units)
+	var held_point_assignment: int = game.call("_enemy_supply_reinforcement_point", 1)
+	if held_point_assignment != -1:
+		push_error("Enemy AI dispatched extra armor to a supply point that already had a garrison")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
