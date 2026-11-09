@@ -137,7 +137,7 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(naval_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := 62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (46 if unit.kind == "destroyer" else 40))
+							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (46 if unit.kind == "destroyer" else 40)))
 							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#ffb66f"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ff995c"), 0.5, 38.0)
 							if naval_target >= 0:
@@ -249,7 +249,7 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(naval_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := 62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if faction == "وطن" else (44 if faction == "الأمريكي" else (42 if faction == "الجيش العربي" else 40))))
+							var naval_damage := 78 if unit.kind == "destroyer" and naval_target >= 0 and units[naval_target].kind == "submarine" else (62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if faction == "وطن" else (44 if faction == "الأمريكي" else (42 if faction == "الجيش العربي" else 40)))))
 							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#a8eaff"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ffbd78"), 0.5, 40.0)
 							if naval_target >= 0:
@@ -425,11 +425,21 @@ func _nearest_naval_unit(from_pos: Vector2, target_team: String) -> int:
 			best_index = i
 	return best_index
 
+func _is_submarine_detected(submarine: Dictionary, observer_team: String) -> bool:
+	for observer in units:
+		if observer.team != observer_team or observer.kind != "destroyer" or observer.get("hp", 0) <= 0:
+			continue
+		if observer.pos.distance_to(submarine.pos) <= 190.0:
+			return true
+	return false
+
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
+			continue
+		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], "enemy"):
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
@@ -444,6 +454,8 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 	var best_distance := max_distance
 	for i in units.size():
 		if units[i].team != "enemy" or units[i].get("hp", 0) <= 0:
+			continue
+		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], "player"):
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
