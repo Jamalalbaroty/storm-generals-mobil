@@ -656,6 +656,29 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Ports must provide double credit income and faster supply generation than standard points.
+	var controlled_port: Array[Dictionary] = [
+		{"pos": Vector2(420.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "port"}
+	]
+	var port_guard_units: Array[Dictionary] = [
+		{"pos": Vector2(425.0, 300.0), "team": "player", "kind": "infantry", "hp": 60}
+	]
+	game.set("supply_points", controlled_port)
+	game.set("units", port_guard_units)
+	game.set("credits", 0)
+	game.set("supplies", 0)
+	game.call("_update_supply_control", 1.0)
+	if int(game.get("credits")) != 8 or int(game.get("supplies")) != 0:
+		push_error("Captured port did not provide its expected double credit income")
+		quit(1)
+		return
+	game.call("_update_supply_control", 5.0)
+	var port_income_result: Array[Dictionary] = game.get("supply_points")
+	if int(game.get("credits")) != 48 or int(game.get("supplies")) != 1 or float(port_income_result[0].get("supply_payout", 0.0)) > 0.001:
+		push_error("Strategic port failed to deliver faster six-second supply income")
+		quit(1)
+		return
+
 	# Verify enemy armor advances toward a neutral supply objective instead of idling at its base.
 	game.set("game_started", true)
 	game.set("paused", false)
