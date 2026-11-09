@@ -153,6 +153,7 @@ func _process(delta: float) -> void:
 		if enemy_timer >= 12.0:
 			enemy_timer = 0.0
 			_enemy_ai_turn()
+			_update_enemy_defense_assignments()
 		for building in buildings:
 			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
@@ -292,10 +293,36 @@ func _process(delta: float) -> void:
 						if objective_distance < nearest_objective_distance:
 							nearest_objective_distance = objective_distance
 							objective_destination = point.pos
-				# Contest supply points when they are more relevant than distant player units.
+				# Defenders react only to player forces threatening the enemy base or its buildings.
+				var is_defender := bool(unit.get("defense_guard", false))
+				var defender_target := -1
+				if is_defender:
+					var closest_threat_distance := INF
+					for candidate_index in range(units.size()):
+						var candidate: Dictionary = units[candidate_index]
+						if candidate.team != "player" or candidate.get("hp", 0) <= 0:
+							continue
+						var threatens_asset := candidate.pos.distance_to(enemy_base) <= 250.0
+						if not threatens_asset:
+							for protected_building in enemy_buildings:
+								if candidate.pos.distance_to(protected_building.pos) <= 350.0:
+									threatens_asset = true
+									break
+						if threatens_asset:
+							var threat_distance := unit.pos.distance_to(candidate.pos)
+							if threat_distance < closest_threat_distance:
+								closest_threat_distance = threat_distance
+								defender_target = candidate_index
+				# Guards leave their patrol point only when an asset is threatened.
 				var engage_player := player_target >= 0 and (nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0)
+				if is_defender:
+					engage_player = defender_target >= 0
+					if engage_player:
+						player_target = defender_target
 				var destination: Vector2 = base_pos
-				if engage_player:
+				if is_defender and not engage_player:
+					destination = unit.get("defense_anchor", enemy_base)
+				elif engage_player:
 					destination = units[player_target].pos
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
@@ -1560,6 +1587,33 @@ func _enemy_has_building(kind: String) -> bool:
 		if building.kind == kind:
 			return true
 	return false
+
+func _update_enemy_defense_assignments() -> void:
+	# Keep a small, stable reserve near the enemy base without sacrificing its attack force.
+	var eligible_indices: Array[int] = []
+	for unit_index in range(units.size()):
+		var candidate: Dictionary = units[unit_index]
+		if candidate.team == "enemy" and candidate.get("hp", 0) > 0 and ["infantry", "tank", "artillery"].has(String(candidate.kind)):
+			eligible_indices.append(unit_index)
+			units[unit_index]["defense_guard"] = false
+			units[unit_index].erase("defense_anchor")
+	var desired_guards := mini(3, maxi(1, int((eligible_indices.size() + 3) / 4))) if not eligible_indices.is_empty() else 0
+	for guard_slot in range(desired_guards):
+		var best_index := -1
+		var best_distance := INF
+		for candidate_index in eligible_indices:
+			var distance := units[candidate_index].pos.distance_squared_to(enemy_base)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index < 0:
+			break
+		var side := -1.0 if guard_slot % 2 == 0 else 1.0
+		var lane := 48.0 + float(guard_slot / 2) * 32.0
+		units[best_index]["defense_guard"] = true
+		units[best_index]["defense_anchor"] = enemy_base + Vector2(-54.0, side * lane)
+		eligible_indices.erase(best_index)
+
 
 func _enemy_ai_turn() -> void:
 	var build_pos := _enemy_build_position()
