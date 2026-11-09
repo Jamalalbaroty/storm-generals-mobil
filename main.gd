@@ -3,9 +3,13 @@ extends Node2D
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const INFANTRY_COST := 100
 const TANK_COST := 300
+const STARTING_CREDITS := 1200
+const PASSIVE_INCOME := 6.0
+const MAX_CREDITS := 5000
 
 var faction := ""
-var credits := 1000
+var credits := STARTING_CREDITS
+var income_timer := 0.0
 var units: Array[Dictionary] = []
 var selected: Array[int] = []
 var notice := "اختر جيشك لبدء المعركة"
@@ -31,6 +35,10 @@ func _process(delta: float) -> void:
 	if game_started:
 		if battle_result != "":
 			return
+		income_timer += delta
+		if income_timer >= 1.0:
+			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
+			income_timer = 0.0
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
 			queue_redraw()
@@ -181,7 +189,7 @@ func _draw_base(p: Vector2, color: Color, label: String) -> void:
 func _draw_hud(size: Vector2) -> void:
 	draw_rect(Rect2(0, 0, size.x, 58), Color(0.06, 0.08, 0.09, 0.9))
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x - 230, 38), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 200, 22, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
 	if game_started:
 		var labels := ["مشاة  100", "دبابة  300", "إلغاء التحديد"]
 		for i in 3:
@@ -237,6 +245,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			if _faction_rect(i, size).has_point(pos):
 				faction = FACTIONS[i]
 				battle_result = ""
+				credits = STARTING_CREDITS
+				income_timer = 0.0
+				units.clear()
+				selected.clear()
+				enemy_timer = 0.0
 				player_base_hp = 1000
 				enemy_base_hp = 1000
 				game_started = true
