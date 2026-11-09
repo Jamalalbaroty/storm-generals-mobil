@@ -495,6 +495,8 @@ func _process(delta: float) -> void:
 					destination = unit.get("defense_anchor", enemy_base)
 				elif engage_player:
 					destination = units[player_target].pos
+					if unit.kind == "tank" or unit.kind == "infantry":
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, i)
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
 				var distance_to_target: float = unit.pos.distance_to(destination)
@@ -1018,6 +1020,23 @@ func _landing_assault_support_target(from_pos: Vector2, team: String) -> int:
 				best_score = score
 				best_target = target_index
 	return best_target
+
+
+func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
+	# Armor leads the advance; infantry follows in a staggered lane while artillery keeps its own standoff range.
+	var attack_direction: Vector2 = target_pos - assault_origin
+	if attack_direction.length_squared() <= 0.01:
+		attack_direction = Vector2.LEFT
+	else:
+		attack_direction = attack_direction.normalized()
+	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
+	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
+	var role_offset := Vector2.ZERO
+	if unit_kind == "tank":
+		role_offset = attack_direction * 58.0
+	elif unit_kind == "infantry":
+		role_offset = -attack_direction * 22.0
+	return target_pos + role_offset + lateral_direction * lane_side * 22.0
 
 
 func _strategic_enemy_building_index(from_pos: Vector2) -> int:
