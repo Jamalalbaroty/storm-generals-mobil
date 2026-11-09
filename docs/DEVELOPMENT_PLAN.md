@@ -1,77 +1,61 @@
 # Storm Generals — Development Plan
 
-## Product direction
-A mobile real-time strategy game inspired by classic modern-warfare base-building games. The first goal is a stable, playable Godot Android prototype, not a collection of disconnected features.
+## Current project baseline
 
-## Prototype 0.1 scope
-- Main menu and faction selection: American, Chinese, Arab Army, and وطن.
-- A compact battlefield with a player base, enemy base, resource points, and clear touch controls.
-- Build menu and construction placement with validation (range, occupancy, and cost).
-- Economy loop: earn/spend resources; show balances and costs in the HUD.
-- Unit production: infantry and tanks, with production queues and clear feedback.
-- Select units by touch; issue move and attack orders; support basic group selection.
-- Enemy AI: gather resources, build a small force, defend its base, and attack when ready.
-- Win/loss conditions, pause, restart, and a short tutorial.
-- Android-safe UI scaling, performance limits, and save/settings basics.
+The repository already contains a Godot 4.4.1 mobile RTS prototype (README version 0.2.0). The current implementation includes:
+- Four selectable factions: American, Chinese, Arab Army, and وطن.
+- A player base and an enemy base, resource income, supply-point control, and base health.
+- Infantry, tanks, artillery, fighters, helicopters, anti-air, missile systems, and naval units including carriers, destroyers, submarines, and landing craft.
+- Barracks, factories, defensive towers, anti-air, airfields, missile facilities, and naval production infrastructure.
+- Touch selection, drag selection, movement/attack orders, automated combat, capture behavior, and a first enemy AI.
+- Procedurally generated weapon and explosion sounds.
+- Android export configuration and a GitHub Actions workflow that builds an APK artifact.
+
+This plan describes the next development and validation work. It is not a claim that every system is fully balanced or device-tested.
+
+## Product direction
+
+Build a stable, readable, mobile-first real-time strategy game. Preserve the current integrated gameplay while improving reliability, balance, clarity, and mission progression.
 
 ## Faction identity
-All four factions share the same core rules and readable counter system. Their differences should be expressed through unit statistics, costs, production time, and a small number of signature abilities—not unfair advantages.
+
+All four factions share readable counters and fair core rules. Differences should come from unit statistics, costs, production times, and a small number of signature abilities.
 
 - American: flexible combined-arms toolkit.
 - Chinese: disciplined production and defensive efficiency.
 - Arab Army: mobile pressure and cost-effective forces.
 - وطن: elite technology and powerful specialist units, balanced by higher costs, slower reinforcement, and resource dependence.
 
-## Core combat rules
-Use explicit counters rather than one universally strongest unit:
-- Infantry can capture/secure points and threaten light vehicles.
-- Tanks are strong against structures and vehicles but vulnerable to dedicated anti-armor units.
-- Anti-air units counter aircraft and helicopters but are weaker against ground forces.
-- Artillery has long range and high structure damage, but needs protection and has a slow firing cycle.
-- Aircraft provide rapid response but are expensive and vulnerable to anti-air defenses.
+## Combat and counter principles
 
-## Recommended Godot project structure
-```
-project.godot
-scenes/
-  menus/
-  battlefield/
-  buildings/
-  units/
-  effects/
-scripts/
-  core/
-  economy/
-  combat/
-  ai/
-  ui/
-data/
-  factions/
-  units/
-  buildings/
-assets/
-  sprites/
-  audio/
-tests/
-```
+- Infantry are inexpensive and useful for capturing objectives, but vulnerable to armor and artillery.
+- Tanks pressure vehicles and structures, but need protection from anti-armor and aircraft.
+- Artillery has long range and high area damage, but is slow and vulnerable when exposed.
+- Anti-air units protect strategic assets but should not dominate ground combat.
+- Fighters counter hostile aircraft; helicopters pressure ground forces but remain vulnerable to anti-air.
+- Naval units should have distinct roles: destroyer escort, submarine ambush, carrier air support, and landing-craft transport.
+- Missile weapons should be powerful, scarce, telegraphed, and counterable.
 
-## Implementation sequence
-1. Establish the Godot project, input map, autoload managers, and Android viewport settings.
-2. Build one small test map and camera/touch navigation.
-3. Implement resource economy and construction placement.
-4. Implement unit production, selection, movement, and attack orders.
-5. Add health, damage, projectile/artillery behavior, and destruction.
-6. Add anti-air, aircraft, and helicopter roles after the ground-combat loop is stable.
-7. Add enemy AI and match victory/defeat.
-8. Add faction data, balancing, audio, UI polish, and Android performance testing.
-9. Export and test a single integrated APK on a real Android device.
+## Next milestones
 
-## Definition of done for each feature
-- Works in an actual Godot scene, not only as a design note.
-- Touch input is usable on a phone.
-- Has visible feedback and handles invalid actions safely.
-- Does not break existing core gameplay.
-- Is tested in a repeatable match scenario.
+1. **Build verification:** inspect the latest Android workflow result; fix export, import, or signing failures before adding risky changes.
+2. **Combat QA:** test unit-vs-unit damage, range, cooldowns, splash damage, terrain modifiers, and death/removal behavior.
+3. **AI QA:** verify production limits, defense assignments, objective capture, attack timing, and recovery after losing buildings.
+4. **Mobile usability:** verify touch targets, drag selection, HUD readability, landscape scaling, and safe-area behavior on a real phone.
+5. **Faction balance:** run repeatable mirror and cross-faction matches; adjust costs, health, damage, speed, and production times based on observed outcomes.
+6. **Mission progression:** add a short campaign/tutorial sequence with clear objectives and increasing difficulty after skirmish stability.
+7. **Release candidate:** run a clean Android export, install it on a real device, and record the tested build/commit before calling it release-ready.
 
-## Current repository baseline
-The repository began with only a README. This document records the agreed scope and implementation order. It does not claim that gameplay systems or an APK already exist; those must be implemented and tested in the Godot project.
+## Definition of done
+
+A feature is complete only when:
+- It works in the actual Godot project and does not merely exist as a design note.
+- It is usable with touch controls on a phone.
+- It handles invalid actions and edge cases safely.
+- It has visible feedback and is documented.
+- It passes a repeatable test scenario.
+- The Android export succeeds after the change.
+
+## Release discipline
+
+GitHub Actions is configured to export a debug APK on pushes to `main`. A successful workflow artifact is a build candidate, not proof of complete gameplay or device compatibility. Final release readiness requires installation and play-testing on a physical Android device.
