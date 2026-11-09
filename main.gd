@@ -83,6 +83,21 @@ func _process(delta: float) -> void:
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.team == "enemy":
+				if unit.kind == "artillery":
+					var artillery_target := _nearest_player_unit(unit.pos)
+					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
+					var artillery_distance := unit.pos.distance_to(artillery_destination)
+					if artillery_distance <= 330.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							if artillery_target >= 0:
+								_apply_splash_damage(artillery_destination, 52.0, 24, "player")
+							else:
+								player_base_hp = maxi(0, player_base_hp - 30)
+							unit.attack_cd = 2.4
+					else:
+						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
+					continue
 				var player_target := _nearest_player_unit(unit.pos)
 				var destination: Vector2 = base_pos
 				if player_target >= 0:
@@ -103,13 +118,14 @@ func _process(delta: float) -> void:
 			elif unit.team == "player":
 				if unit.get("attack_base", false):
 					var base_distance := unit.pos.distance_to(enemy_base)
-					if base_distance <= 155.0:
+					var base_range := 360.0 if unit.kind == "artillery" else 155.0
+					if base_distance <= base_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							enemy_base_hp = maxi(0, enemy_base_hp - (20 if unit.kind == "tank" else 10))
-							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+							enemy_base_hp = maxi(0, enemy_base_hp - (45 if unit.kind == "artillery" else (20 if unit.kind == "tank" else 10)))
+							unit.attack_cd = 2.4 if unit.kind == "artillery" else (0.75 if unit.kind == "tank" else 1.0)
 					else:
-						unit.pos += (enemy_base - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 					continue
 				var enemy_target := int(unit.get("attack_target", -1))
 				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0:
@@ -196,10 +212,15 @@ func _draw() -> void:
 		if u.kind == "tank":
 			draw_rect(Rect2(u.pos - Vector2(17, 11), Vector2(34, 22)), c)
 			draw_line(u.pos, u.pos + Vector2(24, 0), Color.BLACK, 5)
+		elif u.kind == "artillery":
+			draw_rect(Rect2(u.pos - Vector2(16, 9), Vector2(32, 18)), c)
+			draw_circle(u.pos + Vector2(-10, 11), 5, Color("#252525"))
+			draw_circle(u.pos + Vector2(10, 11), 5, Color("#252525"))
+			draw_line(u.pos, u.pos + Vector2(30, -14), Color("#252525"), 5)
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
-		var max_hp := 150.0 if u.kind == "tank" else (100.0 if u.team == "player" else 60.0)
+		var max_hp := 150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
