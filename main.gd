@@ -17,6 +17,8 @@ var drag_start := Vector2.ZERO
 var drag_end := Vector2.ZERO
 var base_pos := Vector2(180, 330)
 var enemy_base := Vector2(1090, 330)
+var player_base_hp := 1000
+var enemy_base_hp := 1000
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(queue_redraw)
@@ -45,9 +47,24 @@ func _process(delta: float) -> void:
 					if unit.attack_cd <= 0.0:
 						units[player_target].hp -= 10
 						unit.attack_cd = 0.9
+				elif player_target < 0 and distance_to_target <= 145.0:
+					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+					if unit.attack_cd <= 0.0:
+						player_base_hp = maxi(0, player_base_hp - 10)
+						unit.attack_cd = 0.9
 				elif distance_to_target > 34.0:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
+				if unit.get("attack_base", false):
+					var base_distance := unit.pos.distance_to(enemy_base)
+					if base_distance <= 155.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							enemy_base_hp = maxi(0, enemy_base_hp - (20 if unit.kind == "tank" else 10))
+							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+					else:
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+					continue
 				var enemy_target := int(unit.get("attack_target", -1))
 				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0:
 					enemy_target = _nearest_enemy_unit(unit.pos, 220.0)
@@ -109,6 +126,8 @@ func _draw() -> void:
 		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
 	_draw_base(base_pos, Color("#3977bd"), "قاعدتك")
 	_draw_base(enemy_base, Color("#b94b42"), "قاعدة العدو")
+	_draw_base_health(base_pos, player_base_hp)
+	_draw_base_health(enemy_base, enemy_base_hp)
 	for i in units.size():
 		var u := units[i]
 		if u.get("hp", 0) <= 0:
@@ -133,6 +152,11 @@ func _draw() -> void:
 		_draw_faction_picker(size)
 	elif notice_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.35, 82), notice, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 23, Color.WHITE)
+
+func _draw_base_health(p: Vector2, hp: int) -> void:
+	var ratio := clampf(float(hp) / 1000.0, 0.0, 1.0)
+	draw_rect(Rect2(p + Vector2(-45, -62), Vector2(90, 7)), Color("#292929"))
+	draw_rect(Rect2(p + Vector2(-45, -62), Vector2(90.0 * ratio, 7)), Color("#55d879") if ratio > 0.3 else Color("#e85c4a"))
 
 func _draw_base(p: Vector2, color: Color, label: String) -> void:
 	draw_rect(Rect2(p - Vector2(48, 42), Vector2(96, 84)), Color("#343b35"))
@@ -224,10 +248,18 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			if units[i].team == "enemy" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 30:
 				enemy_found = i
 				break
-		if enemy_found >= 0 and not selected.is_empty():
+		if not selected.is_empty() and pos.distance_to(enemy_base) <= 65.0:
+			for idx in selected:
+				if idx < units.size() and units[idx].team == "player":
+					units[idx].attack_base = true
+					units[idx].erase("attack_target")
+			notice = "هجوم على قاعدة العدو!"
+			notice_time = 1.5
+		elif enemy_found >= 0 and not selected.is_empty():
 			for idx in selected:
 				if idx < units.size() and units[idx].team == "player":
 					units[idx].attack_target = enemy_found
+					units[idx].erase("attack_base")
 			notice = "أمر هجوم!"
 			notice_time = 1.5
 		else:
@@ -244,6 +276,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					if idx < units.size():
 						units[idx].target = pos
 						units[idx].erase("attack_target")
+						units[idx].erase("attack_base")
 	queue_redraw()
 
 func _spawn_unit(kind: String) -> void:
