@@ -544,6 +544,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			enemy_income_timer = 0.0
 			enemy_timer = 0.0
 			visual_effects.clear()
+			missiles.clear()
+			enemy_missile_timer = 0.0
 			queue_redraw()
 		return
 	if not game_started:
@@ -557,6 +559,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_initialize_supply_points(size)
 				income_timer = 0.0
 				units.clear()
+				missiles.clear()
+				enemy_missile_timer = 0.0
 				buildings.clear()
 				enemy_buildings.clear()
 				selected.clear()
