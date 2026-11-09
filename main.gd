@@ -150,7 +150,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
-				if unit.kind == "helicopter":				if unit.kind == "helicopter":
+				if unit.kind == "helicopter":
 					var heli_target := _nearest_player_unit(unit.pos)
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
