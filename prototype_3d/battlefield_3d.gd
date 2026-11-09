@@ -53,6 +53,7 @@ var ground_dust_timers: Dictionary = {}
 var tank_wheels: Dictionary = {}
 var tank_barrels: Dictionary = {}
 var wheel_last_positions: Dictionary = {}
+var game_building_nodes: Dictionary = {}
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -283,6 +284,50 @@ func _build_base_complex(origin: Vector3, tint: Color, faction_id: String) -> vo
 func spawn_game_building(kind: String, at: Vector3, faction_id: String, tint: Color, build_progress: float = 0.0) -> Node3D:
 	# Public bridge for the gameplay layer to create a 3D counterpart for a logical building.
 	return _add_base_building(at, kind, tint, faction_id, build_progress, true)
+
+func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_rect: Rect2, player_faction: String, enemy_faction: String) -> int:
+	# Reconcile logical 2D building records with persistent 3D counterparts.
+	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
+		return 0
+	var active_keys: Dictionary = {}
+	var synced_count := 0
+	var teams := [
+		{"records": player_buildings, "team": "player", "faction": player_faction, "tint": Color(0.30, 0.43, 0.34)},
+		{"records": enemy_buildings, "team": "enemy", "faction": enemy_faction, "tint": Color(0.43, 0.31, 0.28)}
+	]
+	for team_data in teams:
+		for record_value in team_data.records:
+			if not record_value is Dictionary:
+				continue
+			var record: Dictionary = record_value
+			if not record.has("pos") or not record.get("pos") is Vector2:
+				continue
+			var source_pos: Vector2 = record.pos
+			var kind := String(record.get("kind", ""))
+			if kind.is_empty():
+				continue
+			var key := "%s|%s|%.2f|%.2f" % [team_data.team, kind, source_pos.x, source_pos.y]
+			active_keys[key] = true
+			var normalized_x := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
+			var normalized_z := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
+			var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_x), 0.0, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_z))
+			var building := game_building_nodes.get(key) as Node3D
+			if not is_instance_valid(building):
+				building = spawn_game_building(kind, world_pos, String(team_data.faction), team_data.tint, float(record.get("build_progress", 1.0)))
+				building.set_meta("source_key", key)
+				building.set_meta("source_team", String(team_data.team))
+				game_building_nodes[key] = building
+			else:
+				building.position = world_pos
+				update_game_building_progress(building, float(record.get("build_progress", 1.0)))
+			synced_count += 1
+	for existing_key in game_building_nodes.keys():
+		if not active_keys.has(existing_key):
+			var stale_building := game_building_nodes[existing_key] as Node3D
+			if is_instance_valid(stale_building):
+				stale_building.queue_free()
+			game_building_nodes.erase(existing_key)
+	return synced_count
 
 func update_game_building_progress(building: Node3D, build_progress: float) -> void:
 	if not is_instance_valid(building):
