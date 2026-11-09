@@ -1621,13 +1621,8 @@ func _update_missiles(delta: float) -> void:
 					for building_index in range(enemy_buildings.size() - 1, -1, -1):
 						if enemy_buildings[building_index].pos.distance_to(destination) < 36.0:
 							enemy_buildings[building_index].hp = maxi(0, int(enemy_buildings[building_index].get("hp", 400)) - int(missile.damage))
-							if enemy_buildings[building_index].hp <= 0:
-								enemy_buildings.remove_at(building_index)
-								if selected_enemy_building == building_index:
-									selected_enemy_building = -1
-								elif selected_enemy_building > building_index:
-									selected_enemy_building -= 1
 							break
+					_remove_destroyed_buildings("enemy")
 			else:
 				player_base_hp = maxi(0, player_base_hp - int(missile.damage))
 			missiles.remove_at(i)
