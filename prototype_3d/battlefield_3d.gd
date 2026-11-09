@@ -1410,7 +1410,7 @@ func _update_tank_wheel_rotation() -> void:
 		for wheel_variant in wheels:
 			var wheel := wheel_variant as MeshInstance3D
 			if is_instance_valid(wheel):
-				wheel.rotate_object_local(Vector3.RIGHT, rotation_step)
+				wheel.rotate_object_local(Vector3.UP, rotation_step)
 
 func _animate_tank_recoil(tank: Node3D) -> void:
 	var barrel := tank_barrels.get(tank) as MeshInstance3D
