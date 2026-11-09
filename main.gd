@@ -95,8 +95,36 @@ var enemy_strategy := "balanced"
 func _ready() -> void:
 	randomize()
 	_setup_battle_audio()
+	_setup_3d_gameplay_bridge()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
+
+
+const BATTLEFIELD_3D_SCENE: PackedScene = preload("res://prototype_3d/battlefield_3d.tscn")
+var battlefield_3d: Node3D
+var battlefield_sync_timer := 0.0
+const BATTLEFIELD_SYNC_INTERVAL := 0.12
+
+
+func _setup_3d_gameplay_bridge() -> void:
+	# Keep the current 2D renderer active while maintaining a live 3D counterpart.
+	battlefield_3d = BATTLEFIELD_3D_SCENE.instantiate() as Node3D
+	if battlefield_3d == null:
+		push_warning("3D battlefield bridge could not instantiate")
+		return
+	battlefield_3d.name = "Gameplay3DBridge"
+	battlefield_3d.visible = false
+	add_child(battlefield_3d)
+
+
+func _sync_3d_gameplay_bridge() -> void:
+	if not is_instance_valid(battlefield_3d) or not game_started:
+		return
+	var map_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+	battlefield_3d.call("sync_game_units", units, map_rect)
+	var enemy_faction_id := _enemy_faction()
+	battlefield_3d.call("sync_game_buildings", buildings, enemy_buildings, map_rect, faction, enemy_faction_id)
+
 
 func _setup_battle_audio() -> void:
 	audio_streams["weapon"] = _build_battle_sound("weapon")
@@ -154,6 +182,10 @@ func _play_battle_sound(sound_name: String) -> void:
 			return
 
 func _process(delta: float) -> void:
+	battlefield_sync_timer += delta
+	if battlefield_sync_timer >= BATTLEFIELD_SYNC_INTERVAL:
+		battlefield_sync_timer = fmod(battlefield_sync_timer, BATTLEFIELD_SYNC_INTERVAL)
+		_sync_3d_gameplay_bridge()
 	if paused:
 		return
 	for sound_name in sound_cooldowns.keys():
