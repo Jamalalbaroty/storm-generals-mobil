@@ -29,6 +29,8 @@ var showcase_health_bars: Dictionary = {}
 var infantry_leg_pairs: Dictionary = {}
 var infantry_gait_clock := 0.0
 var aircraft_rotors: Array[Node3D] = []
+var aircraft_tail_rotors: Array[Node3D] = []
+var aircraft_lights: Array[MeshInstance3D] = []
 var aircraft_clock := 0.0
 var air_defense_nodes: Array[Node3D] = []
 var air_defense_cooldowns: Array[float] = []
@@ -499,6 +501,20 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 		blade.material_override = _make_armour_material(Color(0.12, 0.13, 0.12))
 		rotor_pivot.add_child(blade)
 
+	# Tail rotor provides a second independent, low-cost animation axis.
+	var tail_rotor := Node3D.new()
+	tail_rotor.position = Vector3(0.0, 0.18, 3.05)
+	helicopter.add_child(tail_rotor)
+	aircraft_tail_rotors.append(tail_rotor)
+	for blade_index in range(2):
+		var tail_blade := MeshInstance3D.new()
+		var tail_blade_mesh := BoxMesh.new()
+		tail_blade_mesh.size = Vector3(0.10, 1.05, 0.16)
+		tail_blade.mesh = tail_blade_mesh
+		tail_blade.rotation.z = float(blade_index) * PI * 0.5
+		tail_blade.material_override = _make_armour_material(Color(0.10, 0.11, 0.10))
+		tail_rotor.add_child(tail_blade)
+
 	var weapon_pivot := Node3D.new()
 	weapon_pivot.position = Vector3(0.0, -0.32, -0.15)
 	helicopter.add_child(weapon_pivot)
@@ -568,6 +584,23 @@ func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> v
 	cockpit.material_override = _make_armour_material(Color(0.10, 0.19, 0.24))
 	fighter.add_child(cockpit)
 
+	# Small red/green navigation lamps improve aircraft readability at RTS scale.
+	for side in [-1.0, 1.0]:
+		var nav_light := MeshInstance3D.new()
+		var nav_mesh := SphereMesh.new()
+		nav_mesh.radius = 0.10
+		nav_mesh.height = 0.20
+		nav_light.mesh = nav_mesh
+		nav_light.position = Vector3(side * 3.08, 0.12, 0.18)
+		var nav_material := StandardMaterial3D.new()
+		nav_material.albedo_color = Color(0.95, 0.12, 0.08) if side < 0.0 else Color(0.12, 0.82, 0.38)
+		nav_material.emission_enabled = true
+		nav_material.emission = nav_material.albedo_color
+		nav_material.emission_energy_multiplier = 2.2
+		nav_light.material_override = nav_material
+		fighter.add_child(nav_light)
+		aircraft_lights.append(nav_light)
+
 	var weapon_pivot := Node3D.new()
 	weapon_pivot.position.y = -0.12
 	fighter.add_child(weapon_pivot)
@@ -578,6 +611,14 @@ func _update_aircraft_animation(delta: float) -> void:
 	for rotor in aircraft_rotors:
 		if is_instance_valid(rotor):
 			rotor.rotation.y += delta * 18.0
+	for rotor in aircraft_tail_rotors:
+		if is_instance_valid(rotor):
+			rotor.rotation.z += delta * 25.0
+	var light_on := sin(aircraft_clock * 5.0) > 0.0
+	for light in aircraft_lights:
+		if is_instance_valid(light):
+			var light_material := light.material_override as StandardMaterial3D
+			light_material.emission_energy_multiplier = 2.2 if light_on else 0.12
 	for unit in showcase_tanks:
 		if not is_instance_valid(unit):
 			continue
