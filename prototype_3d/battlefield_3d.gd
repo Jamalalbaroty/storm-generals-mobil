@@ -13,6 +13,8 @@ var camera_height := 28.0
 var touch_points: Dictionary = {}
 var last_pinch_distance := 0.0
 var mouse_pan_active := false
+var showcase_turrets: Array[Node3D] = []
+var turret_scan_clock := 0.0
 
 func _ready() -> void:
 	_build_environment()
@@ -21,6 +23,13 @@ func _ready() -> void:
 	_build_camera()
 	_build_lighting()
 	_build_showcase_units()
+
+func _process(delta: float) -> void:
+	turret_scan_clock += delta
+	for i in range(showcase_turrets.size()):
+		var pivot := showcase_turrets[i]
+		if is_instance_valid(pivot):
+			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -276,24 +285,74 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 		track.material_override = _make_armour_material(Color(0.12, 0.13, 0.12))
 		tank.add_child(track)
 
+	# Rotating turret pivot keeps the gun and armour aligned while scanning.
+	var turret_pivot := Node3D.new()
+	turret_pivot.position = Vector3(0.0, 1.55, -0.15)
+	tank.add_child(turret_pivot)
+	showcase_turrets.append(turret_pivot)
+
 	var turret := MeshInstance3D.new()
 	var turret_mesh := BoxMesh.new()
 	turret_mesh.size = Vector3(1.8, 0.62, 2.0)
 	turret.mesh = turret_mesh
-	turret.position = Vector3(0.0, 1.55, -0.15)
+	turret.position.y = 0.0
 	turret.material_override = _make_armour_material(faction_color.darkened(0.12))
-	tank.add_child(turret)
+	turret_pivot.add_child(turret)
+
+	var mantlet := MeshInstance3D.new()
+	var mantlet_mesh := CylinderMesh.new()
+	mantlet_mesh.top_radius = 0.28
+	mantlet_mesh.bottom_radius = 0.28
+	mantlet_mesh.height = 0.72
+	mantlet.mesh = mantlet_mesh
+	mantlet.rotation_degrees.z = 90.0
+	mantlet.position = Vector3(0.0, 0.02, -0.92)
+	mantlet.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
+	turret_pivot.add_child(mantlet)
 
 	var barrel := MeshInstance3D.new()
 	var barrel_mesh := CylinderMesh.new()
-	barrel_mesh.top_radius = 0.09
+	barrel_mesh.top_radius = 0.085
 	barrel_mesh.bottom_radius = 0.13
-	barrel_mesh.height = 2.5
+	barrel_mesh.height = 2.7
 	barrel.mesh = barrel_mesh
 	barrel.rotation_degrees.x = 90.0
-	barrel.position = Vector3(0.0, 1.58, -1.75)
+	barrel.position = Vector3(0.0, 0.04, -2.05)
 	barrel.material_override = _make_armour_material(Color(0.16, 0.17, 0.15))
-	tank.add_child(barrel)
+	turret_pivot.add_child(barrel)
+
+	# Low-profile commander's hatch and sight block add readable tank silhouettes.
+	var hatch := MeshInstance3D.new()
+	var hatch_mesh := CylinderMesh.new()
+	hatch_mesh.top_radius = 0.24
+	hatch_mesh.bottom_radius = 0.24
+	hatch_mesh.height = 0.12
+	hatch.mesh = hatch_mesh
+	hatch.position = Vector3(-0.48, 0.36, 0.18)
+	hatch.material_override = _make_armour_material(faction_color.lightened(0.08))
+	turret_pivot.add_child(hatch)
+
+	var sight := MeshInstance3D.new()
+	var sight_mesh := BoxMesh.new()
+	sight_mesh.size = Vector3(0.34, 0.18, 0.28)
+	sight.mesh = sight_mesh
+	sight.position = Vector3(0.48, 0.34, 0.35)
+	sight.material_override = _make_armour_material(Color(0.10, 0.13, 0.12))
+	turret_pivot.add_child(sight)
+
+	# Six road wheels per side, partially visible beneath the tracks.
+	for side in [-1.0, 1.0]:
+		for wheel_index in range(6):
+			var wheel := MeshInstance3D.new()
+			var wheel_mesh := CylinderMesh.new()
+			wheel_mesh.top_radius = 0.34
+			wheel_mesh.bottom_radius = 0.34
+			wheel_mesh.height = 0.16
+			wheel.mesh = wheel_mesh
+			wheel.rotation_degrees.z = 90.0
+			wheel.position = Vector3(side * 1.78, 0.48, -1.65 + wheel_index * 0.66)
+			wheel.material_override = _make_armour_material(Color(0.19, 0.20, 0.18))
+			tank.add_child(wheel)
 
 func _make_armour_material(tint: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
