@@ -16,7 +16,28 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	print("3D battlefield smoke test passed")
+	var test_building := battlefield.call("spawn_game_building", "barracks", Vector3(0.0, 0.0, 18.0), "test", Color(0.32, 0.38, 0.30), 0.35) as Node3D
+	if test_building == null or not test_building.has_meta("construction_progress"):
+		push_error("Runtime 3D building creation failed")
+		quit(1)
+		return
+	if absf(float(test_building.get_meta("construction_progress")) - 0.35) > 0.001:
+		push_error("Runtime building construction progress was not stored")
+		quit(1)
+		return
+
+	battlefield.call("update_game_building_progress", test_building, 1.0)
+	if absf(float(test_building.get_meta("construction_progress")) - 1.0) > 0.001:
+		push_error("Runtime building completion update failed")
+		quit(1)
+		return
+	var progress_fill := test_building.get_node_or_null("ConstructionProgressFill") as MeshInstance3D
+	if progress_fill == null or progress_fill.visible:
+		push_error("Completed building progress indicator did not hide")
+		quit(1)
+		return
+
+	print("3D battlefield and runtime building bridge smoke tests passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
