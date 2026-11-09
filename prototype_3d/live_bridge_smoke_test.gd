@@ -271,6 +271,28 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+
+	# Enemy amphibious units must unload a complete assault squad and direct it at the player base.
+	var enemy_craft_test: Dictionary = ai_landing_craft
+	enemy_craft_test["pos"] = Vector2(700.0, 520.0)
+	var enemy_assault_units: Array[Dictionary] = [enemy_craft_test]
+	game.set("units", enemy_assault_units)
+	game.call("_update_landing_craft", enemy_assault_units[0], 0.1, Vector2(700.0, 520.0))
+	var enemy_landed_units: Array[Dictionary] = game.get("units")
+	var enemy_marines := 0
+	var player_base_target: Vector2 = game.get("base_pos")
+	for enemy_landed_unit in enemy_landed_units:
+		if enemy_landed_unit.get("team") == "enemy" and enemy_landed_unit.get("kind") == "infantry" and bool(enemy_landed_unit.get("landing_assault", false)):
+			enemy_marines += 1
+			if not enemy_landed_unit.has("target") or Vector2(enemy_landed_unit["target"]).distance_to(player_base_target) > 0.1:
+				push_error("Enemy amphibious infantry did not receive an attack route to the player base")
+				quit(1)
+				return
+	if enemy_marines != 3 or enemy_landed_units.size() != 4 or String(enemy_landed_units[0].get("landing_state", "")) != "returning":
+		push_error("Enemy amphibious craft failed to unload a complete three-marine squad and return")
+		quit(1)
+		return
+
 	# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
 	var shore := Vector2(700.0, 520.0)
 	var home_dock := Vector2(180.0, 520.0)
