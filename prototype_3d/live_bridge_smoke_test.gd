@@ -638,6 +638,24 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify the opposing army receives the same fair economy from points it controls.
+	var enemy_controlled_point: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	var enemy_capturing_units: Array[Dictionary] = [
+		{"pos": Vector2(505.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60}
+	]
+	game.set("supply_points", enemy_controlled_point)
+	game.set("units", enemy_capturing_units)
+	game.set("enemy_credits", 0)
+	game.set("enemy_supplies", 0)
+	game.call("_update_supply_control", 8.0)
+	var enemy_captured_points: Array[Dictionary] = game.get("supply_points")
+	if String(enemy_captured_points[0].get("owner", "")) != "enemy" or int(game.get("enemy_credits")) != 32 or int(game.get("enemy_supplies")) != 1:
+		push_error("Enemy capture did not receive the same timed credit and supply income as the player")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
