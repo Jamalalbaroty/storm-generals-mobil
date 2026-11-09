@@ -45,6 +45,9 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Enemy income and production remain within configured limits.
 - [ ] Enemy builds and defends its base without overlapping structures.
 - [ ] Enemy forces respond to threats and pursue objectives without oscillating indefinitely.
+- [ ] Enemy ground forces prioritize player units threatening the enemy base or nearby structures.
+- [ ] Enemy threat selection gives appropriate priority to artillery, tanks, aircraft, and infantry.
+- [ ] Enemy units produced by the AI and carrier-launched aircraft use the selected rival faction, not a hard-coded faction.
 - [ ] Enemy can recover its behavior after a target or building is destroyed.
 - [ ] AI does not spawn unbounded units or create severe frame-rate drops.
 
