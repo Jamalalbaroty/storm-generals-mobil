@@ -1262,7 +1262,11 @@ func _resolve_naval_shell_hit(shell: Node3D, target: Node3D, vessel: Node3D, dam
 		var source_key := str(target.get_meta("source_unit_key", ""))
 		if not source_key.is_empty():
 			game_unit_nodes.erase(source_key)
-		showcase_tanks.erase(target)
+		var target_index := showcase_tanks.find(target)
+		if target_index >= 0:
+			showcase_tanks.remove_at(target_index)
+			if target_index < showcase_turrets.size():
+				showcase_turrets.remove_at(target_index)
 		showcase_health_bars.erase(target)
 		if is_instance_valid(selected_tank) and selected_tank == target:
 			selected_tank = null
@@ -1301,7 +1305,7 @@ func _update_carrier_air_operations(delta: float) -> void:
 		var radius := 5.5 if age < 6.0 else lerpf(5.5, 0.0, landing_progress)
 		var angle := phase + float(flight.get("lane", 0.0))
 		var flight_height := 4.8 + sin(phase * 2.0) * 0.18 if age < 6.0 else lerpf(4.8, 1.48, landing_progress)
-		aircraft.global_position = carrier.global_position + Vector3(cos(angle) * radius, flight_height, sin(angle) * radius)
+		aircraft.position = carrier.position + Vector3(cos(angle) * radius, flight_height, sin(angle) * radius)
 		aircraft.rotation.y = -angle
 		if age >= 9.0:
 			aircraft.queue_free()
@@ -1333,7 +1337,7 @@ func _launch_carrier_aircraft(carrier: Node3D) -> void:
 	tail.material_override = _make_armour_material(Color(0.32, 0.39, 0.42))
 	aircraft.add_child(tail)
 	add_child(aircraft)
-	aircraft.global_position = carrier.global_position + Vector3(0.0, 1.45, -3.0)
+	aircraft.position = carrier.position + Vector3(0.0, 1.45, -3.0)
 	carrier_aircraft.append({
 		"node": aircraft,
 		"carrier": carrier,
@@ -2181,8 +2185,8 @@ func _spawn_muzzle_flash(at: Vector3, scale_factor: float = 1.0) -> void:
 	material.emission_energy_multiplier = 3.0
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flash.material_override = material
-	flash.global_position = at
 	add_child(flash)
+	flash.global_position = at
 	var tween := create_tween()
 	tween.tween_property(flash, "scale", Vector3.ONE * 1.8, 0.055)
 	tween.tween_property(flash, "scale", Vector3.ONE * 0.05, 0.07)
