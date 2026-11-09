@@ -14,6 +14,9 @@ const AIRFIELD_COST := 600
 const FIGHTER_COST := 500
 const AA_COST := 400
 const HELICOPTER_COST := 650
+const MISSILE_SILO_COST := 800
+const MISSILE_DEFENSE_COST := 700
+const MISSILE_COST := 650
 
 var faction := ""
 var credits := STARTING_CREDITS
@@ -42,6 +45,8 @@ var player_base_hp := 1000
 var enemy_base_hp := 1000
 var battle_result := ""
 var visual_effects: Array[Dictionary] = []
+var missiles: Array[Dictionary] = []
+var enemy_missile_timer := 0.0
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(queue_redraw)
@@ -63,6 +68,7 @@ func _process(delta: float) -> void:
 			income_timer = 0.0
 		_update_supply_control(delta)
 		_update_building_capture(delta)
+		_update_missiles(delta)
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
 			queue_redraw()
@@ -365,6 +371,7 @@ func _draw() -> void:
 		draw_circle(p, 13, Color("#304b32"))
 		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
 	_draw_supply_points()
+	_draw_missiles()
 	_draw_base(base_pos, Color("#3977bd"), "قاعدتك")
 	_draw_base(enemy_base, Color("#b94b42"), "قاعدة العدو")
 	_draw_base_health(base_pos, player_base_hp)
@@ -466,13 +473,13 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء"]
-		for i in 13:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650"]
+		for i in 16:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 252), "حدد مبنى العدو ثم اختر السيطرة أو التدمير • السيطرة تحتاج مشاة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 252), "الصواريخ تستهدف قاعدة العدو أو المبنى المحدد — احمِ قاعدتك بالدفاع الصاروخي", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 4
@@ -565,7 +572,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 11:
+	for i in 16:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -601,6 +608,20 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_capture_selected_building()
 			elif i == 11:
 				_order_destroy_selected_building()
+			elif i == 12:
+				selected.clear()
+				selected_enemy_building = -1
+				build_mode = ""
+			elif i == 13:
+				build_mode = "missile_silo"
+				notice = "اختر موقعاً قرب قاعدتك لبناء منصة الصواريخ"
+				notice_time = 3.0
+			elif i == 14:
+				build_mode = "missile_defense"
+				notice = "اختر موقعاً لنشر منظومة الدفاع الصاروخي"
+				notice_time = 3.0
+			elif i == 15:
+				_launch_player_missile()
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -818,6 +839,115 @@ func _draw_capture_progress(p: Vector2, progress: float) -> void:
 	draw_rect(Rect2(p + Vector2(-27, -40), Vector2(54.0 * ratio, 5)), Color("#f2d15c"))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-40, -46), "جارٍ الاستيلاء", HORIZONTAL_ALIGNMENT_CENTER, 80, 11, Color("#ffe58a"))
 
+func _missile_damage(army: String) -> int:
+	if army == "وطن":
+		return 230
+	if army == "الجيش العربي":
+		return 205
+	if army == "الأمريكي":
+		return 195
+	return 185
+
+func _launch_player_missile() -> void:
+	if not _has_building("missile_silo"):
+		notice = "ابنِ منصة صواريخ أولاً"
+		notice_time = 2.5
+		return
+	if credits < MISSILE_COST or supplies < 4:
+		notice = "الصاروخ يحتاج 650 ذهب و4 إمدادات"
+		notice_time = 2.5
+		return
+	var silo_index := -1
+	for i in buildings.size():
+		if buildings[i].kind == "missile_silo" and float(buildings[i].get("attack_cd", 0.0)) <= 0.0:
+			silo_index = i
+			break
+	if silo_index < 0:
+		notice = "منصة الصواريخ تعيد التلقيم — انتظر قليلاً"
+		notice_time = 2.0
+		return
+	var target_pos: Vector2 = enemy_base
+	var target_kind := "base"
+	if selected_enemy_building >= 0 and selected_enemy_building < enemy_buildings.size():
+		target_pos = enemy_buildings[selected_enemy_building].pos
+		target_kind = "building"
+	credits -= MISSILE_COST
+	supplies -= 4
+	buildings[silo_index].attack_cd = 14.0
+	missiles.append({"pos": buildings[silo_index].pos + Vector2(0, -24), "target": target_pos, "target_kind": target_kind, "team": "player", "damage": _missile_damage(faction), "life": 8.0})
+	notice = "انطلق الصاروخ!"
+	notice_time = 2.0
+
+func _launch_enemy_missile() -> void:
+	if enemy_credits < MISSILE_COST or enemy_supplies < 4:
+		return
+	var silo_index := -1
+	for i in enemy_buildings.size():
+		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
+			silo_index = i
+			break
+	if silo_index < 0:
+		return
+	enemy_credits -= MISSILE_COST
+	enemy_supplies -= 4
+	enemy_buildings[silo_index].attack_cd = 18.0
+	var enemy_faction := "الأمريكي" if faction != "الأمريكي" else "الصيني"
+	missiles.append({"pos": enemy_buildings[silo_index].pos + Vector2(0, -24), "target": base_pos, "target_kind": "base", "team": "enemy", "damage": _missile_damage(enemy_faction), "life": 8.0})
+
+func _update_missiles(delta: float) -> void:
+	for building in buildings:
+		if building.kind == "missile_silo" or building.kind == "missile_defense":
+			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
+	for building in enemy_buildings:
+		if building.kind == "missile_silo" or building.kind == "missile_defense":
+			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
+	enemy_missile_timer += delta
+	if enemy_missile_timer >= 24.0:
+		enemy_missile_timer = 0.0
+		_launch_enemy_missile()
+	for i in range(missiles.size() - 1, -1, -1):
+		var missile: Dictionary = missiles[i]
+		var hostile_buildings: Array[Dictionary] = buildings if missile.team == "enemy" else enemy_buildings
+		var intercepted := false
+		for defense in hostile_buildings:
+			if defense.kind != "missile_defense" or float(defense.get("attack_cd", 0.0)) > 0.0:
+				continue
+			if defense.pos.distance_to(missile.pos) <= 190.0:
+				defense.attack_cd = 2.0
+				_add_visual_effect("explosion", missile.pos, missile.pos, Color("#8ee8ff"), 0.5, 34.0)
+				missiles.remove_at(i)
+				intercepted = true
+				break
+		if intercepted:
+			continue
+		var destination: Vector2 = missile.target
+		var direction := destination - missile.pos
+		var travel := 230.0 * delta
+		if direction.length() <= travel + 8.0 or float(missile.life) <= delta:
+			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 82.0)
+			if missile.team == "player":
+				if missile.target_kind == "base":
+					enemy_base_hp = maxi(0, enemy_base_hp - int(missile.damage))
+				else:
+					for building_index in range(enemy_buildings.size() - 1, -1, -1):
+						if enemy_buildings[building_index].pos.distance_to(destination) < 36.0:
+							enemy_buildings.remove_at(building_index)
+							break
+			else:
+				player_base_hp = maxi(0, player_base_hp - int(missile.damage))
+			missiles.remove_at(i)
+		else:
+			missile.pos += direction.normalized() * travel
+			missile.life = float(missile.life) - delta
+
+func _draw_missiles() -> void:
+	for missile in missiles:
+		var p: Vector2 = missile.pos
+		var tint := Color("#8ee8ff") if missile.team == "player" else Color("#ff856b")
+		draw_line(p, p + Vector2(-13, 9), Color(tint, 0.75), 4.0)
+		draw_colored_polygon(PackedVector2Array([p + Vector2(11, 0), p + Vector2(-7, -5), p + Vector2(-7, 5)]), tint)
+		draw_circle(p + Vector2(-12, 0), 5.0, Color("#ffb45f", 0.7))
+
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
 		if building.kind == kind:
@@ -850,6 +980,18 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= AIRFIELD_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "airfield", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو أنشأ مطاراً حربياً"
+		notice_time = 2.0
+		return
+	if not _enemy_has_building("missile_silo") and enemy_credits >= MISSILE_SILO_COST:
+		enemy_credits -= MISSILE_SILO_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "missile_silo", "hp": 500, "attack_cd": 8.0})
+		notice = "العدو أنشأ منصة صواريخ"
+		notice_time = 2.0
+		return
+	if not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
+		enemy_credits -= MISSILE_DEFENSE_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "missile_defense", "hp": 450, "attack_cd": 0.0})
+		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
 	if not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
@@ -915,13 +1057,21 @@ func _enemy_build_position() -> Vector2:
 	return Vector2(-1.0, -1.0)
 
 func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
-	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else (Color("#718b56") if kind == "turret" else (Color("#668ca4") if kind == "airfield" else Color("#6b8794"))))
+	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else (Color("#718b56") if kind == "turret" else (Color("#668ca4") if kind == "airfield" else (Color("#9a8754") if kind == "missile_silo" else (Color("#527f91") if kind == "missile_defense" else Color("#6b8794"))))))
 	if is_enemy:
 		color = Color("#a85b52") if kind == "barracks" else (Color("#805b67") if kind == "factory" else (Color("#a34b42") if kind == "turret" else (Color("#875e67") if kind == "airfield" else Color("#8d6262"))))
 	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
 	draw_rect(body, Color("#252b2b"))
 	draw_rect(body.grow(-4), color)
-	if kind == "turret" or kind == "anti_air":
+	if kind == "missile_silo":
+		draw_rect(Rect2(p + Vector2(-14, -17), Vector2(28, 34)), Color("#292f35"))
+		draw_line(p + Vector2(0, -15), p + Vector2(0, -38), Color("#c8d0d2"), 5)
+		draw_circle(p + Vector2(0, -38), 5, Color("#ffb45f"))
+	elif kind == "missile_defense":
+		draw_circle(p, 12, Color("#263d49"))
+		draw_line(p, p + Vector2(0, -29), Color("#8ee8ff"), 5)
+		draw_arc(p, 22, 3.4, 5.9, 24, Color("#8ee8ff"), 2)
+	elif kind == "turret" or kind == "anti_air":
 		draw_circle(p, 13, Color("#343b3b"))
 		draw_line(p, p + Vector2(25, -8), Color("#d2d1b8"), 6)
 		if kind == "anti_air":
@@ -930,11 +1080,11 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
 		if kind == "airfield":
 			draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#f0e2a5"), 3)
-	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع")))
+	var label := "منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع")))))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST)))
+	var cost := MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST)))))
 	if pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0:
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
@@ -949,8 +1099,9 @@ func _place_building(pos: Vector2) -> void:
 		notice_time = 2.0
 		return
 	credits -= cost
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 400})
-	notice = "تم إنشاء %s" % ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))
+	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0})
+	var building_name := "منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع")))))
+	notice = "تم إنشاء %s" % building_name
 	notice_time = 2.0
 	build_mode = ""
 
