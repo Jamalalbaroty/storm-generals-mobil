@@ -455,11 +455,15 @@ func _process(delta: float) -> void:
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
 				var nearest_objective_distance := INF
+				var best_objective_priority := INF
 				var objective_destination: Vector2 = base_pos
 				for point in supply_points:
 					if point.owner != "enemy":
 						var objective_distance: float = unit.pos.distance_to(point.pos)
-						if objective_distance < nearest_objective_distance:
+						var income_weight := 1.25 if String(point.get("kind", "supply")) == "port" else 1.0
+						var objective_priority: float = objective_distance / income_weight
+						if objective_priority < best_objective_priority:
+							best_objective_priority = objective_priority
 							nearest_objective_distance = objective_distance
 							objective_destination = point.pos
 				# Defenders react only to player forces threatening the enemy base or its buildings.
