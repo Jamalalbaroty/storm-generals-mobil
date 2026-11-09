@@ -149,3 +149,5 @@ A feature is complete only when:
 ## Release discipline
 
 GitHub Actions is configured to export a debug APK on pushes to `main`. A successful workflow artifact is a build candidate, not proof of complete gameplay or device compatibility. Final release readiness requires installation and play-testing on a physical Android device.
+
+- Player unit buttons enqueue production at a completed matching producer (barracks, factory, airfield, or shipyard). Credits and supply are reserved when queued; production advances independently per producer, one item at a time, and the HUD shows the first active order and queue count. Production durations vary by unit class. AI production remains on its existing direct-spawn path pending a separate AI economy pass.
