@@ -113,7 +113,7 @@ func _build_battle_sound(sound_name: String) -> AudioStreamWAV:
 		var sample := 0.0
 		if sound_name == "explosion":
 			var envelope = exp(-t * 8.5)
-			var sweep_frequency := 82.0 - 42.0 * (t / duration)
+			var sweep_frequency: float = 82.0 - 42.0 * (t / duration)
 			var low_boom := sin(TAU * sweep_frequency * t) * 0.62
 			var debris_noise := randf_range(-1.0, 1.0) * 0.38
 			sample = (low_boom + debris_noise) * envelope
@@ -611,9 +611,9 @@ func _spawn_environment_particle(pos: Vector2, velocity: Vector2, radius: float,
 func _draw_environment_particles() -> void:
 	for particle in environment_particles:
 		var life_ratio = clampf(float(particle.life) / maxf(0.01, float(particle.max_life)), 0.0, 1.0)
-		var fade := life_ratio * 0.42
+		var fade: float = life_ratio * 0.42
 		var center: Vector2 = particle.pos
-		var radius := float(particle.radius) * (1.0 + (1.0 - life_ratio) * (1.25 if particle.kind == "smoke" else 0.55))
+		var radius: float = float(particle.radius) * (1.0 + (1.0 - life_ratio) * (1.25 if particle.kind == "smoke" else 0.55))
 		var tint: Color = particle.color
 		if particle.kind == "smoke":
 			draw_circle(center, radius * 1.25, Color(tint.r * 0.72, tint.g * 0.74, tint.b * 0.76, fade * 0.42))
@@ -1158,7 +1158,7 @@ func _draw() -> void:
 	# Rocky headlands frame the harbor entrance
 	for rock in range(7):
 		var rx = float(rock) * size.x / 6.0
-		var ry := size.y * (0.665 + float((rock % 2)) * 0.018)
+		var ry: float = size.y * (0.665 + float((rock % 2)) * 0.018)
 		draw_circle(Vector2(rx, ry), 8.0 + float(rock % 3) * 3.0, Color("#7d806a"))
 	# A navigation buoy marks the sea lane
 	draw_circle(Vector2(size.x * 0.82, size.y * 0.79), 7, Color("#e6c36b"))
@@ -1300,7 +1300,7 @@ func _draw() -> void:
 	_draw_environment_particles()
 	for effect in visual_effects:
 		var progress = 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
-		var fade := 1.0 - progress
+		var fade: float = 1.0 - progress
 		var tint: Color = effect.color
 		tint.a = fade
 		if effect.kind == "tracer":
