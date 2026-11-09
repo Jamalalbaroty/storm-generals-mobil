@@ -2533,18 +2533,19 @@ func _enqueue_unit(kind: String) -> void:
 		notice = "لا توجد سعة كافية للقوات أو طوابير الإنتاج"
 		notice_time = 2.5
 		return
-	var cost := _unit_cost(kind, faction)
-	var supply_cost := _unit_supply_cost(kind)
-	if supplies < supply_cost:
-		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
-		notice_time = 2.5
-		return
-	if credits < cost:
-		notice = "لا توجد موارد كافية"
-		notice_time = 2.0
-		return
-	credits -= cost
-	supplies -= supply_cost
+	if not already_paid:
+		var cost := _unit_cost(kind, faction)
+		var supply_cost := _unit_supply_cost(kind)
+		if supplies < supply_cost:
+			notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
+			notice_time = 2.5
+			return
+		if credits < cost:
+			notice = "لا توجد موارد كافية"
+			notice_time = 2.0
+			return
+		credits -= cost
+		supplies -= supply_cost
 	production_orders.append({"producer_pos": producer_pos, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
@@ -2570,15 +2571,13 @@ func _update_production_queues(delta: float) -> void:
 		if float(order.remaining) <= 0.0:
 			var completed_kind := String(order.kind)
 			production_orders.remove_at(i)
-			credits = mini(MAX_CREDITS, credits + _unit_cost(completed_kind, faction))
-			supplies += _unit_supply_cost(completed_kind)
-			_spawn_unit(completed_kind)
+			_spawn_unit(completed_kind, true)
 			if notice.begins_with("تم إنتاج"):
 				notice = "اكتمل إنتاج الوحدة — أُضيفت إلى ساحة المعركة"
 			queue_redraw()
 			return
 
-func _spawn_unit(kind: String) -> void:
+func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 	if _team_unit_count("player") >= MAX_TEAM_UNITS:
 		notice = "وصلت إلى الحد الأقصى للقوات (%d)" % MAX_TEAM_UNITS
 		notice_time = 2.5
