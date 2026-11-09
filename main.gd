@@ -335,14 +335,17 @@ func _process(delta: float) -> void:
 					elif target_shipyard >= 0:
 						naval_destination = buildings[target_shipyard].pos
 					var naval_attack_destination: Vector2 = naval_destination
+					var escorting_destroyer := false
 					var escort_transport := _nearest_friendly_landing_craft(unit.pos, unit.team)
 					var escort_carrier := _nearest_friendly_carrier(unit.pos, unit.team)
 					if unit.kind == "destroyer" and escort_transport >= 0 and String(units[escort_transport].get("landing_state", "outbound")) in ["outbound", "returning"] and naval_attack_destination.distance_to(units[escort_transport].pos) > 240.0:
 						var escort_side = -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
 						naval_destination = units[escort_transport].pos + Vector2(-58.0, escort_side * 66.0)
+						escorting_destroyer = true
 					elif unit.kind == "destroyer" and escort_carrier >= 0 and naval_attack_destination.distance_to(units[escort_carrier].pos) > 240.0:
 						var escort_side = -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
 						naval_destination = units[escort_carrier].pos + Vector2(-52.0, escort_side * 54.0)
+						escorting_destroyer = true
 					if unit.kind == "carrier":
 						unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
 						var enemy_air := 0
@@ -355,6 +358,11 @@ func _process(delta: float) -> void:
 					if unit.kind == "landing_craft":
 						var landing_destination = Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
 						_update_landing_craft(unit, delta, landing_destination)
+						continue
+					if unit.kind == "destroyer" and escorting_destroyer:
+						var escort_distance: float = unit.pos.distance_to(naval_destination)
+						if escort_distance > 18.0:
+							unit.pos += (naval_destination - unit.pos).normalized() * delta * 28.0
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -507,14 +515,17 @@ func _process(delta: float) -> void:
 					elif target_shipyard >= 0:
 						naval_destination = enemy_buildings[target_shipyard].pos
 					var naval_attack_destination: Vector2 = naval_destination
+					var escorting_destroyer := false
 					var escort_transport := _nearest_friendly_landing_craft(unit.pos, unit.team)
 					var escort_carrier := _nearest_friendly_carrier(unit.pos, unit.team)
 					if unit.kind == "destroyer" and escort_transport >= 0 and String(units[escort_transport].get("landing_state", "outbound")) in ["outbound", "returning"] and naval_attack_destination.distance_to(units[escort_transport].pos) > 240.0:
 						var escort_side = -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
 						naval_destination = units[escort_transport].pos + Vector2(58.0, escort_side * 66.0)
+						escorting_destroyer = true
 					elif unit.kind == "destroyer" and escort_carrier >= 0 and naval_attack_destination.distance_to(units[escort_carrier].pos) > 240.0:
 						var escort_side = -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
 						naval_destination = units[escort_carrier].pos + Vector2(52.0, escort_side * 54.0)
+						escorting_destroyer = true
 					if unit.kind == "carrier":
 						unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
 						var friendly_air := 0
@@ -527,6 +538,11 @@ func _process(delta: float) -> void:
 					if unit.kind == "landing_craft":
 						var landing_destination = Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
 						_update_landing_craft(unit, delta, landing_destination)
+						continue
+					if unit.kind == "destroyer" and escorting_destroyer:
+						var escort_distance: float = unit.pos.distance_to(naval_destination)
+						if escort_distance > 18.0:
+							unit.pos += (naval_destination - unit.pos).normalized() * delta * 28.0
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
