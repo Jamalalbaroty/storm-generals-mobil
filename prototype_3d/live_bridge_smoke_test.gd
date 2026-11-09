@@ -221,7 +221,8 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var expected_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
-	if (produced_units[0].get("pos") as Vector2).distance_to(expected_dock) > 0.1:
+	var produced_position: Vector2 = produced_units[0].get("pos", Vector2.ZERO)
+	if produced_position.distance_to(expected_dock) > 0.1:
 		push_error("Naval counter destroyer did not spawn at the coastal shipyard")
 		quit(1)
 		return
