@@ -58,6 +58,8 @@ var game_unit_nodes: Dictionary = {}
 var next_game_unit_sync_id := 1
 var naval_propellers: Array[Node3D] = []
 var naval_animation_clock := 0.0
+var carrier_aircraft: Array[Dictionary] = []
+var carrier_aircraft_clock := 0.0
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -85,6 +87,7 @@ func _process(delta: float) -> void:
 	_update_aircraft_animation(delta)
 	_update_naval_animation(delta)
 	_update_naval_combat(delta)
+	_update_carrier_air_operations(delta)
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
@@ -1267,6 +1270,76 @@ func _resolve_naval_shell_hit(shell: Node3D, target: Node3D, vessel: Node3D, dam
 		if is_instance_valid(attack_target) and attack_target == target:
 			attack_target = null
 		target.queue_free()
+
+func _update_carrier_air_operations(delta: float) -> void:
+	carrier_aircraft_clock += delta
+	# Launch a light visual patrol flight from each carrier at a measured interval.
+	for unit_key in game_unit_nodes.keys():
+		var carrier := game_unit_nodes[unit_key] as Node3D
+		if not is_instance_valid(carrier) or str(carrier.get_meta("unit_type", "")) != "carrier":
+			continue
+		var cooldown := maxf(0.0, float(carrier.get_meta("air_ops_cooldown", 0.0)) - delta)
+		carrier.set_meta("air_ops_cooldown", cooldown)
+		if cooldown <= 0.0:
+			_launch_carrier_aircraft(carrier)
+			carrier.set_meta("air_ops_cooldown", 14.0)
+	# Aircraft circle the carrier group briefly, then return to the flight deck.
+	for flight_index in range(carrier_aircraft.size() - 1, -1, -1):
+		var flight: Dictionary = carrier_aircraft[flight_index]
+		var aircraft := flight.get("node") as Node3D
+		var carrier := flight.get("carrier") as Node3D
+		if not is_instance_valid(aircraft) or not is_instance_valid(carrier):
+			if is_instance_valid(aircraft):
+				aircraft.queue_free()
+			carrier_aircraft.remove_at(flight_index)
+			continue
+		var age := float(flight.get("age", 0.0)) + delta
+		flight.age = age
+		var phase := float(flight.get("phase", 0.0)) + delta * 0.72
+		flight.phase = phase
+		var radius := 5.5 if age < 6.0 else lerpf(5.5, 1.2, clampf((age - 6.0) / 3.0, 0.0, 1.0))
+		var angle := phase + float(flight.get("lane", 0.0))
+		aircraft.global_position = carrier.global_position + Vector3(cos(angle) * radius, 4.8 + sin(phase * 2.0) * 0.18, sin(angle) * radius)
+		aircraft.rotation.y = -angle
+		if age >= 9.0:
+			aircraft.queue_free()
+			carrier_aircraft.remove_at(flight_index)
+		else:
+			carrier_aircraft[flight_index] = flight
+
+func _launch_carrier_aircraft(carrier: Node3D) -> void:
+	var aircraft := Node3D.new()
+	aircraft.name = "CarrierPatrolAircraft"
+	var fuselage := MeshInstance3D.new()
+	var fuselage_mesh := BoxMesh.new()
+	fuselage_mesh.size = Vector3(0.34, 0.22, 1.8)
+	fuselage.mesh = fuselage_mesh
+	fuselage.material_override = _make_armour_material(Color(0.48, 0.54, 0.55))
+	aircraft.add_child(fuselage)
+	var wings := MeshInstance3D.new()
+	var wings_mesh := BoxMesh.new()
+	wings_mesh.size = Vector3(2.0, 0.10, 0.48)
+	wings.mesh = wings_mesh
+	wings.position.z = 0.08
+	wings.material_override = _make_armour_material(Color(0.32, 0.39, 0.42))
+	aircraft.add_child(wings)
+	var tail := MeshInstance3D.new()
+	var tail_mesh := BoxMesh.new()
+	tail_mesh.size = Vector3(0.92, 0.08, 0.3)
+	tail.mesh = tail_mesh
+	tail.position.z = 0.68
+	tail.material_override = _make_armour_material(Color(0.32, 0.39, 0.42))
+	aircraft.add_child(tail)
+	add_child(aircraft)
+	aircraft.global_position = carrier.global_position + Vector3(0.0, 1.45, -3.0)
+	carrier_aircraft.append({
+		"node": aircraft,
+		"carrier": carrier,
+		"age": 0.0,
+		"phase": 0.0,
+		"lane": float(carrier.get_instance_id() % 7) * 0.72
+	})
+	_spawn_muzzle_flash(aircraft.global_position, 0.75)
 
 func _update_naval_animation(delta: float) -> void:
 	naval_animation_clock += delta
