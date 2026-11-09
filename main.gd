@@ -251,7 +251,9 @@ func _process(delta: float) -> void:
 						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["fighter", "helicopter"])
+					var air_target := _landing_craft_air_threat_target(unit.pos, "enemy")
+					if air_target < 0:
+						air_target = _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["fighter", "helicopter"])
 					var air_destination: Vector2 = base_pos if air_target < 0 else units[air_target].pos
 					if unit.pos.distance_to(air_destination) <= 280.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -419,7 +421,9 @@ func _process(delta: float) -> void:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _nearest_unit_by_priority(unit.pos, 300.0, "enemy", ["fighter", "helicopter"])
+					var air_target := _landing_craft_air_threat_target(unit.pos, "player")
+					if air_target < 0:
+						air_target = _nearest_unit_by_priority(unit.pos, 300.0, "enemy", ["fighter", "helicopter"])
 					if air_target >= 0:
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= 270.0:
@@ -617,6 +621,33 @@ func _helicopter_color(unit: Dictionary) -> Color:
 
 func _is_naval_kind(kind: String) -> bool:
 	return kind in ["destroyer", "carrier", "submarine", "landing_craft"]
+
+
+func _landing_craft_air_threat_target(from_pos: Vector2, team: String) -> int:
+	# Fighters defend active landing craft before pursuing unrelated air contacts.
+	var opposing_team := "player" if team == "enemy" else "enemy"
+	var best_target := -1
+	var best_score := INF
+	for craft in units:
+		if craft.team != team or craft.kind != "landing_craft" or craft.get("hp", 0) <= 0:
+			continue
+		var landing_state := String(craft.get("landing_state", "outbound"))
+		if landing_state not in ["outbound", "returning"]:
+			continue
+		for target_index in range(units.size()):
+			var threat: Dictionary = units[target_index]
+			if threat.team != opposing_team or threat.get("hp", 0) <= 0:
+				continue
+			if threat.kind not in ["fighter", "helicopter"]:
+				continue
+			var craft_distance: float = craft.pos.distance_to(threat.pos)
+			if craft_distance > 270.0:
+				continue
+			var score: float = from_pos.distance_to(threat.pos) + craft_distance * 0.65
+			if score < best_score:
+				best_score = score
+				best_target = target_index
+	return best_target
 
 
 func _update_carrier_fighter(unit: Dictionary, delta: float) -> bool:
