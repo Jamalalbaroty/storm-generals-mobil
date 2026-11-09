@@ -941,7 +941,9 @@ func _update_missiles(delta: float) -> void:
 			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 92.0)
 			# Missile warheads now damage nearby hostile units as well as the primary target.
 			var splash_team := "enemy" if missile.team == "player" else "player"
-			_apply_splash_damage(destination, 92.0, maxi(25, int(missile.damage * 0.65)), splash_team)
+			var splash_damage := maxi(25, int(missile.damage * 0.65))
+			_apply_splash_damage(destination, 92.0, splash_damage, splash_team)
+			_apply_building_splash_damage(destination, 92.0, splash_damage, splash_team)
 			if missile.team == "player":
 				if missile.target_kind == "base":
 					enemy_base_hp = maxi(0, enemy_base_hp - int(missile.damage))
@@ -962,6 +964,14 @@ func _update_missiles(delta: float) -> void:
 		else:
 			missile.pos += direction.normalized() * travel
 			missile.life = float(missile.life) - delta
+
+func _apply_building_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
+	var targets: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
+	for building in targets:
+		var distance := building.pos.distance_to(center)
+		# The primary structure is handled by its direct-hit damage.
+		if distance > 36.0 and distance <= radius:
+			building.hp = maxi(0, int(building.get("hp", 400)) - damage)
 
 func _draw_missiles() -> void:
 	for missile in missiles:
