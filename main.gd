@@ -209,13 +209,7 @@ func _process(delta: float) -> void:
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
 						var landing_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
-						if not unit.get("landed", false):
-							if unit.pos.distance_to(landing_destination) <= 55.0:
-								for marine in 3:
-									units.append({"pos": landing_destination + Vector2(48.0 - marine * 18.0, -34.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 80, "attack_cd": 0.0, "target": base_pos})
-								unit.landed = true
-							else:
-								unit.pos += (landing_destination - unit.pos).normalized() * delta * 30.0
+						_update_landing_craft(unit, delta, landing_destination)
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -371,13 +365,7 @@ func _process(delta: float) -> void:
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
 						var landing_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
-						if not unit.get("landed", false):
-							if unit.pos.distance_to(landing_destination) <= 55.0:
-								for marine in 3:
-									units.append({"pos": landing_destination + Vector2(-48.0 + marine * 18.0, -34.0), "team": "player", "kind": "infantry", "faction": faction, "hp": 100, "attack_cd": 0.0, "attack_base": true})
-								unit.landed = true
-							else:
-								unit.pos += (landing_destination - unit.pos).normalized() * delta * 34.0
+						_update_landing_craft(unit, delta, landing_destination)
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -648,6 +636,64 @@ func _update_carrier_fighter(unit: Dictionary, delta: float) -> bool:
 		unit.carrier_returning = true
 		unit.target = carrier_pos
 	return false
+
+func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: Vector2) -> void:
+	# Landing craft carry three marines, unload at the hostile shore, then return to their own dock.
+	var team := String(unit.team)
+	var state := String(unit.get("landing_state", "outbound"))
+	var home_pos: Vector2 = unit.get("home_pos", unit.pos)
+	if state == "outbound":
+		var shore_distance := unit.pos.distance_to(landing_destination)
+		if shore_distance <= 55.0:
+			var passenger_count := int(unit.get("passengers", 3))
+			for marine in range(passenger_count):
+				var offset_x := -48.0 + marine * 18.0 if team == "player" else 48.0 - marine * 18.0
+				var marine_pos := landing_destination + Vector2(offset_x, -34.0)
+				var marine_unit: Dictionary = {
+					"pos": marine_pos,
+					"team": team,
+					"kind": "infantry",
+					"faction": String(unit.get("faction", faction)),
+					"hp": 100 if team == "player" else 80,
+					"attack_cd": 0.0
+				}
+				if team == "player":
+					marine_unit["attack_base"] = true
+				else:
+					marine_unit["target"] = base_pos
+				units.append(marine_unit)
+			unit["passengers"] = 0
+			unit["landing_state"] = "returning"
+			if team == "player":
+				notice = "تم إنزال 3 جنود — سفينة الإنزال عائدة للميناء"
+			else:
+				notice = "قوات العدو أنزلت مشاتها وتعود لإعادة التحميل"
+			notice_time = 2.2
+		else:
+			var shore_direction := landing_destination - unit.pos
+			if shore_direction.length_squared() > 0.01:
+				unit.pos += shore_direction.normalized() * delta * 34.0
+		return
+	if state == "returning":
+		var dock_distance := unit.pos.distance_to(home_pos)
+		if dock_distance <= 48.0:
+			unit.pos = home_pos
+			unit["landing_state"] = "loading"
+			unit["landing_timer"] = 5.0
+			if team == "player":
+				notice = "وصلت سفينة الإنزال للميناء — إعادة تحميل الجنود"
+				notice_time = 2.0
+		else:
+			var dock_direction := home_pos - unit.pos
+			if dock_direction.length_squared() > 0.01:
+				unit.pos += dock_direction.normalized() * delta * 42.0
+		return
+	if state == "loading":
+		unit["landing_timer"] = maxf(0.0, float(unit.get("landing_timer", 5.0)) - delta)
+		if float(unit["landing_timer"]) <= 0.0:
+			unit["passengers"] = 3
+			unit["landing_state"] = "outbound"
+
 
 func _nearest_friendly_carrier(from_pos: Vector2, team: String) -> int:
 	var best_index := -1
@@ -1035,6 +1081,8 @@ func _draw() -> void:
 			draw_line(u.pos + Vector2(18, -7), u.pos + Vector2(23, 0), Color("#e4e1d0"), 2.0)
 			draw_line(u.pos + Vector2(18, 7), u.pos + Vector2(23, 0), Color("#e4e1d0"), 2.0)
 			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
+			for passenger_marker in range(int(u.get("passengers", 0))):
+				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
 		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
@@ -1863,7 +1911,7 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= 800
 		enemy_supplies -= 4
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": "الصيني", "hp": 220, "attack_cd": 0.0, "landed": false})
+		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": "الصيني", "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
 	elif _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
 		enemy_credits -= 900
 		enemy_supplies -= 4
@@ -2065,7 +2113,13 @@ func _spawn_unit(kind: String) -> void:
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)))
-	units.append({"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0})
+	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0}
+	if kind == "landing_craft":
+		spawned_unit["home_pos"] = unit_spawn
+		spawned_unit["landing_state"] = "outbound"
+		spawned_unit["passengers"] = 3
+		spawned_unit["landing_timer"] = 0.0
+	units.append(spawned_unit)
 	var unit_name := "مدفعية"
 	if kind == "carrier":
 		unit_name = "حاملة طائرات"
