@@ -670,7 +670,8 @@ func _initialize() -> void:
 		{"pos": Vector2(710.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60, "attack_cd": 0.0}
 	]
 	var objective_test_points: Array[Dictionary] = [
-		{"pos": Vector2(500.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+		{"pos": Vector2(500.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
+		{"pos": Vector2(480.0, 400.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "port"}
 	]
 	game.set("units", objective_test_units)
 	game.set("buildings", no_buildings)
@@ -678,8 +679,8 @@ func _initialize() -> void:
 	game.set("supply_points", objective_test_points)
 	game.call("_process", 0.5)
 	var objective_result: Array[Dictionary] = game.get("units")
-	if objective_result.size() != 2 or float(objective_result[0].pos.x) >= 700.0 or float(objective_result[1].pos.x) >= 710.0 or float(objective_result[0].pos.y) == float(objective_result[1].pos.y):
-		push_error("Enemy armor and infantry failed to advance in a staggered formation toward a neutral supply objective")
+	if objective_result.size() != 2 or float(objective_result[0].pos.x) >= 700.0 or float(objective_result[1].pos.x) >= 710.0 or float(objective_result[0].pos.y) <= 300.0 or float(objective_result[1].pos.y) <= 300.0:
+		push_error("Enemy armor and infantry failed to prioritize the higher-value port and advance in formation")
 		quit(1)
 		return
 
