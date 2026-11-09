@@ -46,6 +46,8 @@ var radar_blip_widgets: Dictionary = {}
 var combat_fire_audio: AudioStreamWAV
 var combat_impact_audio: AudioStreamWAV
 var engine_audio_player: AudioStreamPlayer3D
+var previous_ground_positions: Dictionary = {}
+var ground_dust_timers: Dictionary = {}
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -75,6 +77,7 @@ func _process(delta: float) -> void:
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
 	_update_engine_audio()
+	_update_ground_vehicle_effects(delta)
 
 func _make_combat_audio(is_impact: bool) -> AudioStreamWAV:
 	var sample_rate := 22050
@@ -123,6 +126,45 @@ func _setup_engine_audio() -> void:
 	engine_audio_player.unit_size = 12.0
 	engine_audio_player.max_distance = 72.0
 	add_child(engine_audio_player)
+
+func _update_ground_vehicle_effects(delta: float) -> void:
+	for unit in showcase_tanks:
+		if not is_instance_valid(unit) or str(unit.get_meta("unit_type", "tank")) != "tank":
+			continue
+		var previous: Vector3 = previous_ground_positions.get(unit, unit.global_position)
+		var movement := unit.global_position.distance_to(previous)
+		previous_ground_positions[unit] = unit.global_position
+		var cooldown := maxf(0.0, float(ground_dust_timers.get(unit, 0.0)) - delta)
+		if movement > 0.015 and cooldown <= 0.0:
+			var rear := unit.global_transform.basis.z
+			_spawn_track_dust(unit.global_position + rear * 1.45 + Vector3.LEFT * 0.82)
+			_spawn_track_dust(unit.global_position + rear * 1.45 + Vector3.RIGHT * 0.82)
+			cooldown = 0.16
+		ground_dust_timers[unit] = cooldown
+	for unit in previous_ground_positions.keys():
+		if not is_instance_valid(unit):
+			previous_ground_positions.erase(unit)
+			ground_dust_timers.erase(unit)
+
+func _spawn_track_dust(at: Vector3) -> void:
+	var puff := MeshInstance3D.new()
+	var puff_mesh := SphereMesh.new()
+	puff_mesh.radius = 0.24
+	puff_mesh.height = 0.20
+	puff.mesh = puff_mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.48, 0.43, 0.32, 0.34)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	puff.material_override = material
+	puff.position = at + Vector3.UP * 0.12
+	puff.scale = Vector3(0.35, 0.28, 0.35)
+	add_child(puff)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(puff, "scale", Vector3(1.65, 0.72, 1.65), 0.72)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.72)
+	tween.chain().tween_callback(puff.queue_free)
 
 func _update_engine_audio() -> void:
 	if not is_instance_valid(engine_audio_player):
