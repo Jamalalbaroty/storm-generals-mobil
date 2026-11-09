@@ -109,21 +109,46 @@ func _process(delta: float) -> void:
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.team == "enemy":
-				if unit.kind == "destroyer":
-					var naval_target := _nearest_player_unit(unit.pos)
-					var naval_destination: Vector2 = base_pos if naval_target < 0 else units[naval_target].pos
-					if unit.pos.distance_to(naval_destination) <= 300.0:
+				if _is_naval_kind(String(unit.kind)):
+					var naval_target := _nearest_naval_unit(unit.pos, "player")
+					var naval_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
+					var target_shipyard := -1
+					for bi in buildings.size():
+						if buildings[bi].kind == "shipyard":
+							target_shipyard = bi
+							break
+				if naval_target >= 0:
+					naval_destination = units[naval_target].pos
+				elif target_shipyard >= 0:
+					naval_destination = buildings[target_shipyard].pos
+				if unit.kind == "carrier":
+					unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
+					var enemy_air := 0
+					for air_unit in units:
+						if air_unit.team == "enemy" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
+							enemy_air += 1
+					if unit.launch_cd <= 0.0 and enemy_air < 3:
+						units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120, "attack_cd": 0.0, "target": base_pos})
+						unit.launch_cd = 18.0
+				if unit.kind == "landing_craft" and not unit.get("landed", false) and unit.pos.distance_to(naval_destination) <= 55.0:
+						for marine in 3:
+							units.append({"pos": Vector2(base_pos.x + 55.0 - marine * 20.0, base_pos.y + 38.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 80, "attack_cd": 0.0, "target": base_pos})
+						unit.landed = true
+				if unit.pos.distance_to(naval_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
+						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
+							var naval_damage := 62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (46 if unit.kind == "destroyer" else 40))
 							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#ffb66f"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ff995c"), 0.5, 38.0)
 							if naval_target >= 0:
-								_apply_splash_damage(naval_destination, 48.0, 32, "player")
+							_apply_splash_damage(naval_destination, 48.0, naval_damage, "player")
+							elif target_shipyard >= 0:
+							buildings[target_shipyard].hp = maxi(0, int(buildings[target_shipyard].get("hp", 500)) - naval_damage)
 							else:
-								player_base_hp = maxi(0, player_base_hp - 35)
+							player_base_hp = maxi(0, player_base_hp - naval_damage)
 							unit.attack_cd = 2.0
-					else:
-						unit.pos += (naval_destination - unit.pos).normalized() * delta * 28.0
+				else:
+						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
 					var heli_target := _nearest_player_unit(unit.pos)
@@ -196,21 +221,46 @@ func _process(delta: float) -> void:
 				elif distance_to_target > 34.0:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
-				if unit.kind == "destroyer":
-					var naval_target := _nearest_enemy_unit(unit.pos, 360.0)
-					var naval_destination: Vector2 = enemy_base if naval_target < 0 else units[naval_target].pos
-					if unit.pos.distance_to(naval_destination) <= 300.0:
+				if _is_naval_kind(String(unit.kind)):
+					var naval_target := _nearest_naval_unit(unit.pos, "enemy")
+					var naval_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
+					var target_shipyard := -1
+					for bi in enemy_buildings.size():
+						if enemy_buildings[bi].kind == "shipyard":
+							target_shipyard = bi
+							break
+				if naval_target >= 0:
+					naval_destination = units[naval_target].pos
+				elif target_shipyard >= 0:
+					naval_destination = enemy_buildings[target_shipyard].pos
+				if unit.kind == "carrier":
+					unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
+					var friendly_air := 0
+					for air_unit in units:
+						if air_unit.team == "player" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
+							friendly_air += 1
+					if unit.launch_cd <= 0.0 and friendly_air < 3:
+						units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base})
+						unit.launch_cd = 18.0
+				if unit.kind == "landing_craft" and not unit.get("landed", false) and unit.pos.distance_to(naval_destination) <= 55.0:
+						for marine in 3:
+							units.append({"pos": Vector2(enemy_base.x - 55.0 + marine * 20.0, enemy_base.y + 38.0), "team": "player", "kind": "infantry", "faction": faction, "hp": 100, "attack_cd": 0.0, "attack_base": true})
+						unit.landed = true
+				if unit.pos.distance_to(naval_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
+						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
+							var naval_damage := 62 if unit.kind == "submarine" else (24 if unit.kind == "carrier" else (50 if faction == "وطن" else (44 if faction == "الأمريكي" else (42 if faction == "الجيش العربي" else 40))))
 							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#a8eaff"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ffbd78"), 0.5, 40.0)
 							if naval_target >= 0:
-								_apply_splash_damage(naval_destination, 48.0, 38, "enemy")
+							_apply_splash_damage(naval_destination, 48.0, naval_damage, "enemy")
+							elif target_shipyard >= 0:
+								enemy_buildings[target_shipyard].hp = maxi(0, int(enemy_buildings[target_shipyard].get("hp", 500)) - naval_damage)
 							else:
-								enemy_base_hp = maxi(0, enemy_base_hp - 34)
-							unit.attack_cd = 1.8
-					else:
-						unit.pos += (naval_destination - unit.pos).normalized() * delta * 32.0
+								enemy_base_hp = maxi(0, enemy_base_hp - naval_damage)
+							unit.attack_cd = 2.2 if unit.kind == "submarine" else 2.0
+				else:
+						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
 					continue
 				if unit.kind == "helicopter":
 					var heli_target := _nearest_enemy_unit(unit.pos, 380.0)
@@ -360,6 +410,21 @@ func _helicopter_color(unit: Dictionary) -> Color:
 		return Color("#c0a36b")
 	return Color("#d5b64e")
 
+func _is_naval_kind(kind: String) -> bool:
+	return kind in ["destroyer", "carrier", "submarine", "landing_craft"]
+
+func _nearest_naval_unit(from_pos: Vector2, target_team: String) -> int:
+	var best_index := -1
+	var best_distance := INF
+	for i in units.size():
+		if units[i].team != target_team or not _is_naval_kind(String(units[i].kind)) or units[i].get("hp", 0) <= 0:
+			continue
+		var distance := from_pos.distance_to(units[i].pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = i
+	return best_index
+
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := INF
@@ -428,7 +493,18 @@ func _draw() -> void:
 		if u.get("hp", 0) <= 0:
 			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
-		if u.kind == "destroyer":
+		if u.kind == "carrier":
+			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(34, 0), u.pos + Vector2(25, -12), u.pos + Vector2(-31, -12), u.pos + Vector2(-38, -5), u.pos + Vector2(-38, 5), u.pos + Vector2(-31, 12), u.pos + Vector2(25, 12)]), Color("#aab5bb") if u.team == "player" else Color("#b65c55"))
+			draw_rect(Rect2(u.pos + Vector2(-22, -7), Vector2(42, 14)), Color("#34434d"))
+			draw_line(u.pos + Vector2(-15, -3), u.pos + Vector2(18, -3), Color("#e5e8e6"), 2.0)
+		elif u.kind == "submarine":
+			draw_ellipse_placeholder = false
+			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(24, 0), u.pos + Vector2(12, -7), u.pos + Vector2(-21, -6), u.pos + Vector2(-28, 0), u.pos + Vector2(-21, 6), u.pos + Vector2(12, 7)]), Color("#34434a") if u.team == "player" else Color("#6d3c3d"))
+			draw_rect(Rect2(u.pos + Vector2(-5, -10), Vector2(11, 5)), Color("#c5d0d2"))
+		elif u.kind == "landing_craft":
+			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(24, 0), u.pos + Vector2(15, -10), u.pos + Vector2(-22, -9), u.pos + Vector2(-26, 9), u.pos + Vector2(15, 10)]), Color("#b6a77c") if u.team == "player" else Color("#a85b52"))
+			draw_rect(Rect2(u.pos + Vector2(-12, -6), Vector2(23, 12)), Color("#38444a"))
+		elif u.kind == "destroyer":
 			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(27, 0), u.pos + Vector2(13, -10), u.pos + Vector2(-24, -8), u.pos + Vector2(-31, 0), u.pos + Vector2(-24, 8), u.pos + Vector2(13, 10)]), Color("#8c9da5") if u.team == "player" else Color("#b65c55"))
 			draw_rect(Rect2(u.pos + Vector2(-9, -7), Vector2(19, 14)), Color("#303e47"))
 			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
@@ -456,7 +532,7 @@ func _draw() -> void:
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
-		var max_hp := 180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))
+		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
@@ -514,19 +590,19 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650", "حوض سفن 700", "مدمرة 900"]
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650", "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
 		for i in labels.size():
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 310), "السفن تحتاج حوض سفن — ادعم قواتك البرية من الساحل", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 4
 	var row := int(index / 4)
 	var button_width := (size.x - 40.0) / 4.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 300.0 + row * 58.0), Vector2(button_width, 52.0))
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 358.0 + row * 58.0), Vector2(button_width, 52.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -617,7 +693,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 18:
+	for i in 21:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -673,6 +749,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice_time = 3.0
 			elif i == 17:
 				_spawn_unit("destroyer")
+			elif i == 18:
+				_spawn_unit("carrier")
+			elif i == 19:
+				_spawn_unit("submarine")
+			elif i == 20:
+				_spawn_unit("landing_craft")
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -1093,6 +1175,8 @@ func _enemy_ai_turn() -> void:
 	var enemy_fighters := 0
 	var enemy_helicopters := 0
 	var enemy_destroyers := 0
+	var enemy_carriers := 0
+	var enemy_submarines := 0
 	for unit in units:
 		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
 			continue
@@ -1106,13 +1190,27 @@ func _enemy_ai_turn() -> void:
 			enemy_helicopters += 1
 		elif unit.kind == "destroyer":
 			enemy_destroyers += 1
+		elif unit.kind == "carrier":
+			enemy_carriers += 1
+		elif unit.kind == "submarine":
+			enemy_submarines += 1
 		else:
 			enemy_infantry += 1
-	if _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
+	if _enemy_has_building("shipyard") and enemy_credits >= 1600 and enemy_supplies >= 8 and enemy_carriers < 1 and enemy_destroyers >= 1:
+		enemy_credits -= 1600
+		enemy_supplies -= 8
+		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": "الصيني", "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
+	elif _enemy_has_building("shipyard") and enemy_credits >= 1100 and enemy_supplies >= 5 and enemy_submarines < 1 and enemy_destroyers >= 1:
+		enemy_credits -= 1100
+		enemy_supplies -= 5
+		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": "الصيني", "hp": 210, "attack_cd": 0.0})
+	elif _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
 		enemy_credits -= 900
 		enemy_supplies -= 4
-		var enemy_dock_pos: Vector2 = enemy_base + Vector2(-120, get_viewport_rect().size.y * 0.82 - enemy_base.y)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "hp": 260, "target": base_pos, "attack_cd": 0.0})
+		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 260, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < 2:
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
@@ -1210,7 +1308,7 @@ func _has_building(kind: String) -> bool:
 	return false
 
 func _spawn_unit(kind: String) -> void:
-	if kind == "destroyer" and not _has_building("shipyard"):
+	if kind in ["destroyer", "carrier", "submarine", "landing_craft"] and not _has_building("shipyard"):
 		notice = "ابنِ حوض سفن أولاً لإنتاج المدمرة"
 		notice_time = 2.5
 		return
@@ -1230,8 +1328,8 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := 900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))
-	var supply_cost := 4 if kind == "destroyer" else _unit_supply_cost(kind)
+	var cost := 1600 if kind == "carrier" else (1100 if kind == "submarine" else (800 if kind == "landing_craft" else (900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))))
+	var supply_cost := 8 if kind == "carrier" else (5 if kind == "submarine" else (4 if kind == "destroyer" or kind == "landing_craft" else _unit_supply_cost(kind)))
 	if supplies < supply_cost:
 		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
 		notice_time = 2.5
@@ -1248,7 +1346,9 @@ func _spawn_unit(kind: String) -> void:
 			if dock.kind == "shipyard":
 				unit_spawn = dock.pos
 				break
-	units.append({"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": 260 if kind == "destroyer" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))), "attack_cd": 0.0})
-	var unit_name := "مدمرة بحرية" if kind == "destroyer" else ("جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية"))))
+	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
+	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)))
+	units.append({"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0})
+	var unit_name := "حاملة طائرات" if kind == "carrier" else ("غواصة" if kind == "submarine" else ("سفينة إنزال" if kind == "landing_craft" else ("مدمرة بحرية" if kind == "destroyer" else ("جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية"))))))))
 	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
