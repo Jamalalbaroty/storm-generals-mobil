@@ -2645,6 +2645,10 @@ func _update_production_queues(delta: float) -> void:
 		order.remaining = maxf(0.0, float(order.remaining) - delta)
 		production_orders[i] = order
 		if float(order.remaining) <= 0.0:
+			if _team_unit_count("player") >= MAX_TEAM_UNITS:
+				notice = "اكتمل الإنتاج — ينتظر الطابور توفر سعة للقوات"
+				notice_time = 2.0
+				continue
 			var completed_kind := String(order.kind)
 			production_orders.remove_at(i)
 			_spawn_unit(completed_kind, true)
