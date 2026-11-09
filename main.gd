@@ -909,8 +909,7 @@ func _update_submarine_detection() -> void:
 		submarine[reveal_key] = detected
 
 func _select_enemy_ground_assault_target() -> int:
-	# Enemy ground forces share one frontline priority so tanks, infantry and artillery
-	# concentrate fire instead of scattering across unrelated player units.
+	# Enemy forces coordinate around whichever asset is under the greatest immediate threat.
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
@@ -919,11 +918,20 @@ func _select_enemy_ground_assault_target() -> int:
 			continue
 		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "enemy"):
 			continue
-		var score := candidate.pos.distance_to(enemy_base)
-		if candidate.kind == "tank" or candidate.kind == "artillery":
-			score -= 55.0
-		elif candidate.kind == "fighter" or candidate.kind == "helicopter":
-			score -= 25.0
+		var asset_distance := candidate.pos.distance_to(enemy_base)
+		for protected_building in enemy_buildings:
+			asset_distance = minf(asset_distance, candidate.pos.distance_to(protected_building.pos) + 35.0)
+		var threat_priority := 0.0
+		match String(candidate.kind):
+			"artillery":
+				threat_priority = 85.0
+			"tank":
+				threat_priority = 65.0
+			"fighter", "helicopter":
+				threat_priority = 50.0
+			"infantry":
+				threat_priority = 15.0
+		var score := asset_distance - threat_priority
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
