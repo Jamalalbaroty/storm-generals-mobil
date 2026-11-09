@@ -40,6 +40,11 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Landing craft unload troops at valid shore positions and do not strand units outside the map.
 - [ ] Naval escorts remain near their assigned transports/carriers when required.
 - [ ] Naval units do not target invalid or already-destroyed objects.
+- [ ] A submarine remains untargetable to the opposing fleet until a living destroyer or helicopter enters its sonar detection radius; it becomes targetable while detected.
+- [ ] Destroyers prioritize detected submarines and landing craft appropriately; submarines prioritize carriers; destroyed ships are skipped.
+- [ ] Carrier fighter launches respect the three-fighter team cap, and carrier-based fighters return, recover, and rearm without becoming stuck.
+- [ ] Landing craft unload exactly three marines, return to their recorded home position, reload after the loading delay, and can repeat the landing cycle.
+- [ ] Destroyer escorts stay near an active friendly landing craft or carrier when the fleet's main target is far away, then resume engaging naval targets.
 
 ## 6. Enemy AI
 - [ ] Enemy income and production remain within configured limits.
