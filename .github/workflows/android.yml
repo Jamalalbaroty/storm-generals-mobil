@@ -1,23 +1,8 @@
 name: Build Android APK
 
 on:
+  # Final APK export is manual-only. Regular development commits use validation.yml.
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '**.gd'
-      - '**.tscn'
-      - '**.tres'
-      - '**.res'
-      - '**.png'
-      - '**.jpg'
-      - '**.webp'
-      - '**.wav'
-      - '**.ogg'
-      - '**.mp3'
-      - 'project.godot'
-      - 'export_presets.cfg'
-      - '.github/workflows/android.yml'
 
 concurrency:
   group: storm-generals-android-${{ github.ref }}
