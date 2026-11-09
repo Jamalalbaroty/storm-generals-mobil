@@ -270,7 +270,7 @@ func _process(delta: float) -> void:
 						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
 					continue
 				if unit.kind == "artillery":
-					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_unit(unit.pos)
+					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_distance := unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
@@ -305,6 +305,8 @@ func _process(delta: float) -> void:
 					for candidate_index in range(units.size()):
 						var candidate: Dictionary = units[candidate_index]
 						if candidate.team != "player" or candidate.get("hp", 0) <= 0:
+							continue
+						if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 							continue
 						var threatens_asset := candidate.pos.distance_to(enemy_base) <= 250.0
 						if not threatens_asset:
@@ -907,6 +909,23 @@ func _update_submarine_detection() -> void:
 			notice = "كشف السونار غواصة معادية!" if observer_team == "player" else "رصد العدو غواصتك بالسونار!"
 			notice_time = 1.8
 		submarine[reveal_key] = detected
+
+func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.0) -> int:
+	# Ground troops and artillery must not divert toward aircraft or naval units.
+	var best_index := -1
+	var best_distance := max_distance
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if candidate.team != "player" or candidate.get("hp", 0) <= 0:
+			continue
+		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
+			continue
+		var distance := from_pos.distance_to(candidate.pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = candidate_index
+	return best_index
+
 
 func _select_enemy_ground_assault_target() -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
