@@ -504,7 +504,9 @@ func _process(delta: float) -> void:
 					destination = supply_points[supply_reinforcement_point].pos
 				elif engage_player:
 					destination = units[player_target].pos
-					if unit.kind == "tank" or unit.kind == "infantry":
+					# Base guards must close directly on an intruder; assault-lane offsets
+					# can otherwise keep a nearby threat just outside their firing radius.
+					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
 						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, i)
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
