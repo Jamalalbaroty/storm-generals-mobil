@@ -470,7 +470,7 @@ func _process(delta: float) -> void:
 					var artillery_destination: Vector2 = artillery_fire_target
 					if artillery_target >= 0 and not artillery_guard:
 						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, i)
-					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
+					var artillery_distance: float = unit.pos.distance_to(artillery_fire_target)
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
