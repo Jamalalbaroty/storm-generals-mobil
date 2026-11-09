@@ -1987,9 +1987,22 @@ func _build_order_indicators() -> void:
 func _handle_world_tap(screen_position: Vector2) -> void:
 	var tapped_tank := _tank_at_screen_position(screen_position)
 	if tapped_tank != null:
-		if is_instance_valid(selected_tank) and tapped_tank != selected_tank:
-			if _is_live_player_unit(selected_tank) and str(tapped_tank.get_meta("source_team", "")) == "enemy":
-				gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_tank.get_meta("source_unit_key", "")))
+		if _is_live_player_unit(tapped_tank):
+			if is_instance_valid(selected_tank) and selected_tank != tapped_tank and _is_live_player_unit(selected_tank):
+				selected_tank = tapped_tank
+				attack_target = null
+				has_selected_destination = false
+				selection_ring.visible = true
+				order_marker.visible = false
+				return
+			selected_tank = tapped_tank
+			attack_target = null
+			has_selected_destination = false
+			selection_ring.visible = true
+			order_marker.visible = false
+			return
+		if _is_live_player_unit(selected_tank) and str(tapped_tank.get_meta("source_team", "")) == "enemy":
+			gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_tank.get_meta("source_unit_key", "")))
 			attack_target = tapped_tank
 			has_selected_destination = false
 			order_marker.visible = false
@@ -2071,6 +2084,9 @@ func _update_showcase_orders(delta: float) -> void:
 	var ring_type := str(selected_tank.get_meta("unit_type", "tank"))
 	var ring_scale := 0.62 if ring_type == "infantry" else (1.18 if ring_type == "helicopter" or ring_type == "fighter" else 1.0)
 	selection_ring.scale = Vector3.ONE * ring_scale
+	# Live RTS units are moved by the authoritative 2D simulation; never move their 3D proxies locally.
+	if _is_live_player_unit(selected_tank) or str(selected_tank.get_meta("source_team", "")) == "enemy":
+		return
 	if not has_selected_destination:
 		return
 	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))

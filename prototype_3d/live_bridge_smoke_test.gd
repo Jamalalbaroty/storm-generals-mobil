@@ -73,6 +73,30 @@ func _initialize() -> void:
 		push_error("3D attack command did not resolve the enemy unit into a live RTS attack order")
 		quit(1)
 		return
+	game.call("_set_3d_view_enabled", true)
+	var enemy_screen := bridge.rts_camera.unproject_position(enemy_fighter.global_position + Vector3.UP)
+	var player_screen := bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
+	bridge.call("_handle_world_tap", enemy_screen)
+	bridge.call("_handle_world_tap", player_screen)
+	if bridge.get("selected_tank") != player_tank:
+		push_error("Tapping a friendly live unit did not select it after an enemy was selected")
+		quit(1)
+		return
+	bridge.call("_handle_world_tap", enemy_screen)
+	logical_units = game.get("units")
+	if int(logical_units[0].get("attack_target", -1)) != 1:
+		push_error("Tapping an enemy live unit did not issue an attack from the selected friendly unit")
+		quit(1)
+		return
+	var player_position_before: Vector3 = player_tank.global_position
+	bridge.set("has_selected_destination", true)
+	bridge.set("selected_destination", player_position_before + Vector3(10.0, 0.0, 0.0))
+	bridge.call("_update_showcase_orders", 1.0)
+	if player_tank.global_position.distance_to(player_position_before) > 0.001:
+		push_error("A live 3D proxy moved locally instead of following the authoritative RTS simulation")
+		quit(1)
+		return
+	game.call("_set_3d_view_enabled", false)
 	if absf(float(player_tank.get_meta("health", 0.0)) - 75.0) > 0.001 or absf(float(player_tank.get_meta("max_health", 0.0)) - 150.0) > 0.001:
 		push_error("Live bridge did not preserve unit health values")
 		quit(1)
