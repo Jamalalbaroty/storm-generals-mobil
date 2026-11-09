@@ -55,6 +55,7 @@ var tank_barrels: Dictionary = {}
 var wheel_last_positions: Dictionary = {}
 var game_building_nodes: Dictionary = {}
 var game_unit_nodes: Dictionary = {}
+var next_game_unit_sync_id := 1
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -323,7 +324,10 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var team := String(record.get("team", "player"))
 		var kind := String(record.get("kind", "tank"))
 		var faction_id := String(record.get("faction", "american"))
-		var key := "%s|%d|%s" % [team, index, kind]
+		if not record.has("3d_sync_id"):
+			record["3d_sync_id"] = next_game_unit_sync_id
+			next_game_unit_sync_id += 1
+		var key := "%s|%s|%s" % [team, str(record["3d_sync_id"]), kind]
 		active_keys[key] = true
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
