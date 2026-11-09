@@ -766,6 +766,25 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# A base guard must also protect a forward structure when the base itself is not threatened.
+	var protected_structure_units: Array[Dictionary] = [
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
+		{"pos": Vector2(800.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	var protected_enemy_buildings: Array[Dictionary] = [
+		{"pos": Vector2(820.0, 330.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
+	]
+	game.set("enemy_base", Vector2(1400.0, 330.0))
+	game.set("units", protected_structure_units)
+	game.set("supply_points", no_supply_points)
+	game.set("enemy_buildings", protected_enemy_buildings)
+	game.call("_process", 0.5)
+	var structure_guard_response: Array[Dictionary] = game.get("units")
+	if float(structure_guard_response[0].pos.distance_to(Vector2(800.0, 330.0))) >= 200.0:
+		push_error("Enemy base guard failed to move against armor threatening a forward factory outside the base defense radius")
+		quit(1)
+		return
+
 	# Enemy armor reinforces an owned supply point when player forces threaten an undefended position.
 	var threatened_enemy_point: Array[Dictionary] = [
 		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
