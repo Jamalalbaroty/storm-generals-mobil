@@ -36,6 +36,12 @@ var radar_nodes: Array[Node3D] = []
 var radar_sweeps: Array[Node3D] = []
 var radar_blips: Dictionary = {}
 var radar_alert_clock := 0.0
+var radar_hud: Control
+var radar_plot: Control
+var radar_status_label: Label
+var radar_count_label: Label
+var radar_sweep_widget: ColorRect
+var radar_blip_widgets: Dictionary = {}
 
 func _ready() -> void:
 	_build_environment()
@@ -45,6 +51,7 @@ func _ready() -> void:
 	_build_lighting()
 	_build_showcase_units()
 	_build_order_indicators()
+	_build_tactical_radar_hud()
 
 func _process(delta: float) -> void:
 	turret_scan_clock += delta
@@ -59,6 +66,7 @@ func _process(delta: float) -> void:
 	_update_aircraft_animation(delta)
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
+	_update_radar_hud(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -548,6 +556,147 @@ func _resolve_air_defense_hit(missile: Node3D, target: Node3D) -> void:
 		return
 	_resolve_showcase_hit(null, target, 35.0)
 
+
+
+func _build_tactical_radar_hud() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "TacticalRadarHUD"
+	layer.layer = 8
+	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.name = "RadarPanel"
+	panel.anchor_left = 1.0
+	panel.anchor_top = 1.0
+	panel.anchor_right = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = -274.0
+	panel.offset_top = -218.0
+	panel.offset_right = -12.0
+	panel.offset_bottom = -12.0
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.025, 0.045, 0.04, 0.94)
+	panel_style.border_color = Color(0.24, 0.48, 0.36, 0.95)
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(5)
+	panel.add_theme_stylebox_override("panel", panel_style)
+	layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 5)
+	panel.add_child(column)
+	var heading := Label.new()
+	heading.text = "TACTICAL // AIRSPACE"
+	heading.add_theme_color_override("font_color", Color(0.66, 0.86, 0.72))
+	heading.add_theme_font_size_override("font_size", 13)
+	column.add_child(heading)
+	var plot := Control.new()
+	plot.name = "RadarPlot"
+	plot.custom_minimum_size = Vector2(240.0, 132.0)
+	plot.clip_contents = true
+	column.add_child(plot)
+	radar_plot = plot
+	var plot_bg := ColorRect.new()
+	plot_bg.color = Color(0.035, 0.085, 0.065, 1.0)
+	plot_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plot.add_child(plot_bg)
+	for grid_x in range(1, 4):
+		var line := ColorRect.new()
+		line.color = Color(0.18, 0.36, 0.27, 0.48)
+		line.position = Vector2(float(grid_x) * 60.0, 0.0)
+		line.size = Vector2(1.0, 132.0)
+		plot.add_child(line)
+	for grid_y in range(1, 3):
+		var line := ColorRect.new()
+		line.color = Color(0.18, 0.36, 0.27, 0.48)
+		line.position = Vector2(0.0, float(grid_y) * 44.0)
+		line.size = Vector2(240.0, 1.0)
+		plot.add_child(line)
+	var center_h := ColorRect.new()
+	center_h.color = Color(0.30, 0.55, 0.40, 0.55)
+	center_h.position = Vector2(0.0, 65.5)
+	center_h.size = Vector2(240.0, 1.0)
+	plot.add_child(center_h)
+	var center_v := ColorRect.new()
+	center_v.color = Color(0.30, 0.55, 0.40, 0.55)
+	center_v.position = Vector2(119.5, 0.0)
+	center_v.size = Vector2(1.0, 132.0)
+	plot.add_child(center_v)
+	var sweep := ColorRect.new()
+	sweep.color = Color(0.30, 0.92, 0.55, 0.65)
+	sweep.position = Vector2(119.0, 2.0)
+	sweep.size = Vector2(2.0, 62.0)
+	sweep.pivot_offset = Vector2(1.0, 64.0)
+	plot.add_child(sweep)
+	radar_sweep_widget = sweep
+	var own_base := ColorRect.new()
+	own_base.color = Color(0.20, 0.78, 0.95)
+	own_base.position = Vector2(116.0, 62.0)
+	own_base.size = Vector2(8.0, 8.0)
+	plot.add_child(own_base)
+	var footer := HBoxContainer.new()
+	column.add_child(footer)
+	var status := Label.new()
+	status.text = "AIRSPACE: CLEAR"
+	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status.add_theme_font_size_override("font_size", 11)
+	status.add_theme_color_override("font_color", Color(0.42, 0.88, 0.60))
+	footer.add_child(status)
+	radar_status_label = status
+	var count := Label.new()
+	count.text = "HOSTILE  0"
+	count.add_theme_font_size_override("font_size", 11)
+	count.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25))
+	footer.add_child(count)
+	radar_count_label = count
+	radar_hud = panel
+
+func _update_radar_hud(delta: float) -> void:
+	if not is_instance_valid(radar_plot):
+		return
+	if is_instance_valid(radar_sweep_widget):
+		radar_sweep_widget.rotation += delta * 2.2
+	var active_keys: Array[String] = []
+	var hostile_count := 0
+	for aircraft in showcase_tanks:
+		if not is_instance_valid(aircraft):
+			continue
+		var aircraft_type := str(aircraft.get_meta("unit_type", "tank"))
+		if aircraft_type != "helicopter" and aircraft_type != "fighter":
+			continue
+		# The showcase command HUD represents the American command network.
+		if str(aircraft.get_meta("faction_id", "")) == "american":
+			continue
+		if Vector2(aircraft.global_position.x, aircraft.global_position.z).length() > 30.0:
+			continue
+		hostile_count += 1
+		var key := str(aircraft.get_instance_id())
+		active_keys.append(key)
+		var blip := radar_blip_widgets.get(key) as ColorRect
+		if not is_instance_valid(blip):
+			blip = ColorRect.new()
+			blip.size = Vector2(7.0, 7.0)
+			blip.color = Color(1.0, 0.20, 0.12)
+			radar_plot.add_child(blip)
+			radar_blip_widgets[key] = blip
+		var px := clampf((aircraft.global_position.x + 30.0) / 60.0 * 240.0, 3.0, 233.0)
+		var py := clampf((aircraft.global_position.z + 30.0) / 60.0 * 132.0, 3.0, 125.0)
+		blip.position = Vector2(px, py)
+		blip.visible = true
+	for key_variant in radar_blip_widgets.keys():
+		var key := str(key_variant)
+		if not active_keys.has(key):
+			var stale := radar_blip_widgets[key] as ColorRect
+			if is_instance_valid(stale):
+				stale.queue_free()
+			radar_blip_widgets.erase(key)
+	if is_instance_valid(radar_count_label):
+		radar_count_label.text = "HOSTILE  %d" % hostile_count
+	if is_instance_valid(radar_status_label):
+		if hostile_count > 0:
+			radar_status_label.text = "WARNING: AIR CONTACT"
+			radar_status_label.add_theme_color_override("font_color", Color(1.0, 0.30, 0.20))
+		else:
+			radar_status_label.text = "AIRSPACE: CLEAR"
+			radar_status_label.add_theme_color_override("font_color", Color(0.42, 0.88, 0.60))
 
 func _build_showcase_radars() -> void:
 	_add_radar_station(Vector3(-14.0, 0.0, -7.0), "american")
