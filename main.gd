@@ -2198,11 +2198,16 @@ func _enemy_ai_turn() -> void:
 		else:
 			enemy_infantry += 1
 
-	# Read the player's visible heavy ground force and scale counter-unit limits.
+	# Read the player's visible ground composition and scale counter-unit limits.
 	var player_heavy_ground_threat := 0
+	var player_infantry_threat := 0
 	for unit in units:
-		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery"):
+		if unit.team != "player" or unit.get("hp", 0) <= 0:
+			continue
+		if unit.kind == "tank" or unit.kind == "artillery":
 			player_heavy_ground_threat += 1
+		elif unit.kind == "infantry":
+			player_infantry_threat += 1
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
 	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
@@ -2234,7 +2239,7 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= _unit_supply_cost("helicopter")
 		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and enemy_tanks >= 2 and enemy_artillery < (3 if player_heavy_ground_threat >= 4 else 2):
+	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
 		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("artillery")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
