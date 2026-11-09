@@ -460,6 +460,19 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Enemy ground assaults use role-based lanes: armor leads and infantry follows.
+	var formation_origin := Vector2(1000.0, 360.0)
+	var formation_target := Vector2(400.0, 360.0)
+	var formation_direction := (formation_target - formation_origin).normalized()
+	var tank_formation_pos: Vector2 = game.call("_enemy_ground_assault_formation_position", "tank", formation_target, formation_origin, 0)
+	var infantry_formation_pos: Vector2 = game.call("_enemy_ground_assault_formation_position", "infantry", formation_target, formation_origin, 1)
+	var tank_advance_projection: float = (tank_formation_pos - formation_target).dot(formation_direction)
+	var infantry_advance_projection: float = (infantry_formation_pos - formation_target).dot(formation_direction)
+	if tank_advance_projection <= infantry_advance_projection or absf(tank_formation_pos.distance_to(formation_target) - 62.0) > 0.1 or absf(infantry_formation_pos.distance_to(formation_target) - 31.0) > 0.1:
+		push_error("Enemy assault formation did not place armor ahead of infantry in staggered lanes")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
