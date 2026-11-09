@@ -438,6 +438,12 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * 65.0
 					continue
+				if unit.kind == "tank" or unit.kind == "artillery":
+					var landing_support_target := _landing_assault_support_target(unit.pos, "player")
+					if landing_support_target >= 0:
+						unit.erase("attack_building")
+						unit.erase("attack_base")
+						unit.attack_target = landing_support_target
 				if unit.has("attack_building"):
 					var building_target := int(unit.attack_building)
 					if building_target < 0 or building_target >= enemy_buildings.size():
@@ -694,7 +700,8 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 					"kind": "infantry",
 					"faction": String(unit.get("faction", faction)),
 					"hp": 100 if team == "player" else 80,
-					"attack_cd": 0.0
+					"attack_cd": 0.0,
+					"landing_assault": true
 				}
 				if team == "player":
 					var strategic_target := _strategic_enemy_building_index(landing_destination)
@@ -736,6 +743,32 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 		if float(unit["landing_timer"]) <= 0.0:
 			unit["passengers"] = 3
 			unit["landing_state"] = "outbound"
+
+
+func _landing_assault_support_target(from_pos: Vector2, team: String) -> int:
+	# Tanks and artillery support landing infantry by engaging nearby hostile ground defenders.
+	var opposing_team := "enemy" if team == "player" else "player"
+	var best_target := -1
+	var best_score := INF
+	for marine in units:
+		if marine.team != team or marine.kind != "infantry" or marine.get("hp", 0) <= 0:
+			continue
+		if not bool(marine.get("landing_assault", false)):
+			continue
+		for target_index in range(units.size()):
+			var threat: Dictionary = units[target_index]
+			if threat.team != opposing_team or threat.get("hp", 0) <= 0:
+				continue
+			if threat.kind not in ["tank", "artillery", "infantry"]:
+				continue
+			var marine_distance: float = marine.pos.distance_to(threat.pos)
+			if marine_distance > 230.0:
+				continue
+			var score: float = from_pos.distance_to(threat.pos) + marine_distance * 0.7
+			if score < best_score:
+				best_score = score
+				best_target = target_index
+	return best_target
 
 
 func _strategic_enemy_building_index(from_pos: Vector2) -> int:
