@@ -669,6 +669,44 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 			best_index = i
 	return best_index
 
+func _unit_weapon_angle(unit: Dictionary) -> float:
+	# Visual-only aiming: resolve the current tactical target without changing combat rules.
+	var target_pos: Vector2 = unit.pos
+	var found_target := false
+	var target_index := -1
+	if unit.has("attack_building") and unit.team == "player":
+		var building_index := int(unit.attack_building)
+		if building_index >= 0 and building_index < enemy_buildings.size():
+			target_pos = enemy_buildings[building_index].pos
+			found_target = true
+	elif unit.team == "player":
+		target_index = int(unit.get("attack_target", -1))
+		if target_index >= 0 and target_index < units.size() and units[target_index].team == "enemy" and units[target_index].get("hp", 0) > 0:
+			target_pos = units[target_index].pos
+			found_target = true
+		else:
+			target_index = _nearest_enemy_unit(unit.pos, 520.0)
+			if target_index >= 0:
+				target_pos = units[target_index].pos
+				found_target = true
+	elif unit.team == "enemy":
+		target_index = _nearest_player_unit(unit.pos)
+		if target_index >= 0:
+			target_pos = units[target_index].pos
+			found_target = true
+	if not found_target and unit.has("target"):
+		target_pos = unit.target
+		found_target = true
+	if not found_target:
+		target_pos = enemy_base if unit.team == "player" else base_pos
+	var direction: Vector2 = target_pos - unit.pos
+	if direction.length_squared() < 0.01:
+		return 0.0
+	return direction.angle()
+
+func _unit_rotated_point(origin: Vector2, local_point: Vector2, angle: float) -> Vector2:
+	return origin + local_point.rotated(angle)
+
 func _draw() -> void:
 	var size := get_viewport_rect().size
 	_draw_terrain(size)
@@ -757,18 +795,20 @@ func _draw() -> void:
 				draw_circle(u.pos + Vector2(-12 + wheel * 8, 11), 3.2, Color("#69736f"))
 				draw_circle(u.pos + Vector2(-12 + wheel * 8, -11), 3.2, Color("#69736f"))
 			draw_rect(Rect2(u.pos + Vector2(-8, -8), Vector2(19, 16)), Color("#3d4a45"))
+			var tank_aim := _unit_weapon_angle(u)
 			draw_circle(u.pos + Vector2(1, 0), 7, Color("#7f927f"))
-			draw_line(u.pos + Vector2(4, -1), u.pos + Vector2(27, -4), Color("#252c2c"), 5)
-			draw_line(u.pos + Vector2(-13, -5), u.pos + Vector2(13, -5), Color("#d5c99d"), 2)
-			draw_circle(u.pos + Vector2(-1, -5), 2.5, Color("#d5c99d"))
+			draw_line(_unit_rotated_point(u.pos, Vector2(4, 0), tank_aim), _unit_rotated_point(u.pos, Vector2(29, 0), tank_aim), Color("#252c2c"), 5)
+			draw_line(_unit_rotated_point(u.pos, Vector2(-13, -5), tank_aim), _unit_rotated_point(u.pos, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(-1, -5), tank_aim), 2.5, Color("#d5c99d"))
 		elif u.kind == "artillery":
 			draw_rect(Rect2(u.pos + Vector2(-19, -11), Vector2(39, 22)), Color("#20292b"))
 			draw_rect(Rect2(u.pos + Vector2(-16, -8), Vector2(33, 16)), c)
 			for wheel in range(4):
 				draw_circle(u.pos + Vector2(-12 + wheel * 8, 10), 3.2, Color("#59645e"))
 			draw_rect(Rect2(u.pos + Vector2(-8, -5), Vector2(17, 10)), Color("#45534c"))
-			draw_line(u.pos + Vector2(0, -2), u.pos + Vector2(29, -17), Color("#252b2b"), 7)
-			draw_line(u.pos + Vector2(0, -2), u.pos + Vector2(29, -17), Color("#aeb7a5"), 3)
+			var artillery_aim := _unit_weapon_angle(u)
+			draw_line(_unit_rotated_point(u.pos, Vector2(0, -2), artillery_aim), _unit_rotated_point(u.pos, Vector2(32, -2), artillery_aim), Color("#252b2b"), 7)
+			draw_line(_unit_rotated_point(u.pos, Vector2(0, -2), artillery_aim), _unit_rotated_point(u.pos, Vector2(32, -2), artillery_aim), Color("#aeb7a5"), 3)
 			draw_circle(u.pos + Vector2(-3, 0), 4, Color("#d4c59a"))
 		else:
 			draw_line(u.pos + Vector2(-5, 6), u.pos + Vector2(5, 6), Color("#283137"), 4)
