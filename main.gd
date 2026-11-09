@@ -2602,18 +2602,19 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := _unit_cost(kind, faction)
-	var supply_cost := _unit_supply_cost(kind)
-	if supplies < supply_cost:
-		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
-		notice_time = 2.5
-		return
-	if credits < cost:
-		notice = "لا توجد موارد كافية"
-		notice_time = 2.0
-		return
-	credits -= cost
-	supplies -= supply_cost
+	if not already_paid:
+		var cost := _unit_cost(kind, faction)
+		var supply_cost := _unit_supply_cost(kind)
+		if supplies < supply_cost:
+			notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
+			notice_time = 2.5
+			return
+		if credits < cost:
+			notice = "لا توجد موارد كافية"
+			notice_time = 2.0
+			return
+		credits -= cost
+		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
 	if _is_naval_kind(kind):
 		for dock in buildings:
