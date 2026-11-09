@@ -103,6 +103,7 @@ func _ready() -> void:
 const BATTLEFIELD_3D_SCENE: PackedScene = preload("res://prototype_3d/battlefield_3d.tscn")
 var battlefield_3d: Node3D
 var battlefield_sync_timer := 0.0
+var use_3d_view := false
 const BATTLEFIELD_SYNC_INTERVAL := 0.12
 
 
@@ -124,6 +125,22 @@ func _sync_3d_gameplay_bridge() -> void:
 	battlefield_3d.call("sync_game_units", units, map_rect)
 	var enemy_faction_id := _enemy_faction()
 	battlefield_3d.call("sync_game_buildings", buildings, enemy_buildings, map_rect, faction, enemy_faction_id)
+
+
+func _set_3d_view_enabled(enabled: bool) -> void:
+	if enabled and not game_started:
+		return
+	use_3d_view = enabled
+	if is_instance_valid(battlefield_3d):
+		battlefield_3d.visible = enabled
+	if enabled:
+		_sync_3d_gameplay_bridge()
+	dragging = false
+	queue_redraw()
+
+
+func _three_d_view_toggle_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x - 224.0, 5.0), Vector2(104.0, 48.0))
 
 
 func _setup_battle_audio() -> void:
@@ -1241,6 +1258,9 @@ func _update_unit_facing(delta: float) -> void:
 
 func _draw() -> void:
 	var size = get_viewport_rect().size
+	if game_started and use_3d_view:
+		_draw_3d_view_hud(size)
+		return
 	_draw_terrain(size)
 	# Layered coastline, beach and navigable sea lane
 	draw_rect(Rect2(0, size.y * 0.675, size.x, size.y * 0.065), Color("#b6a078"))
@@ -1456,6 +1476,17 @@ func _draw() -> void:
 	elif notice_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.35, 82), notice, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 23, Color.WHITE)
 
+func _draw_3d_view_hud(size: Vector2) -> void:
+	draw_rect(Rect2(0.0, 0.0, size.x, 58.0), Color(0.025, 0.045, 0.052, 0.88), true)
+	draw_line(Vector2(0.0, 58.0), Vector2(size.x, 58.0), Color("#71858a"), 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(14.0, 25.0), "STORM GENERALS // 3D COMMAND", HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.55, 16, Color("#f4d77a"))
+	draw_string(ThemeDB.fallback_font, Vector2(14.0, 45.0), "%s  |  الموارد: %d  |  الإمداد: %d" % [faction, credits, supplies], HORIZONTAL_ALIGNMENT_LEFT, size.x * 0.62, 13, Color("#d8e6c2"))
+	var toggle := _three_d_view_toggle_rect(size)
+	draw_rect(toggle, Color("#73552d"), true)
+	draw_rect(toggle, Color("#f4d77a"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, toggle.position + Vector2(0.0, 30.0), "العودة 2D", HORIZONTAL_ALIGNMENT_CENTER, toggle.size.x, 16, Color.WHITE)
+
+
 func _pause_rect(size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x - 112.0, 5.0), Vector2(100.0, 48.0))
 
@@ -1539,6 +1570,10 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
 	draw_string(ThemeDB.fallback_font, pause_button.position + Vector2(0, 30), "استئناف" if paused else "إيقاف", HORIZONTAL_ALIGNMENT_CENTER, pause_button.size.x, 17, Color.WHITE)
+	var view_button := _three_d_view_toggle_rect(size)
+	draw_rect(view_button, Color("#284b43"), true)
+	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column = index % 4
@@ -1561,6 +1596,18 @@ func _faction_rect(i: int, size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x * 0.28 + i * (w + 12), size.y * 0.48), Vector2(w, 72))
 
 func _input(event: InputEvent) -> void:
+	if use_3d_view:
+		var released := false
+		var pointer_position := Vector2.ZERO
+		if event is InputEventScreenTouch and not event.pressed:
+			released = true
+			pointer_position = event.position
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			released = true
+			pointer_position = event.position
+		if released and _three_d_view_toggle_rect(get_viewport_rect().size).has_point(pointer_position):
+			_set_3d_view_enabled(false)
+		return
 	if event is InputEventScreenTouch:
 		_handle_pointer(event.position, event.pressed)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1610,6 +1657,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			missiles.clear()
 			enemy_missile_timer = 0.0
 			queue_redraw()
+		return
+	if game_started and _three_d_view_toggle_rect(size).has_point(pos):
+		_set_3d_view_enabled(true)
 		return
 	if game_started and _pause_rect(size).has_point(pos):
 		paused = not paused

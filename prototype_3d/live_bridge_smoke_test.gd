@@ -22,6 +22,16 @@ func _initialize() -> void:
 
 	game.set("game_started", true)
 	game.set("faction", "الأمريكي")
+	game.call("_set_3d_view_enabled", true)
+	if not bridge.visible or not bool(game.get("use_3d_view")):
+		push_error("Explicit 3D view activation did not reveal the live battlefield")
+		quit(1)
+		return
+	game.call("_set_3d_view_enabled", false)
+	if bridge.visible or bool(game.get("use_3d_view")):
+		push_error("Returning to 2D view did not hide the 3D battlefield")
+		quit(1)
+		return
 	var test_units: Array[Dictionary] = [
 		{"pos": Vector2(200.0, 160.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 75.0, "max_hp": 150.0},
 		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0}
