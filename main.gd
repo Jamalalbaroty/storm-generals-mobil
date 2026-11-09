@@ -33,6 +33,7 @@ var enemy_base := Vector2(1090, 330)
 var player_base_hp := 1000
 var enemy_base_hp := 1000
 var battle_result := ""
+var visual_effects: Array[Dictionary] = []
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(queue_redraw)
@@ -41,6 +42,10 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if notice_time > 0.0:
 		notice_time -= delta
+	for effect_index in range(visual_effects.size() - 1, -1, -1):
+		visual_effects[effect_index].life = float(visual_effects[effect_index].life) - delta
+		if visual_effects[effect_index].life <= 0.0:
+			visual_effects.remove_at(effect_index)
 	if game_started:
 		if battle_result != "":
 			return
@@ -70,6 +75,8 @@ func _process(delta: float) -> void:
 				var target := _nearest_enemy_unit(building.pos, 230.0)
 				if target >= 0 and building.attack_cd <= 0.0:
 					units[target].hp -= 18
+					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#ffd27a"), 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#ffb34d"), 0.22, 13.0)
 					building.attack_cd = 0.8
 		for building in enemy_buildings:
 			if building.kind == "turret":
@@ -77,6 +84,8 @@ func _process(delta: float) -> void:
 				var target := _nearest_player_unit(building.pos)
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= 230.0 and building.attack_cd <= 0.0:
 					units[target].hp -= 16
+					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#ff8b72"), 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#ff704d"), 0.22, 12.0)
 					building.attack_cd = 0.9
 		for i in units.size():
 			var unit := units[i]
@@ -90,6 +99,7 @@ func _process(delta: float) -> void:
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
+							_add_visual_effect("explosion", artillery_destination, artillery_destination, Color("#ff9855"), 0.65, 58.0)
 							if artillery_target >= 0:
 								_apply_splash_damage(artillery_destination, 52.0, 24, "player")
 							else:
@@ -140,10 +150,13 @@ func _process(delta: float) -> void:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
 							if unit.kind == "artillery":
+								_add_visual_effect("explosion", enemy.pos, enemy.pos, Color("#ffb45e"), 0.72, 66.0)
 								_apply_splash_damage(enemy.pos, 58.0, 45, "enemy")
 								unit.attack_cd = 2.4
 							else:
 								enemy.hp -= 20 if unit.kind == "tank" else 10
+								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
+								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
 								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
 					else:
 						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
@@ -152,6 +165,17 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(target) > 8.0:
 						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 		queue_redraw()
+
+func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Color, duration: float, radius: float) -> void:
+	visual_effects.append({
+		"kind": kind,
+		"start": start,
+		"finish": finish,
+		"color": tint,
+		"life": duration,
+		"duration": duration,
+		"radius": radius
+	})
 
 func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
 	for unit in units:
@@ -226,6 +250,22 @@ func _draw() -> void:
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
 			draw_arc(u.pos, 17, 0, TAU, 32, Color("#ffe45c"), 3)
+	for effect in visual_effects:
+		var progress := 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
+		var fade := 1.0 - progress
+		var tint: Color = effect.color
+		tint.a = fade
+		if effect.kind == "tracer":
+			draw_line(effect.start, effect.finish, tint, 3.0)
+			draw_circle(effect.finish, 3.0 * fade + 1.0, tint)
+		elif effect.kind == "flash":
+			draw_circle(effect.finish, float(effect.radius) * (0.45 + progress), tint)
+			draw_arc(effect.finish, float(effect.radius) * (0.8 + progress), 0.0, TAU, 20, tint, 2.0)
+		elif effect.kind == "explosion":
+			var blast_radius: float = float(effect.radius) * (0.25 + progress)
+			draw_circle(effect.finish, blast_radius, Color(tint.r, tint.g * 0.62, tint.b * 0.28, fade * 0.42))
+			draw_arc(effect.finish, blast_radius, 0.0, TAU, 32, tint, 4.0 * fade + 1.0)
+			draw_circle(effect.finish + Vector2(-blast_radius * 0.25, -blast_radius * 0.35), blast_radius * 0.28, Color(0.24, 0.22, 0.2, fade * 0.45))
 	_draw_hud(size)
 	if dragging:
 		draw_rect(Rect2(drag_start, drag_end - drag_start), Color(0.3, 0.8, 1, 0.13), true)
