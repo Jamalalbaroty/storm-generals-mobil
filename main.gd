@@ -2494,7 +2494,8 @@ func _place_building(pos: Vector2) -> void:
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
-	var building_name := "محطة الطاقة" if build_mode == "power_plant" else ("حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
+	var building_labels := {"power_plant": "محطة الطاقة", "shipyard": "حوض السفن", "missile_silo": "منصة الصواريخ", "missile_defense": "الدفاع الصاروخي", "barracks": "الثكنة", "factory": "المصنع", "airfield": "المطار", "anti_air": "الدفاع المضاد للطائرات", "turret": "برج الدفاع"}
+	var building_name: String = building_labels.get(build_mode, "المبنى")
 	notice = "بدأ إنشاء %s — انتظر اكتمال البناء" % building_name
 	notice_time = 2.0
 	build_mode = ""
