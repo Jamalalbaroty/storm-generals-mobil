@@ -18,6 +18,10 @@ var showcase_turrets: Array[Node3D] = []
 var turret_scan_clock := 0.0
 var showcase_tanks: Array[Node3D] = []
 var selected_tank: Node3D
+var selected_live_units: Array[Node3D] = []
+var selection_gesture_start := Vector2.ZERO
+var selection_gesture_active := false
+var selection_gesture_dragging := false
 var selected_destination := Vector3.ZERO
 var has_selected_destination := false
 var selection_ring: MeshInstance3D
@@ -972,8 +976,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				var points: Array = touch_points.values()
 				last_pinch_distance = points[0].distance_to(points[1])
 		else:
-			var was_tap: bool = touch_start_positions.has(touch.index) and not bool(touch_moved.get(touch.index, true)) and touch_points.size() == 1
-			if was_tap:
+			var had_start := touch_start_positions.has(touch.index)
+			var was_drag := had_start and bool(touch_moved.get(touch.index, false)) and touch_points.size() == 1
+			var was_tap: bool = had_start and not bool(touch_moved.get(touch.index, true)) and touch_points.size() == 1
+			if was_drag and _tank_at_screen_position(touch_start_positions[touch.index]) == null:
+				_select_live_units_in_screen_rect(touch_start_positions[touch.index], touch.position)
+			elif was_tap:
 				_handle_world_tap(touch.position)
 			touch_points.erase(touch.index)
 			touch_start_positions.erase(touch.index)
@@ -997,15 +1005,28 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var mouse_button := event as InputEventMouseButton
 		if mouse_button.button_index == MOUSE_BUTTON_LEFT and mouse_button.pressed:
-			_handle_world_tap(mouse_button.position)
+			selection_gesture_start = mouse_button.position
+			selection_gesture_active = true
+			selection_gesture_dragging = false
+		elif mouse_button.button_index == MOUSE_BUTTON_LEFT and not mouse_button.pressed and selection_gesture_active:
+			if selection_gesture_dragging:
+				_select_live_units_in_screen_rect(selection_gesture_start, mouse_button.position)
+			else:
+				_handle_world_tap(mouse_button.position)
+			selection_gesture_active = false
+			selection_gesture_dragging = false
 		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
 			_zoom_camera(0.90)
 		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
 			_zoom_camera(1.10)
 		elif mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
 			mouse_pan_active = mouse_button.pressed
-	elif event is InputEventMouseMotion and mouse_pan_active:
-		_pan_camera((event as InputEventMouseMotion).relative)
+	elif event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if selection_gesture_active and selection_gesture_start.distance_to(motion.position) > 12.0:
+			selection_gesture_dragging = true
+		elif mouse_pan_active:
+			_pan_camera(motion.relative)
 
 func _build_lighting() -> void:
 	var sun := DirectionalLight3D.new()
@@ -1984,30 +2005,45 @@ func _build_order_indicators() -> void:
 	order_marker.visible = false
 	add_child(order_marker)
 
+func _set_live_selection(units_to_select: Array[Node3D]) -> void:
+	selected_live_units.clear()
+	for unit in units_to_select:
+		if _is_live_player_unit(unit) and not selected_live_units.has(unit):
+			selected_live_units.append(unit)
+	selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
+	attack_target = null
+	has_selected_destination = false
+	selection_ring.visible = is_instance_valid(selected_tank)
+	order_marker.visible = false
+
+func _select_live_units_in_screen_rect(start: Vector2, finish: Vector2) -> void:
+	var bounds := Rect2(start, finish - start).abs()
+	var picked: Array[Node3D] = []
+	for unit in showcase_tanks:
+		if not _is_live_player_unit(unit) or rts_camera.is_position_behind(unit.global_position):
+			continue
+		var screen_pos := rts_camera.unproject_position(unit.global_position + Vector3.UP)
+		if bounds.has_point(screen_pos):
+			picked.append(unit)
+	_set_live_selection(picked)
+
 func _handle_world_tap(screen_position: Vector2) -> void:
 	var tapped_tank := _tank_at_screen_position(screen_position)
 	if tapped_tank != null:
 		if _is_live_player_unit(tapped_tank):
-			if is_instance_valid(selected_tank) and selected_tank != tapped_tank and _is_live_player_unit(selected_tank):
-				selected_tank = tapped_tank
-				attack_target = null
-				has_selected_destination = false
-				selection_ring.visible = true
-				order_marker.visible = false
-				return
-			selected_tank = tapped_tank
-			attack_target = null
-			has_selected_destination = false
-			selection_ring.visible = true
-			order_marker.visible = false
+			var single_selection: Array[Node3D] = [tapped_tank]
+			_set_live_selection(single_selection)
 			return
-		if _is_live_player_unit(selected_tank) and str(tapped_tank.get_meta("source_team", "")) == "enemy":
-			gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_tank.get_meta("source_unit_key", "")))
+		if not selected_live_units.is_empty() and str(tapped_tank.get_meta("source_team", "")) == "enemy":
+			for friendly in selected_live_units:
+				if is_instance_valid(friendly):
+					gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_tank.get_meta("source_unit_key", "")))
 			attack_target = tapped_tank
 			has_selected_destination = false
 			order_marker.visible = false
 			return
 		selected_tank = tapped_tank
+		selected_live_units.clear()
 		attack_target = null
 		has_selected_destination = false
 		selection_ring.visible = true
@@ -2023,8 +2059,17 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		0.0,
 		clampf(ground_point.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
 	)
-	if _is_live_player_unit(selected_tank):
-		gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "move", selected_destination, "")
+	if not selected_live_units.is_empty():
+		var count := selected_live_units.size()
+		var columns := int(ceil(sqrt(float(count))))
+		for index in range(count):
+			var friendly := selected_live_units[index]
+			if not is_instance_valid(friendly):
+				continue
+			var row := int(index / columns)
+			var column := index % columns
+			var offset := Vector3((float(column) - float(columns - 1) * 0.5) * 2.6, 0.0, (float(row) - float(columns - 1) * 0.5) * 2.6)
+			gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", selected_destination + offset, "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
@@ -2076,8 +2121,10 @@ func _unit_separation_vector(unit: Node3D) -> Vector3:
 	return push
 
 func _update_showcase_orders(delta: float) -> void:
+	selected_live_units = selected_live_units.filter(func(unit): return is_instance_valid(unit) and _is_live_player_unit(unit))
 	if not is_instance_valid(selected_tank):
-		selected_tank = null
+		selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
+	if not is_instance_valid(selected_tank):
 		selection_ring.visible = false
 		return
 	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
