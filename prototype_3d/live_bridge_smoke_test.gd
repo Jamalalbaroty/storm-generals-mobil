@@ -479,6 +479,32 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Destroyed enemy structures must not attract attackers or trigger obsolete base-defense responses.
+	game.set("enemy_base", Vector2(500.0, 360.0))
+	game.set("units", [
+		{"pos": Vector2(450.0, 360.0), "team": "player", "kind": "tank", "hp": 150},
+		{"pos": Vector2(900.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+	])
+	game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 0}])
+	if int(game.call("_select_enemy_ground_assault_target")) != 0:
+		push_error("Enemy ground assault target selection treated a destroyed factory as a protected asset")
+		quit(1)
+		return
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("enemy_strategy", "balanced")
+	game.set("units", [
+		{"pos": Vector2(900.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0, "defense_guard": true, "defense_anchor": Vector2(900.0, 360.0)},
+		{"pos": Vector2(920.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+	])
+	game.call("_process", 0.1)
+	var obsolete_asset_guard: Array[Dictionary] = game.get("units")
+	if int(obsolete_asset_guard[1].get("hp", 150)) != 150:
+		push_error("Enemy base guard engaged a player tank threatening only a destroyed factory")
+		quit(1)
+		return
+	game.set("enemy_buildings", [])
+
 	# Validate the live coordinated ground assault: armor leads, infantry follows, and artillery holds its firing standoff.
 	game.set("game_started", true)
 	game.set("paused", false)
