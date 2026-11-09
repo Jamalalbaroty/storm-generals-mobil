@@ -1873,8 +1873,10 @@ func _update_building_construction(delta: float) -> void:
 		buildings[i] = building
 		if progress >= 1.0:
 			for worker in units:
-				if worker.team == "player" and worker.kind == "builder" and worker.get("build_target", Vector2(-9999, -9999)).distance_to(building.pos) < 4.0:
-					worker.erase("build_target")
+				if worker.team == "player" and worker.kind == "builder":
+					var assigned_target: Vector2 = worker.get("build_target", Vector2(-9999, -9999))
+					if assigned_target.distance_to(building.pos) < 4.0:
+						worker.erase("build_target")
 			notice = "اكتمل إنشاء المبنى — أصبح جاهزاً للعمل"
 			notice_time = 2.5
 
