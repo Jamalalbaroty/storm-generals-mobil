@@ -69,6 +69,7 @@ var enemy_credits := 1200
 var enemy_income_timer := 0.0
 var enemy_buildings: Array[Dictionary] = []
 var game_started := false
+var paused := false
 var dragging := false
 var drag_start := Vector2.ZERO
 var drag_end := Vector2.ZERO
@@ -148,6 +149,8 @@ func _play_battle_sound(sound_name: String) -> void:
 			return
 
 func _process(delta: float) -> void:
+	if paused:
+		return
 	for sound_name in sound_cooldowns.keys():
 		sound_cooldowns[sound_name] = maxf(0.0, float(sound_cooldowns[sound_name]) - delta)
 	if notice_time > 0.0:
@@ -1371,8 +1374,16 @@ func _draw() -> void:
 		draw_rect(restart, Color("#73552d"), true)
 		draw_rect(restart, Color("#f4d77a"), false, 2)
 		draw_string(ThemeDB.fallback_font, restart.position + Vector2(0, 31), "معركة جديدة", HORIZONTAL_ALIGNMENT_CENTER, restart.size.x, 21, Color.WHITE)
+	elif paused:
+		draw_rect(Rect2(size.x * 0.32, size.y * 0.36, size.x * 0.36, size.y * 0.2), Color(0.02, 0.03, 0.04, 0.88))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.36, size.y * 0.44), "المعركة متوقفة مؤقتاً", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.28, 27, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.36, size.y * 0.50), "اضغط استئناف لمتابعة القتال", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.28, 18, Color.WHITE)
 	elif notice_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.35, 82), notice, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 23, Color.WHITE)
+
+func _pause_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x - 112.0, 5.0), Vector2(100.0, 48.0))
+
 
 func _restart_rect(size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x * 0.4, size.y * 0.53), Vector2(size.x * 0.2, 48))
@@ -1403,6 +1414,10 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, 103), _terrain_effect_label(), HORIZONTAL_ALIGNMENT_LEFT, 360, 14, Color("#d8e6c2"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		var pause_button := _pause_rect(size)
+		draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
+		draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
+		draw_string(ThemeDB.fallback_font, pause_button.position + Vector2(0, 30), "استئناف" if paused else "إيقاف", HORIZONTAL_ALIGNMENT_CENTER, pause_button.size.x, 17, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column = index % 4
@@ -1449,6 +1464,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	if battle_result != "":
 		if _restart_rect(size).has_point(pos):
 			game_started = false
+			paused = false
 			battle_result = ""
 			faction = ""
 			units.clear()
@@ -1473,6 +1489,14 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			missiles.clear()
 			enemy_missile_timer = 0.0
 			queue_redraw()
+		return
+	if game_started and _pause_rect(size).has_point(pos):
+		paused = not paused
+		notice = "تم إيقاف المعركة مؤقتاً" if paused else "استؤنفت المعركة"
+		notice_time = 2.0
+		queue_redraw()
+		return
+	if paused:
 		return
 	if not game_started:
 		for i in FACTIONS.size():
@@ -1501,6 +1525,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				enemy_timer = 0.0
 				player_base_hp = 1000
 				enemy_base_hp = 1000
+				paused = false
 				game_started = true
 				notice = "بدأت المعركة — %s | %s" % [faction, map_type]
 				notice_time = 3.0
