@@ -10,6 +10,9 @@ const BARRACKS_COST := 250
 const FACTORY_COST := 450
 const TURRET_COST := 350
 const ARTILLERY_COST := 450
+const AIRFIELD_COST := 600
+const FIGHTER_COST := 500
+const AA_COST := 400
 
 var faction := ""
 var credits := STARTING_CREDITS
@@ -70,28 +73,45 @@ func _process(delta: float) -> void:
 			enemy_timer = 0.0
 			_enemy_ai_turn()
 		for building in buildings:
-			if building.kind == "turret":
+			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var target := _nearest_enemy_unit(building.pos, 230.0)
+				var target := _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
-					units[target].hp -= 18
-					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#ffd27a"), 0.16, 0.0)
-					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#ffb34d"), 0.22, 13.0)
-					building.attack_cd = 0.8
+					units[target].hp -= 34 if building.kind == "anti_air" else 18
+					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"), 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb34d"), 0.22, 13.0)
+					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.8
 		for building in enemy_buildings:
-			if building.kind == "turret":
+			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var target := _nearest_player_unit(building.pos)
-				if target >= 0 and building.pos.distance_to(units[target].pos) <= 230.0 and building.attack_cd <= 0.0:
-					units[target].hp -= 16
-					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#ff8b72"), 0.16, 0.0)
-					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#ff704d"), 0.22, 12.0)
-					building.attack_cd = 0.9
+				var target := _nearest_player_unit(building.pos, building.kind == "anti_air")
+				var max_range := 320.0 if building.kind == "anti_air" else 230.0
+				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
+					units[target].hp -= 34 if building.kind == "anti_air" else 16
+					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
+					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
 		for i in units.size():
 			var unit := units[i]
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.team == "enemy":
+				if unit.kind == "fighter":
+					var air_target := _nearest_player_unit(unit.pos)
+					var air_destination: Vector2 = base_pos if air_target < 0 else units[air_target].pos
+					if unit.pos.distance_to(air_destination) <= 280.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							_add_visual_effect("tracer", unit.pos, air_destination, Color("#ff9b72"), 0.18, 0.0)
+							_add_visual_effect("explosion", air_destination, air_destination, Color("#ffad72"), 0.42, 24.0)
+							if air_target >= 0:
+								units[air_target].hp -= 28
+							else:
+								player_base_hp = maxi(0, player_base_hp - 22)
+							unit.attack_cd = 1.5
+					else:
+						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
+					continue
 				if unit.kind == "artillery":
 					var artillery_target := _nearest_player_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
@@ -126,6 +146,22 @@ func _process(delta: float) -> void:
 				elif distance_to_target > 34.0:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
+				if unit.kind == "fighter":
+					var air_target := _nearest_enemy_unit(unit.pos, 300.0)
+					if air_target >= 0:
+						var air_enemy: Dictionary = units[air_target]
+						if unit.pos.distance_to(air_enemy.pos) <= 270.0:
+							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+							if unit.attack_cd <= 0.0:
+								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#a8eaff"), 0.18, 0.0)
+								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffbd78"), 0.4, 22.0)
+								air_enemy.hp -= 30
+								unit.attack_cd = 1.35
+						else:
+							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * 95.0
+					else:
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * 65.0
+					continue
 				if unit.get("attack_base", false):
 					var base_distance := unit.pos.distance_to(enemy_base)
 					var base_range := 360.0 if unit.kind == "artillery" else 155.0
@@ -182,11 +218,13 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
 			unit.hp = maxi(0, int(unit.hp) - damage)
 
-func _nearest_player_unit(from_pos: Vector2) -> int:
+func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
+			continue
+		if air_only and units[i].kind != "fighter":
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
@@ -194,11 +232,13 @@ func _nearest_player_unit(from_pos: Vector2) -> int:
 			best_index = i
 	return best_index
 
-func _nearest_enemy_unit(from_pos: Vector2, max_distance: float) -> int:
+func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := max_distance
 	for i in units.size():
 		if units[i].team != "enemy" or units[i].get("hp", 0) <= 0:
+			continue
+		if air_only and units[i].kind != "fighter":
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
@@ -233,7 +273,11 @@ func _draw() -> void:
 		if u.get("hp", 0) <= 0:
 			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
-		if u.kind == "tank":
+		if u.kind == "fighter":
+			var plane := PackedVector2Array([u.pos + Vector2(22, 0), u.pos + Vector2(-10, -7), u.pos + Vector2(-22, -20), u.pos + Vector2(-15, 0), u.pos + Vector2(-22, 20), u.pos + Vector2(-10, 7)])
+			draw_colored_polygon(plane, Color("#d7e4e8") if u.team == "player" else Color("#d95b51"))
+			draw_line(u.pos + Vector2(-4, 0), u.pos + Vector2(23, 0), Color("#303a42"), 3)
+		elif u.kind == "tank":
 			draw_rect(Rect2(u.pos - Vector2(17, 11), Vector2(34, 22)), c)
 			draw_line(u.pos, u.pos + Vector2(24, 0), Color.BLACK, 5)
 		elif u.kind == "artillery":
@@ -244,7 +288,7 @@ func _draw() -> void:
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
-		var max_hp := 150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)
+		var max_hp := 120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
@@ -294,8 +338,8 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "إلغاء"]
-		for i in 7:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "إلغاء"]
+		for i in 10:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
@@ -303,7 +347,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(20, size.y - 18), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 40, 17, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x - 729 + index * 104, size.y - 76), Vector2(100, 52))
+	return Rect2(Vector2(size.x - 910 + index * 91, size.y - 76), Vector2(87, 52))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -366,7 +410,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 7:
+	for i in 10:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -386,6 +430,16 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice_time = 3.0
 			elif i == 5:
 				_spawn_unit("artillery")
+			elif i == 6:
+				build_mode = "airfield"
+				notice = "المس موقعاً مناسباً لبناء المطار"
+				notice_time = 3.0
+			elif i == 7:
+				_spawn_unit("fighter")
+			elif i == 8:
+				build_mode = "anti_air"
+				notice = "المس موقعاً مناسباً لنشر الدفاع المضاد للطائرات"
+				notice_time = 3.0
 			else:
 				selected.clear()
 				build_mode = ""
@@ -466,9 +520,22 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو نشر برجاً دفاعياً"
 		notice_time = 2.0
 		return
+	if not _enemy_has_building("airfield") and enemy_credits >= AIRFIELD_COST:
+		enemy_credits -= AIRFIELD_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "airfield", "hp": 450, "attack_cd": 0.0})
+		notice = "العدو أنشأ مطاراً حربياً"
+		notice_time = 2.0
+		return
+	if not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
+		enemy_credits -= AA_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
+		notice = "العدو نشر دفاعاً مضاداً للطائرات"
+		notice_time = 2.0
+		return
 	var enemy_tanks := 0
 	var enemy_infantry := 0
 	var enemy_artillery := 0
+	var enemy_fighters := 0
 	for unit in units:
 		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
 			continue
@@ -476,9 +543,14 @@ func _enemy_ai_turn() -> void:
 			enemy_tanks += 1
 		elif unit.kind == "artillery":
 			enemy_artillery += 1
+		elif unit.kind == "fighter":
+			enemy_fighters += 1
 		else:
 			enemy_infantry += 1
-	if _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_tanks >= 2 and enemy_artillery < 2:
+	if _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_fighters < 2:
+		enemy_credits -= FIGHTER_COST
+		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
+	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_tanks >= 2 and enemy_artillery < 2:
 		enemy_credits -= ARTILLERY_COST
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
@@ -506,22 +578,26 @@ func _enemy_build_position() -> Vector2:
 	return Vector2(-1.0, -1.0)
 
 func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
-	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else Color("#718b56"))
+	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else (Color("#718b56") if kind == "turret" else (Color("#668ca4") if kind == "airfield" else Color("#6b8794"))))
 	if is_enemy:
-		color = Color("#a85b52") if kind == "barracks" else (Color("#805b67") if kind == "factory" else Color("#a34b42"))
+		color = Color("#a85b52") if kind == "barracks" else (Color("#805b67") if kind == "factory" else (Color("#a34b42") if kind == "turret" else (Color("#875e67") if kind == "airfield" else Color("#8d6262"))))
 	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
 	draw_rect(body, Color("#252b2b"))
 	draw_rect(body.grow(-4), color)
-	if kind == "turret":
+	if kind == "turret" or kind == "anti_air":
 		draw_circle(p, 13, Color("#343b3b"))
 		draw_line(p, p + Vector2(25, -8), Color("#d2d1b8"), 6)
+		if kind == "anti_air":
+			draw_line(p, p + Vector2(19, -22), Color("#8ee8ff"), 3)
 	else:
 		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
-	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مدفعية" if kind == "artillery" else "دفاع"))
+		if kind == "airfield":
+			draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#f0e2a5"), 3)
+	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع")))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else TURRET_COST)
+	var cost := BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST)))
 	if pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0:
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
@@ -537,7 +613,7 @@ func _place_building(pos: Vector2) -> void:
 		return
 	credits -= cost
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 400})
-	notice = "تم إنشاء %s" % ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else "برج الدفاع"))
+	notice = "تم إنشاء %s" % ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))
 	notice_time = 2.0
 	build_mode = ""
 
@@ -552,6 +628,10 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج المدفعية"
 		notice_time = 2.5
 		return
+	if kind == "fighter" and not _has_building("airfield"):
+		notice = "ابنِ مطاراً أولاً لإنتاج المقاتلات"
+		notice_time = 2.5
+		return
 	if kind == "infantry" and not _has_building("barracks"):
 		notice = "ابنِ ثكنة أولاً لإنتاج المشاة"
 		notice_time = 2.5
@@ -560,13 +640,13 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else TANK_COST)
+	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (FIGHTER_COST if kind == "fighter" else TANK_COST))
 	if credits < cost:
 		notice = "لا توجد موارد كافية"
 		notice_time = 2.0
 		return
 	credits -= cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 150 if kind == "tank" else 100, "attack_cd": 0.0})
-	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else "مدفعية")
+	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 120 if kind == "fighter" else (150 if kind == "tank" else 100), "attack_cd": 0.0})
+	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مقاتلة" if kind == "fighter" else "مدفعية"))
 	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
