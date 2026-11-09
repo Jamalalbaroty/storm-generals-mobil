@@ -46,6 +46,14 @@ All four factions share readable counters and fair core rules. Differences shoul
 6. **Mission progression:** add a short campaign/tutorial sequence with clear objectives and increasing difficulty after skirmish stability.
 7. **Release candidate:** run a clean Android export, install it on a real device, and record the tested build/commit before calling it release-ready.
 
+## Efficient development and APK strategy
+
+- Work in batches: complete a coherent feature group, review the integrated code, and update its documentation before asking the user to install anything.
+- Do not create a new APK for documentation-only changes. The Android workflow runs on manual dispatch or changes to game scripts, scenes, resources, supported media assets, project settings, export settings, or the workflow itself.
+- Use lightweight source review and repository checks during development. Reserve the next user-facing APK for a planned integrated candidate after the major gameplay and presentation milestones are ready.
+- Once the candidate is available, perform one structured Android test pass using `docs/QA_CHECKLIST.md`, collect defects, fix them in a batch, and produce a release candidate for a final confirmation pass.
+- Keep the user informed about actual repository commits and build results; never describe a planned feature as implemented until it exists in the project.
+
 ## Definition of done
 
 A feature is complete only when:
