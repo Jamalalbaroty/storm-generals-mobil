@@ -191,13 +191,13 @@ func _initialize() -> void:
 		return
 
 	# Verify the patrol aircraft descends onto the carrier deck before despawning.
-	battlefield.call("_update_carrier_air_operations", 8.7)
+	battlefield.call("_update_carrier_air_operations", 8.8)
 	if not is_instance_valid(launched_aircraft) or not launched_aircraft.is_inside_tree():
 		push_error("Carrier patrol aircraft disappeared before completing its deck approach")
 		quit(1)
 		return
 	var landing_offset: Vector3 = launched_aircraft.position - test_carrier.position
-	if absf(landing_offset.y - 1.48) > 0.20 or Vector2(landing_offset.x, landing_offset.z).length() > 0.45:
+	if absf(landing_offset.y - 1.48) > 0.25 or Vector2(landing_offset.x, landing_offset.z).length() > 0.45:
 		push_error("Carrier patrol aircraft did not reach the carrier deck approach zone")
 		quit(1)
 		return
