@@ -416,6 +416,14 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("landing_support_active")
 						unit.erase("landing_support_target")
+				if unit.kind in ["tank", "infantry", "artillery"] and not bool(unit.get("defense_guard", false)) and enemy_landing_support_target < 0:
+					var retreat_max_hp := 150.0 if unit.kind == "tank" else (60.0 if unit.kind == "infantry" else 100.0)
+					if float(unit.get("hp", retreat_max_hp)) <= retreat_max_hp * 0.25:
+						var retreat_destination: Vector2 = _enemy_retreat_destination(unit.pos)
+						if unit.pos.distance_to(retreat_destination) > 42.0:
+							unit.pos += (retreat_destination - unit.pos).normalized() * delta * 28.0
+						unit["retreating"] = true
+						continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
@@ -2552,6 +2560,20 @@ func _update_combat_alerts() -> void:
 	air_alert_active = hostile_air > 0
 	ground_alert_active = hostile_ground > 0
 	missile_alert_active = incoming_missile
+
+
+func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
+	# Damaged mobile troops fall back to the nearest completed friendly asset instead of fighting to destruction.
+	var safest_destination: Vector2 = enemy_base
+	var nearest_distance: float = from_pos.distance_squared_to(enemy_base)
+	for building in enemy_buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var candidate_distance: float = from_pos.distance_squared_to(building.pos)
+		if candidate_distance < nearest_distance:
+			nearest_distance = candidate_distance
+			safest_destination = building.pos
+	return safest_destination
 
 
 func _enemy_ai_turn() -> void:
