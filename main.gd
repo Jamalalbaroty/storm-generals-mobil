@@ -537,11 +537,22 @@ func _draw() -> void:
 		var p := Vector2(40 + i * 71, 80 + float((i * 47) % 510))
 		draw_circle(p, 13, Color("#304b32"))
 		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
-	# Coastal sea lane for naval operations
-	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#254f68"))
-	for wave in range(8):
-		var wy := size.y * 0.75 + wave * 22.0
-		draw_line(Vector2(0, wy), Vector2(size.x, wy + 5), Color(0.55, 0.78, 0.86, 0.12), 2.0)
+	# Layered coastline, beach and navigable sea lane
+	draw_rect(Rect2(0, size.y * 0.675, size.x, size.y * 0.065), Color("#b6a078"))
+	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#1d435d"))
+	draw_rect(Rect2(0, size.y * 0.72, size.x, 7), Color("#d2c092"))
+	for wave in range(10):
+		var wy := size.y * 0.745 + wave * 19.0
+		var wave_x := float((wave * 83) % maxi(1, int(size.x)))
+		draw_line(Vector2(wave_x, wy), Vector2(minf(size.x, wave_x + size.x * 0.34), wy + 4), Color(0.58, 0.82, 0.9, 0.17), 2.0)
+	# Rocky headlands frame the harbor entrance
+	for rock in range(7):
+		var rx := float(rock) * size.x / 6.0
+		var ry := size.y * (0.665 + float((rock % 2)) * 0.018)
+		draw_circle(Vector2(rx, ry), 8.0 + float(rock % 3) * 3.0, Color("#7d806a"))
+	# A navigation buoy marks the sea lane
+	draw_circle(Vector2(size.x * 0.82, size.y * 0.79), 7, Color("#e6c36b"))
+	draw_line(Vector2(size.x * 0.82, size.y * 0.79), Vector2(size.x * 0.82, size.y * 0.79 - 16), Color("#e6c36b"), 3.0)
 	_draw_supply_points()
 	_draw_missiles()
 	_draw_base(base_pos, Color("#3977bd"), "قاعدتك")
@@ -893,8 +904,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 
 func _initialize_supply_points(size: Vector2) -> void:
 	supply_points = [
-		{"pos": Vector2(size.x * 0.34, size.y * 0.28), "owner": "player", "payout": 0.0, "supply_payout": 0.0},
-		{"pos": Vector2(size.x * 0.66, size.y * 0.72), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0}
+		{"pos": Vector2(size.x * 0.34, size.y * 0.28), "owner": "player", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
+		{"pos": Vector2(size.x * 0.66, size.y * 0.72), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
+		{"pos": Vector2(size.x * 0.50, size.y * 0.695), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "port"}
 	]
 
 func _update_supply_control(delta: float) -> void:
@@ -914,48 +926,65 @@ func _update_supply_control(delta: float) -> void:
 				supply_points[i].owner = "player"
 				supply_points[i].payout = 0.0
 				supply_points[i].supply_payout = 0.0
-				notice = "سيطر جيشك على نقطة إمداد!"
+				notice = "سيطر جيشك على الميناء الاستراتيجي!" if supply_points[i].get("kind", "supply") == "port" else "سيطر جيشك على نقطة إمداد!"
 				notice_time = 2.5
 		elif enemy_near and not player_near:
 			if supply_points[i].owner != "enemy":
 				supply_points[i].owner = "enemy"
 				supply_points[i].payout = 0.0
 				supply_points[i].supply_payout = 0.0
-				notice = "العدو استولى على نقطة إمداد!"
+				notice = "العدو استولى على الميناء الاستراتيجي!" if supply_points[i].get("kind", "supply") == "port" else "العدو استولى على نقطة إمداد!"
 				notice_time = 2.5
 		if player_near and enemy_near:
 			continue
+		var is_port := String(supply_points[i].get("kind", "supply")) == "port"
+		var gold_rate := 8 if is_port else 4
+		var supply_interval := 6.0 if is_port else 8.0
 		if supply_points[i].owner == "player":
 			supply_points[i].payout += delta
 			supply_points[i].supply_payout += delta
 			if supply_points[i].payout >= 1.0:
-				credits = mini(MAX_CREDITS, credits + 4 * int(supply_points[i].payout))
+				credits = mini(MAX_CREDITS, credits + gold_rate * int(supply_points[i].payout))
 				supply_points[i].payout = fmod(supply_points[i].payout, 1.0)
-			if supply_points[i].supply_payout >= 8.0:
-				supplies = mini(99, supplies + int(supply_points[i].supply_payout / 8.0))
-				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, 8.0)
+			if supply_points[i].supply_payout >= supply_interval:
+				supplies = mini(99, supplies + int(supply_points[i].supply_payout / supply_interval))
+				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
 		elif supply_points[i].owner == "enemy":
 			supply_points[i].payout += delta
 			supply_points[i].supply_payout += delta
 			if supply_points[i].payout >= 1.0:
-				enemy_credits = mini(MAX_CREDITS, enemy_credits + 4 * int(supply_points[i].payout))
+				enemy_credits = mini(MAX_CREDITS, enemy_credits + gold_rate * int(supply_points[i].payout))
 				supply_points[i].payout = fmod(supply_points[i].payout, 1.0)
-			if supply_points[i].supply_payout >= 8.0:
-				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / 8.0))
-				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, 8.0)
+			if supply_points[i].supply_payout >= supply_interval:
+				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / supply_interval))
+				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
 
 func _draw_supply_points() -> void:
 	for point in supply_points:
 		var p: Vector2 = point.pos
 		var owner: String = point.owner
-		var tint := Color("#438bd2") if owner == "player" else Color("#d65349")
-		draw_circle(p, 34, Color(tint, 0.18))
-		draw_arc(p, 34, 0.0, TAU, 48, tint, 4.0)
-		draw_circle(p, 12, Color("#d7c58a"))
-		draw_rect(Rect2(p + Vector2(-4, -19), Vector2(8, 38)), Color("#493d2d"))
-		draw_rect(Rect2(p + Vector2(4, -17), Vector2(18, 10)), tint)
-		var label := "إمدادك" if owner == "player" else "إمداد العدو"
-		draw_string(ThemeDB.fallback_font, p + Vector2(-48, 55), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 15, Color.WHITE)
+		var is_port := String(point.get("kind", "supply")) == "port"
+		var tint := Color("#438bd2") if owner == "player" else (Color("#d65349") if owner == "enemy" else Color("#e0c16e"))
+		if is_port:
+			draw_circle(p, 43, Color(tint, 0.14))
+			draw_arc(p, 43, 0.0, TAU, 56, tint, 4.0)
+			# Pier, mooring posts and a small harbor office
+			draw_rect(Rect2(p + Vector2(-8, -4), Vector2(16, 54)), Color("#735c3e"))
+			draw_rect(Rect2(p + Vector2(-35, 42), Vector2(70, 12)), Color("#b79b6b"))
+			for post_x in [-29.0, 29.0]:
+				draw_rect(Rect2(p + Vector2(post_x, 38), Vector2(6, 19)), Color("#4a4033"))
+			draw_rect(Rect2(p + Vector2(-19, -26), Vector2(38, 25)), Color("#d0b98a"))
+			draw_rect(Rect2(p + Vector2(-12, -20), Vector2(24, 19)), tint)
+			var port_label := "ميناء محايد" if owner == "neutral" else ("ميناؤك" if owner == "player" else "ميناء العدو")
+			draw_string(ThemeDB.fallback_font, p + Vector2(-65, 79), port_label, HORIZONTAL_ALIGNMENT_CENTER, 130, 16, Color.WHITE)
+		else:
+			draw_circle(p, 34, Color(tint, 0.18))
+			draw_arc(p, 34, 0.0, TAU, 48, tint, 4.0)
+			draw_circle(p, 12, Color("#d7c58a"))
+			draw_rect(Rect2(p + Vector2(-4, -19), Vector2(8, 38)), Color("#493d2d"))
+			draw_rect(Rect2(p + Vector2(4, -17), Vector2(18, 10)), tint)
+			var label := "إمدادك" if owner == "player" else "إمداد العدو"
+			draw_string(ThemeDB.fallback_font, p + Vector2(-48, 55), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 15, Color.WHITE)
 
 func _unit_supply_cost(kind: String) -> int:
 	if kind == "helicopter":
