@@ -1077,12 +1077,15 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 		attack_direction = attack_direction.normalized()
 	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
 	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
+	# Each pair gets its own lane depth so larger formations do not stack on the same two tracks.
+	var lane_rank := int(floor(float(unit_index) / 2.0)) + 1
+	var lane_offset := 22.0 * float(lane_rank)
 	var role_offset := Vector2.ZERO
 	if unit_kind == "tank":
 		role_offset = attack_direction * 58.0
 	elif unit_kind == "infantry":
 		role_offset = -attack_direction * 22.0
-	return target_pos + role_offset + lateral_direction * lane_side * 22.0
+	return target_pos + role_offset + lateral_direction * lane_side * lane_offset
 
 
 func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
