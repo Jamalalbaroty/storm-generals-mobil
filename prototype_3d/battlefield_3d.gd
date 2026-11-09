@@ -294,25 +294,26 @@ func _build_lighting() -> void:
 	add_child(sun)
 
 func _build_showcase_units() -> void:
-	_add_placeholder_tank(Vector3(-7.0, 0.0, 1.0), Color(0.28, 0.34, 0.22))
-	_add_placeholder_tank(Vector3(0.0, 0.0, -2.0), Color(0.34, 0.37, 0.40))
-	_add_placeholder_tank(Vector3(7.0, 0.0, 1.0), Color(0.48, 0.39, 0.25))
+	_add_placeholder_tank(Vector3(-7.0, 0.0, 1.0), Color(0.28, 0.34, 0.22), "american")
+	_add_placeholder_tank(Vector3(0.0, 0.0, -2.0), Color(0.34, 0.37, 0.40), "chinese")
+	_add_placeholder_tank(Vector3(7.0, 0.0, 1.0), Color(0.48, 0.39, 0.25), "arab")
 	_build_showcase_infantry()
 	_build_showcase_aircraft()
 	_build_showcase_air_defenses()
 
 
 func _build_showcase_aircraft() -> void:
-	_add_placeholder_helicopter(Vector3(-12.0, 5.2, -9.0), Color(0.28, 0.36, 0.25))
-	_add_placeholder_fighter(Vector3(12.0, 6.4, -10.0), Color(0.40, 0.43, 0.46))
+	_add_placeholder_helicopter(Vector3(-12.0, 5.2, -9.0), Color(0.28, 0.36, 0.25), "american")
+	_add_placeholder_fighter(Vector3(12.0, 6.4, -10.0), Color(0.40, 0.43, 0.46), "chinese")
 
-func _add_placeholder_helicopter(at: Vector3, tint: Color) -> void:
+func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -> void:
 	var helicopter := Node3D.new()
 	helicopter.position = at
 	add_child(helicopter)
 	showcase_tanks.append(helicopter)
 	helicopter.set_meta("health", 100.0)
 	helicopter.set_meta("unit_type", "helicopter")
+	helicopter.set_meta("faction_id", faction_id)
 	_create_showcase_health_bar(helicopter)
 
 	var hull := MeshInstance3D.new()
@@ -370,13 +371,14 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color) -> void:
 		rocket.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
 		weapon_pivot.add_child(rocket)
 
-func _add_placeholder_fighter(at: Vector3, tint: Color) -> void:
+func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> void:
 	var fighter := Node3D.new()
 	fighter.position = at
 	add_child(fighter)
 	showcase_tanks.append(fighter)
 	fighter.set_meta("health", 100.0)
 	fighter.set_meta("unit_type", "fighter")
+	fighter.set_meta("faction_id", faction_id)
 	_create_showcase_health_bar(fighter)
 
 	var fuselage := MeshInstance3D.new()
@@ -442,10 +444,10 @@ func _update_aircraft_animation(delta: float) -> void:
 			unit.position.y = 6.4 + sin(aircraft_clock * 1.7 + float(unit.get_instance_id() % 7)) * 0.16
 
 func _build_showcase_air_defenses() -> void:
-	_add_air_defense_turret(Vector3(-16.0, 0.0, -1.0), Color(0.30, 0.37, 0.27))
-	_add_air_defense_turret(Vector3(16.0, 0.0, 1.0), Color(0.37, 0.38, 0.40))
+	_add_air_defense_turret(Vector3(-16.0, 0.0, -1.0), Color(0.30, 0.37, 0.27), "american")
+	_add_air_defense_turret(Vector3(16.0, 0.0, 1.0), Color(0.37, 0.38, 0.40), "chinese")
 
-func _add_air_defense_turret(at: Vector3, tint: Color) -> void:
+func _add_air_defense_turret(at: Vector3, tint: Color, faction_id: String) -> void:
 	var emplacement := Node3D.new()
 	emplacement.position = at
 	add_child(emplacement)
@@ -481,6 +483,7 @@ func _add_air_defense_turret(at: Vector3, tint: Color) -> void:
 		launcher.position = Vector3(side * 0.43, 0.15, -0.45)
 		launcher.material_override = _make_armour_material(Color(0.13, 0.15, 0.14))
 		tracking_pivot.add_child(launcher)
+	tracking_pivot.set_meta("faction_id", faction_id)
 	air_defense_nodes.append(tracking_pivot)
 	air_defense_cooldowns.append(0.8)
 
@@ -497,6 +500,8 @@ func _update_air_defenses(delta: float) -> void:
 				continue
 			var candidate_type := str(candidate.get_meta("unit_type", "tank"))
 			if candidate_type != "helicopter" and candidate_type != "fighter":
+				continue
+			if str(candidate.get_meta("faction_id", "")) == str(defense.get_meta("faction_id", "")):
 				continue
 			var distance := defense.global_position.distance_to(candidate.global_position)
 			if distance < nearest_distance:
@@ -538,17 +543,18 @@ func _resolve_air_defense_hit(missile: Node3D, target: Node3D) -> void:
 	_resolve_showcase_hit(null, target, 35.0)
 
 func _build_showcase_infantry() -> void:
-	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25))
-	_add_placeholder_infantry_squad(Vector3(0.0, 0.0, 10.0), Color(0.34, 0.37, 0.40))
-	_add_placeholder_infantry_squad(Vector3(9.0, 0.0, 8.0), Color(0.48, 0.39, 0.25))
+	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25), "american")
+	_add_placeholder_infantry_squad(Vector3(0.0, 0.0, 10.0), Color(0.34, 0.37, 0.40), "chinese")
+	_add_placeholder_infantry_squad(Vector3(9.0, 0.0, 8.0), Color(0.48, 0.39, 0.25), "arab")
 
-func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
+func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_id: String) -> void:
 	var squad := Node3D.new()
 	squad.position = at
 	add_child(squad)
 	showcase_tanks.append(squad)
 	squad.set_meta("health", 100.0)
 	squad.set_meta("unit_type", "infantry")
+	squad.set_meta("faction_id", faction_id)
 	_create_showcase_health_bar(squad)
 
 	var soldier_offsets := [
@@ -657,13 +663,14 @@ func _update_infantry_animation(delta: float) -> void:
 		else:
 			soldier.position.y = 0.0
 
-func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
+func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String) -> void:
 	var tank := Node3D.new()
 	tank.position = at
 	add_child(tank)
 	showcase_tanks.append(tank)
 	tank.set_meta("health", 100.0)
 	tank.set_meta("unit_type", "tank")
+	tank.set_meta("faction_id", faction_id)
 	_create_showcase_health_bar(tank)
 
 	var hull := MeshInstance3D.new()
