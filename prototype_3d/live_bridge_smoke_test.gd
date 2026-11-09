@@ -506,6 +506,26 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify that all four armies have distinct, valid faction balance profiles and that وطن pays more for elite performance.
+	var faction_names: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+	var faction_signatures: Array[String] = []
+	for army in faction_names:
+		var army_profile: Dictionary = game.call("_faction_profile", army)
+		if army_profile.size() != 7:
+			push_error("Faction balance profile is incomplete for " + army)
+			quit(1)
+			return
+		var army_signature := str(army_profile["helicopter_cost"]) + ":" + str(army_profile["helicopter_damage"]) + ":" + str(army_profile["helicopter_cooldown"]) + ":" + str(army_profile["missile_cost"]) + ":" + str(army_profile["missile_damage"]) + ":" + str(army_profile["missile_cooldown"]) + ":" + str(army_profile["naval_damage"])
+		if faction_signatures.has(army_signature):
+			push_error("Two armies unexpectedly share the same faction balance profile")
+			quit(1)
+			return
+		faction_signatures.append(army_signature)
+	if int(game.call("_helicopter_cost", "وطن")) <= int(game.call("_helicopter_cost", "الأمريكي")) or int(game.call("_missile_cost", "وطن")) <= int(game.call("_missile_cost", "الجيش العربي")) or int(game.call("_missile_damage", "وطن")) <= int(game.call("_missile_damage", "الجيش العربي")) or int(game.call("_faction_profile", "وطن")["naval_damage"]) <= int(game.call("_faction_profile", "الأمريكي")["naval_damage"]):
+		push_error("وطن must retain its elite combat advantage alongside higher equipment costs")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
