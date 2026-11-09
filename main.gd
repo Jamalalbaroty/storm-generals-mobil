@@ -36,7 +36,7 @@ const ECONOMY_BALANCE := {
 	"building_costs": {
 		"barracks": BARRACKS_COST, "factory": FACTORY_COST, "turret": TURRET_COST,
 		"airfield": AIRFIELD_COST, "anti_air": AA_COST, "missile_silo": MISSILE_SILO_COST,
-		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700
+		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700, "power_plant": 450
 	},
 	"unit_costs": {
 		"infantry": INFANTRY_COST, "tank": TANK_COST, "builder": 600, "artillery": ARTILLERY_COST,
@@ -1442,7 +1442,7 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 500.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 155, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 320.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 155, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600"]
+		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
 		for i in labels.size():
 			var r = _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
@@ -1450,6 +1450,12 @@ func _draw_hud(size: Vector2) -> void:
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
 		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, 103), _terrain_effect_label(), HORIZONTAL_ALIGNMENT_LEFT, 360, 14, Color("#d8e6c2"))
+		var power_capacity := _player_power_capacity()
+		var power_demand := _player_power_demand()
+		var power_label := "الطاقة: %d / %d" % [power_capacity, power_demand]
+		if power_demand > power_capacity:
+			power_label += " — عجز، بعض المنشآت متوقفة"
+		draw_string(ThemeDB.fallback_font, Vector2(16, 124), power_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color("#ff9c82") if power_demand > power_capacity else Color("#a8e6b0"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 		if not production_orders.is_empty():
 			var first_order: Dictionary = production_orders[0]
@@ -1575,7 +1581,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 22:
+	for i in 23:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_enqueue_unit("infantry")
@@ -1639,6 +1645,10 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_enqueue_unit("landing_craft")
 			elif i == 21:
 				_enqueue_unit("builder")
+			elif i == 22:
+				build_mode = "power_plant"
+				notice = "اختر موقعاً قرب قاعدتك لبناء محطة الطاقة"
+				notice_time = 3.0
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -2365,6 +2375,8 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			shell = Color("#5e8792") if not is_enemy else Color("#9b6662")
 		"shipyard":
 			shell = Color("#6f929b") if not is_enemy else Color("#a66c65")
+		"power_plant":
+			shell = Color("#b69a58") if not is_enemy else Color("#a66c5d")
 	# Ground shadow, reinforced foundation and faction identification stripe.
 	draw_colored_polygon(PackedVector2Array([p + Vector2(-36, 25), p + Vector2(-25, 17), p + Vector2(25, 17), p + Vector2(42, 25), p + Vector2(25, 33), p + Vector2(-25, 33)]), Color(0, 0, 0, 0.28))
 	draw_rect(Rect2(p + Vector2(-35, -25), Vector2(70, 54)), Color("#252d31"))
@@ -2418,6 +2430,12 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			draw_circle(p, 5, Color("#9ce5f0"))
 			draw_arc(p, 26, 3.3, 6.0, 32, Color("#9ce5f0"), 3)
 			draw_line(p + Vector2(0, -5), p + Vector2(0, -28), accent, 4)
+		"power_plant":
+			draw_rect(Rect2(p + Vector2(-18, -17), Vector2(36, 34)), dark)
+			draw_rect(Rect2(p + Vector2(-13, -12), Vector2(26, 24)), shell)
+			for coil in range(3):
+				draw_circle(p + Vector2(-8 + coil * 8, 0), 4, Color("#f2d47b"))
+			draw_line(p + Vector2(-18, 19), p + Vector2(18, 19), accent, 3)
 		"shipyard":
 			draw_rect(Rect2(p + Vector2(-27, -14), Vector2(54, 29)), Color("#354e5a"))
 			draw_rect(Rect2(p + Vector2(-21, -9), Vector2(42, 19)), shell)
@@ -2430,7 +2448,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	if kind in ["barracks", "factory", "airfield", "missile_silo", "missile_defense"]:
 		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
 		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
-	var label := "حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "برج دفاع"))))))
+	var label := "محطة طاقة" if kind == "power_plant" else ("حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "برج دفاع"))))))
 	var display_label := "مستولى عليها: " + label if is_captured else label
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
@@ -2466,6 +2484,7 @@ func _place_building(pos: Vector2) -> void:
 	credits -= cost
 	var construction_duration := 8.0
 	match build_mode:
+		"power_plant": construction_duration = 7.0
 		"turret", "anti_air": construction_duration = 6.0
 		"factory", "airfield": construction_duration = 10.0
 		"missile_silo", "shipyard": construction_duration = 13.0
@@ -2473,14 +2492,71 @@ func _place_building(pos: Vector2) -> void:
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
-	var building_name := "حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
+	var building_name := "محطة الطاقة" if build_mode == "power_plant" else ("حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
 	notice = "بدأ إنشاء %s — انتظر اكتمال البناء" % building_name
 	notice_time = 2.0
 	build_mode = ""
 
-func _has_building(kind: String) -> bool:
+const BASE_POWER_OUTPUT := 8
+const POWER_PLANT_OUTPUT := 14
+
+func _power_demand(kind: String) -> int:
+	match kind:
+		"barracks", "turret": return 2
+		"factory", "airfield": return 4
+		"anti_air", "shipyard": return 3
+		"missile_silo": return 5
+		"missile_defense": return 4
+	return 0
+
+func _power_priority(kind: String) -> int:
+	if kind in ["turret", "anti_air", "missile_defense"]:
+		return 0
+	if kind in ["barracks", "factory", "airfield", "shipyard"]:
+		return 1
+	if kind == "missile_silo":
+		return 2
+	return 3
+
+func _player_power_capacity() -> int:
+	var capacity := BASE_POWER_OUTPUT
 	for building in buildings:
-		if building.kind == kind and float(building.get("build_progress", 1.0)) >= 1.0:
+		if building.kind == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
+			capacity += POWER_PLANT_OUTPUT
+	return capacity
+
+func _player_power_demand() -> int:
+	var demand := 0
+	for building in buildings:
+		if float(building.get("build_progress", 1.0)) >= 1.0:
+			demand += _power_demand(String(building.kind))
+	return demand
+
+func _is_player_building_powered(building_index: int) -> bool:
+	if building_index < 0 or building_index >= buildings.size():
+		return false
+	var target: Dictionary = buildings[building_index]
+	if float(target.get("build_progress", 1.0)) < 1.0:
+		return false
+	var target_demand := _power_demand(String(target.kind))
+	if target_demand <= 0:
+		return true
+	var allocated := 0
+	var target_priority := _power_priority(String(target.kind))
+	for i in range(buildings.size()):
+		if i == building_index:
+			continue
+		var other: Dictionary = buildings[i]
+		if float(other.get("build_progress", 1.0)) < 1.0:
+			continue
+		var other_priority := _power_priority(String(other.kind))
+		if other_priority < target_priority or (other_priority == target_priority and i < building_index):
+			allocated += _power_demand(String(other.kind))
+	return _player_power_capacity() >= allocated + target_demand
+
+func _has_building(kind: String) -> bool:
+	for i in range(buildings.size()):
+		if buildings[i].kind == kind and _is_player_building_powered(i):
 			return true
 	return false
 
@@ -2520,9 +2596,9 @@ func _production_duration(kind: String) -> float:
 func _enqueue_unit(kind: String) -> void:
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
-	for building in buildings:
-		if building.kind == producer_kind and float(building.get("build_progress", 1.0)) >= 1.0:
-			producer_pos = building.pos
+	for i in range(buildings.size()):
+		if buildings[i].kind == producer_kind and _is_player_building_powered(i):
+			producer_pos = buildings[i].pos
 			break
 	if producer_kind == "" or producer_pos.x < -9000.0:
 		notice = "لا يوجد مبنى إنتاج مكتمل لهذه الوحدة"
@@ -2533,19 +2609,18 @@ func _enqueue_unit(kind: String) -> void:
 		notice = "لا توجد سعة كافية للقوات أو طوابير الإنتاج"
 		notice_time = 2.5
 		return
-	if not already_paid:
-		var cost := _unit_cost(kind, faction)
-		var supply_cost := _unit_supply_cost(kind)
-		if supplies < supply_cost:
-			notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
-			notice_time = 2.5
-			return
-		if credits < cost:
-			notice = "لا توجد موارد كافية"
-			notice_time = 2.0
-			return
-		credits -= cost
-		supplies -= supply_cost
+	var cost := _unit_cost(kind, faction)
+	var supply_cost := _unit_supply_cost(kind)
+	if supplies < supply_cost:
+		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
+		notice_time = 2.5
+		return
+	if credits < cost:
+		notice = "لا توجد موارد كافية"
+		notice_time = 2.0
+		return
+	credits -= cost
+	supplies -= supply_cost
 	production_orders.append({"producer_pos": producer_pos, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
@@ -2560,8 +2635,8 @@ func _update_production_queues(delta: float) -> void:
 			continue
 		active_producers.append(producer_pos)
 		var producer_ready := false
-		for building in buildings:
-			if building.pos.distance_to(producer_pos) < 2.0 and float(building.get("build_progress", 1.0)) >= 1.0:
+		for producer_index in range(buildings.size()):
+			if buildings[producer_index].pos.distance_to(producer_pos) < 2.0 and _is_player_building_powered(producer_index):
 				producer_ready = true
 				break
 		if not producer_ready:
