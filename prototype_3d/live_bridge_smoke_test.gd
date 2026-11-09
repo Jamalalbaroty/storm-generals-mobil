@@ -707,6 +707,31 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Enemy forces prioritize recapturing a player-held supply point over a closer neutral point.
+	var recapture_units: Array[Dictionary] = [
+		{"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0}
+	]
+	var recapture_points: Array[Dictionary] = [
+		{"pos": Vector2(600.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
+		{"pos": Vector2(560.0, 380.0), "owner": "player", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_strategy", "balanced")
+	game.set("units", recapture_units)
+	game.set("supply_points", recapture_points)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_buildings)
+	game.call("_process", 0.5)
+	var recapture_result: Array[Dictionary] = game.get("units")
+	if recapture_result.size() != 1 or float(recapture_result[0].pos.y) <= 300.0:
+		push_error("Enemy AI failed to prioritize recapturing a player-held supply point")
+		quit(1)
+		return
+
 	# Enemy armor reinforces an owned supply point when player forces threaten an undefended position.
 	var threatened_enemy_point: Array[Dictionary] = [
 		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
