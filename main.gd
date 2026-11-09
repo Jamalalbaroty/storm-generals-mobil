@@ -1860,11 +1860,21 @@ func _update_building_construction(delta: float) -> void:
 		var progress := float(building.get("build_progress", 1.0))
 		if progress >= 1.0:
 			continue
+		var builder_near := false
+		for worker in units:
+			if worker.team == "player" and worker.kind == "builder" and int(worker.get("hp", 0)) > 0 and worker.pos.distance_to(building.pos) <= 48.0:
+				builder_near = true
+				break
+		if not builder_near:
+			continue
 		var duration := maxf(1.0, float(building.get("build_duration", 8.0)))
 		progress = minf(1.0, progress + delta / duration)
 		building["build_progress"] = progress
 		buildings[i] = building
 		if progress >= 1.0:
+			for worker in units:
+				if worker.team == "player" and worker.kind == "builder" and worker.get("build_target", Vector2(-9999, -9999)).distance_to(building.pos) < 4.0:
+					worker.erase("build_target")
 			notice = "اكتمل إنشاء المبنى — أصبح جاهزاً للعمل"
 			notice_time = 2.5
 
@@ -2452,6 +2462,8 @@ func _place_building(pos: Vector2) -> void:
 		"missile_silo", "shipyard": construction_duration = 13.0
 		"missile_defense": construction_duration = 9.0
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
+	units[builder_index]["target"] = pos
+	units[builder_index]["build_target"] = pos
 	var building_name := "حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
 	notice = "بدأ إنشاء %s — انتظر اكتمال البناء" % building_name
 	notice_time = 2.0
