@@ -27,9 +27,10 @@ jobs:
       - name: Import project resources
         run: godot --headless --path . --editor --quit --verbose
       - name: Smoke test active game scene
+        shell: bash
         run: |
-          set -o pipefail
-          godot --headless --path . --quit-after 3 --verbose 2>&1 | tee /tmp/main-smoke.log
+          godot --headless --path . --quit-after 3 --verbose > /tmp/main-smoke.log 2>&1
+          cat /tmp/main-smoke.log
           if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" /tmp/main-smoke.log; then
             echo "Main scene smoke test failed"
             exit 1
