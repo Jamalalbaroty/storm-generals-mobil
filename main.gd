@@ -281,24 +281,31 @@ func _process(delta: float) -> void:
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
 				var player_target := _nearest_player_unit(unit.pos)
-				var destination: Vector2 = base_pos
+				var player_distance := INF
 				if player_target >= 0:
+					player_distance = unit.pos.distance_to(units[player_target].pos)
+				var nearest_objective_distance := INF
+				var objective_destination: Vector2 = base_pos
+				for point in supply_points:
+					if point.owner != "enemy":
+						var objective_distance: float = unit.pos.distance_to(point.pos)
+						if objective_distance < nearest_objective_distance:
+							nearest_objective_distance = objective_distance
+							objective_destination = point.pos
+				# Contest supply points when they are more relevant than distant player units.
+				var engage_player := player_target >= 0 and (nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0)
+				var destination: Vector2 = base_pos
+				if engage_player:
 					destination = units[player_target].pos
-				else:
-					var nearest_objective_distance := INF
-					for point in supply_points:
-						if point.owner != "enemy":
-							var objective_distance: float = unit.pos.distance_to(point.pos)
-							if objective_distance < nearest_objective_distance:
-								nearest_objective_distance = objective_distance
-								destination = point.pos
+				elif nearest_objective_distance < INF:
+					destination = objective_destination
 				var distance_to_target := unit.pos.distance_to(destination)
-				if player_target >= 0 and distance_to_target <= 150.0:
+				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
 						units[player_target].hp = maxi(0, int(units[player_target].hp) - _terrain_adjusted_damage(units[player_target], 10))
 						unit.attack_cd = 0.9
-				elif player_target < 0 and distance_to_target <= 145.0:
+				elif not engage_player and nearest_objective_distance == INF and distance_to_target <= 145.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
 						player_base_hp = maxi(0, player_base_hp - 10)
