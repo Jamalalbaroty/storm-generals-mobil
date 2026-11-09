@@ -27,6 +27,17 @@ This is a static review of `main.gd`, not a measured win-rate report. No balance
 
 Most costs are shared constants. Helicopters and strategic missiles are the faction-aware exceptions: وطن pays 850 credits for each, while the American, Chinese, and Arab Army pay 650. Player and AI spending use the owning faction's cost.
 
+## Centralized faction balance profile
+
+The live values for the four playable factions are stored together in `FACTION_BALANCE` in `main.gd`. Helicopter cost/damage/cooldown, missile cost/damage/cooldown, and base naval damage read from this single table. Unknown faction values safely fall back to the Chinese baseline. Role-specific naval damage remains separate: destroyer versus submarine 78, submarine 62, carrier 24.
+
+| Faction | Helicopter cost | Helicopter damage / cooldown | Missile cost | Missile damage / cooldown | Naval base damage |
+|---|---:|---:|---:|---:|---:|
+| Chinese | 650 | 30 / 1.35 s | 650 | 185 / 14 s | 40 |
+| American | 650 | 32 / 1.25 s | 650 | 195 / 13 s | 44 |
+| Arab Army | 650 | 34 / 1.20 s | 650 | 205 / 12 s | 42 |
+| وطن | 850 | 38 / 1.10 s | 850 | 230 / 11 s | 50 |
+
 ## Existing faction-specific combat values
 
 ### Helicopters
@@ -94,4 +105,4 @@ Do not tune based on one match. Prefer small changes to one variable at a time, 
 
 ## Next implementation step
 
-Collect controlled-match results to validate whether وطن's helicopter and missile advantages are offset by its higher production costs. Then continue routing faction modifiers through a data-driven balance table, changing one variable at a time.
+Run controlled faction matchups and record economy, unit production, combat losses, and outcomes to validate whether وطن's helicopter and missile advantages are offset by its higher costs. Extend the central profile only when a real faction-specific gameplay value is confirmed; do not add arbitrary bonuses.

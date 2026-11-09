@@ -25,6 +25,12 @@ const MISSILE_SILO_COST := 800
 const MISSILE_DEFENSE_COST := 700
 const MISSILE_COST := 650
 const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
+const FACTION_BALANCE := {
+	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40},
+	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44},
+	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42},
+	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50}
+}
 
 var faction := ""
 var map_type := "الساحل الصحراوي"
@@ -626,9 +632,21 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
 			unit.hp = maxi(0, int(unit.hp) - _terrain_adjusted_damage(unit, damage))
 
+func _faction_profile(army: String) -> Dictionary:
+	var profile: Dictionary = FACTION_BALANCE.get(army, FACTION_BALANCE["الصيني"])
+	return profile
+
+
 func _helicopter_cost(army: String) -> int:
-	# وطن keeps its elite helicopter damage, balanced by a higher production cost.
-	return 850 if army == "وطن" else HELICOPTER_COST
+	return int(_faction_profile(army)["helicopter_cost"])
+
+
+func _helicopter_damage(unit: Dictionary) -> int:
+	return int(_faction_profile(String(unit.get("faction", faction)))["helicopter_damage"])
+
+
+func _helicopter_cooldown(unit: Dictionary) -> float:
+	return float(_faction_profile(String(unit.get("faction", faction)))["helicopter_cooldown"])
 
 
 func _helicopter_damage(unit: Dictionary) -> int:
@@ -656,7 +674,7 @@ func _helicopter_color(unit: Dictionary) -> Color:
 	return Color("#d5b64e")
 
 func _naval_damage(unit: Dictionary, target_index: int) -> int:
-	# Keep naval faction damage consistent for player and AI fleets.
+	# Keep role-specific naval damage while reading faction base damage from one table.
 	var kind := String(unit.get("kind", ""))
 	if kind == "destroyer" and target_index >= 0 and target_index < units.size() and String(units[target_index].get("kind", "")) == "submarine":
 		return 78
@@ -664,15 +682,7 @@ func _naval_damage(unit: Dictionary, target_index: int) -> int:
 		return 62
 	if kind == "carrier":
 		return 24
-	match String(unit.get("faction", faction)):
-		"وطن":
-			return 50
-		"الأمريكي":
-			return 44
-		"الجيش العربي":
-			return 42
-		_:
-			return 40
+	return int(_faction_profile(String(unit.get("faction", faction)))["naval_damage"])
 
 
 func _is_naval_kind(kind: String) -> bool:
@@ -1821,8 +1831,16 @@ func _enemy_faction() -> String:
 	return FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
 
 func _missile_cost(army: String) -> int:
-	# وطن keeps the strongest warhead, balanced by a premium launch cost.
-	return 850 if army == "وطن" else MISSILE_COST
+	return int(_faction_profile(army)["missile_cost"])
+
+
+func _missile_damage(army: String) -> int:
+	return int(_faction_profile(army)["missile_damage"])
+
+
+func _missile_cooldown(army: String) -> float:
+	return float(_faction_profile(army)["missile_cooldown"])
+
 
 func _missile_damage(army: String) -> int:
 	if army == "وطن":
