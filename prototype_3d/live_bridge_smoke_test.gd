@@ -794,6 +794,8 @@ func _initialize() -> void:
 		{"pos": Vector2(900.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
 	]
 	game.set("units", base_threat_units)
+	var no_enemy_buildings: Array[Dictionary] = []
+	game.set("enemy_buildings", no_enemy_buildings)
 	game.set("supply_points", no_supply_points)
 	game.call("_process", 0.5)
 	var base_guard_response: Array[Dictionary] = game.get("units")
