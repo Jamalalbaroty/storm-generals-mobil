@@ -5,6 +5,7 @@ const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", 
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
+const MAX_TEAM_UNITS := 40
 const PASSIVE_INCOME := 6.0
 const MAX_CREDITS := 5000
 const BARRACKS_COST := 250
@@ -238,7 +239,7 @@ func _process(delta: float) -> void:
 						for air_unit in units:
 							if air_unit.team == "enemy" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
 								enemy_air += 1
-						if unit.launch_cd <= 0.0 and enemy_air < 3:
+						if unit.launch_cd <= 0.0 and enemy_air < 3 and _team_unit_count("enemy") < MAX_TEAM_UNITS:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "attack_cd": 0.0, "target": base_pos, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
@@ -402,7 +403,7 @@ func _process(delta: float) -> void:
 						for air_unit in units:
 							if air_unit.team == "player" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
 								friendly_air += 1
-						if unit.launch_cd <= 0.0 and friendly_air < 3:
+						if unit.launch_cd <= 0.0 and friendly_air < 3 and _team_unit_count("player") < MAX_TEAM_UNITS:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
@@ -785,6 +786,9 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 		var shore_distance: float = unit.pos.distance_to(landing_destination)
 		if shore_distance <= 55.0:
 			var passenger_count = int(unit.get("passengers", 3))
+			# Keep the three-marine landing squad intact and wait if the team is at capacity.
+			if _team_unit_count(team) + passenger_count > MAX_TEAM_UNITS:
+				return
 			for marine in range(passenger_count):
 				var offset_x = -48.0 + marine * 18.0 if team == "player" else 48.0 - marine * 18.0
 				var marine_pos := landing_destination + Vector2(offset_x, -34.0)
@@ -2174,6 +2178,8 @@ func _enemy_ai_turn() -> void:
 	for unit in units:
 		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery"):
 			player_heavy_ground_threat += 1
+	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
+		return
 	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("carrier")
@@ -2349,7 +2355,19 @@ func _has_building(kind: String) -> bool:
 			return true
 	return false
 
+func _team_unit_count(team: String) -> int:
+	var count := 0
+	for unit in units:
+		if String(unit.get("team", "")) == team and int(unit.get("hp", 0)) > 0:
+			count += 1
+	return count
+
+
 func _spawn_unit(kind: String) -> void:
+	if _team_unit_count("player") >= MAX_TEAM_UNITS:
+		notice = "وصلت إلى الحد الأقصى للقوات (%d)" % MAX_TEAM_UNITS
+		notice_time = 2.5
+		return
 	if kind in ["destroyer", "carrier", "submarine", "landing_craft"] and not _has_building("shipyard"):
 		notice = "ابنِ حوض سفن أولاً لإنتاج المدمرة"
 		notice_time = 2.5
