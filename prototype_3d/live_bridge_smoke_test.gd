@@ -380,6 +380,28 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Friendly armor must temporarily support landed marines, then resume its original base order.
+	var support_test_units: Array[Dictionary] = [
+		{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "tank", "hp": 150, "attack_base": true, "attack_cd": 0.0},
+		{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
+		{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
+	]
+	game.set("units", support_test_units)
+	game.call("_process", 0.1)
+	var supported_units: Array[Dictionary] = game.get("units")
+	if not bool(supported_units[0].get("landing_support_active", false)) or int(supported_units[0].get("attack_target", -1)) != 2 or supported_units[0].has("attack_base"):
+		push_error("Friendly tank did not divert from its base order to protect the landed marine squad")
+		quit(1)
+		return
+	var cleared_support_units: Array[Dictionary] = [supported_units[0], supported_units[1]]
+	game.set("units", cleared_support_units)
+	game.call("_process", 0.1)
+	var restored_support_units: Array[Dictionary] = game.get("units")
+	if bool(restored_support_units[0].get("landing_support_active", false)) or not bool(restored_support_units[0].get("attack_base", false)) or restored_support_units[0].has("attack_target"):
+		push_error("Friendly tank did not resume its saved base order after landing threats were cleared")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
