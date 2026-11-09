@@ -501,8 +501,8 @@ func _initialize() -> void:
 	var tank_lane_projection: float = (coordinated_result[0].pos - Vector2(400.0, 360.0)).dot(assault_direction)
 	var infantry_lane_projection: float = (coordinated_result[1].pos - Vector2(400.0, 360.0)).dot(assault_direction)
 	var artillery_standoff: float = coordinated_result[2].pos.distance_to(Vector2(400.0, 360.0))
-	if tank_lane_projection <= infantry_lane_projection or coordinated_result[0].pos.distance_to(Vector2(460.0, 360.0)) <= coordinated_result[1].pos.distance_to(Vector2(460.0, 360.0)) or artillery_standoff > 330.0 or int(coordinated_result[3].hp) >= 150:
-		push_error("Live enemy ground assault failed to coordinate leading armor, trailing infantry and artillery standoff fire")
+	if tank_lane_projection <= infantry_lane_projection or coordinated_result[0].pos.x >= coordinated_result[1].pos.x or artillery_standoff > 330.0 or int(coordinated_result[3].hp) >= 150:
+		push_error("Live enemy ground assault coordination failed: tank=" + str(coordinated_result[0].pos) + ", infantry=" + str(coordinated_result[1].pos) + ", artillery_distance=" + str(artillery_standoff) + ", player_tank_hp=" + str(coordinated_result[3].hp))
 		quit(1)
 		return
 
