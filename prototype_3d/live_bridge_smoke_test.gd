@@ -361,6 +361,25 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# A destroyer assigned to amphibious escort must hold station instead of firing at the distant base.
+	game.set("base_pos", Vector2(200.0, 360.0))
+	game.set("player_base_hp", 1000)
+	var escort_craft_pos := Vector2(700.0, 360.0)
+	var escort_slot := escort_craft_pos + Vector2(-58.0, -66.0)
+	var escort_test_units: Array[Dictionary] = [
+		{"pos": Vector2(400.0, 360.0), "team": "enemy", "kind": "destroyer", "hp": 260, "attack_cd": 0.0},
+		{"pos": escort_craft_pos, "home_pos": Vector2(780.0, 590.0), "team": "enemy", "kind": "landing_craft", "hp": 180, "passengers": 3, "landing_state": "outbound"}
+	]
+	game.set("units", escort_test_units)
+	var base_hp_before_escort: int = int(game.get("player_base_hp"))
+	game.call("_process", 0.5)
+	var escorted_units: Array[Dictionary] = game.get("units")
+	var destroyer_after_escort: Vector2 = escorted_units[0].pos
+	if int(game.get("player_base_hp")) != base_hp_before_escort or destroyer_after_escort.distance_to(escort_slot) >= Vector2(400.0, 360.0).distance_to(escort_slot):
+		push_error("Destroyer did not hold escort station around its amphibious landing craft")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
