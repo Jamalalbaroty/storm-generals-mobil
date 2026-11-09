@@ -649,20 +649,6 @@ func _helicopter_cooldown(unit: Dictionary) -> float:
 	return float(_faction_profile(String(unit.get("faction", faction)))["helicopter_cooldown"])
 
 
-func _helicopter_damage(unit: Dictionary) -> int:
-	var army: String = unit.get("faction", faction)
-	if army == "وطن":
-		return 38
-	if army == "الجيش العربي":
-		return 34
-	if army == "الأمريكي":
-		return 32
-	return 30
-
-func _helicopter_cooldown(unit: Dictionary) -> float:
-	var army: String = unit.get("faction", faction)
-	return 1.1 if army == "وطن" else (1.2 if army == "الجيش العربي" else (1.25 if army == "الأمريكي" else 1.35))
-
 func _helicopter_color(unit: Dictionary) -> Color:
 	var army: String = unit.get("faction", faction)
 	if army == "الأمريكي":
@@ -1841,24 +1827,6 @@ func _missile_damage(army: String) -> int:
 func _missile_cooldown(army: String) -> float:
 	return float(_faction_profile(army)["missile_cooldown"])
 
-
-func _missile_damage(army: String) -> int:
-	if army == "وطن":
-		return 230
-	if army == "الجيش العربي":
-		return 205
-	if army == "الأمريكي":
-		return 195
-	return 185
-
-func _missile_cooldown(army: String) -> float:
-	if army == "وطن":
-		return 11.0
-	if army == "الجيش العربي":
-		return 12.0
-	if army == "الأمريكي":
-		return 13.0
-	return 14.0
 
 func _launch_player_missile() -> void:
 	if not _has_building("missile_silo"):
