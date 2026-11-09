@@ -39,12 +39,12 @@ const ECONOMY_BALANCE := {
 		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700
 	},
 	"unit_costs": {
-		"infantry": INFANTRY_COST, "tank": TANK_COST, "artillery": ARTILLERY_COST,
+		"infantry": INFANTRY_COST, "tank": TANK_COST, "builder": 600, "artillery": ARTILLERY_COST,
 		"fighter": FIGHTER_COST, "destroyer": 900, "carrier": 1600,
 		"submarine": 1100, "landing_craft": 800
 	},
 	"unit_supplies": {
-		"infantry": 0, "tank": 1, "artillery": 2, "fighter": 2,
+		"infantry": 0, "tank": 1, "builder": 0, "artillery": 2, "fighter": 2,
 		"helicopter": 3, "destroyer": 4, "landing_craft": 4,
 		"submarine": 5, "carrier": 8
 	}
@@ -1414,7 +1414,7 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 500.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 155, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 320.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 155, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
+		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600"]
 		for i in labels.size():
 			var r = _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
@@ -1536,12 +1536,13 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				enemy_base_hp = 1000
 				paused = false
 				game_started = true
-				notice = "بدأت المعركة — %s | %s" % [faction, map_type]
+				units.append({"pos": base_pos + Vector2(58, 0), "team": "player", "kind": "builder", "faction": faction, "hp": 220, "attack_cd": 0.0})
+				notice = "بدأت المعركة — مركبة البناء جاهزة. حددها وابدأ إنشاء قاعدتك"
 				notice_time = 3.0
 				queue_redraw()
 				return
 		return
-	for i in 21:
+	for i in 22:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -1603,6 +1604,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_spawn_unit("submarine")
 			elif i == 20:
 				_spawn_unit("landing_craft")
+			elif i == 21:
+				_spawn_unit("builder")
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -2367,6 +2370,20 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
+	var builder_index := -1
+	for selected_index in selected:
+		if selected_index >= 0 and selected_index < units.size() and units[selected_index].team == "player" and units[selected_index].kind == "builder" and units[selected_index].get("hp", 0) > 0:
+			builder_index = selected_index
+			break
+	if builder_index < 0:
+		notice = "حدد مركبة البناء أولاً ثم اختر موقع المبنى"
+		notice_time = 2.5
+		build_mode = ""
+		return
+	if units[builder_index].pos.distance_to(pos) > 220.0:
+		notice = "موقع البناء بعيد — حرّك مركبة البناء بالقرب منه"
+		notice_time = 2.5
+		return
 	var cost = _building_cost(build_mode)
 	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0)):
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
