@@ -233,6 +233,44 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Once naval superiority is established, the enemy AI should deploy an amphibious assault craft.
+	var ai_naval_units: Array[Dictionary] = [
+		{"pos": Vector2(780.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+		{"pos": Vector2(790.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+		{"pos": Vector2(800.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+		{"pos": Vector2(780.0, 660.0), "team": "enemy", "kind": "carrier", "hp": 520},
+		{"pos": Vector2(780.0, 670.0), "team": "enemy", "kind": "submarine", "hp": 210},
+		{"pos": Vector2(220.0, 650.0), "team": "player", "kind": "destroyer", "hp": 260},
+		{"pos": Vector2(240.0, 650.0), "team": "player", "kind": "submarine", "hp": 210}
+	]
+	game.set("units", ai_naval_units)
+	var complete_ai_buildings: Array[Dictionary] = [
+		{"pos": Vector2(900.0, 240.0), "kind": "barracks", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(900.0, 300.0), "kind": "factory", "hp": 500, "build_progress": 1.0},
+		{"pos": Vector2(900.0, 360.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(900.0, 420.0), "kind": "airfield", "hp": 450, "build_progress": 1.0},
+		{"pos": Vector2(900.0, 480.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0},
+		{"pos": Vector2(780.0, 650.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0},
+		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0}
+	]
+	game.set("enemy_buildings", complete_ai_buildings)
+	game.set("enemy_credits", 100000)
+	game.set("enemy_supplies", 1000)
+	game.set("enemy_strategy", "balanced")
+	game.call("_enemy_ai_turn")
+	var amphibious_units: Array[Dictionary] = game.get("units")
+	var ai_landing_craft_count := 0
+	var ai_landing_craft: Dictionary = {}
+	for ai_unit in amphibious_units:
+		if ai_unit.get("team") == "enemy" and ai_unit.get("kind") == "landing_craft":
+			ai_landing_craft_count += 1
+			ai_landing_craft = ai_unit
+	var expected_ai_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
+	if ai_landing_craft_count != 1 or String(ai_landing_craft.get("landing_state", "")) != "outbound" or int(ai_landing_craft.get("passengers", 0)) != 3 or Vector2(ai_landing_craft.get("home_pos", Vector2.ZERO)).distance_to(expected_ai_dock) > 0.1:
+		push_error("Enemy naval AI did not deploy one fully loaded amphibious landing craft from its coastal dock")
+		quit(1)
+		return
+
 	# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
 	var shore := Vector2(700.0, 520.0)
 	var home_dock := Vector2(180.0, 520.0)
