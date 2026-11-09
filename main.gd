@@ -625,6 +625,11 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
 			unit.hp = maxi(0, int(unit.hp) - _terrain_adjusted_damage(unit, damage))
 
+func _helicopter_cost(army: String) -> int:
+	# وطن keeps its elite helicopter damage, balanced by a higher production cost.
+	return 850 if army == "وطن" else HELICOPTER_COST
+
+
 func _helicopter_damage(unit: Dictionary) -> int:
 	var army: String = unit.get("faction", faction)
 	if army == "وطن":
@@ -2137,7 +2142,7 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= FIGHTER_COST
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_supplies >= 3 and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
+	elif _enemy_has_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= 3 and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= HELICOPTER_COST
 		enemy_supplies -= 3
 		var rival_faction := _enemy_faction()
@@ -2309,7 +2314,7 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := 1600 if kind == "carrier" else (1100 if kind == "submarine" else (800 if kind == "landing_craft" else (900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))))
+	var cost := 1600 if kind == "carrier" else (1100 if kind == "submarine" else (800 if kind == "landing_craft" else (900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (_helicopter_cost(faction) if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))))
 	var supply_cost := 8 if kind == "carrier" else (5 if kind == "submarine" else (4 if kind == "destroyer" or kind == "landing_craft" else _unit_supply_cost(kind)))
 	if supplies < supply_cost:
 		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
