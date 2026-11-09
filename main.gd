@@ -673,13 +673,14 @@ func _unit_weapon_angle(unit: Dictionary) -> float:
 	# Visual-only aiming: resolve the current tactical target without changing combat rules.
 	var target_pos: Vector2 = unit.pos
 	var found_target := false
+	var target_index := -1
 	if unit.has("attack_building") and unit.team == "player":
 		var building_index := int(unit.attack_building)
 		if building_index >= 0 and building_index < enemy_buildings.size():
 			target_pos = enemy_buildings[building_index].pos
 			found_target = true
 	elif unit.team == "player":
-		var target_index := int(unit.get("attack_target", -1))
+		target_index = int(unit.get("attack_target", -1))
 		if target_index >= 0 and target_index < units.size() and units[target_index].team == "enemy" and units[target_index].get("hp", 0) > 0:
 			target_pos = units[target_index].pos
 			found_target = true
@@ -688,8 +689,8 @@ func _unit_weapon_angle(unit: Dictionary) -> float:
 			if target_index >= 0:
 				target_pos = units[target_index].pos
 				found_target = true
-		elif unit.team == "enemy":
-		var target_index := _nearest_player_unit(unit.pos)
+	elif unit.team == "enemy":
+		target_index = _nearest_player_unit(unit.pos)
 		if target_index >= 0:
 			target_pos = units[target_index].pos
 			found_target = true
