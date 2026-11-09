@@ -180,7 +180,26 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery and naval archetypes passed")
+	# Exercise automatic destroyer target selection and its firing cadence against a hostile contact.
+	var naval_combat_records: Array = [
+		{"pos": Vector2(42.0, 50.0), "team": "player", "kind": "destroyer", "faction": "american", "hp": 180, "max_hp": 240},
+		{"pos": Vector2(55.0, 50.0), "team": "enemy", "kind": "tank", "faction": "chinese", "hp": 150, "max_hp": 150}
+	]
+	battlefield.call("sync_game_units", naval_combat_records, map_rect)
+	var combat_destroyer := battlefield.game_unit_nodes.get("player|9|destroyer") as Node3D
+	var hostile_contact := battlefield.game_unit_nodes.get("enemy|10|tank") as Node3D
+	if combat_destroyer == null or hostile_contact == null or battlefield.call("_find_naval_target", combat_destroyer, "player", 15.0) != hostile_contact:
+		push_error("Destroyer did not acquire the nearest hostile unit in range")
+		quit(1)
+		return
+	var child_count_before_fire := battlefield.get_child_count()
+	battlefield.call("_update_naval_combat", 0.1)
+	if absf(float(combat_destroyer.get_meta("naval_fire_cooldown", 0.0)) - 2.4) > 0.001 or battlefield.get_child_count() <= child_count_before_fire:
+		push_error("Destroyer failed to fire a naval shell or set its firing cooldown")
+		quit(1)
+		return
+
+	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery, naval archetypes and destroyer combat passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
