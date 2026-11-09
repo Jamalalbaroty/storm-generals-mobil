@@ -206,7 +206,7 @@ func _process(delta: float) -> void:
 					for point in supply_points:
 						if point.owner != "enemy":
 							destination = point.pos
-								break
+							break
 				var distance_to_target := unit.pos.distance_to(destination)
 				if player_target >= 0 and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -259,7 +259,7 @@ func _process(delta: float) -> void:
 							else:
 								enemy_base_hp = maxi(0, enemy_base_hp - naval_damage)
 							unit.attack_cd = 2.0 if unit.kind == "submarine" else 2.2
-				else:
+					else:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
 					continue
 				if unit.kind == "helicopter":
@@ -1174,6 +1174,7 @@ func _enemy_ai_turn() -> void:
 	var enemy_fighters := 0
 	var enemy_helicopters := 0
 	var enemy_destroyers := 0
+	var enemy_landing_craft := 0
 	var enemy_carriers := 0
 	var enemy_submarines := 0
 	for unit in units:
@@ -1189,6 +1190,8 @@ func _enemy_ai_turn() -> void:
 			enemy_helicopters += 1
 		elif unit.kind == "destroyer":
 			enemy_destroyers += 1
+		elif unit.kind == "landing_craft":
+			enemy_landing_craft += 1
 		elif unit.kind == "carrier":
 			enemy_carriers += 1
 		elif unit.kind == "submarine":
@@ -1205,6 +1208,11 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= 5
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": "الصيني", "hp": 210, "attack_cd": 0.0})
+	elif _enemy_has_building("shipyard") and enemy_credits >= 800 and enemy_supplies >= 4 and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+		enemy_credits -= 800
+		enemy_supplies -= 4
+		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": "الصيني", "hp": 220, "attack_cd": 0.0, "landed": false})
 	elif _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
 		enemy_credits -= 900
 		enemy_supplies -= 4
