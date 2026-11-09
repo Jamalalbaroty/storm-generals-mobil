@@ -109,6 +109,22 @@ func _process(delta: float) -> void:
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.team == "enemy":
+				if unit.kind == "destroyer":
+					var naval_target := _nearest_player_unit(unit.pos)
+					var naval_destination: Vector2 = base_pos if naval_target < 0 else units[naval_target].pos
+					if unit.pos.distance_to(naval_destination) <= 300.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#ffb66f"), 0.2, 0.0)
+							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ff995c"), 0.5, 38.0)
+							if naval_target >= 0:
+								_apply_splash_damage(naval_destination, 48.0, 32, "player")
+							else:
+								player_base_hp = maxi(0, player_base_hp - 35)
+							unit.attack_cd = 2.0
+					else:
+						unit.pos += (naval_destination - unit.pos).normalized() * delta * 28.0
+					continue
 				if unit.kind == "helicopter":
 					var heli_target := _nearest_player_unit(unit.pos)
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
@@ -180,6 +196,22 @@ func _process(delta: float) -> void:
 				elif distance_to_target > 34.0:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
+				if unit.kind == "destroyer":
+					var naval_target := _nearest_enemy_unit(unit.pos, 360.0)
+					var naval_destination: Vector2 = enemy_base if naval_target < 0 else units[naval_target].pos
+					if unit.pos.distance_to(naval_destination) <= 300.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							_add_visual_effect("tracer", unit.pos, naval_destination, Color("#a8eaff"), 0.2, 0.0)
+							_add_visual_effect("explosion", naval_destination, naval_destination, Color("#ffbd78"), 0.5, 40.0)
+							if naval_target >= 0:
+								_apply_splash_damage(naval_destination, 48.0, 38, "enemy")
+							else:
+								enemy_base_hp = maxi(0, enemy_base_hp - 34)
+							unit.attack_cd = 1.8
+					else:
+						unit.pos += (naval_destination - unit.pos).normalized() * delta * 32.0
+					continue
 				if unit.kind == "helicopter":
 					var heli_target := _nearest_enemy_unit(unit.pos, 380.0)
 					if heli_target >= 0:
@@ -370,6 +402,11 @@ func _draw() -> void:
 		var p := Vector2(40 + i * 71, 80 + float((i * 47) % 510))
 		draw_circle(p, 13, Color("#304b32"))
 		draw_circle(p + Vector2(-5, -5), 8, Color("#426b3e"))
+	# Coastal sea lane for naval operations
+	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#254f68"))
+	for wave in range(8):
+		var wy := size.y * 0.75 + wave * 22.0
+		draw_line(Vector2(0, wy), Vector2(size.x, wy + 5), Color(0.55, 0.78, 0.86, 0.12), 2.0)
 	_draw_supply_points()
 	_draw_missiles()
 	_draw_base(base_pos, Color("#3977bd"), "قاعدتك")
@@ -391,7 +428,11 @@ func _draw() -> void:
 		if u.get("hp", 0) <= 0:
 			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
-		if u.kind == "helicopter":
+		if u.kind == "destroyer":
+			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(27, 0), u.pos + Vector2(13, -10), u.pos + Vector2(-24, -8), u.pos + Vector2(-31, 0), u.pos + Vector2(-24, 8), u.pos + Vector2(13, 10)]), Color("#8c9da5") if u.team == "player" else Color("#b65c55"))
+			draw_rect(Rect2(u.pos + Vector2(-9, -7), Vector2(19, 14)), Color("#303e47"))
+			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
+		elif u.kind == "helicopter":
 			var heli_color := _helicopter_color(u)
 			draw_circle(u.pos, 10, heli_color)
 			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(10, -4), u.pos + Vector2(29, -1), u.pos + Vector2(10, 3)]), heli_color)
@@ -1102,7 +1143,10 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
 	draw_rect(body, Color("#252b2b"))
 	draw_rect(body.grow(-4), color)
-	if kind == "missile_silo":
+	if kind == "shipyard":
+		draw_rect(Rect2(p + Vector2(-24, -12), Vector2(48, 24)), Color("#d2b98a"))
+		draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#254f68"), 4.0)
+	elif kind == "missile_silo":
 		draw_rect(Rect2(p + Vector2(-14, -17), Vector2(28, 34)), Color("#292f35"))
 		draw_line(p + Vector2(0, -15), p + Vector2(0, -38), Color("#c8d0d2"), 5)
 		draw_circle(p + Vector2(0, -38), 5, Color("#ffb45f"))
@@ -1119,7 +1163,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
 		if kind == "airfield":
 			draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#f0e2a5"), 3)
-	var label := "منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع")))))
+	var label := "حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع"))))))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
@@ -1139,7 +1183,7 @@ func _place_building(pos: Vector2) -> void:
 		return
 	credits -= cost
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0})
-	var building_name := "منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع")))))
+	var building_name := "حوض السفن" if build_mode == "shipyard" else ("منصة الصواريخ" if build_mode == "missile_silo" else ("الدفاع الصاروخي" if build_mode == "missile_defense" else ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else ("المطار" if build_mode == "airfield" else ("الدفاع المضاد للطائرات" if build_mode == "anti_air" else "برج الدفاع"))))))
 	notice = "تم إنشاء %s" % building_name
 	notice_time = 2.0
 	build_mode = ""
