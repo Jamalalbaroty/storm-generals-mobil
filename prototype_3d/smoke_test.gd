@@ -74,7 +74,41 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	print("3D battlefield, 10 building archetypes, and 2D-to-3D building sync smoke tests passed")
+	var unit_records: Array = [
+		{"pos": Vector2(200.0, 120.0), "team": "player", "kind": "tank", "faction": "american", "hp": 150},
+		{"pos": Vector2(500.0, 300.0), "team": "player", "kind": "infantry", "faction": "american", "hp": 60},
+		{"pos": Vector2(800.0, 480.0), "team": "enemy", "kind": "fighter", "faction": "chinese", "hp": 120}
+	]
+	var unit_count := int(battlefield.call("sync_game_units", unit_records, map_rect))
+	if unit_count != 3 or battlefield.game_unit_nodes.size() != 3:
+		push_error("Gameplay unit synchronization did not create all 3D counterparts")
+		quit(1)
+		return
+	var tank_key := "player|0|tank"
+	var tank_3d := battlefield.game_unit_nodes.get(tank_key) as Node3D
+	if tank_3d == null or tank_3d.get_meta("gameplay_unit_kind", "") != "tank":
+		push_error("Synchronized tank metadata is incorrect")
+		quit(1)
+		return
+	if tank_3d.position.distance_to(Vector3(-10.64, 0.0, -10.64)) > 0.02:
+		push_error("Gameplay unit map-to-world transform is incorrect")
+		quit(1)
+		return
+	unit_records[0]["pos"] = Vector2(300.0, 180.0)
+	unit_records[0]["hp"] = 90
+	battlefield.call("sync_game_units", unit_records, map_rect)
+	if tank_3d.position.distance_to(Vector3(-6.384, 0.0, -6.384)) > 0.03 or absf(float(tank_3d.get_meta("health")) - 90.0) > 0.001:
+		push_error("Gameplay unit movement or health synchronization failed")
+		quit(1)
+		return
+	unit_records.remove_at(2)
+	unit_count = int(battlefield.call("sync_game_units", unit_records, map_rect))
+	if unit_count != 2 or battlefield.game_unit_nodes.size() != 2:
+		push_error("Removed gameplay units were not reconciled from the 3D scene")
+		quit(1)
+		return
+
+	print("3D battlefield, 10 building archetypes, building sync, and gameplay unit sync smoke tests passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
