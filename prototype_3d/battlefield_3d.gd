@@ -17,6 +17,7 @@ var mouse_pan_active := false
 func _ready() -> void:
 	_build_environment()
 	_build_terrain()
+	_build_battlefield_features()
 	_build_camera()
 	_build_lighting()
 	_build_showcase_units()
@@ -63,6 +64,116 @@ func _build_terrain() -> void:
 		marker.material_override = marker_material
 		marker.position = Vector3(-ARENA_SIZE * 0.5 + i * 5.25, -0.04, 0.0)
 		add_child(marker)
+
+
+func _build_battlefield_features() -> void:
+	# Low-poly terrain berms: restrained geometry keeps the Android prototype lightweight.
+	var berm_material := StandardMaterial3D.new()
+	berm_material.albedo_color = Color(0.29, 0.30, 0.23)
+	berm_material.roughness = 1.0
+	for spec in [
+		[Vector3(-15.0, 0.45, -13.0), Vector3(9.0, 0.9, 5.0)],
+		[Vector3(14.0, 0.32, -14.0), Vector3(7.0, 0.64, 4.0)],
+		[Vector3(-16.0, 0.28, 14.0), Vector3(8.0, 0.56, 5.0)],
+		[Vector3(15.0, 0.38, 14.0), Vector3(10.0, 0.76, 5.0)]
+	]:
+		var berm := MeshInstance3D.new()
+		var berm_mesh := BoxMesh.new()
+		berm_mesh.size = spec[1]
+		berm.mesh = berm_mesh
+		berm.position = spec[0]
+		berm.material_override = berm_material
+		add_child(berm)
+
+	# Two broad access roads crossing the arena.
+	_add_road(Vector3(0.0, -0.045, 0.0), Vector2(5.2, ARENA_SIZE), 0.0)
+	_add_road(Vector3(0.0, -0.04, 0.0), Vector2(ARENA_SIZE, 4.2), 0.0)
+	_add_road_markings()
+
+	# Compact field outposts placed away from the showcase vehicles.
+	_add_field_structure(Vector3(-14.0, 0.0, -7.0), Vector3(5.0, 2.8, 4.0), Color(0.34, 0.38, 0.30), true)
+	_add_field_structure(Vector3(14.0, 0.0, 8.0), Vector3(5.0, 3.2, 4.5), Color(0.39, 0.36, 0.29), false)
+	_add_watch_tower(Vector3(17.0, 0.0, -15.0))
+	_add_watch_tower(Vector3(-17.0, 0.0, 16.0))
+
+func _add_road(at: Vector3, dimensions: Vector2, _angle: float) -> void:
+	var road := MeshInstance3D.new()
+	var road_mesh := PlaneMesh.new()
+	road_mesh.size = dimensions
+	road.mesh = road_mesh
+	var road_material := StandardMaterial3D.new()
+	road_material.albedo_color = Color(0.19, 0.20, 0.18)
+	road_material.roughness = 1.0
+	road.material_override = road_material
+	road.position = at
+	add_child(road)
+
+func _add_road_markings() -> void:
+	var marking_material := StandardMaterial3D.new()
+	marking_material.albedo_color = Color(0.66, 0.59, 0.37)
+	for i in range(9):
+		var dash := MeshInstance3D.new()
+		var dash_mesh := BoxMesh.new()
+		dash_mesh.size = Vector3(0.16, 0.025, 1.5)
+		dash.mesh = dash_mesh
+		dash.material_override = marking_material
+		dash.position = Vector3(0.0, 0.015, -18.0 + i * 4.5)
+		add_child(dash)
+
+func _add_field_structure(at: Vector3, dimensions: Vector3, tint: Color, has_radar: bool) -> void:
+	var building := Node3D.new()
+	building.position = at
+	add_child(building)
+
+	var body := MeshInstance3D.new()
+	var body_mesh := BoxMesh.new()
+	body_mesh.size = dimensions
+	body.mesh = body_mesh
+	body.position.y = dimensions.y * 0.5
+	body.material_override = _make_armour_material(tint)
+	building.add_child(body)
+
+	var roof := MeshInstance3D.new()
+	var roof_mesh := BoxMesh.new()
+	roof_mesh.size = Vector3(dimensions.x * 0.82, 0.22, dimensions.z * 0.82)
+	roof.mesh = roof_mesh
+	roof.position.y = dimensions.y + 0.11
+	roof.material_override = _make_armour_material(tint.darkened(0.28))
+	building.add_child(roof)
+
+	if has_radar:
+		var mast := MeshInstance3D.new()
+		var mast_mesh := CylinderMesh.new()
+		mast_mesh.top_radius = 0.08
+		mast_mesh.bottom_radius = 0.12
+		mast_mesh.height = 2.8
+		mast.mesh = mast_mesh
+		mast.position = Vector3(0.0, dimensions.y + 1.5, 0.0)
+		mast.material_override = _make_armour_material(Color(0.15, 0.17, 0.16))
+		building.add_child(mast)
+
+func _add_watch_tower(at: Vector3) -> void:
+	var tower := Node3D.new()
+	tower.position = at
+	add_child(tower)
+
+	var leg_material := _make_armour_material(Color(0.22, 0.24, 0.21))
+	for offset in [Vector3(-0.65, 1.3, -0.65), Vector3(0.65, 1.3, -0.65), Vector3(-0.65, 1.3, 0.65), Vector3(0.65, 1.3, 0.65)]:
+		var leg := MeshInstance3D.new()
+		var leg_mesh := BoxMesh.new()
+		leg_mesh.size = Vector3(0.18, 2.6, 0.18)
+		leg.mesh = leg_mesh
+		leg.position = offset
+		leg.material_override = leg_material
+		tower.add_child(leg)
+
+	var platform := MeshInstance3D.new()
+	var platform_mesh := BoxMesh.new()
+	platform_mesh.size = Vector3(2.0, 0.28, 2.0)
+	platform.mesh = platform_mesh
+	platform.position.y = 2.65
+	platform.material_override = _make_armour_material(Color(0.32, 0.34, 0.29))
+	tower.add_child(platform)
 
 func _build_camera() -> void:
 	rts_camera = Camera3D.new()
