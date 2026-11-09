@@ -450,6 +450,8 @@ func _process(delta: float) -> void:
 							var threatens_guarded_asset: bool = candidate.pos.distance_to(enemy_base) <= 250.0
 							if not threatens_guarded_asset:
 								for protected_building in enemy_buildings:
+									if int(protected_building.get("hp", 0)) <= 0:
+										continue
 									if candidate.pos.distance_to(protected_building.pos) <= 350.0:
 										threatens_guarded_asset = true
 										break
