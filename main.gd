@@ -31,6 +31,23 @@ const FACTION_BALANCE := {
 	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42},
 	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50}
 }
+const ECONOMY_BALANCE := {
+	"building_costs": {
+		"barracks": BARRACKS_COST, "factory": FACTORY_COST, "turret": TURRET_COST,
+		"airfield": AIRFIELD_COST, "anti_air": AA_COST, "missile_silo": MISSILE_SILO_COST,
+		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700
+	},
+	"unit_costs": {
+		"infantry": INFANTRY_COST, "tank": TANK_COST, "artillery": ARTILLERY_COST,
+		"fighter": FIGHTER_COST, "destroyer": 900, "carrier": 1600,
+		"submarine": 1100, "landing_craft": 800
+	},
+	"unit_supplies": {
+		"infantry": 0, "tank": 1, "artillery": 2, "fighter": 2,
+		"helicopter": 3, "destroyer": 4, "landing_craft": 4,
+		"submarine": 5, "carrier": 8
+	}
+}
 
 var faction := ""
 var map_type := "الساحل الصحراوي"
@@ -1715,14 +1732,22 @@ func _draw_supply_points() -> void:
 			var label := "إمدادك" if owner == "player" else "إمداد العدو"
 			draw_string(ThemeDB.fallback_font, p + Vector2(-48, 55), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 15, Color.WHITE)
 
-func _unit_supply_cost(kind: String) -> int:
+func _building_cost(kind: String) -> int:
+	var costs: Dictionary = ECONOMY_BALANCE["building_costs"]
+	return int(costs.get(kind, 0))
+
+
+func _unit_cost(kind: String, army: String) -> int:
 	if kind == "helicopter":
-		return 3
-	if kind == "fighter" or kind == "artillery":
-		return 2
-	if kind == "tank":
-		return 1
-	return 0
+		return _helicopter_cost(army)
+	var costs: Dictionary = ECONOMY_BALANCE["unit_costs"]
+	return int(costs.get(kind, 0))
+
+
+func _unit_supply_cost(kind: String) -> int:
+	var costs: Dictionary = ECONOMY_BALANCE["unit_supplies"]
+	return int(costs.get(kind, 0))
+
 
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
@@ -2016,51 +2041,51 @@ func _enemy_ai_turn() -> void:
 			player_missile_threat = true
 			break
 	# A full base must not freeze the enemy's production and combat decisions.
-	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
-		enemy_credits -= BARRACKS_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= _building_cost("barracks"):
+		enemy_credits -= _building_cost("barracks")
 		enemy_buildings.append({"pos": build_pos, "kind": "barracks", "hp": 400, "attack_cd": 0.0})
 		notice = "العدو أنشأ ثكنة عسكرية"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("factory") and enemy_credits >= FACTORY_COST:
-		enemy_credits -= FACTORY_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("factory") and enemy_credits >= _building_cost("factory"):
+		enemy_credits -= _building_cost("factory")
 		enemy_buildings.append({"pos": build_pos, "kind": "factory", "hp": 500, "attack_cd": 0.0})
 		notice = "العدو أنشأ مصنع دبابات"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("turret") and enemy_credits >= TURRET_COST:
-		enemy_credits -= TURRET_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("turret") and enemy_credits >= _building_cost("turret"):
+		enemy_credits -= _building_cost("turret")
 		enemy_buildings.append({"pos": build_pos, "kind": "turret", "hp": 350, "attack_cd": 0.0})
 		notice = "العدو نشر برجاً دفاعياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("airfield") and enemy_credits >= AIRFIELD_COST:
-		enemy_credits -= AIRFIELD_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("airfield") and enemy_credits >= _building_cost("airfield"):
+		enemy_credits -= _building_cost("airfield")
 		enemy_buildings.append({"pos": build_pos, "kind": "airfield", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو أنشأ مطاراً حربياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("missile_silo") and enemy_credits >= MISSILE_SILO_COST:
-		enemy_credits -= MISSILE_SILO_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("missile_silo") and enemy_credits >= _building_cost("missile_silo"):
+		enemy_credits -= _building_cost("missile_silo")
 		enemy_buildings.append({"pos": build_pos, "kind": "missile_silo", "hp": 500, "attack_cd": 8.0})
 		notice = "العدو أنشأ منصة صواريخ"
 		notice_time = 2.0
 		return
-	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= MISSILE_DEFENSE_COST:
-		enemy_credits -= MISSILE_DEFENSE_COST
+	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= _building_cost("missile_defense"):
+		enemy_credits -= _building_cost("missile_defense")
 		enemy_buildings.append({"pos": build_pos, "kind": "missile_defense", "hp": 450, "attack_cd": 0.0})
 		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("shipyard") and enemy_credits >= 700:
-		enemy_credits -= 700
+	if not _enemy_has_building("shipyard") and enemy_credits >= _building_cost("shipyard"):
+		enemy_credits -= _building_cost("shipyard")
 		var naval_site := Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		enemy_buildings.append({"pos": naval_site, "kind": "shipyard", "hp": 500, "attack_cd": 0.0})
 		notice = "العدو أنشأ حوض سفن ساحلياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("anti_air") and enemy_credits >= AA_COST:
-		enemy_credits -= AA_COST
+	if build_pos.x >= 0.0 and not _enemy_has_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
+		enemy_credits -= _building_cost("anti_air")
 		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
 		notice_time = 2.0
@@ -2069,8 +2094,8 @@ func _enemy_ai_turn() -> void:
 	for existing_building in enemy_buildings:
 		if existing_building.kind == "anti_air":
 			enemy_anti_air_count += 1
-	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= AA_COST:
-		enemy_credits -= AA_COST
+	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
+		enemy_credits -= _building_cost("anti_air")
 		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
 		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
 		notice_time = 2.0
@@ -2111,28 +2136,28 @@ func _enemy_ai_turn() -> void:
 	for unit in units:
 		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery"):
 			player_heavy_ground_threat += 1
-	if _enemy_has_building("shipyard") and enemy_credits >= 1600 and enemy_supplies >= 8 and enemy_carriers < 1 and enemy_destroyers >= 1:
-		enemy_credits -= 1600
+	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= 8 and enemy_carriers < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= 8
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= 1100 and enemy_supplies >= 5 and enemy_submarines < 1 and enemy_destroyers >= 1:
-		enemy_credits -= 1100
+	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= 5 and enemy_submarines < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("submarine", _enemy_faction())
 		enemy_supplies -= 5
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= 800 and enemy_supplies >= 4 and enemy_landing_craft < 1 and enemy_destroyers >= 1:
-		enemy_credits -= 800
+	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
 		enemy_supplies -= 4
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= 900 and enemy_supplies >= 4 and enemy_destroyers < 2:
-		enemy_credits -= 900
+	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
+		enemy_credits -= _unit_cost("destroyer", _enemy_faction())
 		enemy_supplies -= 4
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": _enemy_faction(), "hp": 260, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_supplies >= 2 and enemy_fighters < (4 if player_air_threat >= 2 else 2):
-		enemy_credits -= FIGHTER_COST
+	elif _enemy_has_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= 2 and enemy_fighters < (4 if player_air_threat >= 2 else 2):
+		enemy_credits -= _unit_cost("fighter", _enemy_faction())
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= 3 and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
@@ -2140,16 +2165,16 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= 3
 		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < (3 if player_heavy_ground_threat >= 4 else 2):
-		enemy_credits -= ARTILLERY_COST
+	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= 2 and enemy_tanks >= 2 and enemy_artillery < (3 if player_heavy_ground_threat >= 4 else 2):
+		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= 2
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_supplies >= 1 and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
-		enemy_credits -= TANK_COST
+	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= 1 and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
+		enemy_credits -= _unit_cost("tank", _enemy_faction())
 		enemy_supplies -= 1
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST and enemy_infantry < 8:
-		enemy_credits -= INFANTRY_COST
+	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
+		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
 
 func _enemy_build_position() -> Vector2:
@@ -2259,7 +2284,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := 700 if build_mode == "shipyard" else (MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST))))))
+	var cost := _building_cost(build_mode)
 	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0)):
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
@@ -2307,8 +2332,8 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := 1600 if kind == "carrier" else (1100 if kind == "submarine" else (800 if kind == "landing_craft" else (900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (_helicopter_cost(faction) if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))))
-	var supply_cost := 8 if kind == "carrier" else (5 if kind == "submarine" else (4 if kind == "destroyer" or kind == "landing_craft" else _unit_supply_cost(kind)))
+	var cost := _unit_cost(kind, faction)
+	var supply_cost := _unit_supply_cost(kind)
 	if supplies < supply_cost:
 		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
 		notice_time = 2.5

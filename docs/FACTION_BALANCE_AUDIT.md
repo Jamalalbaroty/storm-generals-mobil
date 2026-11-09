@@ -4,6 +4,30 @@
 
 This is a static review of `main.gd`, not a measured win-rate report. No balance values are changed by this document. Before tuning, run repeatable matches on the same map and record unit counts, elapsed time, resource spend, and outcomes.
 
+## Centralized production economy
+
+Building credit costs and unit credit/supply costs are mapped in `ECONOMY_BALANCE` in `main.gd`. Player purchase, player construction, and AI spending route through the same lookup helpers. The faction-specific helicopter surcharge remains sourced from `FACTION_BALANCE`.
+
+| Category | Item | Credits | Supplies |
+|---|---|---:|---:|
+| Building | Barracks | 250 | — |
+| Building | Factory | 450 | — |
+| Building | Turret | 350 | — |
+| Building | Airfield | 600 | — |
+| Building | Anti-air | 400 | — |
+| Building | Missile silo | 800 | — |
+| Building | Missile defense | 700 | — |
+| Building | Shipyard | 700 | — |
+| Unit | Infantry | 100 | 0 |
+| Unit | Tank | 300 | 1 |
+| Unit | Artillery | 450 | 2 |
+| Unit | Fighter | 500 | 2 |
+| Unit | Helicopter | 650 (850 for وطن) | 3 |
+| Unit | Destroyer | 900 | 4 |
+| Unit | Landing craft | 800 | 4 |
+| Unit | Submarine | 1,100 | 5 |
+| Unit | Carrier | 1,600 | 8 |
+
 ## Existing shared economy values
 
 | Setting | Current value |
@@ -105,4 +129,4 @@ Do not tune based on one match. Prefer small changes to one variable at a time, 
 
 ## Next implementation step
 
-Run controlled faction matchups and record economy, unit production, combat losses, and outcomes to validate whether وطن's helicopter and missile advantages are offset by its higher costs. Extend the central profile only when a real faction-specific gameplay value is confirmed; do not add arbitrary bonuses.
+Run controlled faction matchups and record economy, unit production, combat losses, and outcomes to validate whether وطن's specialist advantages are offset by higher costs. Verify captured supply-point income and supply generation, then test AI recovery when a production building is destroyed.

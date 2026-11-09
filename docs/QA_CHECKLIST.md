@@ -12,6 +12,8 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Passive income increases credits at the expected rate and respects the maximum balance.
 - [ ] Capturing a supply point changes ownership and income as intended.
 - [ ] A purchase with insufficient credits is rejected with clear feedback.
+- [ ] Player and AI use the same centralized building/unit credit costs and unit supply costs for every production category.
+- [ ] Starting credits, passive income, maximum credits, and captured supply-point payouts remain symmetric between player and AI.
 - [ ] Buildings cannot be placed outside the permitted area or on occupied/invalid locations.
 - [ ] Building prerequisites are enforced (barracks for infantry, factory for tanks, and relevant production buildings for specialist units).
 - [ ] Destroyed buildings stop producing and stop providing defensive effects.
