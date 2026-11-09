@@ -1340,7 +1340,7 @@ func _spawn_unit(kind: String) -> void:
 	credits -= cost
 	supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
-	if kind == "destroyer":
+	if _is_naval_kind(kind):
 		for dock in buildings:
 			if dock.kind == "shipyard":
 				unit_spawn = dock.pos
