@@ -95,7 +95,7 @@ func _setup_battle_audio() -> void:
 	audio_streams["weapon"] = _build_battle_sound("weapon")
 	audio_streams["explosion"] = _build_battle_sound("explosion")
 	for player_index in range(4):
-		var player := AudioStreamPlayer.new()
+		var player = AudioStreamPlayer.new()
 		player.name = "BattleAudio" + str(player_index)
 		player.volume_db = -7.0
 		add_child(player)
@@ -103,22 +103,22 @@ func _setup_battle_audio() -> void:
 
 
 func _build_battle_sound(sound_name: String) -> AudioStreamWAV:
-	var sample_rate := 22050
+	var sample_rate = 22050
 	var duration := 0.34 if sound_name == "explosion" else 0.12
 	var sample_count := int(sample_rate * duration)
 	var pcm := PackedByteArray()
 	pcm.resize(sample_count)
 	for sample_index in range(sample_count):
-		var t := float(sample_index) / float(sample_rate)
+		var t = float(sample_index) / float(sample_rate)
 		var sample := 0.0
 		if sound_name == "explosion":
-			var envelope := exp(-t * 8.5)
+			var envelope = exp(-t * 8.5)
 			var sweep_frequency := 82.0 - 42.0 * (t / duration)
 			var low_boom := sin(TAU * sweep_frequency * t) * 0.62
 			var debris_noise := randf_range(-1.0, 1.0) * 0.38
 			sample = (low_boom + debris_noise) * envelope
 		else:
-			var envelope := exp(-t * 38.0)
+			var envelope = exp(-t * 38.0)
 			var snap := sin(TAU * (155.0 - 85.0 * t / duration) * t) * 0.58
 			var crack := randf_range(-1.0, 1.0) * 0.42
 			sample = (snap + crack) * envelope
@@ -138,7 +138,7 @@ func _play_battle_sound(sound_name: String) -> void:
 		return
 	sound_cooldowns[sound_name] = 0.11 if sound_name == "weapon" else 0.18
 	for attempt in range(audio_players.size()):
-		var player_index := (audio_player_cursor + attempt) % audio_players.size()
+		var player_index = (audio_player_cursor + attempt) % audio_players.size()
 		var player: AudioStreamPlayer = audio_players[player_index]
 		if not player.playing:
 			player.stream = audio_streams[sound_name]
@@ -205,14 +205,14 @@ func _process(delta: float) -> void:
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
 		var enemy_ground_focus := _select_enemy_ground_assault_target()
 		for i in units.size():
-			var unit := units[i]
+			var unit = units[i]
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.kind == "fighter" and _update_carrier_fighter(unit, delta):
 				continue
 			if unit.team == "enemy":
 				if _is_naval_kind(String(unit.kind)):
-					var naval_target := _best_naval_target(unit.pos, "player", String(unit.kind))
+					var naval_target = _best_naval_target(unit.pos, "player", String(unit.kind))
 					var naval_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
 					var target_shipyard := -1
 					for bi in buildings.size():
@@ -227,10 +227,10 @@ func _process(delta: float) -> void:
 					var escort_transport := _nearest_friendly_landing_craft(unit.pos, unit.team)
 					var escort_carrier := _nearest_friendly_carrier(unit.pos, unit.team)
 					if unit.kind == "destroyer" and escort_transport >= 0 and String(units[escort_transport].get("landing_state", "outbound")) in ["outbound", "returning"] and naval_attack_destination.distance_to(units[escort_transport].pos) > 240.0:
-						var escort_side := -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
+						var escort_side = -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
 						naval_destination = units[escort_transport].pos + Vector2(-58.0, escort_side * 66.0)
 					elif unit.kind == "destroyer" and escort_carrier >= 0 and naval_attack_destination.distance_to(units[escort_carrier].pos) > 240.0:
-						var escort_side := -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
+						var escort_side = -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
 						naval_destination = units[escort_carrier].pos + Vector2(-52.0, escort_side * 54.0)
 					if unit.kind == "carrier":
 						unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
@@ -242,13 +242,13 @@ func _process(delta: float) -> void:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "attack_cd": 0.0, "target": base_pos, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
-						var landing_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
+						var landing_destination = Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
 						_update_landing_craft(unit, delta, landing_destination)
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := _naval_damage(unit, naval_target)
+							var naval_damage = _naval_damage(unit, naval_target)
 							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#ffb66f"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ff995c"), 0.5, 38.0)
 							if naval_target >= 0:
@@ -262,7 +262,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target := _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["tank", "artillery", "infantry"])
+					var heli_target = _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["tank", "artillery", "infantry"])
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -270,7 +270,7 @@ func _process(delta: float) -> void:
 							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
 							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
 							if heli_target >= 0:
-								var heli_damage := 58 if units[heli_target].kind == "submarine" else _helicopter_damage(unit)
+								var heli_damage = 58 if units[heli_target].kind == "submarine" else _helicopter_damage(unit)
 								_apply_splash_damage(heli_destination, 42.0, heli_damage, "player")
 								if units[heli_target].kind == "submarine":
 									_add_visual_effect("flash", heli_destination, heli_destination, Color("#7fe8ef"), 0.35, 28.0)
@@ -281,7 +281,7 @@ func _process(delta: float) -> void:
 						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _landing_craft_air_threat_target(unit.pos, "enemy")
+					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
 						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter"])
 					if air_target >= 0:
@@ -299,9 +299,9 @@ func _process(delta: float) -> void:
 						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
-					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
+					var artillery_target = enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
-					var artillery_distance: float := unit.pos.distance_to(artillery_destination)
+					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
@@ -330,21 +330,21 @@ func _process(delta: float) -> void:
 				var is_defender := bool(unit.get("defense_guard", false))
 				var defender_target := -1
 				if is_defender:
-					var closest_threat_distance := INF
+					var closest_threat_distance = INF
 					for candidate_index in range(units.size()):
 						var candidate: Dictionary = units[candidate_index]
 						if candidate.team != "player" or candidate.get("hp", 0) <= 0:
 							continue
 						if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 							continue
-						var threatens_asset: bool := candidate.pos.distance_to(enemy_base) <= 250.0
+						var threatens_asset: bool = candidate.pos.distance_to(enemy_base) <= 250.0
 						if not threatens_asset:
 							for protected_building in enemy_buildings:
 								if candidate.pos.distance_to(protected_building.pos) <= 350.0:
 									threatens_asset = true
 									break
 						if threatens_asset:
-							var threat_distance: float := unit.pos.distance_to(candidate.pos)
+							var threat_distance: float = unit.pos.distance_to(candidate.pos)
 							if threat_distance < closest_threat_distance:
 								closest_threat_distance = threat_distance
 								defender_target = candidate_index
@@ -361,7 +361,7 @@ func _process(delta: float) -> void:
 					destination = units[player_target].pos
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
-				var distance_to_target: float := unit.pos.distance_to(destination)
+				var distance_to_target: float = unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
@@ -376,7 +376,7 @@ func _process(delta: float) -> void:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
 				if _is_naval_kind(String(unit.kind)):
-					var naval_target := _best_naval_target(unit.pos, "enemy", String(unit.kind))
+					var naval_target = _best_naval_target(unit.pos, "enemy", String(unit.kind))
 					var naval_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
 					var target_shipyard := -1
 					for bi in enemy_buildings.size():
@@ -391,10 +391,10 @@ func _process(delta: float) -> void:
 					var escort_transport := _nearest_friendly_landing_craft(unit.pos, unit.team)
 					var escort_carrier := _nearest_friendly_carrier(unit.pos, unit.team)
 					if unit.kind == "destroyer" and escort_transport >= 0 and String(units[escort_transport].get("landing_state", "outbound")) in ["outbound", "returning"] and naval_attack_destination.distance_to(units[escort_transport].pos) > 240.0:
-						var escort_side := -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
+						var escort_side = -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
 						naval_destination = units[escort_transport].pos + Vector2(58.0, escort_side * 66.0)
 					elif unit.kind == "destroyer" and escort_carrier >= 0 and naval_attack_destination.distance_to(units[escort_carrier].pos) > 240.0:
-						var escort_side := -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
+						var escort_side = -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
 						naval_destination = units[escort_carrier].pos + Vector2(52.0, escort_side * 54.0)
 					if unit.kind == "carrier":
 						unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
@@ -406,13 +406,13 @@ func _process(delta: float) -> void:
 							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
 							unit.launch_cd = 18.0
 					if unit.kind == "landing_craft":
-						var landing_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
+						var landing_destination = Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
 						_update_landing_craft(unit, delta, landing_destination)
 						continue
 					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage := _naval_damage(unit, naval_target)
+							var naval_damage = _naval_damage(unit, naval_target)
 							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#a8eaff"), 0.2, 0.0)
 							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ffbd78"), 0.5, 40.0)
 							if naval_target >= 0:
@@ -426,7 +426,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target := _nearest_unit_by_priority(unit.pos, 380.0, "enemy", ["tank", "artillery", "infantry"])
+					var heli_target = _nearest_unit_by_priority(unit.pos, 380.0, "enemy", ["tank", "artillery", "infantry"])
 					if heli_target >= 0:
 						var heli_enemy: Dictionary = units[heli_target]
 						if unit.pos.distance_to(heli_enemy.pos) <= 235.0:
@@ -442,7 +442,7 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (heli_enemy.pos - unit.pos).normalized() * delta * 82.0
 					else:
-						var heli_base_distance: float := unit.pos.distance_to(enemy_base)
+						var heli_base_distance: float = unit.pos.distance_to(enemy_base)
 						if heli_base_distance <= 230.0:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 							if unit.attack_cd <= 0.0:
@@ -453,7 +453,7 @@ func _process(delta: float) -> void:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
 					continue
 				if unit.kind == "fighter":
-					var air_target := _landing_craft_air_threat_target(unit.pos, "player")
+					var air_target = _landing_craft_air_threat_target(unit.pos, "player")
 					if air_target < 0:
 						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "enemy", ["fighter", "helicopter"])
 					if air_target >= 0:
@@ -471,7 +471,7 @@ func _process(delta: float) -> void:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "tank" or unit.kind == "artillery":
-					var landing_support_target := _landing_assault_support_target(unit.pos, "player")
+					var landing_support_target = _landing_assault_support_target(unit.pos, "player")
 					if landing_support_target >= 0:
 						if not bool(unit.get("landing_support_active", false)):
 							if unit.has("attack_building"):
@@ -493,17 +493,17 @@ func _process(delta: float) -> void:
 						unit.erase("attack_target")
 						unit.erase("attack_focus_pos")
 				if unit.has("attack_building"):
-					var building_target := int(unit.attack_building)
+					var building_target = int(unit.attack_building)
 					if building_target < 0 or building_target >= enemy_buildings.size():
 						unit.erase("attack_building")
 						continue
 					var target_building: Dictionary = enemy_buildings[building_target]
-					var building_distance: float := unit.pos.distance_to(target_building.pos)
+					var building_distance: float = unit.pos.distance_to(target_building.pos)
 					var building_range := 350.0 if unit.kind == "artillery" else 75.0
 					if building_distance <= building_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							var building_damage := 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8)
+							var building_damage = 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8)
 							target_building.hp = maxi(0, int(target_building.get("hp", 400)) - building_damage)
 							_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
 							unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
@@ -513,7 +513,7 @@ func _process(delta: float) -> void:
 						unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
 					continue
 				if unit.get("attack_base", false):
-					var base_distance: float := unit.pos.distance_to(enemy_base)
+					var base_distance: float = unit.pos.distance_to(enemy_base)
 					var base_range := 360.0 if unit.kind == "artillery" else 155.0
 					if base_distance <= base_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -534,7 +534,7 @@ func _process(delta: float) -> void:
 				if enemy_target >= 0:
 					unit.attack_focus_pos = units[enemy_target].pos
 					var enemy: Dictionary = units[enemy_target]
-					var distance: float := unit.pos.distance_to(enemy.pos)
+					var distance: float = unit.pos.distance_to(enemy.pos)
 					var attack_range := 360.0 if unit.kind == "artillery" else 160.0
 					if distance <= attack_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -596,10 +596,10 @@ func _update_environment_particles(delta: float) -> void:
 			unit["environment_prev_pos"] = unit.pos
 			unit["environment_cd"] = maxf(0.0, float(unit.get("environment_cd", 0.0)) - delta)
 			if moved_distance > 1.5 and float(unit.environment_cd) <= 0.0:
-				var is_tank: bool := unit.kind == "tank"
+				var is_tank: bool = unit.kind == "tank"
 				var puff_count := 2 if is_tank else 1
 				for puff_index in range(puff_count):
-					var offset := Vector2(randf_range(-7.0, 7.0), randf_range(-5.0, 5.0))
+					var offset = Vector2(randf_range(-7.0, 7.0), randf_range(-5.0, 5.0))
 					_spawn_environment_particle(unit.pos + offset, Vector2(randf_range(-10.0, -2.0), randf_range(-8.0, -2.0)), 5.5 if is_tank else 3.5, 0.58 if is_tank else 0.42, Color("#bba98b") if map_type == "الساحل الصحراوي" else Color("#85877c"), "dust")
 				unit["environment_cd"] = 0.12 if is_tank else 0.2
 	while environment_particles.size() > 110:
@@ -610,7 +610,7 @@ func _spawn_environment_particle(pos: Vector2, velocity: Vector2, radius: float,
 
 func _draw_environment_particles() -> void:
 	for particle in environment_particles:
-		var life_ratio := clampf(float(particle.life) / maxf(0.01, float(particle.max_life)), 0.0, 1.0)
+		var life_ratio = clampf(float(particle.life) / maxf(0.01, float(particle.max_life)), 0.0, 1.0)
 		var fade := life_ratio * 0.42
 		var center: Vector2 = particle.pos
 		var radius := float(particle.radius) * (1.0 + (1.0 - life_ratio) * (1.25 if particle.kind == "smoke" else 0.55))
@@ -751,11 +751,11 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 	var state := String(unit.get("landing_state", "outbound"))
 	var home_pos: Vector2 = unit.get("home_pos", unit.pos)
 	if state == "outbound":
-		var shore_distance: float := unit.pos.distance_to(landing_destination)
+		var shore_distance: float = unit.pos.distance_to(landing_destination)
 		if shore_distance <= 55.0:
-			var passenger_count := int(unit.get("passengers", 3))
+			var passenger_count = int(unit.get("passengers", 3))
 			for marine in range(passenger_count):
-				var offset_x := -48.0 + marine * 18.0 if team == "player" else 48.0 - marine * 18.0
+				var offset_x = -48.0 + marine * 18.0 if team == "player" else 48.0 - marine * 18.0
 				var marine_pos := landing_destination + Vector2(offset_x, -34.0)
 				var marine_unit: Dictionary = {
 					"pos": marine_pos,
@@ -767,7 +767,7 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 					"landing_assault": true
 				}
 				if team == "player":
-					var strategic_target := _strategic_enemy_building_index(landing_destination)
+					var strategic_target = _strategic_enemy_building_index(landing_destination)
 					if marine == 0 and strategic_target >= 0:
 						marine_unit["attack_building"] = strategic_target
 					else:
@@ -783,12 +783,12 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 				notice = "قوات العدو أنزلت مشاتها وتعود لإعادة التحميل"
 			notice_time = 2.2
 		else:
-			var shore_direction: Vector2 := landing_destination - unit.pos
+			var shore_direction: Vector2 = landing_destination - unit.pos
 			if shore_direction.length_squared() > 0.01:
 				unit.pos += shore_direction.normalized() * delta * 34.0
 		return
 	if state == "returning":
-		var dock_distance: float := unit.pos.distance_to(home_pos)
+		var dock_distance: float = unit.pos.distance_to(home_pos)
 		if dock_distance <= 48.0:
 			unit.pos = home_pos
 			unit["landing_state"] = "loading"
@@ -797,7 +797,7 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 				notice = "وصلت سفينة الإنزال للميناء — إعادة تحميل الجنود"
 				notice_time = 2.0
 		else:
-			var dock_direction: Vector2 := home_pos - unit.pos
+			var dock_direction: Vector2 = home_pos - unit.pos
 			if dock_direction.length_squared() > 0.01:
 				unit.pos += dock_direction.normalized() * delta * 42.0
 		return
@@ -855,7 +855,7 @@ func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 				priority = 2
 			_:
 				priority = 1
-		var distance: float := from_pos.distance_to(building.pos)
+		var distance: float = from_pos.distance_to(building.pos)
 		if priority > best_priority or (priority == best_priority and distance < best_distance):
 			best_priority = priority
 			best_distance = distance
@@ -864,7 +864,7 @@ func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 
 
 func _nearest_friendly_landing_craft(from_pos: Vector2, team: String) -> int:
-	var best_index := -1
+	var best_index = -1
 	var best_distance := INF
 	for i in units.size():
 		var candidate: Dictionary = units[i]
@@ -873,7 +873,7 @@ func _nearest_friendly_landing_craft(from_pos: Vector2, team: String) -> int:
 		var state := String(candidate.get("landing_state", "outbound"))
 		if state not in ["outbound", "returning"]:
 			continue
-		var distance: float := from_pos.distance_to(candidate.pos)
+		var distance: float = from_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -881,12 +881,12 @@ func _nearest_friendly_landing_craft(from_pos: Vector2, team: String) -> int:
 
 
 func _nearest_friendly_carrier(from_pos: Vector2, team: String) -> int:
-	var best_index := -1
+	var best_index = -1
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != team or units[i].kind != "carrier" or units[i].get("hp", 0) <= 0:
 			continue
-		var distance: float := from_pos.distance_to(units[i].pos)
+		var distance: float = from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -926,7 +926,7 @@ func _best_naval_target(from_pos: Vector2, target_team: String, attacker_kind: S
 					"submarine": priority = 45.0
 			_:
 				priority = 0.0
-		var score: float := from_pos.distance_to(candidate.pos) - priority
+		var score: float = from_pos.distance_to(candidate.pos) - priority
 		if score < best_score:
 			best_score = score
 			best_index = i
@@ -964,7 +964,7 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 			continue
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
-		var distance: float := from_pos.distance_to(candidate.pos)
+		var distance: float = from_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = candidate_index
@@ -981,7 +981,7 @@ func _select_enemy_ground_assault_target() -> int:
 			continue
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
-		var asset_distance: float := candidate.pos.distance_to(enemy_base)
+		var asset_distance: float = candidate.pos.distance_to(enemy_base)
 		for protected_building in enemy_buildings:
 			asset_distance = minf(asset_distance, candidate.pos.distance_to(protected_building.pos) + 35.0)
 		var threat_priority := 0.0
@@ -992,7 +992,7 @@ func _select_enemy_ground_assault_target() -> int:
 				threat_priority = 65.0
 			"infantry":
 				threat_priority = 15.0
-		var score: float := asset_distance - threat_priority
+		var score: float = asset_distance - threat_priority
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
@@ -1003,7 +1003,7 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 	# Air units prefer targets suited to their role, then fall back to the nearest visible enemy.
 	var observer_team := "player" if target_team == "enemy" else "enemy"
 	for priority_pass in range(2):
-		var best_index := -1
+		var best_index = -1
 		var best_distance := max_distance
 		for candidate_index in range(units.size()):
 			var candidate: Dictionary = units[candidate_index]
@@ -1013,7 +1013,7 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 				continue
 			if priority_pass == 0 and not preferred_kinds.has(String(candidate.kind)):
 				continue
-			var distance: float := from_pos.distance_to(candidate.pos)
+			var distance: float = from_pos.distance_to(candidate.pos)
 			if distance < best_distance:
 				best_distance = distance
 				best_index = candidate_index
@@ -1023,7 +1023,7 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 
 
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
-	var best_index := -1
+	var best_index = -1
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
@@ -1032,7 +1032,7 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
-		var distance: float := from_pos.distance_to(units[i].pos)
+		var distance: float = from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -1049,7 +1049,7 @@ func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
 			continue
 		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "player"):
 			continue
-		var distance: float := focus_pos.distance_to(candidate.pos)
+		var distance: float = focus_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = candidate_index
@@ -1057,7 +1057,7 @@ func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
 
 
 func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool = false) -> int:
-	var best_index := -1
+	var best_index = -1
 	var best_distance := max_distance
 	for i in units.size():
 		if units[i].team != "enemy" or units[i].get("hp", 0) <= 0:
@@ -1066,7 +1066,7 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
-		var distance: float := from_pos.distance_to(units[i].pos)
+		var distance: float = from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -1078,7 +1078,7 @@ func _unit_weapon_angle(unit: Dictionary) -> float:
 	var found_target := false
 	var target_index := -1
 	if unit.has("attack_building") and unit.team == "player":
-		var building_index := int(unit.attack_building)
+		var building_index = int(unit.attack_building)
 		if building_index >= 0 and building_index < enemy_buildings.size():
 			target_pos = enemy_buildings[building_index].pos
 			found_target = true
@@ -1112,14 +1112,14 @@ func _unit_rotated_point(origin: Vector2, local_point: Vector2, angle: float) ->
 
 
 func _unit_polygon_points(origin: Vector2, local_points: PackedVector2Array, angle: float) -> PackedVector2Array:
-	var points := PackedVector2Array()
+	var points = PackedVector2Array()
 	for local_point in local_points:
 		points.append(_unit_rotated_point(origin, local_point, angle))
 	return points
 
 
 func _rotated_rect_points(center: Vector2, dimensions: Vector2, angle: float) -> PackedVector2Array:
-	var half := dimensions * 0.5
+	var half = dimensions * 0.5
 	return _unit_polygon_points(center, PackedVector2Array([
 		Vector2(-half.x, -half.y),
 		Vector2(half.x, -half.y),
@@ -1138,26 +1138,26 @@ func _update_unit_facing(delta: float) -> void:
 		var previous_pos: Vector2 = unit.get("visual_previous_pos", current_pos)
 		var movement := current_pos - previous_pos
 		if movement.length_squared() > 4.0:
-			var desired_angle := movement.angle()
+			var desired_angle = movement.angle()
 			var current_angle := float(unit.get("facing", desired_angle))
 			unit.facing = lerp_angle(current_angle, desired_angle, clampf(delta * 9.0, 0.0, 1.0))
 		unit.visual_previous_pos = current_pos
 
 
 func _draw() -> void:
-	var size := get_viewport_rect().size
+	var size = get_viewport_rect().size
 	_draw_terrain(size)
 	# Layered coastline, beach and navigable sea lane
 	draw_rect(Rect2(0, size.y * 0.675, size.x, size.y * 0.065), Color("#b6a078"))
 	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#1d435d"))
 	draw_rect(Rect2(0, size.y * 0.72, size.x, 7), Color("#d2c092"))
 	for wave in range(10):
-		var wy := size.y * 0.745 + wave * 19.0
+		var wy = size.y * 0.745 + wave * 19.0
 		var wave_x := float((wave * 83) % maxi(1, int(size.x)))
 		draw_line(Vector2(wave_x, wy), Vector2(minf(size.x, wave_x + size.x * 0.34), wy + 4), Color(0.58, 0.82, 0.9, 0.17), 2.0)
 	# Rocky headlands frame the harbor entrance
 	for rock in range(7):
-		var rx := float(rock) * size.x / 6.0
+		var rx = float(rock) * size.x / 6.0
 		var ry := size.y * (0.665 + float((rock % 2)) * 0.018)
 		draw_circle(Vector2(rx, ry), 8.0 + float(rock % 3) * 3.0, Color("#7d806a"))
 	# A navigation buoy marks the sea lane
@@ -1170,7 +1170,7 @@ func _draw() -> void:
 	_draw_base_health(base_pos, player_base_hp)
 	_draw_base_health(enemy_base, enemy_base_hp)
 	for building in buildings:
-		var is_captured := bool(building.get("captured", false))
+		var is_captured = bool(building.get("captured", false))
 		_draw_building(building.pos, building.kind, false, is_captured)
 		if is_captured:
 			_draw_building_health(building.pos, int(building.get("hp", 400)))
@@ -1183,7 +1183,7 @@ func _draw() -> void:
 		if float(building.get("capture_progress", 0.0)) > 0.0:
 			_draw_capture_progress(building.pos, float(building.capture_progress))
 	for i in units.size():
-		var u := units[i]
+		var u = units[i]
 		if u.get("hp", 0) <= 0:
 			continue
 		if u.team == "enemy" and u.kind == "submarine" and not _is_submarine_detected(u, "player"):
@@ -1204,7 +1204,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-9, -7), Vector2(19, 14)), Color("#303e47"))
 			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
 		elif u.kind == "helicopter":
-			var heli_color := _helicopter_color(u)
+			var heli_color = _helicopter_color(u)
 			var heli_angle := _unit_facing_angle(u)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(0, 4), heli_angle), 13, Color(0, 0, 0, 0.22))
 			draw_circle(u.pos, 10, Color("#263238"))
@@ -1219,7 +1219,7 @@ func _draw() -> void:
 			draw_line(_unit_rotated_point(u.pos, Vector2(3, 7), heli_angle), _unit_rotated_point(u.pos, Vector2(14, 12), heli_angle), Color("#343b3b"), 2)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(5, -3), heli_angle), 3, Color("#9ed5df"))
 		elif u.kind == "fighter":
-			var plane_color := Color("#d7e4e8") if u.team == "player" else Color("#d95b51")
+			var plane_color = Color("#d7e4e8") if u.team == "player" else Color("#d95b51")
 			var plane_angle := _unit_facing_angle(u)
 			var plane_shape := PackedVector2Array([Vector2(24, 0), Vector2(-8, -6), Vector2(-23, -20), Vector2(-16, 0), Vector2(-23, 20), Vector2(-8, 6)])
 			draw_colored_polygon(_unit_polygon_points(u.pos, plane_shape, plane_angle), Color(0, 0, 0, 0.18))
@@ -1230,7 +1230,7 @@ func _draw() -> void:
 			draw_line(_unit_rotated_point(u.pos, Vector2(-12, 8), plane_angle), _unit_rotated_point(u.pos, Vector2(-18, 17), plane_angle), Color("#e4d9a7"), 2)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(7, 0), plane_angle), 3, Color("#9bd5e5"))
 		elif u.kind == "tank":
-			var facing := _unit_facing_angle(u)
+			var facing = _unit_facing_angle(u)
 			var track_color := Color("#20292b")
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(42, 26), facing), track_color)
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(36, 20), facing), c)
@@ -1245,7 +1245,7 @@ func _draw() -> void:
 			draw_line(_unit_rotated_point(turret_center, Vector2(-13, -5), tank_aim), _unit_rotated_point(turret_center, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
 			draw_circle(_unit_rotated_point(turret_center, Vector2(-1, -5), tank_aim), 2.5, Color("#d5c99d"))
 		elif u.kind == "artillery":
-			var facing := _unit_facing_angle(u)
+			var facing = _unit_facing_angle(u)
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(39, 22), facing), Color("#20292b"))
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(33, 16), facing), c)
 			for wheel in range(4):
@@ -1272,7 +1272,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-7, -10), Vector2(12, 7)), Color("#52636b"))
 			draw_rect(Rect2(u.pos + Vector2(-4, -12), Vector2(5, 3)), Color("#d7e1e1"))
 			for deck_plane in range(3):
-				var plane_x := -20.0 + deck_plane * 12.0
+				var plane_x = -20.0 + deck_plane * 12.0
 				draw_colored_polygon(PackedVector2Array([u.pos + Vector2(plane_x + 3, 4), u.pos + Vector2(plane_x - 3, 2), u.pos + Vector2(plane_x - 5, -1), u.pos + Vector2(plane_x - 4, 4), u.pos + Vector2(plane_x - 5, 8), u.pos + Vector2(plane_x - 3, 6)]), Color("#d7e1e1"))
 		elif u.kind == "destroyer":
 			draw_line(u.pos + Vector2(-25, -6), u.pos + Vector2(21, -6), Color("#d7e0df"), 1.3)
@@ -1299,7 +1299,7 @@ func _draw() -> void:
 			draw_arc(u.pos, 17, 0, TAU, 32, Color("#ffe45c"), 3)
 	_draw_environment_particles()
 	for effect in visual_effects:
-		var progress := 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
+		var progress = 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
 		var fade := 1.0 - progress
 		var tint: Color = effect.color
 		tint.a = fade
@@ -1317,10 +1317,10 @@ func _draw() -> void:
 			# Expanding pressure ring and deterministic sparks keep the effect light on mobile.
 			draw_arc(effect.finish, shock_radius, 0.0, TAU, 36, Color(1.0, 0.78, 0.42, fade * 0.72), 2.0 * fade + 0.5)
 			for spark_index in range(8):
-				var spark_angle := TAU * float(spark_index) / 8.0 + progress * 0.35
+				var spark_angle = TAU * float(spark_index) / 8.0 + progress * 0.35
 				var spark_direction := Vector2(cos(spark_angle), sin(spark_angle))
-				var spark_start: Vector2 := effect.finish + spark_direction * blast_radius * 0.42
-				var spark_end: Vector2 := effect.finish + spark_direction * (blast_radius * (0.72 + progress * 0.55))
+				var spark_start: Vector2 = effect.finish + spark_direction * blast_radius * 0.42
+				var spark_end: Vector2 = effect.finish + spark_direction * (blast_radius * (0.72 + progress * 0.55))
 				draw_line(spark_start, spark_end, Color(1.0, 0.72, 0.36, fade * 0.82), 2.0 * fade + 0.4)
 			draw_circle(effect.finish + Vector2(-blast_radius * 0.25, -blast_radius * 0.35), blast_radius * 0.28, Color(0.24, 0.22, 0.2, fade * 0.45))
 	_draw_hud(size)
@@ -1343,7 +1343,7 @@ func _restart_rect(size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x * 0.4, size.y * 0.53), Vector2(size.x * 0.2, 48))
 
 func _draw_base_health(p: Vector2, hp: int) -> void:
-	var ratio := clampf(float(hp) / 1000.0, 0.0, 1.0)
+	var ratio = clampf(float(hp) / 1000.0, 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-45, -62), Vector2(90, 7)), Color("#292929"))
 	draw_rect(Rect2(p + Vector2(-45, -62), Vector2(90.0 * ratio, 7)), Color("#55d879") if ratio > 0.3 else Color("#e85c4a"))
 
@@ -1359,9 +1359,9 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
+		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
 		for i in labels.size():
-			var r := _button_rect(i, size)
+			var r = _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
@@ -1370,7 +1370,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	var column := index % 4
+	var column = index % 4
 	var row := int(index / 4)
 	var button_width := (size.x - 40.0) / 4.0
 	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 358.0 + row * 58.0), Vector2(button_width, 52.0))
@@ -1380,13 +1380,13 @@ func _draw_faction_picker(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 38, Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 22, Color.WHITE)
 	for i in FACTIONS.size():
-		var r := _faction_rect(i, size)
+		var r = _faction_rect(i, size)
 		draw_rect(r, Color("#28445a") if i != 3 else Color("#73552d"), true)
 		draw_rect(r, Color("#b7c6d1"), false, 2)
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 42), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color.WHITE)
 
 func _faction_rect(i: int, size: Vector2) -> Rect2:
-	var w := size.x * 0.21
+	var w = size.x * 0.21
 	return Rect2(Vector2(size.x * 0.28 + i * (w + 12), size.y * 0.48), Vector2(w, 72))
 
 func _input(event: InputEvent) -> void:
@@ -1402,7 +1402,7 @@ func _input(event: InputEvent) -> void:
 		queue_redraw()
 
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
-	var size := get_viewport_rect().size
+	var size = get_viewport_rect().size
 	if pressed:
 		dragging = true
 		drag_start = pos
@@ -1545,7 +1545,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			if units[i].team == "player" and area.has_point(units[i].pos):
 				selected.append(i)
 	else:
-		var building_found := -1
+		var building_found = -1
 		for i in enemy_buildings.size():
 			if enemy_buildings[i].pos.distance_to(pos) < 38.0:
 				building_found = i
@@ -1577,7 +1577,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			notice = "أمر هجوم!"
 			notice_time = 1.5
 		else:
-			var found := -1
+			var found = -1
 			for i in units.size():
 				if units[i].team == "player" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 24:
 					found = i
@@ -1651,7 +1651,7 @@ func _update_supply_control(delta: float) -> void:
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
 
 func _draw_terrain(size: Vector2) -> void:
-	var ground := Color("#9a835d")
+	var ground = Color("#9a835d")
 	var road := Color("#b5a17c")
 	match map_type:
 		"ساحل الغابات":
@@ -1674,12 +1674,12 @@ func _draw_terrain(size: Vector2) -> void:
 	match map_type:
 		"الساحل الصحراوي":
 			for i in range(18):
-				var p := Vector2(float((i * 137 + 38) % int(size.x)), 78.0 + float((i * 83) % maxi(1, int(size.y * 0.53))))
+				var p = Vector2(float((i * 137 + 38) % int(size.x)), 78.0 + float((i * 83) % maxi(1, int(size.y * 0.53))))
 				draw_arc(p, 22.0 + float(i % 3) * 7.0, 3.3, 6.1, 28, Color("#d4bd8b", 0.35), 3.0)
 				draw_circle(p + Vector2(18, 9), 2.0, Color("#d8c49a", 0.5))
 		"ساحل الغابات":
 			for i in range(26):
-				var p := Vector2(float((i * 97 + 35) % int(size.x)), 75.0 + float((i * 61) % maxi(1, int(size.y * 0.55))))
+				var p = Vector2(float((i * 97 + 35) % int(size.x)), 75.0 + float((i * 61) % maxi(1, int(size.y * 0.55))))
 				if absf(p.y - size.y * 0.40) < 52.0:
 					continue
 				draw_rect(Rect2(p + Vector2(-3, 7), Vector2(6, 13)), Color("#554432"))
@@ -1687,7 +1687,7 @@ func _draw_terrain(size: Vector2) -> void:
 				draw_circle(p + Vector2(-5, -5), 9.0, Color("#507348"))
 		"الساحل الجبلي":
 			for i in range(11):
-				var x := float(i) * size.x / 10.0
+				var x = float(i) * size.x / 10.0
 				var y := 105.0 + float((i * 59) % maxi(1, int(size.y * 0.40)))
 				var peak := Vector2(x, y)
 				var mountain := PackedVector2Array([peak + Vector2(-48, 58), peak + Vector2(0, -38 - float(i % 3) * 12.0), peak + Vector2(55, 58)])
@@ -1696,7 +1696,7 @@ func _draw_terrain(size: Vector2) -> void:
 		"المدينة الساحلية":
 			for row in range(3):
 				for col in range(10):
-					var p := Vector2(24.0 + col * size.x / 10.0, 85.0 + row * 155.0)
+					var p = Vector2(24.0 + col * size.x / 10.0, 85.0 + row * 155.0)
 					if absf(p.y - size.y * 0.40) < 72.0:
 						continue
 					var block_color := Color("#747d83") if (row + col) % 2 == 0 else Color("#69737a")
@@ -1764,7 +1764,7 @@ func _update_building_capture(delta: float) -> void:
 		if infantry_near and not enemy_guard_near:
 			building.capture_progress = float(building.get("capture_progress", 0.0)) + delta
 			if building.capture_progress >= 3.0:
-				var captured := building.duplicate(true)
+				var captured = building.duplicate(true)
 				captured.erase("capture_progress")
 				captured["captured"] = true
 				buildings.append(captured)
@@ -1825,18 +1825,18 @@ func _order_destroy_selected_building() -> void:
 	notice_time = 3.0
 
 func _draw_building_health(p: Vector2, hp: int) -> void:
-	var ratio := clampf(float(hp) / 400.0, 0.0, 1.0)
+	var ratio = clampf(float(hp) / 400.0, 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50, 5)), Color("#292929"))
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50.0 * ratio, 5)), Color("#79d47b"))
 
 func _draw_capture_progress(p: Vector2, progress: float) -> void:
-	var ratio := clampf(progress / 3.0, 0.0, 1.0)
+	var ratio = clampf(progress / 3.0, 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-28, -41), Vector2(56, 7)), Color("#252525"))
 	draw_rect(Rect2(p + Vector2(-27, -40), Vector2(54.0 * ratio, 5)), Color("#f2d15c"))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-40, -46), "جارٍ الاستيلاء", HORIZONTAL_ALIGNMENT_CENTER, 80, 11, Color("#ffe58a"))
 
 func _enemy_faction() -> String:
-	var player_faction_index := FACTIONS.find(faction)
+	var player_faction_index = FACTIONS.find(faction)
 	if player_faction_index < 0:
 		return "الصيني"
 	return FACTIONS[(player_faction_index + 1) % FACTIONS.size()]
@@ -1885,7 +1885,7 @@ func _launch_player_missile() -> void:
 	notice_time = 2.0
 
 func _launch_enemy_missile() -> void:
-	var enemy_faction := _enemy_faction()
+	var enemy_faction = _enemy_faction()
 	var missile_cost := _missile_cost(enemy_faction)
 	if enemy_credits < missile_cost or enemy_supplies < 4:
 		return
@@ -1928,7 +1928,7 @@ func _update_missiles(delta: float) -> void:
 		if intercepted:
 			continue
 		var destination: Vector2 = missile.target
-		var direction: Vector2 := destination - missile.pos
+		var direction: Vector2 = destination - missile.pos
 		var travel := 230.0 * delta
 		if direction.length() <= travel + 8.0 or float(missile.life) <= delta:
 			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 92.0)
@@ -1956,7 +1956,7 @@ func _update_missiles(delta: float) -> void:
 func _apply_building_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
 	var targets: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
 	for building in targets:
-		var distance: float := building.pos.distance_to(center)
+		var distance: float = building.pos.distance_to(center)
 		# The primary structure is handled by its direct-hit damage.
 		if distance > 36.0 and distance <= radius:
 			building.hp = maxi(0, int(building.get("hp", 400)) - damage)
@@ -2013,10 +2013,10 @@ func _update_enemy_defense_assignments() -> void:
 			units[unit_index].erase("defense_anchor")
 	var desired_guards := mini(3, maxi(1, int((eligible_indices.size() + 3) / 4))) if not eligible_indices.is_empty() else 0
 	for guard_slot in range(desired_guards):
-		var best_index := -1
+		var best_index = -1
 		var best_distance := INF
 		for candidate_index in eligible_indices:
-			var distance: float := units[candidate_index].pos.distance_squared_to(enemy_base)
+			var distance: float = units[candidate_index].pos.distance_squared_to(enemy_base)
 			if distance < best_distance:
 				best_distance = distance
 				best_index = candidate_index
@@ -2030,7 +2030,7 @@ func _update_enemy_defense_assignments() -> void:
 
 
 func _enemy_ai_turn() -> void:
-	var player_air_threat := 0
+	var player_air_threat = 0
 	for player_unit in units:
 		if player_unit.team == "player" and player_unit.get("hp", 0) > 0 and (player_unit.kind == "fighter" or player_unit.kind == "helicopter"):
 			player_air_threat += 1
@@ -2178,9 +2178,9 @@ func _enemy_ai_turn() -> void:
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
 
 func _enemy_build_position() -> Vector2:
-	var size := get_viewport_rect().size
+	var size = get_viewport_rect().size
 	for attempt in 12:
-		var candidate := enemy_base + Vector2(randf_range(-185.0, -105.0), randf_range(-175.0, 175.0))
+		var candidate = enemy_base + Vector2(randf_range(-185.0, -105.0), randf_range(-175.0, 175.0))
 		candidate.x = clampf(candidate.x, size.x * 0.52, size.x - 65.0)
 		candidate.y = clampf(candidate.y, 105.0, size.y - 105.0)
 		if candidate.distance_to(enemy_base) < 90.0:
@@ -2195,7 +2195,7 @@ func _enemy_build_position() -> Vector2:
 	return Vector2(-1.0, -1.0)
 
 func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_captured: bool = false) -> void:
-	var team_color := Color("#79d47b") if is_captured else (Color("#4c91d0") if not is_enemy else Color("#d65349"))
+	var team_color = Color("#79d47b") if is_captured else (Color("#4c91d0") if not is_enemy else Color("#d65349"))
 	var shell := Color("#a9b4ad") if not is_enemy else Color("#a87870")
 	var dark := Color("#303b40")
 	var accent := Color("#d8c58e") if not is_enemy else Color("#e0a18c")
@@ -2284,7 +2284,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := _building_cost(build_mode)
+	var cost = _building_cost(build_mode)
 	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0)):
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
