@@ -80,6 +80,49 @@ The approved visual target is a cinematic, realistic 3D battlefield with an angl
 
 The visual goal is realistic and cinematic, but performance and legibility take priority over expensive effects on mobile. No stage is considered complete solely because a scene or asset file exists.
 
+
+## Core gameplay identity — Generals / Zero Hour-inspired RTS
+
+The intended match experience is a mobile adaptation of the classic base-building, economy-driven, combined-arms RTS formula associated with Command & Conquer: Generals and Zero Hour. The goal is to reproduce the strategic feel and pacing with original game content, not to copy proprietary maps, art, models, audio, dialogue, names, or source code.
+
+### Match loop
+
+1. Deploy a construction vehicle / builder and establish a defensible base.
+2. Secure supply resources and expand the economy.
+3. Build power, barracks, vehicle factories, airfields, naval yards, defenses, and technology structures.
+4. Produce mixed forces and research faction-specific upgrades.
+5. Scout, capture strategic supply or map-control points, defend expansion routes, and attack enemy infrastructure.
+6. Earn access to commander support abilities and late-game strategic weapons with clear counters and warning feedback.
+7. Win by destroying the enemy command base or completing a mission-specific objective.
+
+### Design pillars
+
+- **Readable RTS base building:** clear building footprints, construction queues, prerequisites, rally points, repair/sell options, and touch-friendly placement.
+- **Economy and map control:** supply collection, finite or renewable resource locations as appropriate per map, supply lines, and meaningful expansion decisions.
+- **Combined arms:** every unit class has a battlefield role and clear counters; no single unit should dominate all matchups.
+- **Distinct commanders:** preserve the four established factions (American, Chinese, Arab Army, and وطن), then add commander specializations as a later layer rather than fragmenting the initial playable roster.
+- **Support powers:** commander abilities, reconnaissance, air strikes, defensive deployments, and strategic weapons with cooldowns, costs, telegraphs, and counterplay.
+- **Skirmish and campaign:** configurable AI skirmish matches first; a mission campaign with objectives, briefings, and escalating difficulty after the core loop is stable.
+- **Mobile-first controls:** tap to select, tap ground to move, tap enemy to attack, drag-select, contextual command panel, touch camera pan and pinch zoom, and optional simplified control presets.
+- **Cinematic 3D presentation:** angled strategic camera, legible silhouettes, terrain elevation, destructible-looking feedback, projectile trails, smoke, explosions, and faction-specific sound identity while maintaining Android performance.
+
+### Originality and implementation boundaries
+
+Use original faction names, unit/building names, maps, story, UI, models, textures, music, and voice acting, or assets with licenses that explicitly permit use and redistribution. Use Zero Hour only as a high-level gameplay reference. Do not reproduce its proprietary content.
+
+### Implementation order
+
+1. Stabilize the existing mobile RTS loop and touch interactions.
+2. Add builder/construction-vehicle and building placement/queue mechanics.
+3. Improve supply collection, expansion, and power/production dependencies.
+4. Add commander identity, upgrades, and support powers with counters.
+5. Improve AI economy, scouting, base defense, coordinated assaults, and recovery.
+6. Build the 3D battlefield and port gameplay systems in tested slices, keeping the current working scene as fallback.
+7. Add skirmish setup, maps, mission progression, and campaign presentation.
+8. Profile and validate the integrated experience on the target Android phone.
+
+Do not treat this direction document as proof that any listed feature has already been implemented.
+
 ## Definition of done
 
 A feature is complete only when:
