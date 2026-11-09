@@ -1434,34 +1434,94 @@ func _enemy_build_position() -> Vector2:
 	return Vector2(-1.0, -1.0)
 
 func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
-	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else (Color("#718b56") if kind == "turret" else (Color("#668ca4") if kind == "airfield" else (Color("#9a8754") if kind == "missile_silo" else (Color("#527f91") if kind == "missile_defense" else Color("#6b8794"))))))
-	if is_enemy:
-		color = Color("#a85b52") if kind == "barracks" else (Color("#805b67") if kind == "factory" else (Color("#a34b42") if kind == "turret" else (Color("#875e67") if kind == "airfield" else Color("#8d6262"))))
-	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
-	draw_rect(body, Color("#252b2b"))
-	draw_rect(body.grow(-4), color)
-	if kind == "shipyard":
-		draw_rect(Rect2(p + Vector2(-24, -12), Vector2(48, 24)), Color("#d2b98a"))
-		draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#254f68"), 4.0)
-	elif kind == "missile_silo":
-		draw_rect(Rect2(p + Vector2(-14, -17), Vector2(28, 34)), Color("#292f35"))
-		draw_line(p + Vector2(0, -15), p + Vector2(0, -38), Color("#c8d0d2"), 5)
-		draw_circle(p + Vector2(0, -38), 5, Color("#ffb45f"))
-	elif kind == "missile_defense":
-		draw_circle(p, 12, Color("#263d49"))
-		draw_line(p, p + Vector2(0, -29), Color("#8ee8ff"), 5)
-		draw_arc(p, 22, 3.4, 5.9, 24, Color("#8ee8ff"), 2)
-	elif kind == "turret" or kind == "anti_air":
-		draw_circle(p, 13, Color("#343b3b"))
-		draw_line(p, p + Vector2(25, -8), Color("#d2d1b8"), 6)
-		if kind == "anti_air":
-			draw_line(p, p + Vector2(19, -22), Color("#8ee8ff"), 3)
-	else:
-		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
-		if kind == "airfield":
-			draw_line(p + Vector2(-20, 0), p + Vector2(20, 0), Color("#f0e2a5"), 3)
-	var label := "حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "دفاع"))))))
-	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
+	var team_color := Color("#4c91d0") if not is_enemy else Color("#d65349")
+	var shell := Color("#a9b4ad") if not is_enemy else Color("#a87870")
+	var dark := Color("#303b40")
+	var accent := Color("#d8c58e") if not is_enemy else Color("#e0a18c")
+	match kind:
+		"barracks":
+			shell = Color("#b5a078") if not is_enemy else Color("#a86a60")
+		"factory":
+			shell = Color("#778c9b") if not is_enemy else Color("#8e6870")
+		"turret", "anti_air":
+			shell = Color("#788b64") if not is_enemy else Color("#a45e50")
+		"airfield":
+			shell = Color("#8297a1") if not is_enemy else Color("#9d6d70")
+		"missile_silo":
+			shell = Color("#a18e5d") if not is_enemy else Color("#986d61")
+		"missile_defense":
+			shell = Color("#5e8792") if not is_enemy else Color("#9b6662")
+		"shipyard":
+			shell = Color("#6f929b") if not is_enemy else Color("#a66c65")
+	# Ground shadow, reinforced foundation and faction identification stripe.
+	draw_colored_polygon(PackedVector2Array([p + Vector2(-36, 25), p + Vector2(-25, 17), p + Vector2(25, 17), p + Vector2(42, 25), p + Vector2(25, 33), p + Vector2(-25, 33)]), Color(0, 0, 0, 0.28))
+	draw_rect(Rect2(p + Vector2(-35, -25), Vector2(70, 54)), Color("#252d31"))
+	draw_rect(Rect2(p + Vector2(-32, -22), Vector2(64, 48)), dark)
+	draw_rect(Rect2(p + Vector2(-28, -19), Vector2(56, 40)), shell)
+	draw_rect(Rect2(p + Vector2(-28, -19), Vector2(56, 5)), team_color)
+	draw_rect(Rect2(p + Vector2(-28, 16), Vector2(56, 5)), Color(dark, 0.85))
+	# Corner reinforcement plates and small lit windows add readable scale.
+	for side in [-1.0, 1.0]:
+		draw_rect(Rect2(p + Vector2(side * 23.0 - 3.0, -12), Vector2(6, 7)), accent)
+		draw_rect(Rect2(p + Vector2(side * 23.0 - 3.0, 4), Vector2(6, 7)), accent)
+	match kind:
+		"barracks":
+			draw_rect(Rect2(p + Vector2(-15, -12), Vector2(30, 25)), Color("#756b59"))
+			draw_rect(Rect2(p + Vector2(-10, -8), Vector2(20, 17)), Color("#39464b"))
+			draw_rect(Rect2(p + Vector2(-7, -5), Vector2(14, 11)), accent)
+			draw_rect(Rect2(p + Vector2(-4, 9), Vector2(8, 7)), dark)
+		"factory":
+			draw_rect(Rect2(p + Vector2(-18, -15), Vector2(36, 29)), Color("#46535a"))
+			draw_rect(Rect2(p + Vector2(-14, -11), Vector2(28, 19)), shell)
+			for vent in range(3):
+				draw_rect(Rect2(p + Vector2(-12 + vent * 10, -8), Vector2(5, 13)), dark)
+			draw_rect(Rect2(p + Vector2(-20, 13), Vector2(40, 5)), accent)
+			draw_circle(p + Vector2(19, -17), 5, Color("#59636a"))
+			draw_circle(p + Vector2(19, -17), 2, Color("#c5d0ce"))
+		"turret", "anti_air":
+			draw_circle(p, 19, dark)
+			draw_circle(p, 14, shell)
+			draw_circle(p, 7, accent)
+			if kind == "anti_air":
+				draw_line(p + Vector2(-3, -2), p + Vector2(20, -19), dark, 5)
+				draw_line(p + Vector2(3, 2), p + Vector2(23, -15), Color("#9ce5f0"), 3)
+				draw_arc(p, 24, 3.5, 5.7, 24, Color("#9ce5f0"), 2)
+			else:
+				draw_line(p, p + Vector2(27, -7), dark, 8)
+				draw_line(p, p + Vector2(27, -7), accent, 3)
+		"airfield":
+			draw_rect(Rect2(p + Vector2(-23, -13), Vector2(46, 26)), dark)
+			draw_rect(Rect2(p + Vector2(-19, -9), Vector2(38, 18)), shell)
+			draw_line(p + Vector2(-28, 0), p + Vector2(28, 0), accent, 3)
+			draw_line(p + Vector2(-18, -16), p + Vector2(18, -16), team_color, 3)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(0, -8), p + Vector2(5, 1), p + Vector2(0, 8), p + Vector2(-5, 1)]), Color("#e3e8e4"))
+		"missile_silo":
+			draw_rect(Rect2(p + Vector2(-17, -16), Vector2(34, 31)), dark)
+			draw_circle(p, 13, shell)
+			draw_circle(p, 8, dark)
+			draw_line(p + Vector2(0, -2), p + Vector2(0, -32), accent, 5)
+			draw_colored_polygon(PackedVector2Array([p + Vector2(0, -39), p + Vector2(-5, -28), p + Vector2(5, -28)]), Color("#e7d9b2"))
+		"missile_defense":
+			draw_circle(p, 18, dark)
+			draw_circle(p, 12, shell)
+			draw_circle(p, 5, Color("#9ce5f0"))
+			draw_arc(p, 26, 3.3, 6.0, 32, Color("#9ce5f0"), 3)
+			draw_line(p + Vector2(0, -5), p + Vector2(0, -28), accent, 4)
+		"shipyard":
+			draw_rect(Rect2(p + Vector2(-27, -14), Vector2(54, 29)), Color("#354e5a"))
+			draw_rect(Rect2(p + Vector2(-21, -9), Vector2(42, 19)), shell)
+			draw_line(p + Vector2(-29, 12), p + Vector2(29, 12), accent, 4)
+			draw_line(p + Vector2(-17, -3), p + Vector2(17, -3), Color("#d4e2e4"), 2)
+			for post in [-23.0, 23.0]:
+				draw_circle(p + Vector2(post, 18), 3, dark)
+		_:
+			draw_rect(Rect2(p + Vector2(-12, -13), Vector2(24, 27)), dark)
+	# Small antenna and warning beacon make command structures easy to spot.
+	if kind in ["barracks", "factory", "airfield", "missile_silo", "missile_defense"]:
+		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
+		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
+	var label := "حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "برج دفاع"))))))
+	draw_string(ThemeDB.fallback_font, p + Vector2(-42, 43), label, HORIZONTAL_ALIGNMENT_CENTER, 84, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
 	var cost := 700 if build_mode == "shipyard" else (MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST))))))
