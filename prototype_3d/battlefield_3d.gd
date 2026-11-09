@@ -13,6 +13,8 @@ var camera_focus := Vector3.ZERO
 var camera_height := 28.0
 var touch_points: Dictionary = {}
 var last_pinch_distance := 0.0
+var last_pinch_center := Vector2.ZERO
+var touch_multi_gesture := false
 var mouse_pan_active := false
 var showcase_turrets: Array[Node3D] = []
 var turret_scan_clock := 0.0
@@ -973,12 +975,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			touch_start_positions[touch.index] = touch.position
 			touch_moved[touch.index] = false
 			if touch_points.size() == 2:
+				touch_multi_gesture = true
 				var points: Array = touch_points.values()
 				last_pinch_distance = points[0].distance_to(points[1])
+				last_pinch_center = (points[0] + points[1]) * 0.5
 		else:
 			var had_start := touch_start_positions.has(touch.index)
-			var was_drag := had_start and bool(touch_moved.get(touch.index, false)) and touch_points.size() == 1
-			var was_tap: bool = had_start and not bool(touch_moved.get(touch.index, true)) and touch_points.size() == 1
+			var was_drag := had_start and bool(touch_moved.get(touch.index, false)) and touch_points.size() == 1 and not touch_multi_gesture
+			var was_tap: bool = had_start and not bool(touch_moved.get(touch.index, true)) and touch_points.size() == 1 and not touch_multi_gesture
 			if was_drag and _tank_at_screen_position(touch_start_positions[touch.index]) == null:
 				_select_live_units_in_screen_rect(touch_start_positions[touch.index], touch.position)
 			elif was_tap:
@@ -986,8 +990,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			touch_points.erase(touch.index)
 			touch_start_positions.erase(touch.index)
 			touch_moved.erase(touch.index)
-			if touch_points.size() < 2:
+			if touch_points.is_empty():
 				last_pinch_distance = 0.0
+				last_pinch_center = Vector2.ZERO
+				touch_multi_gesture = false
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
 		if touch_points.has(drag.index):
@@ -997,11 +1003,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch_points.size() >= 2:
 			var points: Array = touch_points.values()
 			var distance: float = points[0].distance_to(points[1])
+			var center := (points[0] + points[1]) * 0.5
 			if last_pinch_distance > 0.0 and distance > 1.0:
 				_zoom_camera(last_pinch_distance / distance)
+				_pan_camera(center - last_pinch_center)
 			last_pinch_distance = distance
-		elif touch_points.size() == 1:
-			_pan_camera(drag.relative)
+			last_pinch_center = center
 	elif event is InputEventMouseButton:
 		var mouse_button := event as InputEventMouseButton
 		if mouse_button.button_index == MOUSE_BUTTON_LEFT and mouse_button.pressed:
