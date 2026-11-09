@@ -280,7 +280,24 @@ func _build_base_complex(origin: Vector3, tint: Color, faction_id: String) -> vo
 	_add_base_building(origin + Vector3(0.0, 0.0, 4.0), "factory", tint, faction_id)
 	_add_base_building(origin + Vector3(0.0, 0.0, 12.0), "airfield", tint, faction_id)
 
-func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String) -> void:
+func spawn_game_building(kind: String, at: Vector3, faction_id: String, tint: Color, build_progress: float = 0.0) -> Node3D:
+	# Public bridge for the gameplay layer to create a 3D counterpart for a logical building.
+	return _add_base_building(at, kind, tint, faction_id, build_progress, true)
+
+func update_game_building_progress(building: Node3D, build_progress: float) -> void:
+	if not is_instance_valid(building):
+		return
+	var progress := clampf(build_progress, 0.0, 1.0)
+	building.set_meta("construction_progress", progress)
+	var fill := building.get_node_or_null("ConstructionProgressFill") as MeshInstance3D
+	if fill:
+		fill.scale.x = maxf(0.001, progress)
+		fill.visible = progress < 1.0
+	var background := building.get_node_or_null("ConstructionProgressBackground") as MeshInstance3D
+	if background:
+		background.visible = progress < 1.0
+
+func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String, build_progress: float = 1.0, show_progress: bool = false) -> Node3D:
 	var building := Node3D.new()
 	building.name = faction_id + "_" + kind
 	building.position = at
@@ -391,6 +408,30 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			light_material.emission_energy_multiplier = 1.3
 			runway_light.material_override = light_material
 			building.add_child(runway_light)
+
+	if show_progress:
+		building.set_meta("construction_progress", clampf(build_progress, 0.0, 1.0))
+		var progress_back := MeshInstance3D.new()
+		progress_back.name = "ConstructionProgressBackground"
+		var back_mesh := BoxMesh.new()
+		back_mesh.size = Vector3(3.2, 0.10, 0.16)
+		progress_back.mesh = back_mesh
+		progress_back.position = Vector3(0.0, 5.15, 0.0)
+		progress_back.material_override = _make_armour_material(Color(0.07, 0.09, 0.08))
+		progress_back.visible = build_progress < 1.0
+		building.add_child(progress_back)
+
+		var progress_fill := MeshInstance3D.new()
+		progress_fill.name = "ConstructionProgressFill"
+		var fill_mesh := BoxMesh.new()
+		fill_mesh.size = Vector3(3.0, 0.12, 0.18)
+		progress_fill.mesh = fill_mesh
+		progress_fill.position = Vector3(-1.5, 5.16, -0.01)
+		progress_fill.material_override = _make_armour_material(Color(0.34, 0.82, 0.48))
+		progress_fill.scale.x = maxf(0.001, clampf(build_progress, 0.0, 1.0))
+		progress_fill.visible = build_progress < 1.0
+		building.add_child(progress_fill)
+	return building
 
 func _add_road(at: Vector3, dimensions: Vector2, _angle: float) -> void:
 	var road := MeshInstance3D.new()
