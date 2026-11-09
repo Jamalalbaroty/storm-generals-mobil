@@ -436,6 +436,33 @@ func _process(delta: float) -> void:
 					continue
 				if unit.kind == "artillery":
 					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
+					var artillery_guard := bool(unit.get("defense_guard", false))
+					if artillery_guard:
+						var guard_target := -1
+						var closest_guard_threat := INF
+						for candidate_index in range(units.size()):
+							var candidate: Dictionary = units[candidate_index]
+							if candidate.team != "player" or candidate.get("hp", 0) <= 0 or not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
+								continue
+							var threatens_guarded_asset: bool = candidate.pos.distance_to(enemy_base) <= 250.0
+							if not threatens_guarded_asset:
+								for protected_building in enemy_buildings:
+									if candidate.pos.distance_to(protected_building.pos) <= 350.0:
+										threatens_guarded_asset = true
+										break
+							if threatens_guarded_asset:
+								var threat_distance: float = unit.pos.distance_to(candidate.pos)
+								if threat_distance < closest_guard_threat:
+									closest_guard_threat = threat_distance
+									guard_target = candidate_index
+						if guard_target >= 0:
+							artillery_target = guard_target
+						else:
+							var guard_anchor: Vector2 = unit.get("defense_anchor", enemy_base)
+							var anchor_distance: float = unit.pos.distance_to(guard_anchor)
+							if anchor_distance > 34.0:
+								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
+							continue
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
