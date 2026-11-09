@@ -305,7 +305,9 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 	if is_instance_valid(unit):
 		unit.set_meta("gameplay_unit_kind", kind)
 		unit.set_meta("health", maxf(0.0, health))
+		unit.set_meta("max_health", maxf(1.0, health))
 		unit.set_meta("source_gameplay_unit", true)
+		_create_showcase_health_bar(unit)
 	return unit
 
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
@@ -334,18 +336,26 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else 0.0)
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
+		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
+		var maximum_health := maxf(1.0, float(record.get("max_hp", maxf(100.0, current_health))))
 		var unit := game_unit_nodes.get(key) as Node3D
 		if not is_instance_valid(unit):
-			unit = spawn_game_unit(kind, world_pos, faction_id, tint, float(record.get("hp", 100.0)))
+			unit = spawn_game_unit(kind, world_pos, faction_id, tint, current_health)
 			if not is_instance_valid(unit):
 				continue
 			unit.set_meta("source_unit_key", key)
 			unit.set_meta("source_team", team)
+			unit.set_meta("source_faction", faction_id)
+			unit.set_meta("max_health", maximum_health)
 			game_unit_nodes[key] = unit
 		else:
 			unit.global_position = world_pos
-			unit.set_meta("health", maxf(0.0, float(record.get("hp", unit.get_meta("health", 100.0)))))
+			unit.set_meta("health", current_health)
+			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
+			unit.set_meta("source_faction", faction_id)
+		if record.has("facing"):
+			unit.rotation.y = -float(record.get("facing", 0.0)) + PI * 0.5
 		synced_count += 1
 	for existing_key in game_unit_nodes.keys():
 		if not active_keys.has(existing_key):
@@ -1718,7 +1728,8 @@ func _update_showcase_health_bars() -> void:
 		if not is_instance_valid(tank) or not is_instance_valid(fill):
 			showcase_health_bars.erase(tank_variant)
 			continue
-		var ratio := clampf(float(tank.get_meta("health", 100.0)) / 100.0, 0.0, 1.0)
+		var maximum_health := maxf(1.0, float(tank.get_meta("max_health", 100.0)))
+		var ratio := clampf(float(tank.get_meta("health", maximum_health)) / maximum_health, 0.0, 1.0)
 		fill.scale.x = maxf(ratio, 0.001)
 		fill.position.x = -0.67 * (1.0 - ratio)
 		var material := fill.material_override as StandardMaterial3D
