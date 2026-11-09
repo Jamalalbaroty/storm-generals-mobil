@@ -472,6 +472,12 @@ func _initialize() -> void:
 		push_error("Enemy assault formation did not place armor ahead of infantry in staggered lanes")
 		quit(1)
 		return
+	var second_tank_lane: Vector2 = game.call("_enemy_ground_assault_formation_position", "tank", formation_target, formation_origin, 2)
+	var second_infantry_lane: Vector2 = game.call("_enemy_ground_assault_formation_position", "infantry", formation_target, formation_origin, 3)
+	if absf(second_tank_lane.y - tank_formation_pos.y) < 20.0 or absf(second_infantry_lane.y - infantry_formation_pos.y) < 20.0:
+		push_error("Larger enemy formations stacked their second pair on the first pair's assault lanes")
+		quit(1)
+		return
 
 	# Validate the live coordinated ground assault: armor leads, infantry follows, and artillery holds its firing standoff.
 	game.set("game_started", true)
