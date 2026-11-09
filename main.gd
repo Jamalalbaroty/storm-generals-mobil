@@ -1402,8 +1402,8 @@ func _draw_base(p: Vector2, color: Color, label: String) -> void:
 func _draw_hud(size: Vector2) -> void:
 	draw_rect(Rect2(0, 0, size.x, 58), Color(0.06, 0.08, 0.09, 0.9))
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
-	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
+	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 500.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 155, 19, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 320.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 155, 17, Color("#9fe6d2"))
 	if game_started:
 		var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800"]
 		for i in labels.size():
