@@ -416,8 +416,11 @@ func _is_naval_kind(kind: String) -> bool:
 func _nearest_naval_unit(from_pos: Vector2, target_team: String) -> int:
 	var best_index := -1
 	var best_distance := INF
+	var observer_team := "enemy" if target_team == "player" else "player"
 	for i in units.size():
 		if units[i].team != target_team or not _is_naval_kind(String(units[i].kind)) or units[i].get("hp", 0) <= 0:
+			continue
+		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], observer_team):
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
