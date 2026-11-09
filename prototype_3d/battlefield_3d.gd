@@ -1297,9 +1297,11 @@ func _update_carrier_air_operations(delta: float) -> void:
 		flight.age = age
 		var phase := float(flight.get("phase", 0.0)) + delta * 0.72
 		flight.phase = phase
-		var radius := 5.5 if age < 6.0 else lerpf(5.5, 1.2, clampf((age - 6.0) / 3.0, 0.0, 1.0))
+		var landing_progress := clampf((age - 6.0) / 3.0, 0.0, 1.0)
+		var radius := 5.5 if age < 6.0 else lerpf(5.5, 0.0, landing_progress)
 		var angle := phase + float(flight.get("lane", 0.0))
-		aircraft.global_position = carrier.global_position + Vector3(cos(angle) * radius, 4.8 + sin(phase * 2.0) * 0.18, sin(angle) * radius)
+		var flight_height := 4.8 + sin(phase * 2.0) * 0.18 if age < 6.0 else lerpf(4.8, 1.48, landing_progress)
+		aircraft.global_position = carrier.global_position + Vector3(cos(angle) * radius, flight_height, sin(angle) * radius)
 		aircraft.rotation.y = -angle
 		if age >= 9.0:
 			aircraft.queue_free()

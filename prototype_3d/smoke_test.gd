@@ -190,6 +190,19 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify the patrol aircraft descends onto the carrier deck before despawning.
+	battlefield.call("_update_carrier_air_operations", 8.7)
+	var landing_offset: Vector3 = launched_aircraft.global_position - test_carrier.global_position
+	if not is_instance_valid(launched_aircraft) or absf(landing_offset.y - 1.48) > 0.15 or Vector2(landing_offset.x, landing_offset.z).length() > 0.35:
+		push_error("Carrier patrol aircraft did not complete its deck approach")
+		quit(1)
+		return
+	battlefield.call("_update_carrier_air_operations", 0.3)
+	if battlefield.carrier_aircraft.size() != 0 or is_instance_valid(launched_aircraft):
+		push_error("Carrier patrol aircraft was not recovered after landing")
+		quit(1)
+		return
+
 	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D
 	battlefield.call("sync_game_units", archetype_records, map_rect)
 	if battlefield.game_unit_nodes.get("player|4|artillery") != stable_artillery or battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():
