@@ -1965,6 +1965,10 @@ func _update_enemy_defense_assignments() -> void:
 
 
 func _enemy_ai_turn() -> void:
+	var player_air_threat := 0
+	for player_unit in units:
+		if player_unit.team == "player" and player_unit.get("hp", 0) > 0 and (player_unit.kind == "fighter" or player_unit.kind == "helicopter"):
+			player_air_threat += 1
 	var build_pos := _enemy_build_position()
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
@@ -2016,6 +2020,16 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
 		notice_time = 2.0
 		return
+	var enemy_anti_air_count := 0
+	for existing_building in enemy_buildings:
+		if existing_building.kind == "anti_air":
+			enemy_anti_air_count += 1
+	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= AA_COST:
+		enemy_credits -= AA_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
+		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
+		notice_time = 2.0
+		return
 	var enemy_tanks := 0
 	var enemy_infantry := 0
 	var enemy_artillery := 0
@@ -2047,15 +2061,10 @@ func _enemy_ai_turn() -> void:
 		else:
 			enemy_infantry += 1
 
-	# Read the player's visible force composition and scale counter-unit limits.
-	var player_air_threat := 0
+	# Read the player's visible heavy ground force and scale counter-unit limits.
 	var player_heavy_ground_threat := 0
 	for unit in units:
-		if unit.team != "player" or unit.get("hp", 0) <= 0:
-			continue
-		if unit.kind == "fighter" or unit.kind == "helicopter":
-			player_air_threat += 1
-		elif unit.kind == "tank" or unit.kind == "artillery":
+		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery"):
 			player_heavy_ground_threat += 1
 	if _enemy_has_building("shipyard") and enemy_credits >= 1600 and enemy_supplies >= 8 and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= 1600
