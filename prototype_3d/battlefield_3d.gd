@@ -84,6 +84,7 @@ func _process(delta: float) -> void:
 	_update_infantry_animation(delta)
 	_update_aircraft_animation(delta)
 	_update_naval_animation(delta)
+	_update_naval_combat(delta)
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
@@ -1184,6 +1185,88 @@ func _add_naval_propeller(vessel: Node3D, propeller_name: String, side_x: float)
 		blade.material_override = _make_armour_material(Color(0.20, 0.23, 0.23))
 		propeller.add_child(blade)
 	naval_propellers.append(propeller)
+
+func _update_naval_combat(delta: float) -> void:
+	# Destroyers automatically engage the nearest hostile contact in cannon range.
+	for unit_key in game_unit_nodes.keys():
+		var vessel := game_unit_nodes[unit_key] as Node3D
+		if not is_instance_valid(vessel) or str(vessel.get_meta("unit_type", "")) != "destroyer":
+			continue
+		var team := str(vessel.get_meta("source_team", ""))
+		if team.is_empty():
+			continue
+		var target := _find_naval_target(vessel, team, 15.0)
+		if not is_instance_valid(target):
+			continue
+		var cooldown := maxf(0.0, float(vessel.get_meta("naval_fire_cooldown", 0.0)) - delta)
+		if cooldown > 0.0:
+			vessel.set_meta("naval_fire_cooldown", cooldown)
+			continue
+		var vessel_index := showcase_tanks.find(vessel)
+		if vessel_index < 0 or vessel_index >= showcase_turrets.size():
+			continue
+		var weapon_pivot := showcase_turrets[vessel_index]
+		weapon_pivot.look_at(target.global_position + Vector3.UP * 0.8, Vector3.UP)
+		_fire_naval_shell(weapon_pivot, target, vessel)
+		vessel.set_meta("naval_fire_cooldown", 2.4)
+
+func _find_naval_target(vessel: Node3D, team: String, max_range: float) -> Node3D:
+	var nearest: Node3D
+	var nearest_distance := max_range
+	for candidate_key in game_unit_nodes.keys():
+		var candidate := game_unit_nodes[candidate_key] as Node3D
+		if not is_instance_valid(candidate) or candidate == vessel:
+			continue
+		if str(candidate.get_meta("source_team", "")) == team:
+			continue
+		var distance := vessel.global_position.distance_to(candidate.global_position)
+		if distance < nearest_distance:
+			nearest = candidate
+			nearest_distance = distance
+	return nearest
+
+func _fire_naval_shell(pivot: Node3D, target: Node3D, vessel: Node3D) -> void:
+	var shell := MeshInstance3D.new()
+	var shell_mesh := SphereMesh.new()
+	shell_mesh.radius = 0.11
+	shell_mesh.height = 0.22
+	shell.mesh = shell_mesh
+	var shell_material := StandardMaterial3D.new()
+	shell_material.albedo_color = Color(1.0, 0.72, 0.28)
+	shell_material.emission_enabled = true
+	shell_material.emission = Color(1.0, 0.32, 0.06)
+	shell_material.emission_energy_multiplier = 2.6
+	shell.material_override = shell_material
+	shell.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.2) + Vector3.UP * 0.25
+	add_child(shell)
+	_spawn_muzzle_flash(shell.global_position, 1.35)
+	_play_combat_audio(shell.global_position, false)
+	var destination := target.global_position + Vector3.UP * 0.75
+	var tween := create_tween()
+	tween.tween_property(shell, "global_position", destination, 0.38)
+	tween.tween_callback(_resolve_naval_shell_hit.bind(shell, target, vessel, 22.0))
+
+func _resolve_naval_shell_hit(shell: Node3D, target: Node3D, vessel: Node3D, damage: float) -> void:
+	if is_instance_valid(shell):
+		shell.queue_free()
+	if not is_instance_valid(target):
+		return
+	var remaining := float(target.get_meta("health", 100.0)) - damage
+	target.set_meta("health", remaining)
+	_spawn_impact_flash(target.global_position, remaining <= 0.0)
+	_play_combat_audio(target.global_position, true)
+	if remaining <= 0.0:
+		var source_key := str(target.get_meta("source_unit_key", ""))
+		if not source_key.is_empty():
+			game_unit_nodes.erase(source_key)
+		showcase_tanks.erase(target)
+		showcase_health_bars.erase(target)
+		if is_instance_valid(selected_tank) and selected_tank == target:
+			selected_tank = null
+			selection_ring.visible = false
+		if is_instance_valid(attack_target) and attack_target == target:
+			attack_target = null
+		target.queue_free()
 
 func _update_naval_animation(delta: float) -> void:
 	naval_animation_clock += delta
