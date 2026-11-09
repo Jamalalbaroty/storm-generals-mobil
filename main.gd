@@ -318,9 +318,16 @@ func _draw() -> void:
 		_draw_faction_picker(size)
 	elif battle_result != "":
 		draw_rect(Rect2(size.x * 0.2, size.y * 0.34, size.x * 0.6, size.y * 0.25), Color(0.02, 0.03, 0.04, 0.94))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.25, size.y * 0.49), battle_result, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 30, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.25, size.y * 0.47), battle_result, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 30, Color("#f4d77a"))
+		var restart := _restart_rect(size)
+		draw_rect(restart, Color("#73552d"), true)
+		draw_rect(restart, Color("#f4d77a"), false, 2)
+		draw_string(ThemeDB.fallback_font, restart.position + Vector2(0, 31), "معركة جديدة", HORIZONTAL_ALIGNMENT_CENTER, restart.size.x, 21, Color.WHITE)
 	elif notice_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.35, 82), notice, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 23, Color.WHITE)
+
+func _restart_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x * 0.4, size.y * 0.53), Vector2(size.x * 0.2, 48))
 
 func _draw_base_health(p: Vector2, hp: int) -> void:
 	var ratio := clampf(float(hp) / 1000.0, 0.0, 1.0)
@@ -386,6 +393,24 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		return
 	dragging = false
 	if battle_result != "":
+		if _restart_rect(size).has_point(pos):
+			game_started = false
+			battle_result = ""
+			faction = ""
+			units.clear()
+			buildings.clear()
+			enemy_buildings.clear()
+			selected.clear()
+			build_mode = ""
+			credits = STARTING_CREDITS
+			enemy_credits = STARTING_CREDITS
+			player_base_hp = 1000
+			enemy_base_hp = 1000
+			income_timer = 0.0
+			enemy_income_timer = 0.0
+			enemy_timer = 0.0
+			visual_effects.clear()
+			queue_redraw()
 		return
 	if not game_started:
 		for i in FACTIONS.size():
