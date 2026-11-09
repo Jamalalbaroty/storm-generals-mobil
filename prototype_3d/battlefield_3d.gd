@@ -25,6 +25,7 @@ var touch_start_positions: Dictionary = {}
 var touch_moved: Dictionary = {}
 var attack_target: Node3D
 var attack_cooldown := 0.0
+var showcase_health_bars: Dictionary = {}
 
 func _ready() -> void:
 	_build_environment()
@@ -43,6 +44,7 @@ func _process(delta: float) -> void:
 			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
 	_update_showcase_orders(delta)
 	_update_showcase_combat(delta)
+	_update_showcase_health_bars()
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -293,6 +295,7 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 	add_child(tank)
 	showcase_tanks.append(tank)
 	tank.set_meta("health", 100.0)
+	_create_showcase_health_bar(tank)
 
 	var hull := MeshInstance3D.new()
 	var hull_mesh := BoxMesh.new()
@@ -474,6 +477,67 @@ func _update_showcase_orders(delta: float) -> void:
 	selected_tank.rotation.y = atan2(-heading.x, -heading.z)
 
 
+func _create_showcase_health_bar(tank: Node3D) -> void:
+	var bar_root := Node3D.new()
+	bar_root.name = "HealthBar"
+	bar_root.position = Vector3(0.0, 3.15, 0.0)
+	tank.add_child(bar_root)
+
+	var background := MeshInstance3D.new()
+	var background_mesh := BoxMesh.new()
+	background_mesh.size = Vector3(1.45, 0.13, 0.06)
+	background.mesh = background_mesh
+	background.material_override = _make_armour_material(Color(0.055, 0.065, 0.06))
+	bar_root.add_child(background)
+
+	var fill := MeshInstance3D.new()
+	var fill_mesh := BoxMesh.new()
+	fill_mesh.size = Vector3(1.34, 0.085, 0.075)
+	fill.mesh = fill_mesh
+	fill.position.z = -0.045
+	fill.material_override = _make_armour_material(Color(0.22, 0.82, 0.34))
+	bar_root.add_child(fill)
+	showcase_health_bars[tank] = fill
+
+func _update_showcase_health_bars() -> void:
+	for tank_variant in showcase_health_bars.keys():
+		var tank := tank_variant as Node3D
+		var fill := showcase_health_bars[tank_variant] as MeshInstance3D
+		if not is_instance_valid(tank) or not is_instance_valid(fill):
+			showcase_health_bars.erase(tank_variant)
+			continue
+		var ratio := clampf(float(tank.get_meta("health", 100.0)) / 100.0, 0.0, 1.0)
+		fill.scale.x = maxf(ratio, 0.001)
+		fill.position.x = -0.67 * (1.0 - ratio)
+		var material := fill.material_override as StandardMaterial3D
+		if ratio <= 0.3:
+			material.albedo_color = Color(0.9, 0.19, 0.12)
+		elif ratio <= 0.6:
+			material.albedo_color = Color(0.95, 0.65, 0.16)
+		else:
+			material.albedo_color = Color(0.22, 0.82, 0.34)
+
+func _spawn_impact_flash(at: Vector3, is_destruction: bool = false) -> void:
+	var flash := MeshInstance3D.new()
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius = 0.32 if not is_destruction else 0.65
+	flash_mesh.height = flash_mesh.radius * 2.0
+	flash.mesh = flash_mesh
+	var flash_material := StandardMaterial3D.new()
+	flash_material.albedo_color = Color(1.0, 0.48, 0.12, 0.88)
+	flash_material.emission_enabled = true
+	flash_material.emission = Color(1.0, 0.24, 0.04)
+	flash_material.emission_energy_multiplier = 2.5
+	flash_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash.material_override = flash_material
+	flash.position = at + Vector3.UP * 0.8
+	add_child(flash)
+	var tween := create_tween()
+	var burst_scale := Vector3.ONE * (2.8 if is_destruction else 1.7)
+	tween.tween_property(flash, "scale", burst_scale, 0.22)
+	tween.tween_property(flash, "scale", Vector3.ONE * 0.05, 0.16)
+	tween.tween_callback(flash.queue_free)
+
 func _update_showcase_combat(delta: float) -> void:
 	if not is_instance_valid(selected_tank) or not is_instance_valid(attack_target):
 		attack_target = null
@@ -516,6 +580,7 @@ func _resolve_showcase_hit(projectile: Node3D, target: Node3D) -> void:
 		return
 	var remaining_health := float(target.get_meta("health", 100.0)) - 25.0
 	target.set_meta("health", remaining_health)
+	_spawn_impact_flash(target.global_position, remaining_health <= 0.0)
 	if remaining_health <= 0.0:
 		if target == attack_target:
 			attack_target = null
@@ -523,6 +588,7 @@ func _resolve_showcase_hit(projectile: Node3D, target: Node3D) -> void:
 			selected_tank = null
 			selection_ring.visible = false
 		showcase_tanks.erase(target)
+		showcase_health_bars.erase(target)
 		target.queue_free()
 
 func _make_armour_material(tint: Color) -> StandardMaterial3D:
