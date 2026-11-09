@@ -840,7 +840,7 @@ func _initialize() -> void:
 	var returning_guard_result: Array[Dictionary] = game.get("units")
 	var guard_return_distance: float = returning_guard_result[0].pos.distance_to(Vector2(1000.0, 330.0))
 	if guard_return_distance >= guard_after_engagement.distance_to(Vector2(1000.0, 330.0)):
-		push_error("Base guard failed to return toward its assigned anchor after the threat was neutralized")
+		push_error("Base guard failed to return toward its assigned anchor after the threat was neutralized: before=%s after=%s anchor=%s hp=%s target=%s focus=%s" % [guard_after_engagement, returning_guard_result[0].pos, returning_guard_result[0].get("defense_anchor", Vector2.ZERO), returning_guard_result[0].get("hp", -1), returning_guard_result[0].get("attack_target", -1), returning_guard_result[0].get("attack_focus_pos", Vector2.ZERO)])
 		quit(1)
 		return
 
