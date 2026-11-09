@@ -43,8 +43,12 @@ var radar_count_label: Label
 var radar_ground_label: Label
 var radar_sweep_widget: ColorRect
 var radar_blip_widgets: Dictionary = {}
+var combat_fire_audio: AudioStreamWAV
+var combat_impact_audio: AudioStreamWAV
 
 func _ready() -> void:
+	combat_fire_audio = _make_combat_audio(false)
+	combat_impact_audio = _make_combat_audio(true)
 	_build_environment()
 	_build_terrain()
 	_build_battlefield_features()
@@ -68,6 +72,40 @@ func _process(delta: float) -> void:
 	_update_air_defenses(delta)
 	_update_radar_network(delta)
 	_update_radar_hud(delta)
+
+func _make_combat_audio(is_impact: bool) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var duration := 0.38 if is_impact else 0.14
+	var sample_count := int(sample_rate * duration)
+	var samples := PackedByteArray()
+	samples.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / float(sample_rate)
+		var progress := t / duration
+		var envelope := pow(1.0 - progress, 2.4) if not is_impact else pow(1.0 - progress, 1.7)
+		var phase := t * (72.0 if is_impact else 145.0)
+		var tone := sin(phase * TAU) * (0.72 if is_impact else 0.30)
+		var noise_wave := sin(float(i) * 12.9898 + 78.233) * 0.5 + sin(float(i) * 4.1414) * 0.25
+		var noise_level := 0.58 if is_impact else 0.88
+		var sample := clampf((tone + noise_wave * noise_level) * envelope, -1.0, 1.0)
+		samples.encode_s16(i * 2, int(sample * 32767.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = samples
+	return stream
+
+func _play_combat_audio(at: Vector3, is_impact: bool) -> void:
+	var player := AudioStreamPlayer3D.new()
+	player.stream = combat_impact_audio if is_impact else combat_fire_audio
+	player.volume_db = -8.0 if is_impact else -11.0
+	player.unit_size = 9.0
+	player.max_distance = 58.0
+	player.global_position = at
+	add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -1275,6 +1313,7 @@ func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	projectile.material_override = projectile_material
 	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
 	_spawn_muzzle_flash(projectile.global_position, 0.72 if is_infantry else (0.9 if is_aircraft else 1.25))
+	_play_combat_audio(projectile.global_position, false)
 	add_child(projectile)
 	var destination := target.global_position + Vector3.UP * 0.95
 	var tween := create_tween()
@@ -1290,6 +1329,7 @@ func _resolve_showcase_hit(projectile: Node3D, target: Node3D, damage: float) ->
 	var remaining_health := float(target.get_meta("health", 100.0)) - damage
 	target.set_meta("health", remaining_health)
 	_spawn_impact_flash(target.global_position, remaining_health <= 0.0)
+	_play_combat_audio(target.global_position, true)
 	if remaining_health <= 0.0:
 		if target == attack_target:
 			attack_target = null
