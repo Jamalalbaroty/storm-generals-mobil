@@ -590,6 +590,8 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				game_building_nodes[key] = building
 			else:
 				building.position = world_pos
+				building.set_meta("faction_id", _normalize_faction_id(String(team_data.faction)))
+				building.set_meta("source_team", String(team_data.team))
 				update_game_building_progress(building, float(record.get("build_progress", 1.0)))
 			synced_count += 1
 	for existing_key in game_building_nodes.keys():

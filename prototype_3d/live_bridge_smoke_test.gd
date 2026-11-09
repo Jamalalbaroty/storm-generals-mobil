@@ -69,12 +69,15 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	game.set("units", [])
-	game.set("buildings", [])
-	game.set("enemy_buildings", [])
+	var empty_units: Array[Dictionary] = []
+	var empty_buildings: Array[Dictionary] = []
+	var empty_enemy_buildings: Array[Dictionary] = []
+	game.set("units", empty_units)
+	game.set("buildings", empty_buildings)
+	game.set("enemy_buildings", empty_enemy_buildings)
 	game.call("_sync_3d_gameplay_bridge")
 	if not bridge.game_unit_nodes.is_empty() or not bridge.game_building_nodes.is_empty():
-		push_error("Live bridge did not remove stale 3D counterparts after gameplay records were cleared")
+		push_error("Live bridge stale cleanup counts: units=%d buildings=%d" % [bridge.game_unit_nodes.size(), bridge.game_building_nodes.size()])
 		quit(1)
 		return
 
