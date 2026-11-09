@@ -191,8 +191,9 @@ func _process(delta: float) -> void:
 			enemy_timer = 0.0
 			_enemy_ai_turn()
 			_update_enemy_defense_assignments()
-		for building in buildings:
-			if (building.kind == "turret" or building.kind == "anti_air") and float(building.get("build_progress", 1.0)) >= 1.0:
+		for defense_index in range(buildings.size()):
+			var building: Dictionary = buildings[defense_index]
+			if (building.kind == "turret" or building.kind == "anti_air") and _is_player_building_powered(defense_index):
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
 				var target := _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
