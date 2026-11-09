@@ -884,6 +884,13 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Assault artillery should take a protected support lane behind the armor instead of driving into the frontline.
+	var artillery_support_position: Vector2 = game.call("_enemy_artillery_support_position", Vector2(400.0, 330.0), Vector2(1000.0, 330.0), 2)
+	if artillery_support_position.distance_to(Vector2(650.0, 330.0)) > 0.1:
+		push_error("Enemy artillery failed to establish its rear support position behind the advancing armor")
+		quit(1)
+		return
+
 	# A base guard must also protect a forward structure when the base itself is not threatened.
 	var protected_structure_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
