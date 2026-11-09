@@ -284,6 +284,14 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
 					continue
+				if unit.kind == "builder":
+					if unit.has("target"):
+						var builder_target: Vector2 = unit.target
+						if unit.pos.distance_to(builder_target) > 8.0:
+							unit.pos += (builder_target - unit.pos).normalized() * delta * 32.0
+						else:
+							unit.erase("target")
+					continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
@@ -1267,6 +1275,13 @@ func _draw() -> void:
 			draw_line(_unit_rotated_point(u.pos, Vector2(-12, -8), plane_angle), _unit_rotated_point(u.pos, Vector2(-18, -17), plane_angle), Color("#e4d9a7"), 2)
 			draw_line(_unit_rotated_point(u.pos, Vector2(-12, 8), plane_angle), _unit_rotated_point(u.pos, Vector2(-18, 17), plane_angle), Color("#e4d9a7"), 2)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(7, 0), plane_angle), 3, Color("#9bd5e5"))
+		elif u.kind == "builder":
+			var builder_facing := _unit_facing_angle(u)
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(38, 27), builder_facing), Color("#252d2b"))
+			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(32, 21), builder_facing), Color("#c3a45d") if u.team == "player" else Color("#9a554b"))
+			draw_colored_polygon(_unit_polygon_points(u.pos, PackedVector2Array([Vector2(-12, -8), Vector2(12, -8), Vector2(12, 8), Vector2(-12, 8)]), builder_facing), Color("#4a5651"))
+			draw_line(_unit_rotated_point(u.pos, Vector2(4, 0), builder_facing), _unit_rotated_point(u.pos, Vector2(19, 0), builder_facing), Color("#252c2c"), 4.0)
+			draw_circle(_unit_rotated_point(u.pos, Vector2(-7, -2), builder_facing), 3.0, Color("#e4d39a"))
 		elif u.kind == "tank":
 			var facing = _unit_facing_angle(u)
 			var track_color := Color("#20292b")
@@ -1329,7 +1344,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
 			for passenger_marker in range(int(u.get("passengers", 0))):
 				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
-		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))))))
+		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
@@ -2207,7 +2222,7 @@ func _enemy_ai_turn() -> void:
 			enemy_carriers += 1
 		elif unit.kind == "submarine":
 			enemy_submarines += 1
-		else:
+		elif unit.kind == "infantry":
 			enemy_infantry += 1
 
 	# Read the player's visible ground composition and scale counter-unit limits.
@@ -2463,7 +2478,7 @@ func _spawn_unit(kind: String) -> void:
 				unit_spawn = dock.pos
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
-	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)))
+	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0}
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
@@ -2482,6 +2497,8 @@ func _spawn_unit(kind: String) -> void:
 		unit_name = "مدمرة بحرية"
 	elif kind == "infantry":
 		unit_name = "جندي"
+	elif kind == "builder":
+		unit_name = "مركبة بناء"
 	elif kind == "tank":
 		unit_name = "دبابة"
 	elif kind == "helicopter":
