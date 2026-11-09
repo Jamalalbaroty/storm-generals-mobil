@@ -19,6 +19,7 @@ var base_pos := Vector2(180, 330)
 var enemy_base := Vector2(1090, 330)
 var player_base_hp := 1000
 var enemy_base_hp := 1000
+var battle_result := ""
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(queue_redraw)
@@ -28,6 +29,16 @@ func _process(delta: float) -> void:
 	if notice_time > 0.0:
 		notice_time -= delta
 	if game_started:
+		if battle_result != "":
+			return
+		if enemy_base_hp <= 0:
+			battle_result = "انتصرت! دمرت قاعدة العدو"
+			queue_redraw()
+			return
+		if player_base_hp <= 0:
+			battle_result = "هُزمت! سقطت قاعدتك"
+			queue_redraw()
+			return
 		enemy_timer += delta
 		if enemy_timer >= 16.0:
 			enemy_timer = 0.0
@@ -150,6 +161,9 @@ func _draw() -> void:
 		draw_rect(Rect2(drag_start, drag_end - drag_start), Color("#9fe7ff"), false, 2)
 	if not game_started:
 		_draw_faction_picker(size)
+	elif battle_result != "":
+		draw_rect(Rect2(size.x * 0.2, size.y * 0.34, size.x * 0.6, size.y * 0.25), Color(0.02, 0.03, 0.04, 0.94))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.25, size.y * 0.49), battle_result, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 30, Color("#f4d77a"))
 	elif notice_time > 0.0:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.35, 82), notice, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.3, 23, Color.WHITE)
 
@@ -216,10 +230,15 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	if not dragging:
 		return
 	dragging = false
+	if battle_result != "":
+		return
 	if not game_started:
 		for i in FACTIONS.size():
 			if _faction_rect(i, size).has_point(pos):
 				faction = FACTIONS[i]
+				battle_result = ""
+				player_base_hp = 1000
+				enemy_base_hp = 1000
 				game_started = true
 				notice = "بدأت المعركة — %s" % faction
 				notice_time = 3.0
