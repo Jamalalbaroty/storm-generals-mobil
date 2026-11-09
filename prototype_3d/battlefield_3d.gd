@@ -288,6 +288,104 @@ func _build_showcase_units() -> void:
 	_add_placeholder_tank(Vector3(-7.0, 0.0, 1.0), Color(0.28, 0.34, 0.22))
 	_add_placeholder_tank(Vector3(0.0, 0.0, -2.0), Color(0.34, 0.37, 0.40))
 	_add_placeholder_tank(Vector3(7.0, 0.0, 1.0), Color(0.48, 0.39, 0.25))
+	_build_showcase_infantry()
+
+
+func _build_showcase_infantry() -> void:
+	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25))
+	_add_placeholder_infantry_squad(Vector3(0.0, 0.0, 10.0), Color(0.34, 0.37, 0.40))
+	_add_placeholder_infantry_squad(Vector3(9.0, 0.0, 8.0), Color(0.48, 0.39, 0.25))
+
+func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
+	var squad := Node3D.new()
+	squad.position = at
+	add_child(squad)
+	showcase_tanks.append(squad)
+	squad.set_meta("health", 100.0)
+	_create_showcase_health_bar(squad)
+
+	var soldier_offsets := [
+		Vector3(-0.72, 0.0, -0.48),
+		Vector3(0.72, 0.0, -0.48),
+		Vector3(-0.72, 0.0, 0.72),
+		Vector3(0.72, 0.0, 0.72)
+	]
+	for offset in soldier_offsets:
+		var soldier := Node3D.new()
+		soldier.position = offset
+		squad.add_child(soldier)
+
+		var body := MeshInstance3D.new()
+		var body_mesh := CapsuleMesh.new()
+		body_mesh.radius = 0.22
+		body_mesh.height = 0.92
+		body.mesh = body_mesh
+		body.position.y = 0.86
+		body.material_override = _make_armour_material(faction_color)
+		soldier.add_child(body)
+
+		var head := MeshInstance3D.new()
+		var head_mesh := SphereMesh.new()
+		head_mesh.radius = 0.19
+		head_mesh.height = 0.38
+		head.mesh = head_mesh
+		head.position.y = 1.48
+		head.material_override = _make_armour_material(Color(0.48, 0.37, 0.29))
+		soldier.add_child(head)
+
+		var helmet := MeshInstance3D.new()
+		var helmet_mesh := SphereMesh.new()
+		helmet_mesh.radius = 0.22
+		helmet_mesh.height = 0.20
+		helmet.mesh = helmet_mesh
+		helmet.position.y = 1.66
+		helmet.material_override = _make_armour_material(faction_color.darkened(0.22))
+		soldier.add_child(helmet)
+
+		for leg_side in [-1.0, 1.0]:
+			var leg := MeshInstance3D.new()
+			var leg_mesh := CylinderMesh.new()
+			leg_mesh.top_radius = 0.085
+			leg_mesh.bottom_radius = 0.10
+			leg_mesh.height = 0.58
+			leg.mesh = leg_mesh
+			leg.position = Vector3(leg_side * 0.13, 0.30, 0.0)
+			leg.material_override = _make_armour_material(Color(0.16, 0.18, 0.16))
+			soldier.add_child(leg)
+
+		var pack := MeshInstance3D.new()
+		var pack_mesh := BoxMesh.new()
+		pack_mesh.size = Vector3(0.34, 0.42, 0.20)
+		pack.mesh = pack_mesh
+		pack.position = Vector3(0.0, 0.94, 0.30)
+		pack.material_override = _make_armour_material(faction_color.darkened(0.30))
+		soldier.add_child(pack)
+
+	# A separate aim pivot turns the squad weapon without rotating the whole formation.
+	var aim_pivot := Node3D.new()
+	aim_pivot.position = Vector3(0.0, 1.15, 0.0)
+	squad.add_child(aim_pivot)
+	showcase_turrets.append(aim_pivot)
+
+	var rifle := MeshInstance3D.new()
+	var rifle_mesh := BoxMesh.new()
+	rifle_mesh.size = Vector3(0.12, 0.12, 1.05)
+	rifle.mesh = rifle_mesh
+	rifle.position = Vector3(0.0, 0.0, -0.48)
+	rifle.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
+	aim_pivot.add_child(rifle)
+
+	var barrel := MeshInstance3D.new()
+	var barrel_mesh := CylinderMesh.new()
+	barrel_mesh.top_radius = 0.035
+	barrel_mesh.bottom_radius = 0.045
+	barrel_mesh.height = 0.42
+	barrel.mesh = barrel_mesh
+	barrel.rotation_degrees.x = 90.0
+	barrel.position = Vector3(0.0, 0.015, -1.18)
+	barrel.material_override = _make_armour_material(Color(0.08, 0.09, 0.08))
+	aim_pivot.add_child(barrel)
+
 
 func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 	var tank := Node3D.new()
