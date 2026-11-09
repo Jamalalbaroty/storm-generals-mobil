@@ -441,9 +441,25 @@ func _process(delta: float) -> void:
 				if unit.kind == "tank" or unit.kind == "artillery":
 					var landing_support_target := _landing_assault_support_target(unit.pos, "player")
 					if landing_support_target >= 0:
+						if not bool(unit.get("landing_support_active", false)):
+							if unit.has("attack_building"):
+								unit["landing_support_building"] = int(unit.attack_building)
+							if bool(unit.get("attack_base", false)):
+								unit["landing_support_base"] = true
+							unit["landing_support_active"] = true
 						unit.erase("attack_building")
 						unit.erase("attack_base")
 						unit.attack_target = landing_support_target
+					elif bool(unit.get("landing_support_active", false)):
+						if unit.has("landing_support_building"):
+							unit["attack_building"] = int(unit.landing_support_building)
+							unit.erase("landing_support_building")
+						if bool(unit.get("landing_support_base", false)):
+							unit["attack_base"] = true
+						unit.erase("landing_support_base")
+						unit.erase("landing_support_active")
+						unit.erase("attack_target")
+						unit.erase("attack_focus_pos")
 				if unit.has("attack_building"):
 					var building_target := int(unit.attack_building)
 					if building_target < 0 or building_target >= enemy_buildings.size():
