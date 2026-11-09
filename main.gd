@@ -218,10 +218,13 @@ func _process(delta: float) -> void:
 				if player_target >= 0:
 					destination = units[player_target].pos
 				else:
+					var nearest_objective_distance := INF
 					for point in supply_points:
 						if point.owner != "enemy":
-							destination = point.pos
-							break
+							var objective_distance: float = unit.pos.distance_to(point.pos)
+							if objective_distance < nearest_objective_distance:
+								nearest_objective_distance = objective_distance
+								destination = point.pos
 				var distance_to_target := unit.pos.distance_to(destination)
 				if player_target >= 0 and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
