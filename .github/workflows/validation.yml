@@ -1,0 +1,38 @@
+name: Godot Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.gd'
+      - '**.tscn'
+      - '**.tres'
+      - 'project.godot'
+      - '.github/workflows/validation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: storm-generals-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Import project resources
+        run: godot --headless --path . --editor --quit --verbose
+      - name: Smoke test active game scene
+        run: |
+          set -o pipefail
+          godot --headless --path . --quit-after 3 --verbose 2>&1 | tee /tmp/main-smoke.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" /tmp/main-smoke.log; then
+            echo "Main scene smoke test failed"
+            exit 1
+          fi
+      - name: Smoke test isolated 3D battlefield
+        run: godot --headless --path . --script res://prototype_3d/smoke_test.gd
