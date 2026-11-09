@@ -29,16 +29,50 @@ func _process(delta: float) -> void:
 		enemy_timer += delta
 		if enemy_timer >= 16.0:
 			enemy_timer = 0.0
-			units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos})
-		for unit in units:
+			units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+		for i in units.size():
+			var unit := units[i]
+			if unit.get("hp", 0) <= 0:
+				continue
 			if unit.team == "enemy":
-				var direction: Vector2 = (base_pos - unit.pos).normalized()
-				unit.pos += direction * delta * 22.0
-			elif unit.team == "player" and unit.has("target"):
-				var target: Vector2 = unit.target
-				if unit.pos.distance_to(target) > 8.0:
-					unit.pos += (target - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+				var player_target := _nearest_player_unit(unit.pos)
+				if player_target >= 0 and unit.pos.distance_to(units[player_target].pos) <= 150.0:
+					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+					if unit.attack_cd <= 0.0:
+						units[player_target].hp -= 10
+						unit.attack_cd = 0.9
+				else:
+					var direction: Vector2 = (base_pos - unit.pos).normalized()
+					unit.pos += direction * delta * 22.0
+			elif unit.team == "player":
+				var enemy_target := int(unit.get("attack_target", -1))
+				if enemy_target >= 0 and enemy_target < units.size() and units[enemy_target].team == "enemy" and units[enemy_target].hp > 0:
+					var enemy: Dictionary = units[enemy_target]
+					var distance := unit.pos.distance_to(enemy.pos)
+					if distance <= 160.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							enemy.hp -= 20 if unit.kind == "tank" else 10
+							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+					else:
+						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+				elif unit.has("target"):
+					var target: Vector2 = unit.target
+					if unit.pos.distance_to(target) > 8.0:
+						unit.pos += (target - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
 		queue_redraw()
+
+func _nearest_player_unit(from_pos: Vector2) -> int:
+	var best_index := -1
+	var best_distance := INF
+	for i in units.size():
+		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
+			continue
+		var distance := from_pos.distance_to(units[i].pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = i
+	return best_index
 
 func _draw() -> void:
 	var size := get_viewport_rect().size
@@ -58,6 +92,8 @@ func _draw() -> void:
 	_draw_base(enemy_base, Color("#b94b42"), "قاعدة العدو")
 	for i in units.size():
 		var u := units[i]
+		if u.get("hp", 0) <= 0:
+			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
 		if u.kind == "tank":
 			draw_rect(Rect2(u.pos - Vector2(17, 11), Vector2(34, 22)), c)
@@ -161,18 +197,31 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			if units[i].team == "player" and area.has_point(units[i].pos):
 				selected.append(i)
 	else:
-		var found := -1
+		var enemy_found := -1
 		for i in units.size():
-			if units[i].team == "player" and units[i].pos.distance_to(pos) < 24:
-				found = i
+			if units[i].team == "enemy" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 30:
+				enemy_found = i
 				break
-		if found >= 0:
-			if not selected.has(found):
-				selected = [found]
-		else:
+		if enemy_found >= 0 and not selected.is_empty():
 			for idx in selected:
-				if idx < units.size():
-					units[idx].target = pos
+				if idx < units.size() and units[idx].team == "player":
+					units[idx].attack_target = enemy_found
+			notice = "أمر هجوم!"
+			notice_time = 1.5
+		else:
+			var found := -1
+			for i in units.size():
+				if units[i].team == "player" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 24:
+					found = i
+					break
+			if found >= 0:
+				if not selected.has(found):
+					selected = [found]
+			else:
+				for idx in selected:
+					if idx < units.size():
+						units[idx].target = pos
+						units[idx].erase("attack_target")
 	queue_redraw()
 
 func _spawn_unit(kind: String) -> void:
@@ -182,6 +231,6 @@ func _spawn_unit(kind: String) -> void:
 		notice_time = 2.0
 		return
 	credits -= cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 100})
+	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 100, "attack_cd": 0.0})
 	notice = "تم إنتاج %s" % ("جندي" if kind == "infantry" else "دبابة")
 	notice_time = 2.0
