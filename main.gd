@@ -285,7 +285,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_unit(unit.pos)
+				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
