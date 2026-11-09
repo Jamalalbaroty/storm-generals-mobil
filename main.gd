@@ -486,7 +486,7 @@ func _process(delta: float) -> void:
 								defender_target = candidate_index
 				# Guards leave their patrol point only when an asset is threatened.
 				var engage_player := enemy_landing_support_target >= 0 or (player_target >= 0 and (enemy_strategy != "balanced" or nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0))
-				if is_defender:
+				if is_defender and enemy_landing_support_target < 0:
 					engage_player = defender_target >= 0
 					if engage_player:
 						player_target = defender_target
