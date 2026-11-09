@@ -875,6 +875,15 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# A withdrawn tank recovers beside its safe factory and rejoins once it reaches 60% health.
+	var recovering_tank: Dictionary = {"pos": Vector2(820.0, 330.0), "team": "enemy", "kind": "tank", "hp": 30}
+	for recovery_tick in range(8):
+		game.call("_update_enemy_retreat", recovering_tank, 1.0)
+	if int(recovering_tank.get("hp", 0)) < 90 or bool(recovering_tank.get("retreating", false)):
+		push_error("Withdrawn enemy armor failed to recover safely and return to combat readiness: hp=%s retreating=%s" % [recovering_tank.get("hp", 0), recovering_tank.get("retreating", false)])
+		quit(1)
+		return
+
 	# A base guard must also protect a forward structure when the base itself is not threatened.
 	var protected_structure_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},

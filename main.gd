@@ -417,12 +417,7 @@ func _process(delta: float) -> void:
 						unit.erase("landing_support_active")
 						unit.erase("landing_support_target")
 				if unit.kind in ["tank", "infantry", "artillery"] and not bool(unit.get("defense_guard", false)) and enemy_landing_support_target < 0:
-					var retreat_max_hp := 150.0 if unit.kind == "tank" else (60.0 if unit.kind == "infantry" else 100.0)
-					if float(unit.get("hp", retreat_max_hp)) <= retreat_max_hp * 0.25:
-						var retreat_destination: Vector2 = _enemy_retreat_destination(unit.pos)
-						if unit.pos.distance_to(retreat_destination) > 42.0:
-							unit.pos += (retreat_destination - unit.pos).normalized() * delta * 28.0
-						unit["retreating"] = true
+					if _update_enemy_retreat(unit, delta):
 						continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
@@ -2560,6 +2555,26 @@ func _update_combat_alerts() -> void:
 	air_alert_active = hostile_air > 0
 	ground_alert_active = hostile_ground > 0
 	missile_alert_active = incoming_missile
+
+
+func _update_enemy_retreat(unit: Dictionary, delta: float) -> bool:
+	# Critically damaged mobile troops withdraw, recover beside a safe asset, then rejoin the battle.
+	var max_hp := 150 if String(unit.get("kind", "")) == "tank" else (60 if String(unit.get("kind", "")) == "infantry" else 100)
+	var current_hp := int(unit.get("hp", max_hp))
+	if not bool(unit.get("retreating", false)) and current_hp > max_hp * 0.25:
+		return false
+	unit["retreating"] = true
+	var retreat_destination: Vector2 = _enemy_retreat_destination(unit.pos)
+	var retreat_distance: float = unit.pos.distance_to(retreat_destination)
+	if retreat_distance > 48.0:
+		var retreat_step: float = minf(28.0 * delta, retreat_distance - 48.0)
+		unit.pos += (retreat_destination - unit.pos).normalized() * retreat_step
+	else:
+		unit["hp"] = mini(max_hp, int(ceil(float(current_hp) + 8.0 * delta)))
+		if int(unit["hp"]) >= int(ceil(max_hp * 0.6)):
+			unit.erase("retreating")
+			return false
+	return true
 
 
 func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
