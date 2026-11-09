@@ -886,8 +886,9 @@ func _initialize() -> void:
 
 	# Assault artillery should take a protected support lane behind the armor instead of driving into the frontline.
 	var artillery_support_position: Vector2 = game.call("_enemy_artillery_support_position", Vector2(400.0, 330.0), Vector2(1000.0, 330.0), 2)
-	if artillery_support_position.distance_to(Vector2(650.0, 330.0)) > 0.1:
-		push_error("Enemy artillery failed to establish its rear support position behind the advancing armor")
+	var opposite_artillery_support_position: Vector2 = game.call("_enemy_artillery_support_position", Vector2(400.0, 330.0), Vector2(1000.0, 330.0), 3)
+	if artillery_support_position.distance_to(Vector2(650.0, 292.0)) > 0.1 or opposite_artillery_support_position.distance_to(Vector2(650.0, 368.0)) > 0.1:
+		push_error("Enemy artillery failed to hold its 250-pixel rear standoff with separated support lanes: first=%s second=%s" % [artillery_support_position, opposite_artillery_support_position])
 		quit(1)
 		return
 
