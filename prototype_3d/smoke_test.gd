@@ -167,7 +167,7 @@ func _initialize() -> void:
 		push_error("Surface naval vessels are missing animated propeller assemblies")
 		quit(1)
 		return
-	var propeller_before := battlefield.naval_propellers[0].rotation.z
+	var propeller_before: float = battlefield.naval_propellers[0].rotation.z
 	battlefield._update_naval_animation(0.1)
 	if battlefield.naval_propellers[0].rotation.z <= propeller_before:
 		push_error("Naval propeller animation did not advance")
