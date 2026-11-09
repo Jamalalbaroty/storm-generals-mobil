@@ -39,7 +39,42 @@ func _initialize() -> void:
 			quit(1)
 			return
 
-	print("3D battlefield and all 10 runtime building construction smoke tests passed")
+	var player_records: Array = [
+		{"pos": Vector2(250.0, 150.0), "kind": "factory", "build_progress": 0.4, "hp": 500}
+	]
+	var enemy_records: Array = [
+		{"pos": Vector2(750.0, 450.0), "kind": "anti_air", "build_progress": 1.0, "hp": 380}
+	]
+	var map_rect := Rect2(0.0, 0.0, 1000.0, 600.0)
+	var synced := int(battlefield.call("sync_game_buildings", player_records, enemy_records, map_rect, "american", "chinese"))
+	if synced != 2 or battlefield.game_building_nodes.size() != 2:
+		push_error("2D-to-3D building synchronization did not create both counterparts")
+		quit(1)
+		return
+	var player_key := "player|factory|250.00|150.00"
+	var player_3d := battlefield.game_building_nodes.get(player_key) as Node3D
+	if player_3d == null or player_3d.get_meta("source_team", "") != "player":
+		push_error("Player building mapping metadata is incorrect")
+		quit(1)
+		return
+	if player_3d.position.distance_to(Vector3(-7.98, 0.0, -7.98)) > 0.02:
+		push_error("2D map coordinates were not transformed into the expected 3D arena position")
+		quit(1)
+		return
+	player_records[0]["build_progress"] = 0.8
+	battlefield.call("sync_game_buildings", player_records, enemy_records, map_rect, "american", "chinese")
+	if absf(float(player_3d.get_meta("construction_progress")) - 0.8) > 0.001:
+		push_error("2D building construction progress did not update in 3D")
+		quit(1)
+		return
+	enemy_records.clear()
+	synced = int(battlefield.call("sync_game_buildings", player_records, enemy_records, map_rect, "american", "chinese"))
+	if synced != 1 or battlefield.game_building_nodes.size() != 1:
+		push_error("Removed gameplay buildings were not reconciled from the 3D scene")
+		quit(1)
+		return
+
+	print("3D battlefield, 10 building archetypes, and 2D-to-3D building sync smoke tests passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
