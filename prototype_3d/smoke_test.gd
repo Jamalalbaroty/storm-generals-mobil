@@ -75,7 +75,7 @@ func _initialize() -> void:
 		return
 
 	var unit_records: Array = [
-		{"pos": Vector2(200.0, 120.0), "team": "player", "kind": "tank", "faction": "american", "hp": 150},
+		{"pos": Vector2(200.0, 120.0), "team": "player", "kind": "tank", "faction": "american", "hp": 150, "max_hp": 200, "facing": 0.5},
 		{"pos": Vector2(500.0, 300.0), "team": "player", "kind": "infantry", "faction": "american", "hp": 60},
 		{"pos": Vector2(800.0, 480.0), "team": "enemy", "kind": "fighter", "faction": "chinese", "hp": 120}
 	]
@@ -86,8 +86,8 @@ func _initialize() -> void:
 		return
 	var tank_key := "player|1|tank"
 	var tank_3d := battlefield.game_unit_nodes.get(tank_key) as Node3D
-	if tank_3d == null or tank_3d.get_meta("gameplay_unit_kind", "") != "tank":
-		push_error("Synchronized tank metadata is incorrect")
+	if tank_3d == null or tank_3d.get_meta("gameplay_unit_kind", "") != "tank" or absf(float(tank_3d.get_meta("max_health", 0.0)) - 200.0) > 0.001:
+		push_error("Synchronized tank metadata or maximum health is incorrect")
 		quit(1)
 		return
 	if tank_3d.position.distance_to(Vector3(-9.576, 0.0, -9.576)) > 0.02:
@@ -97,8 +97,10 @@ func _initialize() -> void:
 	unit_records[0]["pos"] = Vector2(300.0, 180.0)
 	unit_records[0]["hp"] = 90
 	battlefield.call("sync_game_units", unit_records, map_rect)
-	if tank_3d.position.distance_to(Vector3(-6.384, 0.0, -6.384)) > 0.03 or absf(float(tank_3d.get_meta("health")) - 90.0) > 0.001:
-		push_error("Gameplay unit movement or health synchronization failed")
+	battlefield.call("_update_showcase_health_bars")
+	var tank_health_fill := battlefield.showcase_health_bars.get(tank_3d) as MeshInstance3D
+	if tank_3d.position.distance_to(Vector3(-6.384, 0.0, -6.384)) > 0.03 or absf(float(tank_3d.get_meta("health")) - 90.0) > 0.001 or tank_health_fill == null or absf(tank_health_fill.scale.x - 0.45) > 0.02:
+		push_error("Gameplay unit movement, facing, or proportional health synchronization failed")
 		quit(1)
 		return
 	var infantry_key := "player|2|infantry"
