@@ -892,6 +892,48 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Enemy assault artillery must advance toward its rear support lane, not the frontline.
+	var advancing_artillery_units: Array[Dictionary] = [
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "artillery", "hp": 110, "attack_cd": 0.0},
+		{"pos": Vector2(400.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_base", Vector2(1000.0, 330.0))
+	game.set("base_pos", Vector2(180.0, 330.0))
+	game.set("units", advancing_artillery_units)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_enemy_buildings)
+	game.set("supply_points", no_supply_points)
+	game.call("_process", 0.5)
+	var advancing_artillery_result: Array[Dictionary] = game.get("units")
+	var expected_artillery_lane: Vector2 = game.call("_enemy_artillery_support_position", Vector2(400.0, 330.0), Vector2(1000.0, 330.0), 0)
+	if advancing_artillery_result[0].pos.distance_to(expected_artillery_lane) >= Vector2(1000.0, 330.0).distance_to(expected_artillery_lane) or advancing_artillery_result[0].pos.distance_to(Vector2(400.0, 330.0)) < 500.0:
+		push_error("Enemy assault artillery failed to advance toward its protected rear support lane")
+		quit(1)
+		return
+
+	# Once the target enters the artillery firing envelope, the support unit must deal splash damage.
+	var firing_artillery_units: Array[Dictionary] = [
+		{"pos": Vector2(700.0, 330.0), "team": "enemy", "kind": "artillery", "hp": 110, "attack_cd": 0.0},
+		{"pos": Vector2(400.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("units", firing_artillery_units)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_enemy_buildings)
+	game.set("supply_points", no_supply_points)
+	game.call("_process", 0.1)
+	var firing_artillery_result: Array[Dictionary] = game.get("units")
+	if int(firing_artillery_result[1].get("hp", 150)) >= 150:
+		push_error("Enemy assault artillery reached firing range but failed to damage the player frontline")
+		quit(1)
+		return
+
 	# A base guard must also protect a forward structure when the base itself is not threatened.
 	var protected_structure_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
