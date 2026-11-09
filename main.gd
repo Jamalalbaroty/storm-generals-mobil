@@ -90,6 +90,7 @@ var sound_cooldowns: Dictionary = {"weapon": 0.0, "explosion": 0.0}
 var air_alert_active := false
 var ground_alert_active := false
 var missile_alert_active := false
+var enemy_strategy := "balanced"
 
 func _ready() -> void:
 	randomize()
@@ -2377,7 +2378,21 @@ func _enemy_ai_turn() -> void:
 			player_heavy_ground_threat += 1
 		elif unit.kind == "infantry":
 			player_infantry_threat += 1
+	var next_strategy := "balanced"
+	if player_air_threat >= 2 and player_air_threat >= player_heavy_ground_threat:
+		next_strategy = "air_control"
+	elif player_heavy_ground_threat >= 3:
+		next_strategy = "armor_breaker"
+	elif player_infantry_threat >= 5:
+		next_strategy = "area_denial"
+	if next_strategy != enemy_strategy:
+		enemy_strategy = next_strategy
+		var strategy_names := {"air_control": "التفوق الجوي", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
+		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
+		notice_time = 2.5
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
+		return
+	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery):
 		return
 	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
@@ -2419,6 +2434,38 @@ func _enemy_ai_turn() -> void:
 	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int) -> bool:
+	var kind := ""
+	var cost := 0
+	var supply_cost := 0
+	var unit_hp := 0
+	match strategy:
+		"air_control":
+			if fighter_count < 4 and _enemy_has_building("airfield"):
+				kind = "fighter"
+				cost = _unit_cost(kind, _enemy_faction())
+				supply_cost = _unit_supply_cost(kind)
+				unit_hp = 120
+		"armor_breaker":
+			if helicopter_count < 3 and _enemy_has_building("airfield"):
+				kind = "helicopter"
+				cost = _helicopter_cost(_enemy_faction())
+				supply_cost = _unit_supply_cost(kind)
+				unit_hp = 180
+		"area_denial":
+			if artillery_count < 3 and _enemy_has_building("factory"):
+				kind = "artillery"
+				cost = _unit_cost(kind, _enemy_faction())
+				supply_cost = _unit_supply_cost(kind)
+				unit_hp = 100
+	if kind == "" or enemy_credits < cost or enemy_supplies < supply_cost:
+		return false
+	enemy_credits -= cost
+	enemy_supplies -= supply_cost
+	units.append({"pos": enemy_base + Vector2(-82.0, randf_range(-72.0, 72.0)), "team": "enemy", "kind": kind, "faction": _enemy_faction(), "hp": unit_hp, "target": base_pos, "attack_cd": 0.0})
+	return true
+
 
 func _enemy_build_position() -> Vector2:
 	var size = get_viewport_rect().size
