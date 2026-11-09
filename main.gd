@@ -301,7 +301,7 @@ func _process(delta: float) -> void:
 				if unit.kind == "artillery":
 					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
-					var artillery_distance := unit.pos.distance_to(artillery_destination)
+					var artillery_distance: float := unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
@@ -337,14 +337,14 @@ func _process(delta: float) -> void:
 							continue
 						if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 							continue
-						var threatens_asset := candidate.pos.distance_to(enemy_base) <= 250.0
+						var threatens_asset: bool := candidate.pos.distance_to(enemy_base) <= 250.0
 						if not threatens_asset:
 							for protected_building in enemy_buildings:
 								if candidate.pos.distance_to(protected_building.pos) <= 350.0:
 									threatens_asset = true
 									break
 						if threatens_asset:
-							var threat_distance := unit.pos.distance_to(candidate.pos)
+							var threat_distance: float := unit.pos.distance_to(candidate.pos)
 							if threat_distance < closest_threat_distance:
 								closest_threat_distance = threat_distance
 								defender_target = candidate_index
@@ -361,7 +361,7 @@ func _process(delta: float) -> void:
 					destination = units[player_target].pos
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
-				var distance_to_target := unit.pos.distance_to(destination)
+				var distance_to_target: float := unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
@@ -442,7 +442,7 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (heli_enemy.pos - unit.pos).normalized() * delta * 82.0
 					else:
-						var heli_base_distance := unit.pos.distance_to(enemy_base)
+						var heli_base_distance: float := unit.pos.distance_to(enemy_base)
 						if heli_base_distance <= 230.0:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 							if unit.attack_cd <= 0.0:
@@ -498,7 +498,7 @@ func _process(delta: float) -> void:
 						unit.erase("attack_building")
 						continue
 					var target_building: Dictionary = enemy_buildings[building_target]
-					var building_distance := unit.pos.distance_to(target_building.pos)
+					var building_distance: float := unit.pos.distance_to(target_building.pos)
 					var building_range := 350.0 if unit.kind == "artillery" else 75.0
 					if building_distance <= building_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -513,7 +513,7 @@ func _process(delta: float) -> void:
 						unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
 					continue
 				if unit.get("attack_base", false):
-					var base_distance := unit.pos.distance_to(enemy_base)
+					var base_distance: float := unit.pos.distance_to(enemy_base)
 					var base_range := 360.0 if unit.kind == "artillery" else 155.0
 					if base_distance <= base_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -534,7 +534,7 @@ func _process(delta: float) -> void:
 				if enemy_target >= 0:
 					unit.attack_focus_pos = units[enemy_target].pos
 					var enemy: Dictionary = units[enemy_target]
-					var distance := unit.pos.distance_to(enemy.pos)
+					var distance: float := unit.pos.distance_to(enemy.pos)
 					var attack_range := 360.0 if unit.kind == "artillery" else 160.0
 					if distance <= attack_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -596,7 +596,7 @@ func _update_environment_particles(delta: float) -> void:
 			unit["environment_prev_pos"] = unit.pos
 			unit["environment_cd"] = maxf(0.0, float(unit.get("environment_cd", 0.0)) - delta)
 			if moved_distance > 1.5 and float(unit.environment_cd) <= 0.0:
-				var is_tank := unit.kind == "tank"
+				var is_tank: bool := unit.kind == "tank"
 				var puff_count := 2 if is_tank else 1
 				for puff_index in range(puff_count):
 					var offset := Vector2(randf_range(-7.0, 7.0), randf_range(-5.0, 5.0))
@@ -751,7 +751,7 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 	var state := String(unit.get("landing_state", "outbound"))
 	var home_pos: Vector2 = unit.get("home_pos", unit.pos)
 	if state == "outbound":
-		var shore_distance := unit.pos.distance_to(landing_destination)
+		var shore_distance: float := unit.pos.distance_to(landing_destination)
 		if shore_distance <= 55.0:
 			var passenger_count := int(unit.get("passengers", 3))
 			for marine in range(passenger_count):
@@ -783,12 +783,12 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 				notice = "قوات العدو أنزلت مشاتها وتعود لإعادة التحميل"
 			notice_time = 2.2
 		else:
-			var shore_direction := landing_destination - unit.pos
+			var shore_direction: Vector2 := landing_destination - unit.pos
 			if shore_direction.length_squared() > 0.01:
 				unit.pos += shore_direction.normalized() * delta * 34.0
 		return
 	if state == "returning":
-		var dock_distance := unit.pos.distance_to(home_pos)
+		var dock_distance: float := unit.pos.distance_to(home_pos)
 		if dock_distance <= 48.0:
 			unit.pos = home_pos
 			unit["landing_state"] = "loading"
@@ -797,7 +797,7 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 				notice = "وصلت سفينة الإنزال للميناء — إعادة تحميل الجنود"
 				notice_time = 2.0
 		else:
-			var dock_direction := home_pos - unit.pos
+			var dock_direction: Vector2 := home_pos - unit.pos
 			if dock_direction.length_squared() > 0.01:
 				unit.pos += dock_direction.normalized() * delta * 42.0
 		return
@@ -855,7 +855,7 @@ func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 				priority = 2
 			_:
 				priority = 1
-		var distance := from_pos.distance_to(building.pos)
+		var distance: float := from_pos.distance_to(building.pos)
 		if priority > best_priority or (priority == best_priority and distance < best_distance):
 			best_priority = priority
 			best_distance = distance
@@ -873,7 +873,7 @@ func _nearest_friendly_landing_craft(from_pos: Vector2, team: String) -> int:
 		var state := String(candidate.get("landing_state", "outbound"))
 		if state not in ["outbound", "returning"]:
 			continue
-		var distance := from_pos.distance_to(candidate.pos)
+		var distance: float := from_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -886,7 +886,7 @@ func _nearest_friendly_carrier(from_pos: Vector2, team: String) -> int:
 	for i in units.size():
 		if units[i].team != team or units[i].kind != "carrier" or units[i].get("hp", 0) <= 0:
 			continue
-		var distance := from_pos.distance_to(units[i].pos)
+		var distance: float := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -926,7 +926,7 @@ func _best_naval_target(from_pos: Vector2, target_team: String, attacker_kind: S
 					"submarine": priority = 45.0
 			_:
 				priority = 0.0
-		var score := from_pos.distance_to(candidate.pos) - priority
+		var score: float := from_pos.distance_to(candidate.pos) - priority
 		if score < best_score:
 			best_score = score
 			best_index = i
@@ -964,7 +964,7 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 			continue
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
-		var distance := from_pos.distance_to(candidate.pos)
+		var distance: float := from_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = candidate_index
@@ -981,7 +981,7 @@ func _select_enemy_ground_assault_target() -> int:
 			continue
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
-		var asset_distance := candidate.pos.distance_to(enemy_base)
+		var asset_distance: float := candidate.pos.distance_to(enemy_base)
 		for protected_building in enemy_buildings:
 			asset_distance = minf(asset_distance, candidate.pos.distance_to(protected_building.pos) + 35.0)
 		var threat_priority := 0.0
@@ -992,7 +992,7 @@ func _select_enemy_ground_assault_target() -> int:
 				threat_priority = 65.0
 			"infantry":
 				threat_priority = 15.0
-		var score := asset_distance - threat_priority
+		var score: float := asset_distance - threat_priority
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
@@ -1013,7 +1013,7 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 				continue
 			if priority_pass == 0 and not preferred_kinds.has(String(candidate.kind)):
 				continue
-			var distance := from_pos.distance_to(candidate.pos)
+			var distance: float := from_pos.distance_to(candidate.pos)
 			if distance < best_distance:
 				best_distance = distance
 				best_index = candidate_index
@@ -1032,7 +1032,7 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
-		var distance := from_pos.distance_to(units[i].pos)
+		var distance: float := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -1049,7 +1049,7 @@ func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
 			continue
 		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "player"):
 			continue
-		var distance := focus_pos.distance_to(candidate.pos)
+		var distance: float := focus_pos.distance_to(candidate.pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = candidate_index
@@ -1066,7 +1066,7 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 			continue
 		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
-		var distance := from_pos.distance_to(units[i].pos)
+		var distance: float := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
@@ -1319,8 +1319,8 @@ func _draw() -> void:
 			for spark_index in range(8):
 				var spark_angle := TAU * float(spark_index) / 8.0 + progress * 0.35
 				var spark_direction := Vector2(cos(spark_angle), sin(spark_angle))
-				var spark_start := effect.finish + spark_direction * blast_radius * 0.42
-				var spark_end := effect.finish + spark_direction * (blast_radius * (0.72 + progress * 0.55))
+				var spark_start: Vector2 := effect.finish + spark_direction * blast_radius * 0.42
+				var spark_end: Vector2 := effect.finish + spark_direction * (blast_radius * (0.72 + progress * 0.55))
 				draw_line(spark_start, spark_end, Color(1.0, 0.72, 0.36, fade * 0.82), 2.0 * fade + 0.4)
 			draw_circle(effect.finish + Vector2(-blast_radius * 0.25, -blast_radius * 0.35), blast_radius * 0.28, Color(0.24, 0.22, 0.2, fade * 0.45))
 	_draw_hud(size)
@@ -1928,7 +1928,7 @@ func _update_missiles(delta: float) -> void:
 		if intercepted:
 			continue
 		var destination: Vector2 = missile.target
-		var direction := destination - missile.pos
+		var direction: Vector2 := destination - missile.pos
 		var travel := 230.0 * delta
 		if direction.length() <= travel + 8.0 or float(missile.life) <= delta:
 			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 92.0)
@@ -1956,7 +1956,7 @@ func _update_missiles(delta: float) -> void:
 func _apply_building_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
 	var targets: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
 	for building in targets:
-		var distance := building.pos.distance_to(center)
+		var distance: float := building.pos.distance_to(center)
 		# The primary structure is handled by its direct-hit damage.
 		if distance > 36.0 and distance <= radius:
 			building.hp = maxi(0, int(building.get("hp", 400)) - damage)
@@ -2016,7 +2016,7 @@ func _update_enemy_defense_assignments() -> void:
 		var best_index := -1
 		var best_distance := INF
 		for candidate_index in eligible_indices:
-			var distance := units[candidate_index].pos.distance_squared_to(enemy_base)
+			var distance: float := units[candidate_index].pos.distance_squared_to(enemy_base)
 			if distance < best_distance:
 				best_distance = distance
 				best_index = candidate_index
