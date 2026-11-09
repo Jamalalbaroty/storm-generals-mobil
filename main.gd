@@ -705,8 +705,17 @@ func _draw() -> void:
 			draw_arc(effect.finish, float(effect.radius) * (0.8 + progress), 0.0, TAU, 20, tint, 2.0)
 		elif effect.kind == "explosion":
 			var blast_radius: float = float(effect.radius) * (0.25 + progress)
+			var shock_radius: float = float(effect.radius) * (0.35 + progress * 1.35)
 			draw_circle(effect.finish, blast_radius, Color(tint.r, tint.g * 0.62, tint.b * 0.28, fade * 0.42))
 			draw_arc(effect.finish, blast_radius, 0.0, TAU, 32, tint, 4.0 * fade + 1.0)
+			# Expanding pressure ring and deterministic sparks keep the effect light on mobile.
+			draw_arc(effect.finish, shock_radius, 0.0, TAU, 36, Color(1.0, 0.78, 0.42, fade * 0.72), 2.0 * fade + 0.5)
+			for spark_index in range(8):
+				var spark_angle := TAU * float(spark_index) / 8.0 + progress * 0.35
+				var spark_direction := Vector2(cos(spark_angle), sin(spark_angle))
+				var spark_start := effect.finish + spark_direction * blast_radius * 0.42
+				var spark_end := effect.finish + spark_direction * (blast_radius * (0.72 + progress * 0.55))
+				draw_line(spark_start, spark_end, Color(1.0, 0.72, 0.36, fade * 0.82), 2.0 * fade + 0.4)
 			draw_circle(effect.finish + Vector2(-blast_radius * 0.25, -blast_radius * 0.35), blast_radius * 0.28, Color(0.24, 0.22, 0.2, fade * 0.45))
 	_draw_hud(size)
 	if dragging:
