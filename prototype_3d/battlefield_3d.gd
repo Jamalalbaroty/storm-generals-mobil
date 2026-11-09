@@ -48,6 +48,9 @@ var combat_impact_audio: AudioStreamWAV
 var engine_audio_player: AudioStreamPlayer3D
 var previous_ground_positions: Dictionary = {}
 var ground_dust_timers: Dictionary = {}
+var tank_wheels: Dictionary = {}
+var tank_barrels: Dictionary = {}
+var wheel_last_positions: Dictionary = {}
 
 func _ready() -> void:
 	combat_fire_audio = _make_combat_audio(false)
@@ -78,6 +81,7 @@ func _process(delta: float) -> void:
 	_update_radar_hud(delta)
 	_update_engine_audio()
 	_update_ground_vehicle_effects(delta)
+	_update_tank_wheel_rotation()
 
 func _make_combat_audio(is_impact: bool) -> AudioStreamWAV:
 	var sample_rate := 22050
@@ -1101,6 +1105,7 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String
 	barrel.position = Vector3(0.0, 0.04, -2.05)
 	barrel.material_override = _make_armour_material(Color(0.16, 0.17, 0.15))
 	turret_pivot.add_child(barrel)
+	tank_barrels[tank] = barrel
 
 	# Low-profile commander's hatch and sight block add readable tank silhouettes.
 	var hatch := MeshInstance3D.new()
@@ -1122,6 +1127,7 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String
 	turret_pivot.add_child(sight)
 
 	# Six road wheels per side, partially visible beneath the tracks.
+	var wheel_nodes: Array[MeshInstance3D] = []
 	for side in [-1.0, 1.0]:
 		for wheel_index in range(6):
 			var wheel := MeshInstance3D.new()
@@ -1134,6 +1140,9 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String
 			wheel.position = Vector3(side * 1.78, 0.48, -1.65 + wheel_index * 0.66)
 			wheel.material_override = _make_armour_material(Color(0.19, 0.20, 0.18))
 			tank.add_child(wheel)
+			wheel_nodes.append(wheel)
+	tank_wheels[tank] = wheel_nodes
+	wheel_last_positions[tank] = tank.global_position
 
 
 func _build_order_indicators() -> void:
@@ -1383,10 +1392,40 @@ func _spawn_muzzle_flash(at: Vector3, scale_factor: float = 1.0) -> void:
 	tween.tween_property(flash, "scale", Vector3.ONE * 0.05, 0.07)
 	tween.tween_callback(flash.queue_free)
 
+func _update_tank_wheel_rotation() -> void:
+	for tank_variant in tank_wheels.keys():
+		var tank := tank_variant as Node3D
+		if not is_instance_valid(tank):
+			tank_wheels.erase(tank_variant)
+			wheel_last_positions.erase(tank_variant)
+			tank_barrels.erase(tank_variant)
+			continue
+		var previous: Vector3 = wheel_last_positions.get(tank_variant, tank.global_position)
+		var distance := tank.global_position.distance_to(previous)
+		wheel_last_positions[tank_variant] = tank.global_position
+		if distance <= 0.0001:
+			continue
+		var wheels: Array = tank_wheels[tank_variant]
+		var rotation_step := distance / 0.34
+		for wheel_variant in wheels:
+			var wheel := wheel_variant as MeshInstance3D
+			if is_instance_valid(wheel):
+				wheel.rotate_object_local(Vector3.RIGHT, rotation_step)
+
+func _animate_tank_recoil(tank: Node3D) -> void:
+	var barrel := tank_barrels.get(tank) as MeshInstance3D
+	if not is_instance_valid(barrel):
+		return
+	var tween := create_tween()
+	tween.tween_property(barrel, "position:z", -1.72, 0.055)
+	tween.tween_property(barrel, "position:z", -2.05, 0.14)
+
 func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
 	var is_infantry := unit_type == "infantry"
 	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
+	if unit_type == "tank":
+		_animate_tank_recoil(selected_tank)
 	var projectile := MeshInstance3D.new()
 	var projectile_mesh := SphereMesh.new()
 	projectile_mesh.radius = 0.055 if is_infantry else (0.09 if is_aircraft else 0.13)
