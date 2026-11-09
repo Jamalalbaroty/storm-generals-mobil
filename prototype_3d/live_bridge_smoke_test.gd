@@ -210,10 +210,15 @@ func _initialize() -> void:
 
 	# Naval counter-production must launch destroyers from the coastal shipyard.
 	game.set("units", [])
-	game.set("enemy_buildings", [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500}])
+	var ai_shipyards: Array[Dictionary] = [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0}]
+	game.set("enemy_buildings", ai_shipyards)
 	game.set("enemy_base", Vector2(900.0, 320.0))
-	game.set("enemy_credits", 10000)
-	game.set("enemy_supplies", 100)
+	game.set("enemy_credits", 100000)
+	game.set("enemy_supplies", 1000)
+	if not bool(game.call("_enemy_has_building", "shipyard")):
+		push_error("Naval-control AI test setup did not register a completed enemy shipyard")
+		quit(1)
+		return
 	var produced_naval_counter := bool(game.call("_enemy_counter_production", "naval_control", 0, 0, 0, 0))
 	var produced_units: Array = game.get("units")
 	if not produced_naval_counter or produced_units.size() != 1 or String(produced_units[0].get("kind", "")) != "destroyer":
