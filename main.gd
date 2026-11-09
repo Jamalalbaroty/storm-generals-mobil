@@ -466,16 +466,17 @@ func _process(delta: float) -> void:
 							if anchor_distance > 34.0:
 								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
 							continue
-					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
+					var artillery_fire_target: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
+					var artillery_destination: Vector2 = artillery_fire_target
 					if artillery_target >= 0 and not artillery_guard:
-						artillery_destination = _enemy_artillery_support_position(units[artillery_target].pos, enemy_base, i)
+						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, i)
 					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							_add_visual_effect("explosion", artillery_destination, artillery_destination, Color("#ff9855"), 0.65, 58.0)
+							_add_visual_effect("explosion", artillery_fire_target, artillery_fire_target, Color("#ff9855"), 0.65, 58.0)
 							if artillery_target >= 0:
-								_apply_splash_damage(artillery_destination, 52.0, 24, "player")
+								_apply_splash_damage(artillery_fire_target, 52.0, 24, "player")
 							else:
 								player_base_hp = maxi(0, player_base_hp - 30)
 							unit.attack_cd = 2.4
