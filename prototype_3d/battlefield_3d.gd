@@ -59,7 +59,7 @@ func _build_camera() -> void:
 	var camera := Camera3D.new()
 	camera.name = "RTSCamera"
 	camera.position = Vector3(0.0, 28.0, 30.0)
-	camera.rotation_degrees = Vector3(-43.0, 0.0, 0.0)
+	camera.rotation_degrees = Vector3(43.0, 0.0, 0.0)
 	camera.fov = 48.0
 	camera.current = true
 	add_child(camera)
