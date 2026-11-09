@@ -254,8 +254,8 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "إلغاء"]
-		for i in 6:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "إلغاء"]
+		for i in 7:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
@@ -263,7 +263,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(20, size.y - 18), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 40, 17, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x - 625 + index * 104, size.y - 76), Vector2(100, 52))
+	return Rect2(Vector2(size.x - 729 + index * 104, size.y - 76), Vector2(100, 52))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -326,7 +326,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 6:
+	for i in 7:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -344,6 +344,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				build_mode = "turret"
 				notice = "المس موقعاً في منطقتك لبناء برج الدفاع"
 				notice_time = 3.0
+			elif i == 5:
+				_spawn_unit("artillery")
 			else:
 				selected.clear()
 				build_mode = ""
@@ -426,14 +428,20 @@ func _enemy_ai_turn() -> void:
 		return
 	var enemy_tanks := 0
 	var enemy_infantry := 0
+	var enemy_artillery := 0
 	for unit in units:
 		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
 			continue
 		if unit.kind == "tank":
 			enemy_tanks += 1
+		elif unit.kind == "artillery":
+			enemy_artillery += 1
 		else:
 			enemy_infantry += 1
-	if _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
+	if _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_tanks >= 2 and enemy_artillery < 2:
+		enemy_credits -= ARTILLERY_COST
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
+	elif _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
 		enemy_credits -= TANK_COST
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST and enemy_infantry < 8:
@@ -469,7 +477,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 		draw_line(p, p + Vector2(25, -8), Color("#d2d1b8"), 6)
 	else:
 		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
-	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else "دفاع")
+	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مدفعية" if kind == "artillery" else "دفاع"))
 	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
@@ -500,6 +508,10 @@ func _has_building(kind: String) -> bool:
 	return false
 
 func _spawn_unit(kind: String) -> void:
+	if kind == "artillery" and not _has_building("factory"):
+		notice = "ابنِ مصنعاً أولاً لإنتاج المدفعية"
+		notice_time = 2.5
+		return
 	if kind == "infantry" and not _has_building("barracks"):
 		notice = "ابنِ ثكنة أولاً لإنتاج المشاة"
 		notice_time = 2.5
@@ -508,12 +520,13 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := INFANTRY_COST if kind == "infantry" else TANK_COST
+	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else TANK_COST)
 	if credits < cost:
 		notice = "لا توجد موارد كافية"
 		notice_time = 2.0
 		return
 	credits -= cost
 	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 150 if kind == "tank" else 100, "attack_cd": 0.0})
-	notice = "تم إنتاج %s" % ("جندي" if kind == "infantry" else "دبابة")
+	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else "مدفعية")
+	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
