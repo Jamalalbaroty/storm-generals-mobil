@@ -1291,7 +1291,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
 			for passenger_marker in range(int(u.get("passengers", 0))):
 				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
-		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))
+		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
