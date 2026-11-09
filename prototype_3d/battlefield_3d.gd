@@ -15,6 +15,14 @@ var last_pinch_distance := 0.0
 var mouse_pan_active := false
 var showcase_turrets: Array[Node3D] = []
 var turret_scan_clock := 0.0
+var showcase_tanks: Array[Node3D] = []
+var selected_tank: Node3D
+var selected_destination := Vector3.ZERO
+var has_selected_destination := false
+var selection_ring: MeshInstance3D
+var order_marker: MeshInstance3D
+var touch_start_positions: Dictionary = {}
+var touch_moved: Dictionary = {}
 
 func _ready() -> void:
 	_build_environment()
@@ -23,13 +31,15 @@ func _ready() -> void:
 	_build_camera()
 	_build_lighting()
 	_build_showcase_units()
+	_build_order_indicators()
 
 func _process(delta: float) -> void:
 	turret_scan_clock += delta
 	for i in range(showcase_turrets.size()):
 		var pivot := showcase_turrets[i]
-		if is_instance_valid(pivot):
+		if is_instance_valid(pivot) and i < showcase_tanks.size() and showcase_tanks[i] != selected_tank:
 			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
+	_update_showcase_orders(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -221,17 +231,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
 			touch_points[touch.index] = touch.position
+			touch_start_positions[touch.index] = touch.position
+			touch_moved[touch.index] = false
 			if touch_points.size() == 2:
 				var points: Array = touch_points.values()
 				last_pinch_distance = points[0].distance_to(points[1])
 		else:
+			var was_tap := touch_start_positions.has(touch.index) and not touch_moved.get(touch.index, true) and touch_points.size() == 1
+			if was_tap:
+				_handle_world_tap(touch.position)
 			touch_points.erase(touch.index)
+			touch_start_positions.erase(touch.index)
+			touch_moved.erase(touch.index)
 			if touch_points.size() < 2:
 				last_pinch_distance = 0.0
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
 		if touch_points.has(drag.index):
 			touch_points[drag.index] = drag.position
+		if touch_start_positions.has(drag.index) and drag.position.distance_to(touch_start_positions[drag.index]) > 12.0:
+			touch_moved[drag.index] = true
 		if touch_points.size() >= 2:
 			var points: Array = touch_points.values()
 			var distance: float = points[0].distance_to(points[1])
@@ -242,7 +261,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_pan_camera(drag.relative)
 	elif event is InputEventMouseButton:
 		var mouse_button := event as InputEventMouseButton
-		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
+		if mouse_button.button_index == MOUSE_BUTTON_LEFT and mouse_button.pressed:
+			_handle_world_tap(mouse_button.position)
+		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
 			_zoom_camera(0.90)
 		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
 			_zoom_camera(1.10)
@@ -267,6 +288,7 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 	var tank := Node3D.new()
 	tank.position = at
 	add_child(tank)
+	showcase_tanks.append(tank)
 
 	var hull := MeshInstance3D.new()
 	var hull_mesh := BoxMesh.new()
@@ -353,6 +375,93 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 			wheel.position = Vector3(side * 1.78, 0.48, -1.65 + wheel_index * 0.66)
 			wheel.material_override = _make_armour_material(Color(0.19, 0.20, 0.18))
 			tank.add_child(wheel)
+
+
+func _build_order_indicators() -> void:
+	selection_ring = MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 1.82
+	ring_mesh.outer_radius = 1.98
+	selection_ring.mesh = ring_mesh
+	selection_ring.rotation_degrees.x = 90.0
+	selection_ring.position.y = 0.08
+	selection_ring.material_override = _make_armour_material(Color(0.24, 0.82, 0.42))
+	selection_ring.visible = false
+	add_child(selection_ring)
+
+	order_marker = MeshInstance3D.new()
+	var marker_mesh := CylinderMesh.new()
+	marker_mesh.top_radius = 0.48
+	marker_mesh.bottom_radius = 0.48
+	marker_mesh.height = 0.035
+	order_marker.mesh = marker_mesh
+	order_marker.position.y = 0.04
+	order_marker.material_override = _make_armour_material(Color(0.92, 0.76, 0.25))
+	order_marker.visible = false
+	add_child(order_marker)
+
+func _handle_world_tap(screen_position: Vector2) -> void:
+	var tapped_tank := _tank_at_screen_position(screen_position)
+	if tapped_tank != null:
+		selected_tank = tapped_tank
+		has_selected_destination = false
+		selection_ring.visible = true
+		order_marker.visible = false
+		return
+	if selected_tank == null:
+		return
+	var ground_point: Variant = _screen_to_ground(screen_position)
+	if ground_point == null:
+		return
+	selected_destination = Vector3(
+		clampf(ground_point.x, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42),
+		0.0,
+		clampf(ground_point.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
+	)
+	has_selected_destination = true
+	order_marker.position = selected_destination + Vector3.UP * 0.04
+	order_marker.visible = true
+
+func _tank_at_screen_position(screen_position: Vector2) -> Node3D:
+	if not is_instance_valid(rts_camera):
+		return null
+	var nearest: Node3D
+	var nearest_distance := 68.0
+	for tank in showcase_tanks:
+		if not is_instance_valid(tank) or rts_camera.is_position_behind(tank.global_position):
+			continue
+		var tank_screen := rts_camera.unproject_position(tank.global_position + Vector3.UP * 1.0)
+		var distance := tank_screen.distance_to(screen_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = tank
+	return nearest
+
+func _screen_to_ground(screen_position: Vector2) -> Variant:
+	var ray_origin := rts_camera.project_ray_origin(screen_position)
+	var ray_direction := rts_camera.project_ray_normal(screen_position)
+	if absf(ray_direction.y) < 0.0001:
+		return null
+	return Plane(Vector3.UP, 0.0).intersects_ray(ray_origin, ray_direction)
+
+func _update_showcase_orders(delta: float) -> void:
+	if not is_instance_valid(selected_tank):
+		selected_tank = null
+		selection_ring.visible = false
+		return
+	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
+	if not has_selected_destination:
+		return
+	var direction := selected_destination - selected_tank.global_position
+	direction.y = 0.0
+	if direction.length() < 0.22:
+		selected_tank.global_position = selected_destination
+		has_selected_destination = false
+		order_marker.visible = false
+		return
+	var heading := direction.normalized()
+	selected_tank.global_position += heading * minf(3.2 * delta, direction.length())
+	selected_tank.rotation.y = atan2(-heading.x, -heading.z)
 
 func _make_armour_material(tint: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
