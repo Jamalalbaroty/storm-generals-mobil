@@ -499,6 +499,8 @@ func _process(delta: float) -> void:
 						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, i)
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
+					if unit.kind == "tank" or unit.kind == "infantry":
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, i)
 				var distance_to_target: float = unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
