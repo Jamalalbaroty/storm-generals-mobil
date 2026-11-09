@@ -4,6 +4,15 @@ extends Node3D
 ## until real faction assets, gameplay conversion, and Android performance are verified.
 
 const ARENA_SIZE := 42.0
+const MIN_CAMERA_HEIGHT := 14.0
+const MAX_CAMERA_HEIGHT := 48.0
+
+var rts_camera: Camera3D
+var camera_focus := Vector3.ZERO
+var camera_height := 28.0
+var touch_points: Dictionary = {}
+var last_pinch_distance := 0.0
+var mouse_pan_active := false
 
 func _ready() -> void:
 	_build_environment()
@@ -56,13 +65,71 @@ func _build_terrain() -> void:
 		add_child(marker)
 
 func _build_camera() -> void:
-	var camera := Camera3D.new()
-	camera.name = "RTSCamera"
-	camera.position = Vector3(0.0, 28.0, 30.0)
-	camera.rotation_degrees = Vector3(43.0, 0.0, 0.0)
-	camera.fov = 48.0
-	camera.current = true
-	add_child(camera)
+	rts_camera = Camera3D.new()
+	rts_camera.name = "RTSCamera"
+	rts_camera.fov = 48.0
+	rts_camera.current = true
+	add_child(rts_camera)
+	_update_camera_pose()
+
+func _update_camera_pose() -> void:
+	if not is_instance_valid(rts_camera):
+		return
+	rts_camera.position = camera_focus + Vector3(0.0, camera_height, camera_height * 1.07)
+	rts_camera.look_at(camera_focus, Vector3.UP)
+
+func _zoom_camera(factor: float) -> void:
+	camera_height = clampf(camera_height * factor, MIN_CAMERA_HEIGHT, MAX_CAMERA_HEIGHT)
+	_update_camera_pose()
+
+func _pan_camera(screen_delta: Vector2) -> void:
+	if not is_instance_valid(rts_camera):
+		return
+	var right := rts_camera.global_transform.basis.x
+	right.y = 0.0
+	right = right.normalized()
+	var back := rts_camera.global_transform.basis.z
+	back.y = 0.0
+	back = back.normalized()
+	var world_delta := (-right * screen_delta.x + back * screen_delta.y) * (camera_height / 850.0)
+	camera_focus.x = clampf(camera_focus.x + world_delta.x, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
+	camera_focus.z = clampf(camera_focus.z + world_delta.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
+	_update_camera_pose()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			touch_points[touch.index] = touch.position
+			if touch_points.size() == 2:
+				var points: Array = touch_points.values()
+				last_pinch_distance = points[0].distance_to(points[1])
+		else:
+			touch_points.erase(touch.index)
+			if touch_points.size() < 2:
+				last_pinch_distance = 0.0
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if touch_points.has(drag.index):
+			touch_points[drag.index] = drag.position
+		if touch_points.size() >= 2:
+			var points: Array = touch_points.values()
+			var distance := points[0].distance_to(points[1])
+			if last_pinch_distance > 0.0 and distance > 1.0:
+				_zoom_camera(last_pinch_distance / distance)
+			last_pinch_distance = distance
+		elif touch_points.size() == 1:
+			_pan_camera(drag.relative)
+	elif event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and mouse_button.pressed:
+			_zoom_camera(0.90)
+		elif mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse_button.pressed:
+			_zoom_camera(1.10)
+		elif mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
+			mouse_pan_active = mouse_button.pressed
+	elif event is InputEventMouseMotion and mouse_pan_active:
+		_pan_camera((event as InputEventMouseMotion).relative)
 
 func _build_lighting() -> void:
 	var sun := DirectionalLight3D.new()
