@@ -49,6 +49,9 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Enemy threat selection gives appropriate priority to artillery, tanks, aircraft, and infantry.
 - [ ] Enemy units produced by the AI and carrier-launched aircraft use the selected rival faction, not a hard-coded faction.
 - [ ] Enemy can recover its behavior after a target or building is destroyed.
+- [ ] Enemy does not build a second anti-air site when fewer than three living player aircraft are present; at three or more, it can reinforce up to two sites when credits and build space allow.
+- [ ] Enemy builds missile defense when the player owns a missile silo or has a player missile in flight, and does not repeatedly purchase duplicate missile defenses.
+- [ ] When air or missile threats are absent, enemy production retains resources for units and core structures instead of repeatedly buying threat-specific defenses.
 - [ ] AI does not spawn unbounded units or create severe frame-rate drops.
 
 ## 7. Mobile and performance
