@@ -62,6 +62,7 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Enemy forces respond to threats and pursue objectives without oscillating indefinitely.
 - [ ] Enemy ground forces prioritize player units threatening the enemy base or nearby structures.
 - [ ] Enemy threat selection gives appropriate priority to artillery, tanks, aircraft, and infantry.
+- [ ] When the player fields six or more living infantry, the enemy can prioritize splash-damage artillery even before producing two tanks, and scales its artillery cap to the infantry threat.
 - [ ] Enemy ground formations select only visible ground targets; aircraft are handled by enemy fighters and anti-air defenses rather than pulling tanks/infantry away from ground objectives.
 - [ ] Enemy artillery, ordinary ground troops, and defensive guards never switch to aircraft or naval units as fallback targets when no ground threat is in range.
 - [ ] Enemy units produced by the AI and carrier-launched aircraft use the selected rival faction, not a hard-coded faction.
