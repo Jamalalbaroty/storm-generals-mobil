@@ -7,6 +7,8 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] All four factions are visible and selectable: American, Chinese, Arab Army, وطن.
 - [ ] Starting a match initializes player/enemy bases, resources, supply points, and HUD.
 - [ ] Restarting a match resets all state (credits, units, buildings, health, missiles, effects, and timers).
+- [ ] Starting a new match after a previous result clears old enemy-building selection, drag state, battle effects, and environment particles.
+- [ ] Destroyed units are removed from the active unit list without corrupting selected-unit indices or existing attack orders.
 
 ## 2. Economy and construction
 - [ ] Passive income increases credits at the expected rate, preserves fractional timer remainder across income ticks, and respects the maximum balance; player and AI rates remain symmetric.
@@ -68,6 +70,8 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Enemy builds missile defense when the player owns a missile silo or has a player missile in flight, and does not repeatedly purchase duplicate missile defenses.
 - [ ] When air or missile threats are absent, enemy production retains resources for units and core structures instead of repeatedly buying threat-specific defenses.
 - [ ] AI does not spawn unbounded units or create severe frame-rate drops.
+- [ ] Player and enemy active forces respect the 40-unit team cap; carrier launches and landing-craft reinforcements also respect it.
+- [ ] A landing craft waits at shore when fewer than three unit slots are available, then unloads its complete squad when space is available.
 
 ## 7. Mobile and performance
 - [ ] Landscape orientation is enforced.
