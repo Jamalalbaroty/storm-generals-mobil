@@ -1621,13 +1621,8 @@ func _update_missiles(delta: float) -> void:
 					for building_index in range(enemy_buildings.size() - 1, -1, -1):
 						if enemy_buildings[building_index].pos.distance_to(destination) < 36.0:
 							enemy_buildings[building_index].hp = maxi(0, int(enemy_buildings[building_index].get("hp", 400)) - int(missile.damage))
-							if enemy_buildings[building_index].hp <= 0:
-								enemy_buildings.remove_at(building_index)
-								if selected_enemy_building == building_index:
-									selected_enemy_building = -1
-								elif selected_enemy_building > building_index:
-									selected_enemy_building -= 1
 							break
+					_remove_destroyed_buildings("enemy")
 			else:
 				player_base_hp = maxi(0, player_base_hp - int(missile.damage))
 			missiles.remove_at(i)
@@ -1642,6 +1637,33 @@ func _apply_building_splash_damage(center: Vector2, radius: float, damage: int, 
 		# The primary structure is handled by its direct-hit damage.
 		if distance > 36.0 and distance <= radius:
 			building.hp = maxi(0, int(building.get("hp", 400)) - damage)
+	_remove_destroyed_buildings(target_team)
+
+
+func _remove_destroyed_buildings(target_team: String) -> void:
+	var targets: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
+	var removed_indices: Array[int] = []
+	for building_index in range(targets.size() - 1, -1, -1):
+		if int(targets[building_index].get("hp", 400)) <= 0:
+			removed_indices.append(building_index)
+			targets.remove_at(building_index)
+	if target_team != "enemy" or removed_indices.is_empty():
+		return
+	for removed_index in removed_indices:
+		if selected_enemy_building == removed_index:
+			selected_enemy_building = -1
+		elif selected_enemy_building > removed_index:
+			selected_enemy_building -= 1
+		for unit in units:
+			if not unit.has("attack_building"):
+				continue
+			var target_index := int(unit.attack_building)
+			if target_index == removed_index:
+				unit.erase("attack_building")
+			elif target_index > removed_index:
+				unit.attack_building = target_index - 1
+	notice = "دُمّر مبنى بفعل الانفجار!"
+	notice_time = 2.0
 
 func _draw_missiles() -> void:
 	for missile in missiles:
