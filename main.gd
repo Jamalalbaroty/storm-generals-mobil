@@ -68,6 +68,7 @@ func _process(delta: float) -> void:
 			income_timer = 0.0
 		_update_supply_control(delta)
 		_update_building_capture(delta)
+		_update_submarine_detection()
 		_update_missiles(delta)
 		if enemy_base_hp <= 0:
 			battle_result = "انتصرت! دمرت قاعدة العدو"
@@ -348,7 +349,7 @@ func _process(delta: float) -> void:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 					continue
 				var enemy_target := int(unit.get("attack_target", -1))
-				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0:
+				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
 					enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
 					if enemy_target >= 0:
 						unit.attack_target = enemy_target
@@ -443,6 +444,19 @@ func _is_submarine_detected(submarine: Dictionary, observer_team: String) -> boo
 			return true
 	return false
 
+func _update_submarine_detection() -> void:
+	for submarine in units:
+		if submarine.kind != "submarine" or submarine.get("hp", 0) <= 0:
+			continue
+		var observer_team := "enemy" if submarine.team == "player" else "player"
+		var reveal_key := "sonar_revealed_to_enemy" if observer_team == "enemy" else "sonar_revealed_to_player"
+		var detected := _is_submarine_detected(submarine, observer_team)
+		if detected and not bool(submarine.get(reveal_key, false)):
+			_add_visual_effect("flash", submarine.pos, submarine.pos, Color("#70e8ef"), 0.55, 42.0)
+			notice = "كشف السونار غواصة معادية!" if observer_team == "player" else "رصد العدو غواصتك بالسونار!"
+			notice_time = 1.8
+		submarine[reveal_key] = detected
+
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := INF
@@ -513,6 +527,8 @@ func _draw() -> void:
 	for i in units.size():
 		var u := units[i]
 		if u.get("hp", 0) <= 0:
+			continue
+		if u.team == "enemy" and u.kind == "submarine" and not _is_submarine_detected(u, "player"):
 			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
 		if u.kind == "carrier":
@@ -807,7 +823,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			return
 		var enemy_found := -1
 		for i in units.size():
-			if units[i].team == "enemy" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 30:
+			if units[i].team == "enemy" and units[i].get("hp", 0) > 0 and units[i].pos.distance_to(pos) < 30 and (units[i].kind != "submarine" or _is_submarine_detected(units[i], "player")):
 				enemy_found = i
 				break
 		if not selected.is_empty() and pos.distance_to(enemy_base) <= 65.0:
