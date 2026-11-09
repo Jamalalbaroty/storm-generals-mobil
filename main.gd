@@ -13,6 +13,7 @@ const ARTILLERY_COST := 450
 const AIRFIELD_COST := 600
 const FIGHTER_COST := 500
 const AA_COST := 400
+const HELICOPTER_COST := 650
 
 var faction := ""
 var credits := STARTING_CREDITS
@@ -96,6 +97,22 @@ func _process(delta: float) -> void:
 			if unit.get("hp", 0) <= 0:
 				continue
 			if unit.team == "enemy":
+				if unit.kind == "helicopter":
+					var heli_target := _nearest_player_unit(unit.pos)
+					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
+					if unit.pos.distance_to(heli_destination) <= 235.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
+							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
+							if heli_target >= 0:
+								_apply_splash_damage(heli_destination, 42.0, _helicopter_damage(unit), "player")
+							else:
+								player_base_hp = maxi(0, player_base_hp - 26)
+							unit.attack_cd = _helicopter_cooldown(unit)
+					else:
+						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
+					continue
 				if unit.kind == "fighter":
 					var air_target := _nearest_player_unit(unit.pos)
 					var air_destination: Vector2 = base_pos if air_target < 0 else units[air_target].pos
@@ -111,6 +128,22 @@ func _process(delta: float) -> void:
 							unit.attack_cd = 1.5
 					else:
 						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
+					continue
+				if unit.kind == "helicopter":
+					var heli_target := _nearest_player_unit(unit.pos)
+					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
+					if unit.pos.distance_to(heli_destination) <= 235.0:
+						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+						if unit.attack_cd <= 0.0:
+							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
+							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
+							if heli_target >= 0:
+								_apply_splash_damage(heli_destination, 42.0, _helicopter_damage(unit), "player")
+							else:
+								player_base_hp = maxi(0, player_base_hp - 26)
+							unit.attack_cd = _helicopter_cooldown(unit)
+					else:
+						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
 					continue
 				if unit.kind == "artillery":
 					var artillery_target := _nearest_player_unit(unit.pos)
@@ -146,6 +179,30 @@ func _process(delta: float) -> void:
 				elif distance_to_target > 34.0:
 					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
+				if unit.kind == "helicopter":
+					var heli_target := _nearest_enemy_unit(unit.pos, 380.0)
+					if heli_target >= 0:
+						var heli_enemy: Dictionary = units[heli_target]
+						if unit.pos.distance_to(heli_enemy.pos) <= 235.0:
+							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+							if unit.attack_cd <= 0.0:
+								_add_visual_effect("tracer", unit.pos, heli_enemy.pos, Color("#b9f0b1"), 0.2, 0.0)
+								_add_visual_effect("explosion", heli_enemy.pos, heli_enemy.pos, Color("#ffad62"), 0.52, 48.0)
+								_apply_splash_damage(heli_enemy.pos, 46.0, _helicopter_damage(unit), "enemy")
+								unit.attack_cd = _helicopter_cooldown(unit)
+						else:
+							unit.pos += (heli_enemy.pos - unit.pos).normalized() * delta * 82.0
+					else:
+						var heli_base_distance := unit.pos.distance_to(enemy_base)
+						if heli_base_distance <= 230.0:
+							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+							if unit.attack_cd <= 0.0:
+								_add_visual_effect("explosion", enemy_base, enemy_base, Color("#ffad62"), 0.52, 48.0)
+								enemy_base_hp = maxi(0, enemy_base_hp - 28)
+								unit.attack_cd = _helicopter_cooldown(unit)
+						else:
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
+					continue
 				if unit.kind == "fighter":
 					var air_target := _nearest_enemy_unit(unit.pos, 300.0)
 					if air_target >= 0:
@@ -218,13 +275,37 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
 			unit.hp = maxi(0, int(unit.hp) - damage)
 
+func _helicopter_damage(unit: Dictionary) -> int:
+	var army: String = unit.get("faction", faction)
+	if army == "وطن":
+		return 38
+	if army == "الجيش العربي":
+		return 34
+	if army == "الأمريكي":
+		return 32
+	return 30
+
+func _helicopter_cooldown(unit: Dictionary) -> float:
+	var army: String = unit.get("faction", faction)
+	return 1.1 if army == "وطن" else (1.2 if army == "الجيش العربي" else (1.25 if army == "الأمريكي" else 1.35))
+
+func _helicopter_color(unit: Dictionary) -> Color:
+	var army: String = unit.get("faction", faction)
+	if army == "الأمريكي":
+		return Color("#657b52")
+	if army == "الصيني":
+		return Color("#a94d3d")
+	if army == "الجيش العربي":
+		return Color("#c0a36b")
+	return Color("#d5b64e")
+
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
 			continue
-		if air_only and units[i].kind != "fighter":
+		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
@@ -273,7 +354,16 @@ func _draw() -> void:
 		if u.get("hp", 0) <= 0:
 			continue
 		var c := Color("#e7e7d8") if u.team == "player" else Color("#d84a3f")
-		if u.kind == "fighter":
+		if u.kind == "helicopter":
+			var heli_color := _helicopter_color(u)
+			draw_circle(u.pos, 10, heli_color)
+			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(10, -4), u.pos + Vector2(29, -1), u.pos + Vector2(10, 3)]), heli_color)
+			draw_line(u.pos + Vector2(-19, -14), u.pos + Vector2(18, -14), Color("#252b2b"), 3)
+			draw_line(u.pos + Vector2(0, -14), u.pos + Vector2(0, -22), Color("#252b2b"), 2)
+			draw_line(u.pos + Vector2(-12, -22), u.pos + Vector2(12, -22), Color("#252b2b"), 2)
+			draw_line(u.pos + Vector2(-5, 8), u.pos + Vector2(9, 12), Color("#252b2b"), 2)
+			draw_line(u.pos + Vector2(-11, 4), u.pos + Vector2(-22, 10), Color("#343b3b"), 2)
+		elif u.kind == "fighter":
 			var plane := PackedVector2Array([u.pos + Vector2(22, 0), u.pos + Vector2(-10, -7), u.pos + Vector2(-22, -20), u.pos + Vector2(-15, 0), u.pos + Vector2(-22, 20), u.pos + Vector2(-10, 7)])
 			draw_colored_polygon(plane, Color("#d7e4e8") if u.team == "player" else Color("#d95b51"))
 			draw_line(u.pos + Vector2(-4, 0), u.pos + Vector2(23, 0), Color("#303a42"), 3)
@@ -288,7 +378,7 @@ func _draw() -> void:
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
-		var max_hp := 120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))
+		var max_hp := 180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
@@ -345,19 +435,19 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "إلغاء"]
-		for i in 10:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "إلغاء"]
+		for i in 11:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 137), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 195), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	var column := index % 5
-	var row := int(index / 5)
-	var button_width := (size.x - 48.0) / 5.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 58.0), Vector2(button_width, 52.0))
+	var column := index % 4
+	var row := int(index / 4)
+	var button_width := (size.x - 40.0) / 4.0
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 184.0 + row * 58.0), Vector2(button_width, 52.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -438,7 +528,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 10:
+	for i in 11:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -468,6 +558,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				build_mode = "anti_air"
 				notice = "المس موقعاً مناسباً لنشر الدفاع المضاد للطائرات"
 				notice_time = 3.0
+			elif i == 9:
+				_spawn_unit("helicopter")
 			else:
 				selected.clear()
 				build_mode = ""
@@ -564,6 +656,7 @@ func _enemy_ai_turn() -> void:
 	var enemy_infantry := 0
 	var enemy_artillery := 0
 	var enemy_fighters := 0
+	var enemy_helicopters := 0
 	for unit in units:
 		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
 			continue
@@ -573,11 +666,17 @@ func _enemy_ai_turn() -> void:
 			enemy_artillery += 1
 		elif unit.kind == "fighter":
 			enemy_fighters += 1
+		elif unit.kind == "helicopter":
+			enemy_helicopters += 1
 		else:
 			enemy_infantry += 1
 	if _enemy_has_building("airfield") and enemy_credits >= FIGHTER_COST and enemy_fighters < 2:
 		enemy_credits -= FIGHTER_COST
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "hp": 120, "target": base_pos, "attack_cd": 0.0})
+	elif _enemy_has_building("airfield") and enemy_credits >= HELICOPTER_COST and enemy_helicopters < 2:
+		enemy_credits -= HELICOPTER_COST
+		var rival_faction: String = FACTIONS[(FACTIONS.find(faction) + 1) % FACTIONS.size()]
+		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
 	elif _enemy_has_building("factory") and enemy_credits >= ARTILLERY_COST and enemy_tanks >= 2 and enemy_artillery < 2:
 		enemy_credits -= ARTILLERY_COST
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "hp": 100, "target": base_pos, "attack_cd": 0.0})
@@ -656,8 +755,8 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج المدفعية"
 		notice_time = 2.5
 		return
-	if kind == "fighter" and not _has_building("airfield"):
-		notice = "ابنِ مطاراً أولاً لإنتاج المقاتلات"
+	if (kind == "fighter" or kind == "helicopter") and not _has_building("airfield"):
+		notice = "ابنِ مطاراً أولاً لإنتاج المقاتلات والمروحيات"
 		notice_time = 2.5
 		return
 	if kind == "infantry" and not _has_building("barracks"):
@@ -668,13 +767,13 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (FIGHTER_COST if kind == "fighter" else TANK_COST))
+	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST)))
 	if credits < cost:
 		notice = "لا توجد موارد كافية"
 		notice_time = 2.0
 		return
 	credits -= cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 120 if kind == "fighter" else (150 if kind == "tank" else 100), "attack_cd": 0.0})
-	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مقاتلة" if kind == "fighter" else "مدفعية"))
+	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "faction": faction, "hp": 180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)), "attack_cd": 0.0})
+	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية")))
 	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
