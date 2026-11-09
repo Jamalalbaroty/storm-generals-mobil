@@ -29,6 +29,7 @@ Use this checklist for each candidate build. Record device model, Android versio
 ## 4. Air and artillery
 - [ ] Artillery attacks at long range and has a visible firing/explosion effect.
 - [ ] Fighters prioritize hostile aircraft and do not become stuck after losing a target.
+- [ ] Player and enemy fighters use the same air-target acquisition radius (300), attack range (270), damage (30 before terrain modifiers), cooldown (1.35s), and movement speeds; fighters do not damage the opposing base when no aircraft target exists.
 - [ ] Helicopters attack valid ground targets and take damage from anti-air defenses.
 - [ ] Anti-air defenses prioritize air targets and do not incorrectly target ground-only units.
 - [ ] Aircraft launched from carriers return or despawn according to their carrier lifecycle.

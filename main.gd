@@ -13,6 +13,12 @@ const TURRET_COST := 350
 const ARTILLERY_COST := 450
 const AIRFIELD_COST := 600
 const FIGHTER_COST := 500
+const FIGHTER_DAMAGE := 30
+const FIGHTER_TARGET_RANGE := 300.0
+const FIGHTER_ATTACK_RANGE := 270.0
+const FIGHTER_ATTACK_COOLDOWN := 1.35
+const FIGHTER_SPEED := 95.0
+const FIGHTER_PATROL_SPEED := 65.0
 const AA_COST := 400
 const HELICOPTER_COST := 650
 const MISSILE_SILO_COST := 800
@@ -253,20 +259,20 @@ func _process(delta: float) -> void:
 				if unit.kind == "fighter":
 					var air_target := _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["fighter", "helicopter"])
-					var air_destination: Vector2 = base_pos if air_target < 0 else units[air_target].pos
-					if unit.pos.distance_to(air_destination) <= 280.0:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							_add_visual_effect("tracer", unit.pos, air_destination, Color("#ff9b72"), 0.18, 0.0)
-							_add_visual_effect("explosion", air_destination, air_destination, Color("#ffad72"), 0.42, 24.0)
-							if air_target >= 0:
-								units[air_target].hp = maxi(0, int(units[air_target].hp) - _terrain_adjusted_damage(units[air_target], 28))
-							else:
-								player_base_hp = maxi(0, player_base_hp - 22)
-							unit.attack_cd = 1.5
+						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter"])
+					if air_target >= 0:
+						var air_enemy: Dictionary = units[air_target]
+						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
+							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+							if unit.attack_cd <= 0.0:
+								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#ff9b72"), 0.18, 0.0)
+								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.42, 24.0)
+								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
+								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
+						else:
+							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
 					else:
-						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
+						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
 					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
@@ -425,20 +431,20 @@ func _process(delta: float) -> void:
 				if unit.kind == "fighter":
 					var air_target := _landing_craft_air_threat_target(unit.pos, "player")
 					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, 300.0, "enemy", ["fighter", "helicopter"])
+						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "enemy", ["fighter", "helicopter"])
 					if air_target >= 0:
 						var air_enemy: Dictionary = units[air_target]
-						if unit.pos.distance_to(air_enemy.pos) <= 270.0:
+						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 							if unit.attack_cd <= 0.0:
 								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#a8eaff"), 0.18, 0.0)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffbd78"), 0.4, 22.0)
-								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, 30))
-								unit.attack_cd = 1.35
+								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
+								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
 						else:
-							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * 95.0
+							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
 					else:
-						unit.pos += (enemy_base - unit.pos).normalized() * delta * 65.0
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "tank" or unit.kind == "artillery":
 					var landing_support_target := _landing_assault_support_target(unit.pos, "player")
