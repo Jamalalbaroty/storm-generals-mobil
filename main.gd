@@ -159,7 +159,10 @@ func _process(delta: float) -> void:
 							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
 							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
 							if heli_target >= 0:
-								_apply_splash_damage(heli_destination, 42.0, _helicopter_damage(unit), "player")
+								var heli_damage := 58 if units[heli_target].kind == "submarine" else _helicopter_damage(unit)
+								_apply_splash_damage(heli_destination, 42.0, heli_damage, "player")
+								if units[heli_target].kind == "submarine":
+									_add_visual_effect("flash", heli_destination, heli_destination, Color("#7fe8ef"), 0.35, 28.0)
 							else:
 								player_base_hp = maxi(0, player_base_hp - 26)
 							unit.attack_cd = _helicopter_cooldown(unit)
@@ -271,7 +274,10 @@ func _process(delta: float) -> void:
 							if unit.attack_cd <= 0.0:
 								_add_visual_effect("tracer", unit.pos, heli_enemy.pos, Color("#b9f0b1"), 0.2, 0.0)
 								_add_visual_effect("explosion", heli_enemy.pos, heli_enemy.pos, Color("#ffad62"), 0.52, 48.0)
-								_apply_splash_damage(heli_enemy.pos, 46.0, _helicopter_damage(unit), "enemy")
+								var heli_damage := 58 if heli_enemy.kind == "submarine" else _helicopter_damage(unit)
+								_apply_splash_damage(heli_enemy.pos, 46.0, heli_damage, "enemy")
+								if heli_enemy.kind == "submarine":
+									_add_visual_effect("flash", heli_enemy.pos, heli_enemy.pos, Color("#7fe8ef"), 0.35, 28.0)
 								unit.attack_cd = _helicopter_cooldown(unit)
 						else:
 							unit.pos += (heli_enemy.pos - unit.pos).normalized() * delta * 82.0
@@ -430,9 +436,10 @@ func _nearest_naval_unit(from_pos: Vector2, target_team: String) -> int:
 
 func _is_submarine_detected(submarine: Dictionary, observer_team: String) -> bool:
 	for observer in units:
-		if observer.team != observer_team or observer.kind != "destroyer" or observer.get("hp", 0) <= 0:
+		if observer.team != observer_team or observer.get("hp", 0) <= 0:
 			continue
-		if observer.pos.distance_to(submarine.pos) <= 190.0:
+		var detection_range := 190.0 if observer.kind == "destroyer" else (155.0 if observer.kind == "helicopter" else 0.0)
+		if detection_range > 0.0 and observer.pos.distance_to(submarine.pos) <= detection_range:
 			return true
 	return false
 
