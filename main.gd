@@ -477,10 +477,14 @@ func _process(delta: float) -> void:
 					continue
 				var enemy_target := int(unit.get("attack_target", -1))
 				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
-					enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
+					if unit.has("attack_focus_pos"):
+						enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
+					if enemy_target < 0:
+						enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
 					if enemy_target >= 0:
 						unit.attack_target = enemy_target
 				if enemy_target >= 0:
+					unit.attack_focus_pos = units[enemy_target].pos
 					var enemy: Dictionary = units[enemy_target]
 					var distance := unit.pos.distance_to(enemy.pos)
 					var attack_range := 360.0 if unit.kind == "artillery" else 160.0
@@ -710,6 +714,24 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 			best_distance = distance
 			best_index = i
 	return best_index
+
+func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
+	# Reacquire one common target near the last squad focus point so a commanded
+	# group stays together after its original target is destroyed.
+	var best_index := -1
+	var best_distance := max_distance
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if candidate.team != "enemy" or candidate.get("hp", 0) <= 0:
+			continue
+		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "player"):
+			continue
+		var distance := focus_pos.distance_to(candidate.pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = candidate_index
+	return best_index
+
 
 func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool = false) -> int:
 	var best_index := -1
@@ -1222,6 +1244,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			for idx in selected:
 				if idx < units.size() and units[idx].team == "player":
 					units[idx].attack_target = enemy_found
+					units[idx].attack_focus_pos = units[enemy_found].pos
 					units[idx].erase("attack_base")
 			notice = "أمر هجوم!"
 			notice_time = 1.5
