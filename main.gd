@@ -173,6 +173,7 @@ func _process(delta: float) -> void:
 					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
+		var enemy_ground_focus := _select_enemy_ground_assault_target()
 		for i in units.size():
 			var unit := units[i]
 			if unit.get("hp", 0) <= 0:
@@ -266,7 +267,7 @@ func _process(delta: float) -> void:
 						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
 					continue
 				if unit.kind == "artillery":
-					var artillery_target := _nearest_player_unit(unit.pos)
+					var artillery_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_distance := unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
@@ -281,7 +282,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := _nearest_player_unit(unit.pos)
+				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_unit(unit.pos)
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
@@ -671,6 +672,28 @@ func _update_submarine_detection() -> void:
 			notice = "كشف السونار غواصة معادية!" if observer_team == "player" else "رصد العدو غواصتك بالسونار!"
 			notice_time = 1.8
 		submarine[reveal_key] = detected
+
+func _select_enemy_ground_assault_target() -> int:
+	# Enemy ground forces share one frontline priority so tanks, infantry and artillery
+	# concentrate fire instead of scattering across unrelated player units.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if candidate.team != "player" or candidate.get("hp", 0) <= 0:
+			continue
+		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "enemy"):
+			continue
+		var score := candidate.pos.distance_to(enemy_base)
+		if candidate.kind == "tank" or candidate.kind == "artillery":
+			score -= 55.0
+		elif candidate.kind == "fighter" or candidate.kind == "helicopter":
+			score -= 25.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
 
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	var best_index := -1
