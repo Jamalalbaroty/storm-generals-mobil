@@ -49,13 +49,75 @@ var battle_result := ""
 var visual_effects: Array[Dictionary] = []
 var missiles: Array[Dictionary] = []
 var enemy_missile_timer := 0.0
+var audio_players: Array[AudioStreamPlayer] = []
+var audio_streams: Dictionary = {}
+var audio_player_cursor := 0
+var sound_cooldowns: Dictionary = {"weapon": 0.0, "explosion": 0.0}
 
 func _ready() -> void:
 	randomize()
+	_setup_battle_audio()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
 
+func _setup_battle_audio() -> void:
+	audio_streams["weapon"] = _build_battle_sound("weapon")
+	audio_streams["explosion"] = _build_battle_sound("explosion")
+	for player_index in range(4):
+		var player := AudioStreamPlayer.new()
+		player.name = "BattleAudio" + str(player_index)
+		player.volume_db = -7.0
+		add_child(player)
+		audio_players.append(player)
+
+
+func _build_battle_sound(sound_name: String) -> AudioStreamWAV:
+	var sample_rate := 22050
+	var duration := 0.34 if sound_name == "explosion" else 0.12
+	var sample_count := int(sample_rate * duration)
+	var pcm := PackedByteArray()
+	pcm.resize(sample_count)
+	for sample_index in range(sample_count):
+		var t := float(sample_index) / float(sample_rate)
+		var sample := 0.0
+		if sound_name == "explosion":
+			var envelope := exp(-t * 8.5)
+			var sweep_frequency := 82.0 - 42.0 * (t / duration)
+			var low_boom := sin(TAU * sweep_frequency * t) * 0.62
+			var debris_noise := randf_range(-1.0, 1.0) * 0.38
+			sample = (low_boom + debris_noise) * envelope
+		else:
+			var envelope := exp(-t * 38.0)
+			var snap := sin(TAU * (155.0 - 85.0 * t / duration) * t) * 0.58
+			var crack := randf_range(-1.0, 1.0) * 0.42
+			sample = (snap + crack) * envelope
+		pcm[sample_index] = int(clampf(sample * 112.0 + 128.0, 0.0, 255.0))
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = pcm
+	return stream
+
+
+func _play_battle_sound(sound_name: String) -> void:
+	if not audio_streams.has(sound_name) or audio_players.is_empty():
+		return
+	if float(sound_cooldowns.get(sound_name, 0.0)) > 0.0:
+		return
+	sound_cooldowns[sound_name] = 0.11 if sound_name == "weapon" else 0.18
+	for attempt in range(audio_players.size()):
+		var player_index := (audio_player_cursor + attempt) % audio_players.size()
+		var player: AudioStreamPlayer = audio_players[player_index]
+		if not player.playing:
+			player.stream = audio_streams[sound_name]
+			player.play()
+			audio_player_cursor = (player_index + 1) % audio_players.size()
+			return
+
 func _process(delta: float) -> void:
+	for sound_name in sound_cooldowns.keys():
+		sound_cooldowns[sound_name] = maxf(0.0, float(sound_cooldowns[sound_name]) - delta)
 	if notice_time > 0.0:
 		notice_time -= delta
 	for effect_index in range(visual_effects.size() - 1, -1, -1):
@@ -406,6 +468,10 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Color, duration: float, radius: float) -> void:
+	if kind == "explosion":
+		_play_battle_sound("explosion")
+	elif kind == "tracer":
+		_play_battle_sound("weapon")
 	visual_effects.append({
 		"kind": kind,
 		"start": start,
