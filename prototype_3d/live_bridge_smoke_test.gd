@@ -74,8 +74,8 @@ func _initialize() -> void:
 		quit(1)
 		return
 	game.call("_set_3d_view_enabled", true)
-	var enemy_screen := bridge.rts_camera.unproject_position(enemy_fighter.global_position + Vector3.UP)
-	var player_screen := bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
+	var enemy_screen: Vector2 = bridge.rts_camera.unproject_position(enemy_fighter.global_position + Vector3.UP)
+	var player_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
 	bridge.call("_handle_world_tap", enemy_screen)
 	bridge.call("_handle_world_tap", player_screen)
 	if bridge.get("selected_tank") != player_tank:
