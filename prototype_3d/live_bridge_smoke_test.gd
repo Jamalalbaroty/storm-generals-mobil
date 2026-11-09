@@ -15,6 +15,10 @@ func _initialize() -> void:
 		push_error("Active match did not create its dedicated 3D gameplay bridge")
 		quit(1)
 		return
+	if not bridge.is_connected("gameplay_order_issued", Callable(game, "_on_3d_gameplay_order_issued")):
+		push_error("3D command signal is not connected to the live RTS command layer")
+		quit(1)
+		return
 	if bridge.visible:
 		push_error("3D gameplay bridge must remain hidden until the 3D view is explicitly enabled")
 		quit(1)
@@ -55,6 +59,18 @@ func _initialize() -> void:
 	var enemy_fighter := bridge.game_unit_nodes.get("enemy|2|fighter") as Node3D
 	if player_tank == null or enemy_fighter == null:
 		push_error("Live bridge lost stable unit identity or team ownership")
+		quit(1)
+		return
+	game.call("_on_3d_gameplay_order_issued", "player|1|tank", "move", Vector3(0.0, 0.0, 0.0), "")
+	var logical_units: Array[Dictionary] = game.get("units")
+	if not logical_units[0].has("target") or logical_units[0].target.distance_to(Vector2(640.0, 360.0)) > 0.1:
+		push_error("3D move command did not convert battlefield coordinates into the live RTS map")
+		quit(1)
+		return
+	game.call("_on_3d_gameplay_order_issued", "player|1|tank", "attack", Vector3.ZERO, "enemy|2|fighter")
+	logical_units = game.get("units")
+	if int(logical_units[0].get("attack_target", -1)) != 1 or not logical_units[0].has("attack_focus_pos"):
+		push_error("3D attack command did not resolve the enemy unit into a live RTS attack order")
 		quit(1)
 		return
 	if absf(float(player_tank.get_meta("health", 0.0)) - 75.0) > 0.001 or absf(float(player_tank.get_meta("max_health", 0.0)) - 150.0) > 0.001:

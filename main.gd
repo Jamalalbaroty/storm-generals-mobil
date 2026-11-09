@@ -116,6 +116,55 @@ func _setup_3d_gameplay_bridge() -> void:
 	battlefield_3d.name = "Gameplay3DBridge"
 	battlefield_3d.visible = false
 	add_child(battlefield_3d)
+	if battlefield_3d.has_signal("gameplay_order_issued"):
+		battlefield_3d.connect("gameplay_order_issued", Callable(self, "_on_3d_gameplay_order_issued"))
+
+
+func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
+	var source_parts := source_key.split("|")
+	if source_parts.size() < 3 or source_parts[0] != "player":
+		return
+	var source_id := int(source_parts[1])
+	var source_index := -1
+	for index in range(units.size()):
+		if units[index].team == "player" and int(units[index].get("3d_sync_id", -1)) == source_id:
+			source_index = index
+			break
+	if source_index < 0:
+		return
+	var source_unit: Dictionary = units[source_index]
+	if order_type == "move":
+		var map_size := get_viewport_rect().size
+		var world_limit := 42.0 * 0.38
+		var nx := clampf((world_position.x + world_limit) / (world_limit * 2.0), 0.0, 1.0)
+		var ny := clampf((world_position.z + world_limit) / (world_limit * 2.0), 0.0, 1.0)
+		source_unit["target"] = Vector2(nx * map_size.x, ny * map_size.y)
+		source_unit.erase("attack_target")
+		source_unit.erase("attack_focus_pos")
+		source_unit.erase("attack_base")
+		source_unit.erase("attack_building")
+		notice = "أمر حركة صادر من القيادة ثلاثية الأبعاد"
+		notice_time = 1.6
+	elif order_type == "attack":
+		var target_parts := target_key.split("|")
+		if target_parts.size() < 3 or target_parts[0] != "enemy":
+			return
+		var target_id := int(target_parts[1])
+		var target_index := -1
+		for index in range(units.size()):
+			if units[index].team == "enemy" and int(units[index].get("3d_sync_id", -1)) == target_id and int(units[index].get("hp", 0)) > 0:
+				target_index = index
+				break
+		if target_index < 0:
+			return
+		source_unit["attack_target"] = target_index
+		source_unit["attack_focus_pos"] = units[target_index].pos
+		source_unit.erase("target")
+		source_unit.erase("attack_base")
+		source_unit.erase("attack_building")
+		notice = "أمر اشتباك صادر من القيادة ثلاثية الأبعاد"
+		notice_time = 1.6
+	queue_redraw()
 
 
 func _sync_3d_gameplay_bridge() -> void:

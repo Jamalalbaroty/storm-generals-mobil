@@ -1,4 +1,5 @@
 extends Node3D
+signal gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String)
 ## 3D rendering foundation for Storm Generals.
 ## This is an isolated visual prototype; the production 2D match remains the active scene
 ## until real faction assets, gameplay conversion, and Android performance are verified.
@@ -1987,6 +1988,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 	var tapped_tank := _tank_at_screen_position(screen_position)
 	if tapped_tank != null:
 		if is_instance_valid(selected_tank) and tapped_tank != selected_tank:
+			if _is_live_player_unit(selected_tank) and str(tapped_tank.get_meta("source_team", "")) == "enemy":
+				gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_tank.get_meta("source_unit_key", "")))
 			attack_target = tapped_tank
 			has_selected_destination = false
 			order_marker.visible = false
@@ -2007,9 +2010,15 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		0.0,
 		clampf(ground_point.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
 	)
+	if _is_live_player_unit(selected_tank):
+		gameplay_order_issued.emit(str(selected_tank.get_meta("source_unit_key", "")), "move", selected_destination, "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
+
+
+func _is_live_player_unit(unit: Node3D) -> bool:
+	return is_instance_valid(unit) and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
 
 func _tank_at_screen_position(screen_position: Vector2) -> Node3D:
 	if not is_instance_valid(rts_camera):
