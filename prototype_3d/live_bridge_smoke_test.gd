@@ -473,6 +473,39 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Validate the live coordinated ground assault: armor leads, infantry follows, and artillery holds its firing standoff.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("base_pos", Vector2(180.0, 360.0))
+	game.set("enemy_base", Vector2(500.0, 360.0))
+	game.set("enemy_strategy", "aggressive")
+	var coordinated_assault_units: Array[Dictionary] = [
+		{"pos": Vector2(460.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0},
+		{"pos": Vector2(460.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 100, "attack_cd": 0.0},
+		{"pos": Vector2(740.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "attack_cd": 0.0},
+		{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "tank", "hp": 150, "attack_cd": 0.0}
+	]
+	var no_buildings: Array[Dictionary] = []
+	var no_supply_points: Array[Dictionary] = []
+	game.set("units", coordinated_assault_units)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_buildings)
+	game.set("supply_points", no_supply_points)
+	game.call("_process", 1.0)
+	game.call("_process", 0.1)
+	var coordinated_result: Array[Dictionary] = game.get("units")
+	var assault_direction := Vector2.LEFT
+	var tank_lane_projection: float = (coordinated_result[0].pos - Vector2(400.0, 360.0)).dot(assault_direction)
+	var infantry_lane_projection: float = (coordinated_result[1].pos - Vector2(400.0, 360.0)).dot(assault_direction)
+	var artillery_standoff: float = coordinated_result[2].pos.distance_to(Vector2(400.0, 360.0))
+	if tank_lane_projection <= infantry_lane_projection or coordinated_result[0].pos.distance_to(Vector2(460.0, 360.0)) <= coordinated_result[1].pos.distance_to(Vector2(460.0, 360.0)) or artillery_standoff > 330.0 or int(coordinated_result[3].hp) >= 150:
+		push_error("Live enemy ground assault failed to coordinate leading armor, trailing infantry and artillery standoff fire")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
