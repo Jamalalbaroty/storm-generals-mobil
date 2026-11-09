@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: storm-generals-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   export-android:
     runs-on: ubuntu-latest
