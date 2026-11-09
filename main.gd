@@ -322,6 +322,7 @@ func _process(delta: float) -> void:
 			if unit.kind == "fighter" and _update_carrier_fighter(unit, delta):
 				continue
 			if unit.team == "enemy":
+				var enemy_landing_support_target := -1
 				if _is_naval_kind(String(unit.kind)):
 					var naval_target = _best_naval_target(unit.pos, "player", String(unit.kind))
 					var naval_destination := Vector2(base_pos.x, get_viewport_rect().size.y * 0.82)
@@ -407,6 +408,14 @@ func _process(delta: float) -> void:
 						else:
 							unit.erase("target")
 					continue
+				if unit.kind == "tank" or unit.kind == "artillery":
+					enemy_landing_support_target = _landing_assault_support_target(unit.pos, "enemy")
+					if enemy_landing_support_target >= 0:
+						unit["landing_support_active"] = true
+						unit["landing_support_target"] = enemy_landing_support_target
+					else:
+						unit.erase("landing_support_active")
+						unit.erase("landing_support_target")
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
@@ -426,7 +435,7 @@ func _process(delta: float) -> void:
 						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
-					var artillery_target = enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos)
+					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
@@ -441,7 +450,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos)
+				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
