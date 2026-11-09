@@ -495,8 +495,11 @@ func _process(delta: float) -> void:
 					if engage_player:
 						player_target = defender_target
 				var destination: Vector2 = base_pos
+				var supply_reinforcement_point := _enemy_supply_reinforcement_point(i)
 				if is_defender and not engage_player:
 					destination = unit.get("defense_anchor", enemy_base)
+				elif supply_reinforcement_point >= 0 and enemy_landing_support_target < 0 and not engage_player:
+					destination = supply_points[supply_reinforcement_point].pos
 				elif engage_player:
 					destination = units[player_target].pos
 					if unit.kind == "tank" or unit.kind == "infantry":
@@ -1994,6 +1997,50 @@ func _update_supply_control(delta: float) -> void:
 			if supply_points[i].supply_payout >= supply_interval:
 				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / supply_interval))
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
+
+
+func _enemy_supply_reinforcement_point(unit_index: int) -> int:
+	if unit_index < 0 or unit_index >= units.size():
+		return -1
+	var candidate_unit: Dictionary = units[unit_index]
+	if candidate_unit.team != "enemy" or not ["infantry", "tank"].has(String(candidate_unit.kind)):
+		return -1
+	var best_point := -1
+	var best_distance := INF
+	for point_index in range(supply_points.size()):
+		var point: Dictionary = supply_points[point_index]
+		if String(point.get("owner", "neutral")) != "enemy":
+			continue
+		var player_threat := false
+		var enemy_garrisoned := false
+		for other_index in range(units.size()):
+			var other: Dictionary = units[other_index]
+			if int(other.get("hp", 0)) <= 0:
+				continue
+			var distance: float = other.pos.distance_to(point.pos)
+			if other.team == "player" and distance <= 180.0:
+				player_threat = true
+			elif other.team == "enemy" and distance <= 85.0:
+				enemy_garrisoned = true
+		if not player_threat or enemy_garrisoned:
+			continue
+		var nearest_guard := -1
+		var nearest_distance := INF
+		for guard_index in range(units.size()):
+			var guard: Dictionary = units[guard_index]
+			if guard.team != "enemy" or int(guard.get("hp", 0)) <= 0 or not ["infantry", "tank"].has(String(guard.kind)):
+				continue
+			var guard_distance: float = guard.pos.distance_squared_to(point.pos)
+			if guard_distance < nearest_distance:
+				nearest_distance = guard_distance
+				nearest_guard = guard_index
+		if nearest_guard != unit_index:
+			continue
+		var distance_to_point: float = candidate_unit.pos.distance_to(point.pos)
+		if distance_to_point < best_distance:
+			best_distance = distance_to_point
+			best_point = point_index
+	return best_point
 
 func _draw_terrain(size: Vector2) -> void:
 	var ground = Color("#9a835d")
