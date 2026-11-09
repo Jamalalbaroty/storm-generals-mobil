@@ -20,6 +20,9 @@ var build_mode := ""
 var notice := "اختر جيشك لبدء المعركة"
 var notice_time := 4.0
 var enemy_timer := 0.0
+var enemy_credits := 1200
+var enemy_income_timer := 0.0
+var enemy_buildings: Array[Dictionary] = []
 var game_started := false
 var dragging := false
 var drag_start := Vector2.ZERO
@@ -52,10 +55,14 @@ func _process(delta: float) -> void:
 			battle_result = "هُزمت! سقطت قاعدتك"
 			queue_redraw()
 			return
+		enemy_income_timer += delta
+		if enemy_income_timer >= 1.0:
+			enemy_credits = mini(MAX_CREDITS, enemy_credits + int(PASSIVE_INCOME * enemy_income_timer))
+			enemy_income_timer = 0.0
 		enemy_timer += delta
-		if enemy_timer >= 16.0:
+		if enemy_timer >= 12.0:
 			enemy_timer = 0.0
-			units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+			_enemy_ai_turn()
 		for building in buildings:
 			if building.kind == "turret":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
@@ -63,6 +70,13 @@ func _process(delta: float) -> void:
 				if target >= 0 and building.attack_cd <= 0.0:
 					units[target].hp -= 18
 					building.attack_cd = 0.8
+		for building in enemy_buildings:
+			if building.kind == "turret":
+				building.attack_cd = building.get("attack_cd", 0.0) - delta
+				var target := _nearest_player_unit(building.pos)
+				if target >= 0 and building.pos.distance_to(units[target].pos) <= 230.0 and building.attack_cd <= 0.0:
+					units[target].hp -= 16
+					building.attack_cd = 0.9
 		for i in units.size():
 			var unit := units[i]
 			if unit.get("hp", 0) <= 0:
@@ -160,7 +174,9 @@ func _draw() -> void:
 	_draw_base_health(base_pos, player_base_hp)
 	_draw_base_health(enemy_base, enemy_base_hp)
 	for building in buildings:
-		_draw_building(building.pos, building.kind)
+		_draw_building(building.pos, building.kind, false)
+	for building in enemy_buildings:
+		_draw_building(building.pos, building.kind, true)
 	for i in units.size():
 		var u := units[i]
 		if u.get("hp", 0) <= 0:
@@ -263,8 +279,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				income_timer = 0.0
 				units.clear()
 				buildings.clear()
+				enemy_buildings.clear()
 				selected.clear()
 				build_mode = ""
+				enemy_credits = STARTING_CREDITS
+				enemy_income_timer = 0.0
 				enemy_timer = 0.0
 				player_base_hp = 1000
 				enemy_base_hp = 1000
@@ -344,8 +363,47 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 						units[idx].erase("attack_base")
 	queue_redraw()
 
-func _draw_building(p: Vector2, kind: String) -> void:
+func _enemy_has_building(kind: String) -> bool:
+	for building in enemy_buildings:
+		if building.kind == kind:
+			return true
+	return false
+
+func _enemy_ai_turn() -> void:
+	var build_pos := enemy_base + Vector2(-135, randf_range(-135.0, 135.0))
+	if not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
+		enemy_credits -= BARRACKS_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "barracks", "hp": 400, "attack_cd": 0.0})
+		notice = "العدو أنشأ ثكنة عسكرية"
+		notice_time = 2.0
+		return
+	if not _enemy_has_building("factory") and enemy_credits >= FACTORY_COST:
+		enemy_credits -= FACTORY_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "factory", "hp": 500, "attack_cd": 0.0})
+		notice = "العدو أنشأ مصنع دبابات"
+		notice_time = 2.0
+		return
+	if not _enemy_has_building("turret") and enemy_credits >= TURRET_COST:
+		enemy_credits -= TURRET_COST
+		enemy_buildings.append({"pos": build_pos, "kind": "turret", "hp": 350, "attack_cd": 0.0})
+		notice = "العدو نشر برجاً دفاعياً"
+		notice_time = 2.0
+		return
+	var enemy_tanks := 0
+	for unit in units:
+		if unit.team == "enemy" and unit.kind == "tank" and unit.get("hp", 0) > 0:
+			enemy_tanks += 1
+	if _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
+		enemy_credits -= TANK_COST
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
+	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST:
+		enemy_credits -= INFANTRY_COST
+		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else Color("#718b56"))
+	if is_enemy:
+		color = Color("#a85b52") if kind == "barracks" else (Color("#805b67") if kind == "factory" else Color("#a34b42"))
 	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
 	draw_rect(body, Color("#252b2b"))
 	draw_rect(body.grow(-4), color)
