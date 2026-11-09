@@ -114,7 +114,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			touch_points[drag.index] = drag.position
 		if touch_points.size() >= 2:
 			var points: Array = touch_points.values()
-			var distance := points[0].distance_to(points[1])
+			var distance: float = points[0].distance_to(points[1])
 			if last_pinch_distance > 0.0 and distance > 1.0:
 				_zoom_camera(last_pinch_distance / distance)
 			last_pinch_distance = distance
