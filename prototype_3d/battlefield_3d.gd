@@ -40,6 +40,7 @@ var radar_hud: Control
 var radar_plot: Control
 var radar_status_label: Label
 var radar_count_label: Label
+var radar_ground_label: Label
 var radar_sweep_widget: ColorRect
 var radar_blip_widgets: Dictionary = {}
 
@@ -584,7 +585,7 @@ func _build_tactical_radar_hud() -> void:
 	column.add_theme_constant_override("separation", 5)
 	panel.add_child(column)
 	var heading := Label.new()
-	heading.text = "TACTICAL // AIRSPACE"
+	heading.text = "TACTICAL // THREAT GRID"
 	heading.add_theme_color_override("font_color", Color(0.66, 0.86, 0.72))
 	heading.add_theme_font_size_override("font_size", 13)
 	column.add_child(heading)
@@ -635,18 +636,24 @@ func _build_tactical_radar_hud() -> void:
 	var footer := HBoxContainer.new()
 	column.add_child(footer)
 	var status := Label.new()
-	status.text = "AIRSPACE: CLEAR"
+	status.text = "AIR 0  |  GROUND 0"
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status.add_theme_font_size_override("font_size", 11)
 	status.add_theme_color_override("font_color", Color(0.42, 0.88, 0.60))
 	footer.add_child(status)
 	radar_status_label = status
 	var count := Label.new()
-	count.text = "HOSTILE  0"
+	count.text = "CONTACTS  0"
 	count.add_theme_font_size_override("font_size", 11)
 	count.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25))
 	footer.add_child(count)
 	radar_count_label = count
+	var ground_status := Label.new()
+	ground_status.text = "SECTOR SECURE  //  SCAN ACTIVE"
+	ground_status.add_theme_font_size_override("font_size", 10)
+	ground_status.add_theme_color_override("font_color", Color(0.55, 0.70, 0.59))
+	column.add_child(ground_status)
+	radar_ground_label = ground_status
 	radar_hud = panel
 
 func _update_radar_hud(delta: float) -> void:
@@ -655,30 +662,34 @@ func _update_radar_hud(delta: float) -> void:
 	if is_instance_valid(radar_sweep_widget):
 		radar_sweep_widget.rotation += delta * 2.2
 	var active_keys: Array[String] = []
-	var hostile_count := 0
-	for aircraft in showcase_tanks:
-		if not is_instance_valid(aircraft):
+	var hostile_air := 0
+	var hostile_ground := 0
+	for unit in showcase_tanks:
+		if not is_instance_valid(unit):
 			continue
-		var aircraft_type := str(aircraft.get_meta("unit_type", "tank"))
-		if aircraft_type != "helicopter" and aircraft_type != "fighter":
+		if str(unit.get_meta("faction_id", "")) == "american":
 			continue
-		# The showcase command HUD represents the American command network.
-		if str(aircraft.get_meta("faction_id", "")) == "american":
+		var unit_type := str(unit.get_meta("unit_type", "tank"))
+		var is_air := unit_type == "helicopter" or unit_type == "fighter"
+		if not is_air and unit_type != "tank" and unit_type != "infantry":
 			continue
-		if Vector2(aircraft.global_position.x, aircraft.global_position.z).length() > 30.0:
+		if Vector2(unit.global_position.x, unit.global_position.z).length() > 30.0:
 			continue
-		hostile_count += 1
-		var key := str(aircraft.get_instance_id())
+		if is_air:
+			hostile_air += 1
+		else:
+			hostile_ground += 1
+		var key := str(unit.get_instance_id())
 		active_keys.append(key)
 		var blip := radar_blip_widgets.get(key) as ColorRect
 		if not is_instance_valid(blip):
 			blip = ColorRect.new()
-			blip.size = Vector2(7.0, 7.0)
-			blip.color = Color(1.0, 0.20, 0.12)
+			blip.size = Vector2(8.0, 8.0) if is_air else Vector2(6.0, 6.0)
+			blip.color = Color(1.0, 0.20, 0.12) if is_air else Color(1.0, 0.48, 0.12)
 			radar_plot.add_child(blip)
 			radar_blip_widgets[key] = blip
-		var px := clampf((aircraft.global_position.x + 30.0) / 60.0 * 240.0, 3.0, 233.0)
-		var py := clampf((aircraft.global_position.z + 30.0) / 60.0 * 132.0, 3.0, 125.0)
+		var px := clampf((unit.global_position.x + 30.0) / 60.0 * 240.0, 3.0, 233.0)
+		var py := clampf((unit.global_position.z + 30.0) / 60.0 * 132.0, 3.0, 125.0)
 		blip.position = Vector2(px, py)
 		blip.visible = true
 	for key_variant in radar_blip_widgets.keys():
@@ -689,14 +700,13 @@ func _update_radar_hud(delta: float) -> void:
 				stale.queue_free()
 			radar_blip_widgets.erase(key)
 	if is_instance_valid(radar_count_label):
-		radar_count_label.text = "HOSTILE  %d" % hostile_count
+		radar_count_label.text = "CONTACTS  %d" % (hostile_air + hostile_ground)
 	if is_instance_valid(radar_status_label):
-		if hostile_count > 0:
-			radar_status_label.text = "WARNING: AIR CONTACT"
-			radar_status_label.add_theme_color_override("font_color", Color(1.0, 0.30, 0.20))
-		else:
-			radar_status_label.text = "AIRSPACE: CLEAR"
-			radar_status_label.add_theme_color_override("font_color", Color(0.42, 0.88, 0.60))
+		radar_status_label.text = "AIR %d  |  GROUND %d" % [hostile_air, hostile_ground]
+		radar_status_label.add_theme_color_override("font_color", Color(1.0, 0.42, 0.20) if hostile_air + hostile_ground > 0 else Color(0.42, 0.88, 0.60))
+	if is_instance_valid(radar_ground_label):
+		radar_ground_label.text = "HOSTILE CONTACT // SCAN ACTIVE" if hostile_air + hostile_ground > 0 else "SECTOR SECURE  //  SCAN ACTIVE"
+		radar_ground_label.add_theme_color_override("font_color", Color(1.0, 0.48, 0.25) if hostile_air + hostile_ground > 0 else Color(0.55, 0.70, 0.59))
 
 func _build_showcase_radars() -> void:
 	_add_radar_station(Vector3(-14.0, 0.0, -7.0), "american")
@@ -747,16 +757,18 @@ func _update_radar_network(delta: float) -> void:
 		if is_instance_valid(sweep):
 			sweep.rotation.y += delta * 2.8
 		var radar_faction := str(radar.get_meta("faction_id", ""))
-		for aircraft in showcase_tanks:
-			if not is_instance_valid(aircraft):
+		var active_contacts: Array[String] = []
+		for unit in showcase_tanks:
+			if not is_instance_valid(unit):
 				continue
-			var aircraft_type := str(aircraft.get_meta("unit_type", "tank"))
-			if aircraft_type != "helicopter" and aircraft_type != "fighter":
+			var unit_type := str(unit.get_meta("unit_type", "tank"))
+			if unit_type != "helicopter" and unit_type != "fighter":
 				continue
-			var is_hostile := str(aircraft.get_meta("faction_id", "")) != radar_faction
-			var in_range := radar.global_position.distance_to(aircraft.global_position) <= 26.0
-			var blip_key := str(radar.get_instance_id()) + ":" + str(aircraft.get_instance_id())
+			var is_hostile := str(unit.get_meta("faction_id", "")) != radar_faction
+			var in_range := radar.global_position.distance_to(unit.global_position) <= 26.0
+			var blip_key := str(radar.get_instance_id()) + ":" + str(unit.get_instance_id())
 			if is_hostile and in_range:
+				active_contacts.append(blip_key)
 				var blip: MeshInstance3D = radar_blips.get(blip_key) as MeshInstance3D
 				if not is_instance_valid(blip):
 					blip = MeshInstance3D.new()
@@ -772,14 +784,15 @@ func _update_radar_network(delta: float) -> void:
 					blip.material_override = blip_material
 					add_child(blip)
 					radar_blips[blip_key] = blip
-				blip.global_position = aircraft.global_position + Vector3.UP * (1.4 + sin(radar_alert_clock * 5.0) * 0.12)
+				blip.global_position = unit.global_position + Vector3.UP * (1.4 + sin(radar_alert_clock * 5.0) * 0.12)
 				blip.visible = true
-			elif radar_blips.has(blip_key):
-				var old_blip := radar_blips[blip_key] as MeshInstance3D
+		for old_key_variant in radar_blips.keys():
+			var old_key := str(old_key_variant)
+			if old_key.begins_with(str(radar.get_instance_id()) + ":") and not active_contacts.has(old_key):
+				var old_blip := radar_blips[old_key] as MeshInstance3D
 				if is_instance_valid(old_blip):
 					old_blip.queue_free()
-				radar_blips.erase(blip_key)
-
+				radar_blips.erase(old_key)
 func _build_showcase_infantry() -> void:
 	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25), "american")
 	_add_placeholder_infantry_squad(Vector3(0.0, 0.0, 10.0), Color(0.34, 0.37, 0.40), "chinese")
