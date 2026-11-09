@@ -173,6 +173,23 @@ func _initialize() -> void:
 		push_error("Naval propeller animation did not advance")
 		quit(1)
 		return
+	# Verify a carrier launches a visible patrol aircraft and starts its sortie cooldown.
+	var test_carrier := battlefield.game_unit_nodes.get("player|6|carrier") as Node3D
+	if test_carrier == null:
+		push_error("Carrier unit missing before air operations test")
+		quit(1)
+		return
+	battlefield.call("_update_carrier_air_operations", 0.1)
+	if battlefield.carrier_aircraft.size() != 1 or float(test_carrier.get_meta("air_ops_cooldown", 0.0)) <= 0.0:
+		push_error("Carrier failed to launch a patrol aircraft or set its sortie cooldown")
+		quit(1)
+		return
+	var launched_aircraft := battlefield.carrier_aircraft[0].get("node") as Node3D
+	if launched_aircraft == null or launched_aircraft.get_child_count() < 3 or launched_aircraft.global_position.y <= test_carrier.global_position.y:
+		push_error("Carrier patrol aircraft geometry or takeoff altitude is invalid")
+		quit(1)
+		return
+
 	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D
 	battlefield.call("sync_game_units", archetype_records, map_rect)
 	if battlefield.game_unit_nodes.get("player|4|artillery") != stable_artillery or battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():
@@ -199,7 +216,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery, naval archetypes and destroyer combat passed")
+	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery, naval combat and carrier flight operations passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
