@@ -26,6 +26,8 @@ var touch_moved: Dictionary = {}
 var attack_target: Node3D
 var attack_cooldown := 0.0
 var showcase_health_bars: Dictionary = {}
+var infantry_leg_pairs: Dictionary = {}
+var infantry_gait_clock := 0.0
 
 func _ready() -> void:
 	_build_environment()
@@ -45,6 +47,7 @@ func _process(delta: float) -> void:
 	_update_showcase_orders(delta)
 	_update_showcase_combat(delta)
 	_update_showcase_health_bars()
+	_update_infantry_animation(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -302,6 +305,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
 	add_child(squad)
 	showcase_tanks.append(squad)
 	squad.set_meta("health", 100.0)
+	squad.set_meta("unit_type", "infantry")
 	_create_showcase_health_bar(squad)
 
 	var soldier_offsets := [
@@ -342,6 +346,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
 		helmet.material_override = _make_armour_material(faction_color.darkened(0.22))
 		soldier.add_child(helmet)
 
+		var soldier_legs: Array[Node3D] = []
 		for leg_side in [-1.0, 1.0]:
 			var leg := MeshInstance3D.new()
 			var leg_mesh := CylinderMesh.new()
@@ -352,6 +357,8 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
 			leg.position = Vector3(leg_side * 0.13, 0.30, 0.0)
 			leg.material_override = _make_armour_material(Color(0.16, 0.18, 0.16))
 			soldier.add_child(leg)
+			soldier_legs.append(leg)
+		infantry_leg_pairs[soldier] = soldier_legs
 
 		var pack := MeshInstance3D.new()
 		var pack_mesh := BoxMesh.new()
@@ -387,12 +394,33 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color) -> void:
 	aim_pivot.add_child(barrel)
 
 
+func _update_infantry_animation(delta: float) -> void:
+	infantry_gait_clock += delta
+	var moving_squad: Node3D = selected_tank if has_selected_destination else null
+	for soldier_variant in infantry_leg_pairs.keys():
+		var soldier := soldier_variant as Node3D
+		if not is_instance_valid(soldier):
+			infantry_leg_pairs.erase(soldier_variant)
+			continue
+		var legs: Array = infantry_leg_pairs[soldier_variant]
+		var is_walking := soldier.get_parent() == moving_squad
+		var phase := infantry_gait_clock * 9.0 + float(soldier.get_instance_id() % 7)
+		for leg_index in range(legs.size()):
+			var leg := legs[leg_index] as Node3D
+			if is_instance_valid(leg):
+				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * (0.52 if is_walking else 0.025)
+		if is_walking:
+			soldier.position.y = sin(phase * 2.0) * 0.025
+		else:
+			soldier.position.y = 0.0
+
 func _add_placeholder_tank(at: Vector3, faction_color: Color) -> void:
 	var tank := Node3D.new()
 	tank.position = at
 	add_child(tank)
 	showcase_tanks.append(tank)
 	tank.set_meta("health", 100.0)
+	tank.set_meta("unit_type", "tank")
 	_create_showcase_health_bar(tank)
 
 	var hull := MeshInstance3D.new()
@@ -561,6 +589,8 @@ func _update_showcase_orders(delta: float) -> void:
 		selection_ring.visible = false
 		return
 	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
+	var ring_scale := 0.62 if selected_tank.get_meta("unit_type", "tank") == "infantry" else 1.0
+	selection_ring.scale = Vector3.ONE * ring_scale
 	if not has_selected_destination:
 		return
 	var direction := selected_destination - selected_tank.global_position
@@ -649,34 +679,37 @@ func _update_showcase_combat(delta: float) -> void:
 	attack_cooldown -= delta
 	if attack_cooldown > 0.0:
 		return
-	attack_cooldown = 1.25
+	var is_infantry := selected_tank.get_meta("unit_type", "tank") == "infantry"
+	attack_cooldown = 0.42 if is_infantry else 1.25
 	_fire_showcase_projectile(pivot, attack_target)
 
 func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
+	var is_infantry := selected_tank.get_meta("unit_type", "tank") == "infantry"
 	var projectile := MeshInstance3D.new()
 	var projectile_mesh := SphereMesh.new()
-	projectile_mesh.radius = 0.13
-	projectile_mesh.height = 0.26
+	projectile_mesh.radius = 0.055 if is_infantry else 0.13
+	projectile_mesh.height = 0.12 if is_infantry else 0.26
 	projectile.mesh = projectile_mesh
 	var projectile_material := StandardMaterial3D.new()
-	projectile_material.albedo_color = Color(1.0, 0.58, 0.16)
+	projectile_material.albedo_color = Color(1.0, 0.86, 0.34) if is_infantry else Color(1.0, 0.58, 0.16)
 	projectile_material.emission_enabled = true
-	projectile_material.emission = Color(1.0, 0.32, 0.06)
+	projectile_material.emission = Color(1.0, 0.72, 0.18) if is_infantry else Color(1.0, 0.32, 0.06)
 	projectile_material.emission_energy_multiplier = 2.0
 	projectile.material_override = projectile_material
 	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
 	add_child(projectile)
 	var destination := target.global_position + Vector3.UP * 0.95
 	var tween := create_tween()
-	tween.tween_property(projectile, "global_position", destination, 0.32)
-	tween.tween_callback(_resolve_showcase_hit.bind(projectile, target))
+	tween.tween_property(projectile, "global_position", destination, 0.22 if is_infantry else 0.32)
+	var damage := 12.5 if is_infantry else 25.0
+	tween.tween_callback(_resolve_showcase_hit.bind(projectile, target, damage))
 
-func _resolve_showcase_hit(projectile: Node3D, target: Node3D) -> void:
+func _resolve_showcase_hit(projectile: Node3D, target: Node3D, damage: float) -> void:
 	if is_instance_valid(projectile):
 		projectile.queue_free()
 	if not is_instance_valid(target):
 		return
-	var remaining_health := float(target.get_meta("health", 100.0)) - 25.0
+	var remaining_health := float(target.get_meta("health", 100.0)) - damage
 	target.set_meta("health", remaining_health)
 	_spawn_impact_flash(target.global_position, remaining_health <= 0.0)
 	if remaining_health <= 0.0:
