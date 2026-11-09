@@ -129,22 +129,6 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (air_destination - unit.pos).normalized() * delta * 92.0
 					continue
-				if unit.kind == "helicopter":
-					var heli_target := _nearest_player_unit(unit.pos)
-					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
-					if unit.pos.distance_to(heli_destination) <= 235.0:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
-							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
-							if heli_target >= 0:
-								_apply_splash_damage(heli_destination, 42.0, _helicopter_damage(unit), "player")
-							else:
-								player_base_hp = maxi(0, player_base_hp - 26)
-							unit.attack_cd = _helicopter_cooldown(unit)
-					else:
-						unit.pos += (heli_destination - unit.pos).normalized() * delta * 78.0
-					continue
 				if unit.kind == "artillery":
 					var artillery_target := _nearest_player_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
@@ -319,7 +303,7 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 	for i in units.size():
 		if units[i].team != "enemy" or units[i].get("hp", 0) <= 0:
 			continue
-		if air_only and units[i].kind != "fighter":
+		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
