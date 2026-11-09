@@ -610,7 +610,7 @@ func _draw() -> void:
 			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
 		elif u.kind == "helicopter":
 			var heli_color := _helicopter_color(u)
-			draw_ellipse(u.pos + Vector2(0, 4), Vector2(15, 7), Color(0, 0, 0, 0.22))
+			draw_circle(u.pos + Vector2(0, 4), 13, Color(0, 0, 0, 0.22))
 			draw_circle(u.pos, 10, Color("#263238"))
 			draw_circle(u.pos + Vector2(1, -2), 8, heli_color)
 			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(8, -4), u.pos + Vector2(30, -1), u.pos + Vector2(9, 4)]), heli_color)
