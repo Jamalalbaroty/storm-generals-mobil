@@ -202,7 +202,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	battlefield.call("_update_carrier_air_operations", 0.3)
-	if battlefield.carrier_aircraft.size() != 0 or is_instance_valid(launched_aircraft):
+	if battlefield.carrier_aircraft.size() != 0 or (is_instance_valid(launched_aircraft) and not launched_aircraft.is_queued_for_deletion()):
 		push_error("Carrier patrol aircraft was not recovered after landing")
 		quit(1)
 		return
