@@ -94,7 +94,7 @@ func _process(delta: float) -> void:
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
 				var target := _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
-					units[target].hp -= 34 if building.kind == "anti_air" else 18
+					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], 34 if building.kind == "anti_air" else 18))
 					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"), 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb34d"), 0.22, 13.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.8
@@ -104,7 +104,7 @@ func _process(delta: float) -> void:
 				var target := _nearest_player_unit(building.pos, building.kind == "anti_air")
 				var max_range := 320.0 if building.kind == "anti_air" else 230.0
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
-					units[target].hp -= 34 if building.kind == "anti_air" else 16
+					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], 34 if building.kind == "anti_air" else 16))
 					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
@@ -193,7 +193,7 @@ func _process(delta: float) -> void:
 							_add_visual_effect("tracer", unit.pos, air_destination, Color("#ff9b72"), 0.18, 0.0)
 							_add_visual_effect("explosion", air_destination, air_destination, Color("#ffad72"), 0.42, 24.0)
 							if air_target >= 0:
-								units[air_target].hp -= 28
+								units[air_target].hp = maxi(0, int(units[air_target].hp) - _terrain_adjusted_damage(units[air_target], 28))
 							else:
 								player_base_hp = maxi(0, player_base_hp - 22)
 							unit.attack_cd = 1.5
@@ -232,7 +232,7 @@ func _process(delta: float) -> void:
 				if player_target >= 0 and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
-						units[player_target].hp -= 10
+						units[player_target].hp = maxi(0, int(units[player_target].hp) - _terrain_adjusted_damage(units[player_target], 10))
 						unit.attack_cd = 0.9
 				elif player_target < 0 and distance_to_target <= 145.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -330,7 +330,7 @@ func _process(delta: float) -> void:
 							if unit.attack_cd <= 0.0:
 								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#a8eaff"), 0.18, 0.0)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffbd78"), 0.4, 22.0)
-								air_enemy.hp -= 30
+								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, 30))
 								unit.attack_cd = 1.35
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * 95.0
@@ -393,7 +393,7 @@ func _process(delta: float) -> void:
 								_apply_splash_damage(enemy.pos, 58.0, 45, "enemy")
 								unit.attack_cd = 2.4
 							else:
-								enemy.hp -= 20 if unit.kind == "tank" else 10
+								enemy.hp = maxi(0, int(enemy.hp) - _terrain_adjusted_damage(enemy, 20 if unit.kind == "tank" else 10))
 								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
 								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
@@ -416,10 +416,33 @@ func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Col
 		"radius": radius
 	})
 
+func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
+	# Infantry use natural cover in forest, mountain and dense urban theaters.
+	var kind := String(target.get("kind", ""))
+	if kind == "infantry":
+		if map_type == "ساحل الغابات":
+			return maxi(1, roundi(raw_damage * 0.72))
+		if map_type == "الساحل الجبلي":
+			return maxi(1, roundi(raw_damage * 0.80))
+		if map_type == "المدينة الساحلية":
+			return maxi(1, roundi(raw_damage * 0.76))
+	return raw_damage
+
+func _terrain_effect_label() -> String:
+	match map_type:
+		"ساحل الغابات":
+			return "غطاء الغابات: حماية المشاة 28%"
+		"الساحل الجبلي":
+			return "المرتفعات: حماية المشاة 20%"
+		"المدينة الساحلية":
+			return "المباني: حماية المشاة 24%"
+		_:
+			return "الصحراء: لا يوجد غطاء طبيعي"
+
 func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
 	for unit in units:
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
-			unit.hp = maxi(0, int(unit.hp) - damage)
+			unit.hp = maxi(0, int(unit.hp) - _terrain_adjusted_damage(unit, damage))
 
 func _helicopter_damage(unit: Dictionary) -> int:
 	var army: String = unit.get("faction", faction)
@@ -674,6 +697,7 @@ func _draw_hud(size: Vector2) -> void:
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
 		draw_string(ThemeDB.fallback_font, Vector2(16, 82), "المسرح: %s" % map_type, HORIZONTAL_ALIGNMENT_LEFT, 300, 16, Color("#fff0b5"))
+		draw_string(ThemeDB.fallback_font, Vector2(16, 103), _terrain_effect_label(), HORIZONTAL_ALIGNMENT_LEFT, 360, 14, Color("#d8e6c2"))
 		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 368), "الأسطول: مدمرات وحاملات وغواصات وسفن إنزال — احمِ الممرات البحرية", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
