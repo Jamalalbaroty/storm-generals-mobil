@@ -8,6 +8,7 @@ const PASSIVE_INCOME := 6.0
 const MAX_CREDITS := 5000
 const BARRACKS_COST := 250
 const FACTORY_COST := 450
+const TURRET_COST := 350
 
 var faction := ""
 var credits := STARTING_CREDITS
@@ -55,6 +56,13 @@ func _process(delta: float) -> void:
 		if enemy_timer >= 16.0:
 			enemy_timer = 0.0
 			units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+		for building in buildings:
+			if building.kind == "turret":
+				building.attack_cd = building.get("attack_cd", 0.0) - delta
+				var target := _nearest_enemy_unit(building.pos, 230.0)
+				if target >= 0 and building.attack_cd <= 0.0:
+					units[target].hp -= 18
+					building.attack_cd = 0.8
 		for i in units.size():
 			var unit := units[i]
 			if unit.get("hp", 0) <= 0:
@@ -197,8 +205,8 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(22, 38), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, 300, 25, Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(size.x - 270, 38), "الذهب: %d  (+%d/ث)" % [credits, int(PASSIVE_INCOME)], HORIZONTAL_ALIGNMENT_LEFT, 250, 22, Color.WHITE)
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "إلغاء"]
-		for i in 5:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "إلغاء"]
+		for i in 6:
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
@@ -206,7 +214,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(20, size.y - 18), "المس الوحدة لتحديدها • اسحب لتحديد عدة وحدات • المس الأرض لإصدار أمر الحركة", HORIZONTAL_ALIGNMENT_LEFT, size.x - 40, 17, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x - 590 + index * 118, size.y - 76), Vector2(110, 52))
+	return Rect2(Vector2(size.x - 625 + index * 104, size.y - 76), Vector2(100, 52))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -266,7 +274,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 5:
+	for i in 6:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -279,6 +287,10 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			elif i == 3:
 				build_mode = "factory"
 				notice = "المس موقعاً في منطقتك لبناء المصنع"
+				notice_time = 3.0
+			elif i == 4:
+				build_mode = "turret"
+				notice = "المس موقعاً في منطقتك لبناء برج الدفاع"
 				notice_time = 3.0
 			else:
 				selected.clear()
@@ -333,15 +345,20 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	queue_redraw()
 
 func _draw_building(p: Vector2, kind: String) -> void:
-	var color := Color("#b69b68") if kind == "barracks" else Color("#657b8d")
+	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else Color("#718b56"))
 	var body := Rect2(p - Vector2(27, 22), Vector2(54, 44))
 	draw_rect(body, Color("#252b2b"))
 	draw_rect(body.grow(-4), color)
-	draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
-	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), "ثكنة" if kind == "barracks" else "مصنع", HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
+	if kind == "turret":
+		draw_circle(p, 13, Color("#343b3b"))
+		draw_line(p, p + Vector2(25, -8), Color("#d2d1b8"), 6)
+	else:
+		draw_rect(Rect2(p + Vector2(-9, -17), Vector2(18, 34)), Color("#343b3b"))
+	var label := "ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else "دفاع")
+	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := BARRACKS_COST if build_mode == "barracks" else FACTORY_COST
+	var cost := BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else TURRET_COST)
 	if pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0:
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
@@ -357,7 +374,7 @@ func _place_building(pos: Vector2) -> void:
 		return
 	credits -= cost
 	buildings.append({"pos": pos, "kind": build_mode, "hp": 400})
-	notice = "تم إنشاء %s" % ("الثكنة" if build_mode == "barracks" else "المصنع")
+	notice = "تم إنشاء %s" % ("الثكنة" if build_mode == "barracks" else ("المصنع" if build_mode == "factory" else "برج الدفاع"))
 	notice_time = 2.0
 	build_mode = ""
 
