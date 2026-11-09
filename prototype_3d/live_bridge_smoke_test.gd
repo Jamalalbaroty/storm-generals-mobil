@@ -222,7 +222,7 @@ func _initialize() -> void:
 	var produced_naval_counter := bool(game.call("_enemy_counter_production", "naval_control", 0, 0, 0, 0))
 	var produced_units: Array = game.get("units")
 	if not produced_naval_counter or produced_units.size() != 1 or String(produced_units[0].get("kind", "")) != "destroyer":
-		push_error("Naval-control AI failed to produce its destroyer counter")
+		push_error("Naval-control AI failed: produced=%s units=%s shipyard=%s credits=%s supplies=%s destroyer_cost=%s supply_cost=%s" % [produced_naval_counter, produced_units.size(), game.call("_enemy_has_building", "shipyard"), game.get("enemy_credits"), game.get("enemy_supplies"), game.call("_unit_cost", "destroyer", game.call("_enemy_faction")), game.call("_unit_supply_cost", "destroyer")])
 		quit(1)
 		return
 	var expected_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
