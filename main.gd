@@ -473,19 +473,19 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 410.0), 26), "الذهب: %d" % credits, HORIZONTAL_ALIGNMENT_LEFT, 170, 19, Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(maxf(330.0, size.x - 230.0), 47), "الإمداد: %d" % supplies, HORIZONTAL_ALIGNMENT_LEFT, 180, 17, Color("#9fe6d2"))
 	if game_started:
-		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650"]
-		for i in 16:
+		var labels := ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ 650", "حوض سفن 700", "مدمرة 900"]
+		for i in labels.size():
 			var r := _button_rect(i, size)
 			draw_rect(r, Color("#263d50"), true)
 			draw_rect(r, Color("#8fa8b8"), false, 2)
 			draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 252), "الصواريخ تستهدف قاعدة العدو أو المبنى المحدد — احمِ قاعدتك بالدفاع الصاروخي", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 310), "السفن تحتاج حوض سفن — ادعم قواتك البرية من الساحل", HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 15, Color.WHITE)
 
 func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 4
 	var row := int(index / 4)
 	var button_width := (size.x - 40.0) / 4.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 242.0 + row * 58.0), Vector2(button_width, 52.0))
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 300.0 + row * 58.0), Vector2(button_width, 52.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -576,7 +576,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 16:
+	for i in 18:
 		if _button_rect(i, size).has_point(pos):
 			if i == 0:
 				_spawn_unit("infantry")
@@ -626,6 +626,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice_time = 3.0
 			elif i == 15:
 				_launch_player_missile()
+			elif i == 16:
+				build_mode = "shipyard"
+				notice = "اختر منطقة ساحلية في أسفل الخريطة لبناء حوض السفن"
+				notice_time = 3.0
+			elif i == 17:
+				_spawn_unit("destroyer")
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -1117,8 +1123,8 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 	draw_string(ThemeDB.fallback_font, p + Vector2(-35, 39), label, HORIZONTAL_ALIGNMENT_CENTER, 70, 13, Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
-	var cost := MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST)))))
-	if pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0:
+	var cost := 700 if build_mode == "shipyard" else (MISSILE_SILO_COST if build_mode == "missile_silo" else (MISSILE_DEFENSE_COST if build_mode == "missile_defense" else (BARRACKS_COST if build_mode == "barracks" else (FACTORY_COST if build_mode == "factory" else (AIRFIELD_COST if build_mode == "airfield" else (AA_COST if build_mode == "anti_air" else TURRET_COST))))))
+	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0)):
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
 		return
@@ -1145,6 +1151,10 @@ func _has_building(kind: String) -> bool:
 	return false
 
 func _spawn_unit(kind: String) -> void:
+	if kind == "destroyer" and not _has_building("shipyard"):
+		notice = "ابنِ حوض سفن أولاً لإنتاج المدمرة"
+		notice_time = 2.5
+		return
 	if kind == "artillery" and not _has_building("factory"):
 		notice = "ابنِ مصنعاً أولاً لإنتاج المدفعية"
 		notice_time = 2.5
@@ -1161,8 +1171,8 @@ func _spawn_unit(kind: String) -> void:
 		notice = "ابنِ مصنعاً أولاً لإنتاج الدبابات"
 		notice_time = 2.5
 		return
-	var cost := INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST)))
-	var supply_cost := _unit_supply_cost(kind)
+	var cost := 900 if kind == "destroyer" else (INFANTRY_COST if kind == "infantry" else (ARTILLERY_COST if kind == "artillery" else (HELICOPTER_COST if kind == "helicopter" else (FIGHTER_COST if kind == "fighter" else TANK_COST))))
+	var supply_cost := 4 if kind == "destroyer" else _unit_supply_cost(kind)
 	if supplies < supply_cost:
 		notice = "الإمدادات غير كافية — سيطر على نقاط الإمداد"
 		notice_time = 2.5
@@ -1173,7 +1183,7 @@ func _spawn_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "faction": faction, "hp": 180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)), "attack_cd": 0.0})
-	var unit_name := "جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية")))
+	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "faction": faction, "hp": 260 if kind == "destroyer" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))), "attack_cd": 0.0})
+	var unit_name := "مدمرة بحرية" if kind == "destroyer" else ("جندي" if kind == "infantry" else ("دبابة" if kind == "tank" else ("مروحية قتالية" if kind == "helicopter" else ("مقاتلة" if kind == "fighter" else "مدفعية"))))
 	notice = "تم إنتاج %s" % unit_name
 	notice_time = 2.0
