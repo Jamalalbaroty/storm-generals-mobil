@@ -2607,7 +2607,11 @@ func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_
 		return false
 	enemy_credits -= cost
 	enemy_supplies -= supply_cost
-	units.append({"pos": enemy_base + Vector2(-82.0, randf_range(-72.0, 72.0)), "team": "enemy", "kind": kind, "faction": _enemy_faction(), "hp": unit_hp, "target": base_pos, "attack_cd": 0.0})
+	var spawn_pos := enemy_base + Vector2(-82.0, randf_range(-72.0, 72.0))
+	if kind == "destroyer":
+		# Naval counters must enter the water at the shipyard, not spawn on the land base.
+		spawn_pos = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+	units.append({"pos": spawn_pos, "team": "enemy", "kind": kind, "faction": _enemy_faction(), "hp": unit_hp, "target": base_pos, "attack_cd": 0.0})
 	return true
 
 
