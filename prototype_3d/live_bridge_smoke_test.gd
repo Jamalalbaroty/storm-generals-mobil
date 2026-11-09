@@ -785,6 +785,22 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Guard artillery must fire on armor threatening a forward factory, not only reposition near it.
+	var artillery_structure_guard_units: Array[Dictionary] = [
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "artillery", "hp": 110, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
+		{"pos": Vector2(800.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("units", artillery_structure_guard_units)
+	game.set("enemy_base", Vector2(1400.0, 330.0))
+	game.set("enemy_buildings", protected_enemy_buildings)
+	game.set("supply_points", no_supply_points)
+	game.call("_process", 0.5)
+	var artillery_structure_guard_result: Array[Dictionary] = game.get("units")
+	if int(artillery_structure_guard_result[1].get("hp", 150)) >= 150:
+		push_error("Enemy guard artillery failed to fire on armor threatening a forward factory")
+		quit(1)
+		return
+
 	# Enemy armor reinforces an owned supply point when player forces threaten an undefended position.
 	var threatened_enemy_point: Array[Dictionary] = [
 		{"pos": Vector2(520.0, 300.0), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
