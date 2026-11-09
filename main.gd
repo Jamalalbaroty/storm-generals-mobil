@@ -9,6 +9,7 @@ const MAX_CREDITS := 5000
 const BARRACKS_COST := 250
 const FACTORY_COST := 450
 const TURRET_COST := 350
+const ARTILLERY_COST := 450
 
 var faction := ""
 var credits := STARTING_CREDITS
@@ -112,24 +113,34 @@ func _process(delta: float) -> void:
 					continue
 				var enemy_target := int(unit.get("attack_target", -1))
 				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0:
-					enemy_target = _nearest_enemy_unit(unit.pos, 220.0)
+					enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
 					if enemy_target >= 0:
 						unit.attack_target = enemy_target
 				if enemy_target >= 0:
 					var enemy: Dictionary = units[enemy_target]
 					var distance := unit.pos.distance_to(enemy.pos)
-					if distance <= 160.0:
+					var attack_range := 360.0 if unit.kind == "artillery" else 160.0
+					if distance <= attack_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							enemy.hp -= 20 if unit.kind == "tank" else 10
-							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+							if unit.kind == "artillery":
+								_apply_splash_damage(enemy.pos, 58.0, 45, "enemy")
+								unit.attack_cd = 2.4
+							else:
+								enemy.hp -= 20 if unit.kind == "tank" else 10
+								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
 					else:
-						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 				elif unit.has("target"):
 					var target: Vector2 = unit.target
 					if unit.pos.distance_to(target) > 8.0:
-						unit.pos += (target - unit.pos).normalized() * delta * (55.0 if unit.kind == "infantry" else 36.0)
+						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 		queue_redraw()
+
+func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
+	for unit in units:
+		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
+			unit.hp = maxi(0, int(unit.hp) - damage)
 
 func _nearest_player_unit(from_pos: Vector2) -> int:
 	var best_index := -1
