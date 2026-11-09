@@ -188,7 +188,8 @@ func _draw() -> void:
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
-		var hp_ratio := clampf(float(u.get("hp", 0)) / (100.0 if u.team == "player" else 60.0), 0.0, 1.0)
+		var max_hp := 150.0 if u.kind == "tank" else (100.0 if u.team == "player" else 60.0)
+		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
@@ -370,7 +371,9 @@ func _enemy_has_building(kind: String) -> bool:
 	return false
 
 func _enemy_ai_turn() -> void:
-	var build_pos := enemy_base + Vector2(-135, randf_range(-135.0, 135.0))
+	var build_pos := _enemy_build_position()
+	if build_pos.x < 0.0:
+		return
 	if not _enemy_has_building("barracks") and enemy_credits >= BARRACKS_COST:
 		enemy_credits -= BARRACKS_COST
 		enemy_buildings.append({"pos": build_pos, "kind": "barracks", "hp": 400, "attack_cd": 0.0})
@@ -390,15 +393,37 @@ func _enemy_ai_turn() -> void:
 		notice_time = 2.0
 		return
 	var enemy_tanks := 0
+	var enemy_infantry := 0
 	for unit in units:
-		if unit.team == "enemy" and unit.kind == "tank" and unit.get("hp", 0) > 0:
+		if unit.team != "enemy" or unit.get("hp", 0) <= 0:
+			continue
+		if unit.kind == "tank":
 			enemy_tanks += 1
+		else:
+			enemy_infantry += 1
 	if _enemy_has_building("factory") and enemy_credits >= TANK_COST and enemy_tanks < 4:
 		enemy_credits -= TANK_COST
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "hp": 150, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST:
+	elif _enemy_has_building("barracks") and enemy_credits >= INFANTRY_COST and enemy_infantry < 8:
 		enemy_credits -= INFANTRY_COST
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _enemy_build_position() -> Vector2:
+	var size := get_viewport_rect().size
+	for attempt in 12:
+		var candidate := enemy_base + Vector2(randf_range(-185.0, -105.0), randf_range(-175.0, 175.0))
+		candidate.x = clampf(candidate.x, size.x * 0.52, size.x - 65.0)
+		candidate.y = clampf(candidate.y, 105.0, size.y - 105.0)
+		if candidate.distance_to(enemy_base) < 90.0:
+			continue
+		var occupied := false
+		for building in enemy_buildings:
+			if building.pos.distance_to(candidate) < 82.0:
+				occupied = true
+				break
+		if not occupied:
+			return candidate
+	return Vector2(-1.0, -1.0)
 
 func _draw_building(p: Vector2, kind: String, is_enemy: bool = false) -> void:
 	var color := Color("#b69b68") if kind == "barracks" else (Color("#657b8d") if kind == "factory" else Color("#718b56"))
@@ -457,6 +482,6 @@ func _spawn_unit(kind: String) -> void:
 		notice_time = 2.0
 		return
 	credits -= cost
-	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 100, "attack_cd": 0.0})
+	units.append({"pos": base_pos + Vector2(65, randf_range(-35, 35)), "team": "player", "kind": kind, "hp": 150 if kind == "tank" else 100, "attack_cd": 0.0})
 	notice = "تم إنتاج %s" % ("جندي" if kind == "infantry" else "دبابة")
 	notice_time = 2.0
