@@ -30,6 +30,8 @@ var infantry_leg_pairs: Dictionary = {}
 var infantry_gait_clock := 0.0
 var aircraft_rotors: Array[Node3D] = []
 var aircraft_clock := 0.0
+var air_defense_nodes: Array[Node3D] = []
+var air_defense_cooldowns: Array[float] = []
 
 func _ready() -> void:
 	_build_environment()
@@ -51,6 +53,7 @@ func _process(delta: float) -> void:
 	_update_showcase_health_bars()
 	_update_infantry_animation(delta)
 	_update_aircraft_animation(delta)
+	_update_air_defenses(delta)
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -296,6 +299,7 @@ func _build_showcase_units() -> void:
 	_add_placeholder_tank(Vector3(7.0, 0.0, 1.0), Color(0.48, 0.39, 0.25))
 	_build_showcase_infantry()
 	_build_showcase_aircraft()
+	_build_showcase_air_defenses()
 
 
 func _build_showcase_aircraft() -> void:
@@ -436,6 +440,102 @@ func _update_aircraft_animation(delta: float) -> void:
 			unit.position.y = 5.2 + sin(aircraft_clock * 2.1 + float(unit.get_instance_id() % 9)) * 0.12
 		elif unit_type == "fighter" and unit != selected_tank and not (unit == selected_tank and has_selected_destination):
 			unit.position.y = 6.4 + sin(aircraft_clock * 1.7 + float(unit.get_instance_id() % 7)) * 0.16
+
+func _build_showcase_air_defenses() -> void:
+	_add_air_defense_turret(Vector3(-16.0, 0.0, -1.0), Color(0.30, 0.37, 0.27))
+	_add_air_defense_turret(Vector3(16.0, 0.0, 1.0), Color(0.37, 0.38, 0.40))
+
+func _add_air_defense_turret(at: Vector3, tint: Color) -> void:
+	var emplacement := Node3D.new()
+	emplacement.position = at
+	add_child(emplacement)
+	var base := MeshInstance3D.new()
+	var base_mesh := CylinderMesh.new()
+	base_mesh.top_radius = 1.05
+	base_mesh.bottom_radius = 1.35
+	base_mesh.height = 0.65
+	base.mesh = base_mesh
+	base.position.y = 0.34
+	base.material_override = _make_armour_material(tint.darkened(0.20))
+	emplacement.add_child(base)
+
+	var shield := MeshInstance3D.new()
+	var shield_mesh := BoxMesh.new()
+	shield_mesh.size = Vector3(1.7, 1.0, 1.35)
+	shield.mesh = shield_mesh
+	shield.position.y = 1.05
+	shield.material_override = _make_armour_material(tint)
+	emplacement.add_child(shield)
+
+	var tracking_pivot := Node3D.new()
+	tracking_pivot.position.y = 1.42
+	emplacement.add_child(tracking_pivot)
+	for side in [-1.0, 1.0]:
+		var launcher := MeshInstance3D.new()
+		var launcher_mesh := CylinderMesh.new()
+		launcher_mesh.top_radius = 0.16
+		launcher_mesh.bottom_radius = 0.20
+		launcher_mesh.height = 1.8
+		launcher.mesh = launcher_mesh
+		launcher.rotation_degrees.x = 90.0
+		launcher.position = Vector3(side * 0.43, 0.15, -0.45)
+		launcher.material_override = _make_armour_material(Color(0.13, 0.15, 0.14))
+		tracking_pivot.add_child(launcher)
+	air_defense_nodes.append(tracking_pivot)
+	air_defense_cooldowns.append(0.8)
+
+func _update_air_defenses(delta: float) -> void:
+	for defense_index in range(air_defense_nodes.size()):
+		var defense := air_defense_nodes[defense_index]
+		if not is_instance_valid(defense):
+			continue
+		air_defense_cooldowns[defense_index] = maxf(0.0, air_defense_cooldowns[defense_index] - delta)
+		var nearest_aircraft: Node3D = null
+		var nearest_distance := 22.0
+		for candidate in showcase_tanks:
+			if not is_instance_valid(candidate):
+				continue
+			var candidate_type := str(candidate.get_meta("unit_type", "tank"))
+			if candidate_type != "helicopter" and candidate_type != "fighter":
+				continue
+			var distance := defense.global_position.distance_to(candidate.global_position)
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_aircraft = candidate
+		if nearest_aircraft == null:
+			continue
+		defense.look_at(nearest_aircraft.global_position, Vector3.UP)
+		if air_defense_cooldowns[defense_index] > 0.0:
+			continue
+		air_defense_cooldowns[defense_index] = 2.2
+		_fire_air_defense_missile(defense, nearest_aircraft)
+
+func _fire_air_defense_missile(defense: Node3D, target: Node3D) -> void:
+	var missile := MeshInstance3D.new()
+	var missile_mesh := CapsuleMesh.new()
+	missile_mesh.radius = 0.10
+	missile_mesh.height = 0.65
+	missile.mesh = missile_mesh
+	missile.rotation_degrees.x = 90.0
+	var missile_material := StandardMaterial3D.new()
+	missile_material.albedo_color = Color(0.82, 0.84, 0.72)
+	missile_material.emission_enabled = true
+	missile_material.emission = Color(1.0, 0.38, 0.08)
+	missile_material.emission_energy_multiplier = 1.4
+	missile.material_override = missile_material
+	missile.global_position = defense.global_position + (-defense.global_transform.basis.z * 1.0)
+	add_child(missile)
+	var flight_time := clampf(missile.global_position.distance_to(target.global_position) / 18.0, 0.35, 1.1)
+	var tween := create_tween()
+	tween.tween_property(missile, "global_position", target.global_position, flight_time)
+	tween.tween_callback(_resolve_air_defense_hit.bind(missile, target))
+
+func _resolve_air_defense_hit(missile: Node3D, target: Node3D) -> void:
+	if is_instance_valid(missile):
+		missile.queue_free()
+	if not is_instance_valid(target):
+		return
+	_resolve_showcase_hit(null, target, 35.0)
 
 func _build_showcase_infantry() -> void:
 	_add_placeholder_infantry_squad(Vector3(-9.0, 0.0, 8.0), Color(0.30, 0.38, 0.25))
