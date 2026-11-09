@@ -938,7 +938,10 @@ func _update_missiles(delta: float) -> void:
 		var direction := destination - missile.pos
 		var travel := 230.0 * delta
 		if direction.length() <= travel + 8.0 or float(missile.life) <= delta:
-			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 82.0)
+			_add_visual_effect("explosion", destination, destination, Color("#ff9a52"), 0.8, 92.0)
+			# Missile warheads now damage nearby hostile units as well as the primary target.
+			var splash_team := "enemy" if missile.team == "player" else "player"
+			_apply_splash_damage(destination, 92.0, maxi(25, int(missile.damage * 0.65)), splash_team)
 			if missile.team == "player":
 				if missile.target_kind == "base":
 					enemy_base_hp = maxi(0, enemy_base_hp - int(missile.damage))
