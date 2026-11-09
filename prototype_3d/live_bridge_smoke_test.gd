@@ -805,6 +805,39 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# After a base threat is neutralized, the defender must return to its assigned anchor.
+	var returning_guard_units: Array[Dictionary] = [
+		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
+		{"pos": Vector2(800.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+	]
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_base", Vector2(1000.0, 330.0))
+	game.set("enemy_buildings", no_enemy_buildings)
+	game.set("buildings", no_buildings)
+	game.set("supply_points", no_supply_points)
+	game.set("units", returning_guard_units)
+	game.call("_process", 0.5)
+	var engaged_guard_units: Array[Dictionary] = game.get("units")
+	var guard_after_engagement: Vector2 = engaged_guard_units[0].pos
+	if guard_after_engagement.distance_to(Vector2(1000.0, 330.0)) < 5.0 or int(engaged_guard_units[1].get("hp", 150)) >= 150:
+		push_error("Base guard did not leave its anchor and engage the approaching armor")
+		quit(1)
+		return
+	engaged_guard_units[1]["hp"] = 0
+	game.set("units", engaged_guard_units)
+	game.call("_process", 0.5)
+	var returning_guard_result: Array[Dictionary] = game.get("units")
+	var guard_return_distance: float = returning_guard_result[0].pos.distance_to(Vector2(1000.0, 330.0))
+	if guard_return_distance >= guard_after_engagement.distance_to(Vector2(1000.0, 330.0)):
+		push_error("Base guard failed to return toward its assigned anchor after the threat was neutralized")
+		quit(1)
+		return
+
 	# A base guard must also protect a forward structure when the base itself is not threatened.
 	var protected_structure_units: Array[Dictionary] = [
 		{"pos": Vector2(1000.0, 330.0), "team": "enemy", "kind": "tank", "hp": 150, "defense_guard": true, "defense_anchor": Vector2(1000.0, 330.0), "attack_cd": 0.0},
