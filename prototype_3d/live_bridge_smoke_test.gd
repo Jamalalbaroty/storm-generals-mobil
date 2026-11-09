@@ -527,8 +527,9 @@ func _initialize() -> void:
 			quit(1)
 			return
 		faction_signatures.append(army_signature)
-	if int(game.call("_helicopter_cost", "وطن")) <= int(game.call("_helicopter_cost", "الأمريكي")) or int(game.call("_missile_cost", "وطن")) <= int(game.call("_missile_cost", "الجيش العربي")) or int(game.call("_missile_damage", "وطن")) <= int(game.call("_missile_damage", "الجيش العربي")) or int(game.call("_faction_profile", "وطن")["naval_damage"]) <= int(game.call("_faction_profile", "الأمريكي")["naval_damage"]):
-		push_error("وطن must retain its elite combat advantage alongside higher equipment costs")
+	var watan_profile: Dictionary = game.call("_faction_profile", "وطن")
+	if int(game.call("_helicopter_cost", "وطن")) <= int(game.call("_helicopter_cost", "الأمريكي")) or int(game.call("_missile_cost", "وطن")) <= int(game.call("_missile_cost", "الجيش العربي")) or int(game.call("_missile_damage", "وطن")) <= int(game.call("_missile_damage", "الجيش العربي")) or int(watan_profile["naval_damage"]) <= int(game.call("_faction_profile", "الأمريكي")["naval_damage"]) or float(watan_profile["helicopter_cooldown"]) >= float(game.call("_faction_profile", "الجيش العربي")["helicopter_cooldown"]) or float(watan_profile["missile_cooldown"]) >= float(game.call("_faction_profile", "الأمريكي")["missile_cooldown"]):
+		push_error("وطن must retain elite damage and faster reload alongside higher equipment costs")
 		quit(1)
 		return
 
