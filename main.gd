@@ -464,6 +464,14 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
 					continue
+				if unit.kind == "builder":
+					if unit.has("target"):
+						var builder_target: Vector2 = unit.target
+						if unit.pos.distance_to(builder_target) > 8.0:
+							unit.pos += (builder_target - unit.pos).normalized() * delta * 32.0
+						else:
+							unit.erase("target")
+					continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "player")
 					if air_target < 0:
