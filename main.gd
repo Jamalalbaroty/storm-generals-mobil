@@ -2449,7 +2449,8 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	if kind in ["barracks", "factory", "airfield", "missile_silo", "missile_defense"]:
 		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
 		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
-	var label := "محطة طاقة" if kind == "power_plant" else ("حوض سفن" if kind == "shipyard" else ("منصة صواريخ" if kind == "missile_silo" else ("دفاع صاروخي" if kind == "missile_defense" else ("ثكنة" if kind == "barracks" else ("مصنع" if kind == "factory" else ("مطار" if kind == "airfield" else ("مضاد جو" if kind == "anti_air" else "برج دفاع"))))))
+	var labels := {"power_plant": "محطة طاقة", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "anti_air": "مضاد جو"}
+	var label: String = labels.get(kind, "برج دفاع")
 	var display_label := "مستولى عليها: " + label if is_captured else label
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
