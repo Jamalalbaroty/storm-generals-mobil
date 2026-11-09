@@ -22,16 +22,19 @@ func _initialize() -> void:
 
 	game.set("game_started", true)
 	game.set("faction", "الأمريكي")
-	game.set("units", [
-		{"pos": Vector2(200.0, 160.0), "team": "player", "kind": "tank", "faction": "american", "hp": 75.0, "max_hp": 150.0},
-		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "chinese", "hp": 120.0, "max_hp": 120.0}
-	])
-	game.set("buildings", [
+	var test_units: Array[Dictionary] = [
+		{"pos": Vector2(200.0, 160.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 75.0, "max_hp": 150.0},
+		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0}
+	]
+	var test_buildings: Array[Dictionary] = [
 		{"pos": Vector2(260.0, 220.0), "kind": "factory", "build_progress": 0.65, "hp": 500}
-	])
-	game.set("enemy_buildings", [
+	]
+	var test_enemy_buildings: Array[Dictionary] = [
 		{"pos": Vector2(820.0, 430.0), "kind": "turret", "build_progress": 1.0, "hp": 400}
-	])
+	]
+	game.set("units", test_units)
+	game.set("buildings", test_buildings)
+	game.set("enemy_buildings", test_enemy_buildings)
 	game.call("_sync_3d_gameplay_bridge")
 
 	if bridge.game_unit_nodes.size() != 2 or bridge.game_building_nodes.size() != 2:
@@ -56,7 +59,7 @@ func _initialize() -> void:
 		return
 
 	var original_tank := player_tank
-	var updated_units: Array = game.get("units")
+	var updated_units: Array[Dictionary] = game.get("units")
 	updated_units[0]["pos"] = Vector2(300.0, 240.0)
 	updated_units[0]["hp"] = 45.0
 	game.set("units", updated_units)

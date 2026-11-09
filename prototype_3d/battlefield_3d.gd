@@ -485,6 +485,20 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 	showcase_turrets.append(weapon_pivot)
 	return vessel
 
+func _normalize_faction_id(faction_value: String) -> String:
+	match faction_value:
+		"الأمريكي", "American", "american":
+			return "american"
+		"الصيني", "Chinese", "chinese":
+			return "chinese"
+		"الجيش العربي", "Arab Army", "arab", "arab_army":
+			return "arab"
+		"وطن", "Watan", "watan":
+			return "watan"
+		_:
+			return faction_value.to_lower()
+
+
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return 0
@@ -500,7 +514,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var source_pos: Vector2 = record.pos
 		var team := String(record.get("team", "player"))
 		var kind := String(record.get("kind", "tank"))
-		var faction_id := String(record.get("faction", "american"))
+		var faction_id := _normalize_faction_id(String(record.get("faction", "american")))
 		if not record.has("3d_sync_id"):
 			record["3d_sync_id"] = next_game_unit_sync_id
 			next_game_unit_sync_id += 1
@@ -570,7 +584,7 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_x), 0.0, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_z))
 			var building := game_building_nodes.get(key) as Node3D
 			if not is_instance_valid(building):
-				building = spawn_game_building(kind, world_pos, String(team_data.faction), team_data.tint, float(record.get("build_progress", 1.0)))
+				building = spawn_game_building(kind, world_pos, _normalize_faction_id(String(team_data.faction)), team_data.tint, float(record.get("build_progress", 1.0)))
 				building.set_meta("source_key", key)
 				building.set_meta("source_team", String(team_data.team))
 				game_building_nodes[key] = building
