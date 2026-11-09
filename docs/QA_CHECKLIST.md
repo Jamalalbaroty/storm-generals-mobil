@@ -48,6 +48,7 @@ Use this checklist for each candidate build. Record device model, Android versio
 - [ ] Enemy ground forces prioritize player units threatening the enemy base or nearby structures.
 - [ ] Enemy threat selection gives appropriate priority to artillery, tanks, aircraft, and infantry.
 - [ ] Enemy ground formations select only visible ground targets; aircraft are handled by enemy fighters and anti-air defenses rather than pulling tanks/infantry away from ground objectives.
+- [ ] Enemy artillery, ordinary ground troops, and defensive guards never switch to aircraft or naval units as fallback targets when no ground threat is in range.
 - [ ] Enemy units produced by the AI and carrier-launched aircraft use the selected rival faction, not a hard-coded faction.
 - [ ] Enemy can recover its behavior after a target or building is destroyed.
 - [ ] Enemy does not build a second anti-air site when fewer than three living player aircraft are present; at three or more, it can reinforce up to two sites when credits and build space allow.
