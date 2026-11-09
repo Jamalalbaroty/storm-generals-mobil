@@ -8,6 +8,7 @@ on:
 jobs:
   export-android:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     container:
       image: barichello/godot-ci:4.4.1
     steps:
@@ -45,7 +46,6 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
           godot --headless --path . --editor --quit --verbose
-          godot --headless --path . --install-android-build-template --verbose
           godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk --verbose
       - name: Upload APK
         uses: actions/upload-artifact@v4
