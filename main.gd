@@ -320,7 +320,7 @@ func _process(delta: float) -> void:
 						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
-					var artillery_target = enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
+					var artillery_target = enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos)
 					var artillery_destination: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_distance: float = unit.pos.distance_to(artillery_destination)
 					if artillery_distance <= 330.0:
@@ -335,7 +335,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 and unit.pos.distance_to(units[enemy_ground_focus].pos) <= 500.0 else _nearest_player_ground_unit(unit.pos)
+				var player_target := enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos)
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
@@ -370,7 +370,7 @@ func _process(delta: float) -> void:
 								closest_threat_distance = threat_distance
 								defender_target = candidate_index
 				# Guards leave their patrol point only when an asset is threatened.
-				var engage_player := player_target >= 0 and (nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0)
+				var engage_player := player_target >= 0 and (enemy_strategy != "balanced" or nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0)
 				if is_defender:
 					engage_player = defender_target >= 0
 					if engage_player:
