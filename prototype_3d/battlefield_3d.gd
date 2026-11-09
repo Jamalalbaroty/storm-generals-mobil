@@ -1108,6 +1108,12 @@ func _update_showcase_orders(delta: float) -> void:
 		has_selected_destination = false
 		order_marker.visible = false
 		return
+	# Gentle local avoidance keeps formations from stacking while preserving the issued destination.
+	var separation := _unit_separation_vector(selected_tank)
+	if separation.length_squared() > 0.001:
+		direction += separation * minf(1.15, separation.length() * 0.22)
+		if not is_aircraft:
+			direction.y = 0.0
 	var heading := direction.normalized()
 	var movement_speed := 7.0 if is_aircraft else 3.2
 	selected_tank.global_position += heading * minf(movement_speed * delta, direction.length())
@@ -1192,6 +1198,27 @@ func _update_showcase_combat(delta: float) -> void:
 	attack_cooldown = 0.42 if unit_type == "infantry" else (0.72 if unit_type == "helicopter" or unit_type == "fighter" else 1.25)
 	_fire_showcase_projectile(pivot, attack_target)
 
+func _spawn_muzzle_flash(at: Vector3, scale_factor: float = 1.0) -> void:
+	var flash := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.16 * scale_factor
+	mesh.height = mesh.radius * 2.0
+	flash.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(1.0, 0.72, 0.25, 0.92)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.34, 0.06)
+	material.emission_energy_multiplier = 3.0
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash.material_override = material
+	flash.global_position = at
+	add_child(flash)
+	var tween := create_tween()
+	tween.tween_property(flash, "scale", Vector3.ONE * 1.8, 0.055)
+	tween.tween_property(flash, "scale", Vector3.ONE * 0.05, 0.07)
+	tween.tween_callback(flash.queue_free)
+
 func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
 	var is_infantry := unit_type == "infantry"
@@ -1208,6 +1235,7 @@ func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	projectile_material.emission_energy_multiplier = 2.0
 	projectile.material_override = projectile_material
 	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
+	_spawn_muzzle_flash(projectile.global_position, 0.72 if is_infantry else (0.9 if is_aircraft else 1.25))
 	add_child(projectile)
 	var destination := target.global_position + Vector3.UP * 0.95
 	var tween := create_tween()
