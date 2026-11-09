@@ -656,6 +656,32 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify enemy armor advances toward a neutral supply objective instead of idling at its base.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("base_pos", Vector2(180.0, 360.0))
+	game.set("enemy_base", Vector2(800.0, 300.0))
+	game.set("enemy_strategy", "balanced")
+	var objective_test_units: Array[Dictionary] = [
+		{"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0}
+	]
+	var objective_test_points: Array[Dictionary] = [
+		{"pos": Vector2(500.0, 300.0), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"}
+	]
+	game.set("units", objective_test_units)
+	game.set("buildings", no_buildings)
+	game.set("enemy_buildings", no_buildings)
+	game.set("supply_points", objective_test_points)
+	game.call("_process", 0.5)
+	var objective_result: Array[Dictionary] = game.get("units")
+	if objective_result.is_empty() or float(objective_result[0].pos.x) >= 700.0:
+		push_error("Enemy balanced armor failed to advance toward a neutral supply objective")
+		quit(1)
+		return
+
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
