@@ -2399,9 +2399,14 @@ func _update_combat_alerts() -> void:
 
 func _enemy_ai_turn() -> void:
 	var player_air_threat = 0
+	var player_naval_threat = 0
 	for player_unit in units:
-		if player_unit.team == "player" and player_unit.get("hp", 0) > 0 and (player_unit.kind == "fighter" or player_unit.kind == "helicopter"):
+		if player_unit.team != "player" or player_unit.get("hp", 0) <= 0:
+			continue
+		if player_unit.kind == "fighter" or player_unit.kind == "helicopter":
 			player_air_threat += 1
+		elif _is_naval_kind(String(player_unit.kind)):
+			player_naval_threat += 1
 	var build_pos := _enemy_build_position()
 	var player_missile_threat := _has_building("missile_silo")
 	for incoming_missile in missiles:
@@ -2512,18 +2517,20 @@ func _enemy_ai_turn() -> void:
 	var next_strategy := "balanced"
 	if player_air_threat >= 2 and player_air_threat >= player_heavy_ground_threat:
 		next_strategy = "air_control"
+	elif player_naval_threat >= 2:
+		next_strategy = "naval_control"
 	elif player_heavy_ground_threat >= 3:
 		next_strategy = "armor_breaker"
 	elif player_infantry_threat >= 5:
 		next_strategy = "area_denial"
 	if next_strategy != enemy_strategy:
 		enemy_strategy = next_strategy
-		var strategy_names := {"air_control": "التفوق الجوي", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
+		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
 		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
 		notice_time = 2.5
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
-	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery):
+	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
 		return
 	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
@@ -2566,12 +2573,18 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
 
-func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int) -> bool:
+func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int, destroyer_count: int) -> bool:
 	var kind := ""
 	var cost := 0
 	var supply_cost := 0
 	var unit_hp := 0
 	match strategy:
+		"naval_control":
+			if destroyer_count < 3 and _enemy_has_building("shipyard"):
+				kind = "destroyer"
+				cost = _unit_cost(kind, _enemy_faction())
+				supply_cost = _unit_supply_cost(kind)
+				unit_hp = 260
 		"air_control":
 			if fighter_count < 4 and _enemy_has_building("airfield"):
 				kind = "fighter"
