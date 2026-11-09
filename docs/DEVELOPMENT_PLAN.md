@@ -63,6 +63,7 @@ The approved visual target is a cinematic, realistic 3D battlefield with an angl
 
 - Added `prototype_3d/battlefield_3d.tscn` and `prototype_3d/battlefield_3d.gd` as an isolated Godot 3D scene.
 - The prototype currently creates a lit arena, a strategic camera, and three primitive tank proxies.
+- Added camera focus framing plus one-finger pan, two-finger pinch zoom, mouse-wheel zoom, and middle-mouse pan. These controls are isolated to the 3D prototype and still require an actual Godot scene smoke test and Android touch validation.
 - These tank proxies are greybox geometry, not finished realistic vehicle assets. The prototype is not yet connected to production movement, combat, AI, economy, or touch selection.
 - The main project remains on the Compatibility renderer and the existing 2D scene. Do not switch renderers or the startup scene until a verified Android test demonstrates that the chosen renderer and 3D content run reliably on target devices.
 
