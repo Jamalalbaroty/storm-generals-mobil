@@ -36,17 +36,24 @@ func _process(delta: float) -> void:
 				continue
 			if unit.team == "enemy":
 				var player_target := _nearest_player_unit(unit.pos)
-				if player_target >= 0 and unit.pos.distance_to(units[player_target].pos) <= 150.0:
+				var destination: Vector2 = base_pos
+				if player_target >= 0:
+					destination = units[player_target].pos
+				var distance_to_target := unit.pos.distance_to(destination)
+				if player_target >= 0 and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
 						units[player_target].hp -= 10
 						unit.attack_cd = 0.9
-				else:
-					var direction: Vector2 = (base_pos - unit.pos).normalized()
-					unit.pos += direction * delta * 22.0
+				elif distance_to_target > 34.0:
+					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
 			elif unit.team == "player":
 				var enemy_target := int(unit.get("attack_target", -1))
-				if enemy_target >= 0 and enemy_target < units.size() and units[enemy_target].team == "enemy" and units[enemy_target].hp > 0:
+				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0:
+					enemy_target = _nearest_enemy_unit(unit.pos, 220.0)
+					if enemy_target >= 0:
+						unit.attack_target = enemy_target
+				if enemy_target >= 0:
 					var enemy: Dictionary = units[enemy_target]
 					var distance := unit.pos.distance_to(enemy.pos)
 					if distance <= 160.0:
@@ -67,6 +74,18 @@ func _nearest_player_unit(from_pos: Vector2) -> int:
 	var best_distance := INF
 	for i in units.size():
 		if units[i].team != "player" or units[i].get("hp", 0) <= 0:
+			continue
+		var distance := from_pos.distance_to(units[i].pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = i
+	return best_index
+
+func _nearest_enemy_unit(from_pos: Vector2, max_distance: float) -> int:
+	var best_index := -1
+	var best_distance := max_distance
+	for i in units.size():
+		if units[i].team != "enemy" or units[i].get("hp", 0) <= 0:
 			continue
 		var distance := from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
@@ -101,6 +120,9 @@ func _draw() -> void:
 		else:
 			draw_circle(u.pos, 9, c)
 			draw_line(u.pos, u.pos + Vector2(14, -5), Color("#242424"), 3)
+		var hp_ratio := clampf(float(u.get("hp", 0)) / (100.0 if u.team == "player" else 60.0), 0.0, 1.0)
+		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
+		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
 			draw_arc(u.pos, 17, 0, TAU, 32, Color("#ffe45c"), 3)
 	_draw_hud(size)
