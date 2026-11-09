@@ -31,7 +31,12 @@ jobs:
           set -eux
           TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
           mkdir -p "$TEMPLATE_DIR" build
-          curl -L --fail --retry 3 -o /tmp/godot-templates.tpz https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz
+          TEMPLATE_URL="https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"
+          MIRROR_URL="https://downloads.tuxfamily.org/godotengine/4.4.1/Godot_v4.4.1-stable_export_templates.tpz"
+          if ! curl -fL --connect-timeout 20 --max-time 240 --retry 3 --retry-all-errors -o /tmp/godot-templates.tpz "$TEMPLATE_URL"; then
+            echo "Primary template download failed; trying official mirror"
+            curl -fL --connect-timeout 20 --max-time 300 --retry 3 --retry-all-errors -o /tmp/godot-templates.tpz "$MIRROR_URL"
+          fi
           mkdir -p /tmp/godot-templates
           unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
           cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
