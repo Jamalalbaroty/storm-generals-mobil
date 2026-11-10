@@ -545,11 +545,11 @@ func _process(delta: float) -> void:
 					# Base guards must close directly on an intruder; assault-lane offsets
 					# can otherwise keep a nearby threat just outside their firing radius.
 					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, i)
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i))
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
 					if unit.kind == "tank" or unit.kind == "infantry":
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, i)
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, _enemy_assault_formation_rank(i))
 				var distance_to_target: float = unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -1071,6 +1071,18 @@ func _landing_assault_support_target(from_pos: Vector2, team: String) -> int:
 				best_score = score
 				best_target = target_index
 	return best_target
+
+
+func _enemy_assault_formation_rank(unit_index: int) -> int:
+	# Formation slots count only preceding living enemy tanks and infantry; player units and support units must not distort assault lanes.
+	var rank := 0
+	for index in range(mini(unit_index, units.size())):
+		var candidate: Dictionary = units[index]
+		if candidate.team != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) in ["tank", "infantry"]:
+			rank += 1
+	return rank
 
 
 func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
