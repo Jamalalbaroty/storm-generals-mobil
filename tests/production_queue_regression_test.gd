@@ -265,6 +265,52 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# A final attack must show the result in the same simulation frame.
+	game.game_started = true
+	game.paused = false
+	game.battle_result = ""
+	game.enemy_base_hp = 10
+	game.player_base_hp = 1000
+	game.enemy_timer = 0.0
+	game.enemy_income_timer = 0.0
+	game.income_timer = 0.0
+	game.supply_points.clear()
+	game.buildings.clear()
+	game.enemy_buildings.clear()
+	game.production_orders.clear()
+	game.units = [{
+		"pos": game.enemy_base,
+		"team": "player",
+		"kind": "tank",
+		"hp": 100,
+		"attack_base": true,
+		"attack_cd": 0.0
+	}]
+	game._process(0.1)
+	if game.battle_result != "انتصرت! دمرت قاعدة العدو":
+		push_error("Destroying the enemy base during combat must resolve victory in the same frame")
+		quit(1)
+		return
+
+	game.battle_result = ""
+	game.enemy_base_hp = 1000
+	game.player_base_hp = 10
+	game.enemy_timer = 0.0
+	game.enemy_income_timer = 0.0
+	game.income_timer = 0.0
+	game.units = [{
+		"pos": game.base_pos,
+		"team": "enemy",
+		"kind": "tank",
+		"hp": 100,
+		"attack_cd": 0.0
+	}]
+	game._process(0.1)
+	if game.battle_result != "هُزمت! سقطت قاعدتك":
+		push_error("Losing the player base during combat must resolve defeat in the same frame")
+		quit(1)
+		return
+
 	# Base destruction resolves deterministically and immediately.
 	game.battle_result = ""
 	game.enemy_base_hp = 0
