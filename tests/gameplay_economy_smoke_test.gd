@@ -1190,6 +1190,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
 	# Remove the distant infantry and use the aggressive doctrine to verify the live combat damage path independently of the balanced-priority helper tests.
 	game.get("units").remove_at(1)
+	# The earlier AI turn may assign the surviving tank to base defense; convert it back to an assault unit for this independent doctrine test.
+	game.get("units")[0]["defense_guard"] = false
+	game.get("units")[0].erase("defense_anchor")
 	game.set("enemy_strategy", "armor_breaker")
 	game.set("enemy_timer", 0.0)
 	game.set("enemy_landing_support_target", -1)
