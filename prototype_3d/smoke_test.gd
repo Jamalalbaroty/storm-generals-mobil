@@ -87,7 +87,8 @@ func _initialize() -> void:
 	pinch_drag.index = 1
 	pinch_drag.position = Vector2(260.0, 120.0)
 	battlefield.call("_unhandled_input", pinch_drag)
-	if float(battlefield.get("camera_height")) >= camera_height_before or (battlefield.get("camera_focus") as Vector3).length() <= 0.01:
+	var pinch_focus: Vector3 = battlefield.get("camera_focus")
+	if float(battlefield.get("camera_height")) >= camera_height_before or pinch_focus.length() <= 0.01:
 		push_error("Two-finger mobile gesture did not apply pinch zoom and camera pan")
 		quit(1)
 		return
