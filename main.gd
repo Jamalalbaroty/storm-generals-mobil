@@ -2770,6 +2770,56 @@ func _update_enemy_building_construction(delta: float) -> void:
 		queue_redraw()
 
 
+func _enemy_building_max_hp(building: Dictionary) -> int:
+	match String(building.get("kind", "")):
+		"factory", "missile_silo", "shipyard":
+			return 500
+		"airfield", "missile_defense":
+			return 450
+		"anti_air":
+			return 380
+		"turret":
+			return 350
+		_:
+			return 400
+
+
+func _enemy_repair_damaged_building() -> bool:
+	var repair_index := -1
+	var repair_ratio := 1.0
+	var repair_max_hp := 0
+	for i in range(enemy_buildings.size()):
+		var building: Dictionary = enemy_buildings[i]
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var max_hp := _enemy_building_max_hp(building)
+		var current_hp := clampi(int(building.get("hp", max_hp)), 0, max_hp)
+		var missing_ratio := float(max_hp - current_hp) / float(max_hp)
+		if missing_ratio < 0.30 or missing_ratio <= repair_ratio - 0.0001:
+			continue
+		repair_index = i
+		repair_ratio = missing_ratio
+		repair_max_hp = max_hp
+	if repair_index < 0:
+		return false
+	var target: Dictionary = enemy_buildings[repair_index]
+	var kind := String(target.get("kind", ""))
+	var current_hp := clampi(int(target.get("hp", repair_max_hp)), 0, repair_max_hp)
+	var missing_hp := repair_max_hp - current_hp
+	var repair_cost := maxi(1, int(ceil(float(_building_cost(kind)) * float(missing_hp) / float(repair_max_hp) * 0.5)))
+	# Keep enough cash for at least one infantry unit instead of sacrificing all production.
+	var production_reserve := _unit_cost("infantry", _enemy_faction())
+	if enemy_credits < repair_cost + production_reserve:
+		return false
+	enemy_credits -= repair_cost
+	target["hp"] = repair_max_hp
+	enemy_buildings[repair_index] = target
+	notice = "العدو أصلح منشأة %s مقابل %d من الموارد" % [kind, repair_cost]
+	notice_time = 2.0
+	queue_redraw()
+	return true
+
+
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
 		if building.kind == kind and int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
@@ -3031,6 +3081,9 @@ func _enemy_ai_turn() -> void:
 			notice = "العدو يعزز دفاعه بمضاد طائرات عاجل"
 			notice_time = 2.0
 			return
+	# Repair critical damage before spending on optional base expansion.
+	if _enemy_repair_damaged_building():
+		return
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_any_building("barracks") and enemy_credits >= _building_cost("barracks"):
 		enemy_credits -= _building_cost("barracks")
