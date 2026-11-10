@@ -665,12 +665,14 @@ func _initialize() -> void:
 			push_error("Building economy helper returned an incorrect cost for " + String(building_kind))
 			quit(1)
 			return
-	var expected_unit_costs: Dictionary = {
-		"infantry": 100, "tank": 300, "builder": 600, "artillery": 450,
-		"fighter": 500, "destroyer": 900, "carrier": 1600,
-		"submarine": 1100, "landing_craft": 800
+	var expected_unit_costs_by_faction: Dictionary = {
+		"الصيني": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800},
+		"الأمريكي": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800},
+		"الجيش العربي": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800},
+		"وطن": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}
 	}
 	for army in faction_names:
+		var expected_unit_costs: Dictionary = expected_unit_costs_by_faction[army]
 		for unit_kind in expected_unit_costs:
 			if int(game.call("_unit_cost", String(unit_kind), army)) != int(expected_unit_costs[unit_kind]):
 				push_error("Unit economy helper returned an incorrect cost for " + String(unit_kind) + " in " + army)
