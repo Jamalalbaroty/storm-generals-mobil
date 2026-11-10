@@ -276,7 +276,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("enemy_credits")) == 8, "Captured port income should transfer to the enemy immediately")
 	_expect(int(game.get("credits")) == 48, "Former owner must stop receiving port income after capture")
 	_expect(is_equal_approx(float(game.get("supply_points")[2]["payout"]), 0.0), "Ownership transfer should reset the previous owner's fractional credit timer")
-	_expect(is_equal_approx(float(game.get("supply_points")[2]["supply_payout"]), 0.0), "Ownership transfer should reset the previous owner's fractional supply timer")
+	_expect(is_equal_approx(float(game.get("supply_points")[2]["supply_payout"]), 1.0), "Ownership transfer should reset the previous owner's fractional supply timer before accruing the new owner's one-second payout")
 	live_units = game.get("units")
 	live_units[1]["hp"] = 0
 	live_units.append({"pos": port_position, "team": "player", "kind": "tank", "hp": 150})
