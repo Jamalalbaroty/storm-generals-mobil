@@ -40,6 +40,24 @@ func _run_gameplay_economy_smoke_test() -> void:
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
 	_expect(covered_actions.size() == 23, "The compact command tabs should retain access to all 23 gameplay actions")
+	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
+	var picker_viewports: Array[Vector2] = [
+		Vector2(1280.0, 720.0),
+		Vector2(800.0, 480.0),
+		Vector2(720.0, 1280.0),
+		Vector2(360.0, 800.0),
+		Vector2(320.0, 568.0)
+	]
+	for picker_viewport in picker_viewports:
+		var faction_rects: Array[Rect2] = []
+		for faction_index in range(4):
+			var faction_rect: Rect2 = game.call("_faction_rect", faction_index, picker_viewport)
+			_expect(faction_rect.position.x >= 0.0 and faction_rect.position.y >= 0.0 and faction_rect.end.x <= picker_viewport.x and faction_rect.end.y <= picker_viewport.y, "Every army choice must fit inside viewport %s" % picker_viewport)
+			for previous_rect in faction_rects:
+				_expect(not faction_rect.intersects(previous_rect), "Army choice touch targets must not overlap on viewport %s" % picker_viewport)
+			faction_rects.append(faction_rect)
+		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
+		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
 	var mobile_viewport := Vector2(1280.0, 720.0)
 	var first_command_button: Rect2 = game.call("_button_rect", 0, mobile_viewport)
 	var last_command_button: Rect2 = game.call("_button_rect", 5, mobile_viewport)
