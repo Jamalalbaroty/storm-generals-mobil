@@ -510,8 +510,10 @@ func _initialize() -> void:
 		{"pos": Vector2(900.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0, "defense_guard": true, "defense_anchor": Vector2(900.0, 360.0)},
 		{"pos": Vector2(920.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
 	])
+	print("GUARD_DEBUG before base=", game.get("enemy_base"), " base_hp=", game.get("enemy_base_hp"), " units=", game.get("units"))
 	game.call("_process", 0.1)
 	var obsolete_asset_guard: Array[Dictionary] = game.get("units")
+	print("GUARD_DEBUG after base=", game.get("enemy_base"), " units=", obsolete_asset_guard)
 	if int(obsolete_asset_guard[1].get("hp", 150)) != 150:
 		push_error("Enemy base guard engaged a player tank threatening only a destroyed factory")
 		quit(1)
