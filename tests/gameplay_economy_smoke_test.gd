@@ -182,46 +182,46 @@ func _run_gameplay_economy_smoke_test() -> void:
 					produced_tanks += 1
 			_expect(produced_tanks == 1 and game.get("production_orders").is_empty(), "Completed tank production should spawn exactly one friendly tank")
 
-		# Repair is a paid, proportional restoration; the selected-building command is reachable by touch.
-		game.get("buildings")[0]["hp"] = 200
-		game.set("selected_player_building", -1)
-		var barracks_touch: Vector2 = game.get("buildings")[0]["pos"]
-		game.call("_handle_pointer", barracks_touch, true)
-		game.call("_handle_pointer", barracks_touch, false)
-		_expect(int(game.get("selected_player_building")) == 0, "Tapping a friendly structure should select it for management")
-		game.set("command_tab", 2)
-		var repair_credits_before := int(game.get("credits"))
-		var repair_button: Vector2 = game.call("_button_rect", 0, build_loop_viewport).get_center()
-		game.call("_handle_pointer", repair_button, true)
-		game.call("_handle_pointer", repair_button, false)
-		_expect(int(game.get("buildings")[0].get("hp", 0)) == 400, "Repair command should restore a damaged completed structure to full health")
-		_expect(int(game.get("credits")) == repair_credits_before - 63, "Repair should charge half the proportional barracks replacement value, rounded up")
-
-		# Insufficient funds and unfinished structures must never grant a free repair.
-		game.get("buildings")[0]["hp"] = 200
-		game.set("credits", 0)
-		game.set("selected_player_building", 0)
-		game.call("_repair_selected_building")
-		_expect(int(game.get("buildings")[0].get("hp", 0)) == 200, "Repair should not proceed without enough credits")
-		game.get("buildings")[0]["build_progress"] = 0.5
-		game.set("credits", 5000)
-		game.call("_repair_selected_building")
-		_expect(int(game.get("buildings")[0].get("hp", 0)) == 200, "An unfinished structure must not be repairable")
-		game.get("buildings")[0]["build_progress"] = 1.0
-		game.get("buildings")[0]["hp"] = 400
-
-		# Selling refunds 50% of the original building cost and removes the structure.
-		var factory_sell_touch: Vector2 = game.get("buildings")[1]["pos"]
-		game.call("_handle_pointer", factory_sell_touch, true)
-		game.call("_handle_pointer", factory_sell_touch, false)
-		_expect(int(game.get("selected_player_building")) == 1, "Tapping the factory should select it for sale")
-		var sale_credits_before := int(game.get("credits"))
-		var sell_button: Vector2 = game.call("_button_rect", 1, build_loop_viewport).get_center()
-		game.call("_handle_pointer", sell_button, true)
-		game.call("_handle_pointer", sell_button, false)
-		_expect(game.get("buildings").size() == 1, "Selling a completed factory should remove it from the base")
-		_expect(int(game.get("credits")) == sale_credits_before + 225, "Selling a factory should refund exactly half of its 450-credit cost")
-		_expect(int(game.get("selected_player_building")) == -1, "Selling a structure should clear the stale building selection")
+			# Repair is a paid, proportional restoration; the selected-building command is reachable by touch.
+			game.get("buildings")[0]["hp"] = 200
+			game.set("selected_player_building", -1)
+			var barracks_touch: Vector2 = game.get("buildings")[0]["pos"]
+			game.call("_handle_pointer", barracks_touch, true)
+			game.call("_handle_pointer", barracks_touch, false)
+			_expect(int(game.get("selected_player_building")) == 0, "Tapping a friendly structure should select it for management")
+			game.set("command_tab", 2)
+			var repair_credits_before := int(game.get("credits"))
+			var repair_button: Vector2 = game.call("_button_rect", 0, build_loop_viewport).get_center()
+			game.call("_handle_pointer", repair_button, true)
+			game.call("_handle_pointer", repair_button, false)
+			_expect(int(game.get("buildings")[0].get("hp", 0)) == 400, "Repair command should restore a damaged completed structure to full health")
+			_expect(int(game.get("credits")) == repair_credits_before - 63, "Repair should charge half the proportional barracks replacement value, rounded up")
+	
+			# Insufficient funds and unfinished structures must never grant a free repair.
+			game.get("buildings")[0]["hp"] = 200
+			game.set("credits", 0)
+			game.set("selected_player_building", 0)
+			game.call("_repair_selected_building")
+			_expect(int(game.get("buildings")[0].get("hp", 0)) == 200, "Repair should not proceed without enough credits")
+			game.get("buildings")[0]["build_progress"] = 0.5
+			game.set("credits", 5000)
+			game.call("_repair_selected_building")
+			_expect(int(game.get("buildings")[0].get("hp", 0)) == 200, "An unfinished structure must not be repairable")
+			game.get("buildings")[0]["build_progress"] = 1.0
+			game.get("buildings")[0]["hp"] = 400
+	
+			# Selling refunds 50% of the original building cost and removes the structure.
+			var factory_sell_touch: Vector2 = game.get("buildings")[1]["pos"]
+			game.call("_handle_pointer", factory_sell_touch, true)
+			game.call("_handle_pointer", factory_sell_touch, false)
+			_expect(int(game.get("selected_player_building")) == 1, "Tapping the factory should select it for sale")
+			var sale_credits_before := int(game.get("credits"))
+			var sell_button: Vector2 = game.call("_button_rect", 1, build_loop_viewport).get_center()
+			game.call("_handle_pointer", sell_button, true)
+			game.call("_handle_pointer", sell_button, false)
+			_expect(game.get("buildings").size() == 1, "Selling a completed factory should remove it from the base")
+			_expect(int(game.get("credits")) == sale_credits_before + 225, "Selling a factory should refund exactly half of its 450-credit cost")
+			_expect(int(game.get("selected_player_building")) == -1, "Selling a structure should clear the stale building selection")
 	game.get("units").clear()
 	game.get("buildings").clear()
 	game.get("production_orders").clear()
