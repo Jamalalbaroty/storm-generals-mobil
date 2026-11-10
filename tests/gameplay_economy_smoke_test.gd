@@ -1176,6 +1176,39 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Player armor should recapture the port through the live match loop")
 	_expect(int(game.get("enemy_credits")) - enemy_income_before_recapture <= 7, "Enemy should stop receiving port income after player recapture")
 
+	# Live enemy behavior: balanced forces should move toward valuable supply when combat is distant, then engage an immediate nearby threat.
+	game.get("units").clear()
+	game.get("supply_points").clear()
+	game.get("supply_points").append({"pos": Vector2(500.0, 360.0), "owner": "player", "kind": "port", "payout": 0.0, "supply_payout": 0.0})
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 150, "pos": Vector2(800.0, 360.0), "attack_cd": 0.0})
+	game.get("units").append({"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(100.0, 360.0), "attack_cd": 10.0})
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_timer", 999.0)
+	var enemy_start_x: float = game.get("units")[0]["pos"].x
+	for objective_frame in range(20):
+		game.call("_process", 0.1)
+	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
+	# Remove the distant infantry and use the aggressive doctrine to verify the live combat damage path independently of the balanced-priority helper tests.
+	game.get("units").remove_at(1)
+	# The earlier AI turn may assign the surviving tank to base defense; convert it back to an assault unit for this independent doctrine test.
+	game.get("units")[0]["defense_guard"] = false
+	game.get("units")[0].erase("defense_anchor")
+	game.set("enemy_strategy", "armor_breaker")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_landing_support_target", -1)
+	var nearby_player_index: int = game.get("units").size()
+	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": game.get("units")[0]["pos"] + Vector2(35.0, 0.0), "attack_cd": 10.0})
+	var nearby_player_hp: int = int(game.get("units")[nearby_player_index]["hp"])
+	var enemy_before_combat: Vector2 = game.get("units")[0]["pos"]
+	var enemy_distance_before_combat: float = enemy_before_combat.distance_to(game.get("units")[nearby_player_index]["pos"])
+	for combat_frame in range(12):
+		game.call("_process", 0.1)
+	var enemy_after_combat: Vector2 = game.get("units")[0]["pos"]
+	var enemy_distance_after_combat: float = enemy_after_combat.distance_to(game.get("units")[nearby_player_index]["pos"])
+	var enemy_damaged_nearby_tank := int(game.get("units")[nearby_player_index]["hp"]) < nearby_player_hp
+	var enemy_closed_on_nearby_tank := enemy_distance_after_combat < enemy_distance_before_combat - 1.0
+	_expect(enemy_damaged_nearby_tank or enemy_closed_on_nearby_tank, "Enemy armor should engage nearby threat; strategy=%s enemy_before=%s enemy_after=%s player_pos=%s distance_before=%.2f distance_after=%.2f player_hp=%d" % [String(game.get("enemy_strategy")), str(enemy_before_combat), str(enemy_after_combat), str(game.get("units")[nearby_player_index]["pos"]), enemy_distance_before_combat, enemy_distance_after_combat, int(game.get("units")[nearby_player_index]["hp"])])
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
