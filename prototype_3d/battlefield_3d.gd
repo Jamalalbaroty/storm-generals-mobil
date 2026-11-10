@@ -1584,6 +1584,89 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		crane_beam.material_override = _make_armour_material(Color(0.78, 0.58, 0.20))
 		building.add_child(crane_beam)
 
+	# Faction architecture language: compact RTS-readable silhouettes per army.
+	var faction_accent := _get_faction_accent_color(faction_id)
+	if kind in ["command", "barracks", "factory", "airfield"]:
+		var identity_panel := MeshInstance3D.new()
+		identity_panel.name = "FactionArchitecturePanel"
+		var identity_mesh := BoxMesh.new()
+		identity_mesh.size = Vector3(3.8, 0.34, 0.16)
+		identity_panel.mesh = identity_mesh
+		identity_panel.position = Vector3(0.0, 2.48, -2.76)
+		identity_panel.material_override = _make_armour_material(faction_accent)
+		building.add_child(identity_panel)
+
+		if faction_id == "american":
+			for side in [-1.0, 1.0]:
+				var service_bay := MeshInstance3D.new()
+				var bay_mesh := BoxMesh.new()
+				bay_mesh.size = Vector3(0.72, 0.72, 0.58)
+				service_bay.mesh = bay_mesh
+				service_bay.position = Vector3(side * 2.55, 1.25, 0.0)
+				service_bay.material_override = _make_armour_material(tint.lightened(0.12))
+				building.add_child(service_bay)
+			if kind == "command":
+				var comm_dish := MeshInstance3D.new()
+				var dish_mesh := CylinderMesh.new()
+				dish_mesh.top_radius = 0.58
+				dish_mesh.bottom_radius = 0.16
+				dish_mesh.height = 0.16
+				comm_dish.mesh = dish_mesh
+				comm_dish.position = Vector3(1.05, 4.25, 0.15)
+				comm_dish.rotation_degrees.z = 22.0
+				comm_dish.material_override = _make_armour_material(Color(0.66, 0.70, 0.67))
+				building.add_child(comm_dish)
+		elif faction_id == "chinese":
+			for side in [-1.0, 1.0]:
+				var corner_tower := MeshInstance3D.new()
+				var tower_mesh := BoxMesh.new()
+				tower_mesh.size = Vector3(0.58, 1.10, 0.58)
+				corner_tower.mesh = tower_mesh
+				corner_tower.position = Vector3(side * 2.55, 3.25, side * 1.95)
+				corner_tower.material_override = _make_armour_material(tint.darkened(0.18))
+				building.add_child(corner_tower)
+			if kind == "command":
+				var roof_cap := MeshInstance3D.new()
+				var cap_mesh := BoxMesh.new()
+				cap_mesh.size = Vector3(2.6, 0.26, 2.4)
+				roof_cap.mesh = cap_mesh
+				roof_cap.position = Vector3(0.0, 4.62, 0.0)
+				roof_cap.material_override = _make_armour_material(faction_accent.darkened(0.12))
+				building.add_child(roof_cap)
+		elif faction_id == "arab":
+			var canopy := MeshInstance3D.new()
+			var canopy_mesh := BoxMesh.new()
+			canopy_mesh.size = Vector3(7.0, 0.16, 6.0)
+			canopy.mesh = canopy_mesh
+			canopy.position = Vector3(0.0, 3.42, 0.0)
+			canopy.material_override = _make_armour_material(Color(0.55, 0.45, 0.30))
+			building.add_child(canopy)
+			for side in [-1.0, 1.0]:
+				var utility_box := MeshInstance3D.new()
+				var utility_mesh := BoxMesh.new()
+				utility_mesh.size = Vector3(0.62, 0.56, 0.72)
+				utility_box.mesh = utility_mesh
+				utility_box.position = Vector3(side * 2.72, 0.72, 1.85)
+				utility_box.material_override = _make_armour_material(Color(0.39, 0.33, 0.23))
+				building.add_child(utility_box)
+		elif faction_id == "watan":
+			for side in [-1.0, 1.0]:
+				var reinforced_pillar := MeshInstance3D.new()
+				var pillar_mesh := BoxMesh.new()
+				pillar_mesh.size = Vector3(0.38, 3.15, 0.42)
+				reinforced_pillar.mesh = pillar_mesh
+				reinforced_pillar.position = Vector3(side * 2.82, 1.62, -2.45)
+				reinforced_pillar.material_override = _make_armour_material(tint.lightened(0.16))
+				building.add_child(reinforced_pillar)
+			if kind == "command":
+				var protected_roof := MeshInstance3D.new()
+				var protected_mesh := BoxMesh.new()
+				protected_mesh.size = Vector3(2.9, 0.42, 2.7)
+				protected_roof.mesh = protected_mesh
+				protected_roof.position = Vector3(0.0, 4.15, 0.0)
+				protected_roof.material_override = _make_armour_material(faction_accent)
+				building.add_child(protected_roof)
+
 	if show_progress:
 		building.set_meta("construction_progress", clampf(build_progress, 0.0, 1.0))
 		var progress_back := MeshInstance3D.new()
