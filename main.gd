@@ -2968,30 +2968,43 @@ func _update_building_construction(delta: float) -> void:
 			notice_time = 2.5
 
 
+func _unit_repair_max_hp(unit: Dictionary) -> int:
+	match String(unit.get("kind", "")):
+		"tank": return 150
+		"artillery": return 100
+		"destroyer": return 260
+		"carrier": return 520
+		"submarine": return 210
+		"landing_craft": return 220
+	return 0
+
+
 func _update_field_repairs(delta: float) -> void:
-	# Idle player builders can restore nearby damaged tanks without interrupting construction orders.
+	# Idle builders restore nearby armor and artillery; shipyards service damaged vessels.
 	for builder in units:
 		if String(builder.get("team", "")) != "player" or String(builder.get("kind", "")) != "builder" or int(builder.get("hp", 0)) <= 0:
 			continue
 		if builder.has("build_target") or builder.has("target"):
 			continue
-		var nearest_tank_index := -1
+		var nearest_unit_index := -1
 		var nearest_distance := 68.0
-		for tank_index in range(units.size()):
-			var candidate: Dictionary = units[tank_index]
-			if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "tank" or int(candidate.get("hp", 0)) <= 0:
+		for unit_index in range(units.size()):
+			var candidate: Dictionary = units[unit_index]
+			if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
 				continue
-			if int(candidate.get("hp", 0)) >= 150:
+			var max_hp := _unit_repair_max_hp(candidate)
+			if max_hp <= 0 or int(candidate.get("hp", 0)) >= max_hp:
 				continue
 			var distance := builder.pos.distance_to(candidate.pos)
 			if distance < nearest_distance:
 				nearest_distance = distance
-				nearest_tank_index = tank_index
-		if nearest_tank_index < 0 or credits <= 0:
+				nearest_unit_index = unit_index
+		if nearest_unit_index < 0 or credits <= 0:
 			continue
-		var tank: Dictionary = units[nearest_tank_index]
+		var target_unit: Dictionary = units[nearest_unit_index]
+		var target_max_hp := _unit_repair_max_hp(target_unit)
 		builder["field_repair_work"] = minf(3.0, float(builder.get("field_repair_work", 0.0)) + delta * 6.0)
-		var repair_points := mini(int(floor(float(builder.field_repair_work))), 150 - int(tank.hp))
+		var repair_points := mini(int(floor(float(builder.field_repair_work))), target_max_hp - int(target_unit.hp))
 		if repair_points <= 0:
 			continue
 		var repair_cost_buffer := float(builder.get("field_repair_cost_buffer", 0.0)) + float(repair_points) * 0.5
@@ -3001,11 +3014,40 @@ func _update_field_repairs(delta: float) -> void:
 		builder["field_repair_work"] = float(builder.field_repair_work) - float(repair_points)
 		builder["field_repair_cost_buffer"] = repair_cost_buffer - float(whole_cost)
 		credits -= whole_cost
-		tank["hp"] = mini(150, int(tank.hp) + repair_points)
+		target_unit["hp"] = mini(target_max_hp, int(target_unit.hp) + repair_points)
 		builder["field_repair_fx_cd"] = maxf(0.0, float(builder.get("field_repair_fx_cd", 0.0)) - delta)
 		if float(builder.field_repair_fx_cd) <= 0.0:
-			_add_visual_effect("repair", builder.pos, tank.pos, Color("#8ce6a0"), 0.32, 0.0)
+			_add_visual_effect("repair", builder.pos, target_unit.pos, Color("#8ce6a0"), 0.32, 0.0)
 			builder["field_repair_fx_cd"] = 0.75
+	for dock in buildings:
+		if String(dock.get("kind", "")) != "shipyard" or String(dock.get("team", "player")) != "player":
+			continue
+		if float(dock.get("build_progress", 1.0)) < 1.0 or int(dock.get("hp", 0)) <= 0:
+			continue
+		for vessel in units:
+			if String(vessel.get("team", "")) != "player" or not _is_naval_kind(String(vessel.get("kind", ""))):
+				continue
+			var vessel_max_hp := _unit_repair_max_hp(vessel)
+			if vessel_max_hp <= 0 or int(vessel.get("hp", 0)) <= 0 or int(vessel.hp) >= vessel_max_hp:
+				continue
+			if vessel.pos.distance_to(dock.pos) > 95.0 or credits <= 0:
+				continue
+			vessel["dock_repair_work"] = minf(2.0, float(vessel.get("dock_repair_work", 0.0)) + delta * 3.5)
+			var dock_repair_points := mini(int(floor(float(vessel.dock_repair_work))), vessel_max_hp - int(vessel.hp))
+			if dock_repair_points <= 0:
+				continue
+			var dock_cost_buffer := float(vessel.get("dock_repair_cost_buffer", 0.0)) + float(dock_repair_points) * 0.6
+			var dock_cost := int(floor(dock_cost_buffer))
+			if dock_cost > credits:
+				continue
+			vessel["dock_repair_work"] = float(vessel.dock_repair_work) - float(dock_repair_points)
+			vessel["dock_repair_cost_buffer"] = dock_cost_buffer - float(dock_cost)
+			credits -= dock_cost
+			vessel["hp"] = mini(vessel_max_hp, int(vessel.hp) + dock_repair_points)
+			vessel["dock_repair_fx_cd"] = maxf(0.0, float(vessel.get("dock_repair_fx_cd", 0.0)) - delta)
+			if float(vessel.dock_repair_fx_cd) <= 0.0:
+				_add_visual_effect("repair", dock.pos, vessel.pos, Color("#79d9f2"), 0.32, 0.0)
+				vessel["dock_repair_fx_cd"] = 0.9
 
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
