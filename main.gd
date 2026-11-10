@@ -219,6 +219,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			source_unit["air_formation_slot"] = formation_slot
 			source_unit["air_formation_center"] = air_formation_last_center
 		source_unit["target"] = move_destination
+		source_unit.erase("guard_active")
+		source_unit.erase("guard_position")
+		source_unit.erase("guard_radius")
 		if order_type == "attack_move":
 			source_unit["attack_move_active"] = true
 		else:
@@ -232,6 +235,25 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("attack_building")
 		notice = "أمر حركة صادر من القيادة ثلاثية الأبعاد"
 		notice_time = 1.6
+	elif order_type == "guard":
+		if String(source_unit.get("kind", "")) not in ["tank", "artillery", "infantry"]:
+			return
+		var guard_map_size := get_viewport_rect().size
+		var guard_world_limit := 42.0 * 0.38
+		var guard_nx := clampf((world_position.x + guard_world_limit) / (guard_world_limit * 2.0), 0.0, 1.0)
+		var guard_ny := clampf((world_position.z + guard_world_limit) / (guard_world_limit * 2.0), 0.0, 1.0)
+		_cancel_airfield_recovery(source_unit)
+		source_unit["guard_position"] = Vector2(guard_nx * guard_map_size.x, guard_ny * guard_map_size.y)
+		source_unit["guard_radius"] = 300.0 if source_unit.kind == "artillery" else (190.0 if source_unit.kind == "tank" else 155.0)
+		source_unit["guard_active"] = true
+		source_unit.erase("target")
+		source_unit.erase("attack_move_active")
+		source_unit.erase("attack_target")
+		source_unit.erase("attack_focus_pos")
+		source_unit.erase("attack_building")
+		source_unit.erase("attack_base")
+		notice = "القوات اتخذت مواقع الحراسة والدفاع"
+		notice_time = 1.8
 	elif order_type == "patrol":
 		if String(source_unit.get("kind", "")) not in ["fighter", "helicopter"]:
 			return
@@ -251,6 +273,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		notice = "دورية جوية مفعّلة بين نقطتين"
 		notice_time = 1.8
 	elif order_type == "attack":
+		source_unit.erase("guard_active")
+		source_unit.erase("guard_position")
+		source_unit.erase("guard_radius")
 		source_unit.erase("attack_move_active")
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
@@ -815,7 +840,52 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("target")
 				continue
-			if bool(unit.get("attack_move_active", false)) and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
+			if bool(unit.get("guard_active", false)):
+				var guard_post: Vector2 = unit.get("guard_position", unit.pos)
+				var guard_radius := float(unit.get("guard_radius", 180.0))
+				var guard_target_index := int(unit.get("attack_target", -1))
+				if guard_target_index >= 0 and (guard_target_index >= units.size() or units[guard_target_index].team != "enemy" or int(units[guard_target_index].get("hp", 0)) <= 0 or units[guard_target_index].pos.distance_to(guard_post) > guard_radius):
+					unit.erase("attack_target")
+					unit.erase("attack_focus_pos")
+				if unit.has("attack_building"):
+					var guard_building_index := int(unit.attack_building)
+					if guard_building_index < 0 or guard_building_index >= enemy_buildings.size() or int(enemy_buildings[guard_building_index].get("hp", 0)) <= 0 or enemy_buildings[guard_building_index].pos.distance_to(guard_post) > guard_radius:
+						unit.erase("attack_building")
+				if not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
+					var guard_enemy_index := -1
+					var guard_enemy_distance := guard_radius
+					for guard_candidate_index in range(units.size()):
+						var guard_candidate: Dictionary = units[guard_candidate_index]
+						if guard_candidate.team != "enemy" or int(guard_candidate.get("hp", 0)) <= 0:
+							continue
+						if String(guard_candidate.get("kind", "")) == "submarine" and not _is_submarine_detected(guard_candidate, "player"):
+							continue
+						if guard_candidate.pos.distance_to(guard_post) > guard_radius:
+							continue
+						var guard_candidate_distance := unit.pos.distance_to(guard_candidate.pos)
+						if guard_candidate_distance < guard_enemy_distance:
+							guard_enemy_distance = guard_candidate_distance
+							guard_enemy_index = guard_candidate_index
+					var guard_building_target := -1
+					var guard_building_distance := guard_radius
+					for guard_building_index in range(enemy_buildings.size()):
+						var guard_building: Dictionary = enemy_buildings[guard_building_index]
+						if int(guard_building.get("hp", 0)) <= 0 or guard_building.pos.distance_to(guard_post) > guard_radius:
+							continue
+						var candidate_distance := unit.pos.distance_to(guard_building.pos)
+						if candidate_distance < guard_building_distance:
+							guard_building_distance = candidate_distance
+							guard_building_target = guard_building_index
+					if guard_building_target >= 0 and guard_building_distance < guard_enemy_distance:
+						unit["attack_building"] = guard_building_target
+					elif guard_enemy_index >= 0:
+						unit["attack_target"] = guard_enemy_index
+						unit["attack_focus_pos"] = units[guard_enemy_index].pos
+				if not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
+					if unit.pos.distance_to(guard_post) > 12.0:
+						unit.pos += (guard_post - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+					continue
+			if bool(unit.get("attack_move_active", false)) and not bool(unit.get("guard_active", false)) and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 				var current_attack_target := int(unit.get("attack_target", -1))
 				var has_live_attack_target := current_attack_target >= 0 and current_attack_target < units.size() and units[current_attack_target].team == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
 				if not has_live_attack_target:
