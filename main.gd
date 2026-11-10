@@ -2475,10 +2475,12 @@ func _update_missiles(delta: float) -> void:
 		var building: Dictionary = enemy_buildings[building_index]
 		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_enemy_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
-	enemy_missile_timer += delta
-	if enemy_missile_timer >= 24.0:
-		enemy_missile_timer = 0.0
-		_launch_enemy_missile()
+	# Enemy missile readiness advances only while at least one silo has grid power.
+	if _enemy_has_powered_building("missile_silo"):
+		enemy_missile_timer += delta
+		if enemy_missile_timer >= 24.0:
+			enemy_missile_timer = 0.0
+			_launch_enemy_missile()
 	for i in range(missiles.size() - 1, -1, -1):
 		var missile: Dictionary = missiles[i]
 		var hostile_buildings: Array[Dictionary] = buildings if missile.team == "enemy" else enemy_buildings
