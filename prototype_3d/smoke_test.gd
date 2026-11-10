@@ -110,6 +110,7 @@ func _initialize() -> void:
 	battlefield.set("camera_height", camera_height_before)
 	battlefield.call("_update_camera_pose")
 
+	# Regression: queued-for-deletion nodes are excluded before projection.
 	# A unit queued for deletion must never remain a tap target during the
 	# frame before Godot actually frees its node.
 	var stale_pick_target := Node3D.new()
