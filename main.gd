@@ -2533,7 +2533,7 @@ func _update_enemy_building_construction(delta: float) -> void:
 
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
-		if building.kind == kind and float(building.get("build_progress", 1.0)) >= 1.0:
+		if building.kind == kind and int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
 			return true
 	return false
 
