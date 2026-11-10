@@ -1888,6 +1888,11 @@ func _draw_hud(size: Vector2) -> void:
 	if _has_selected_player_building():
 		labels[10] = "إصلاح المنشأة"
 		labels[11] = "بيع المنشأة"
+		labels[12] = "ترقية L%d" % int(buildings[selected_player_building].get("level", 1)) if int(buildings[selected_player_building].get("level", 1)) < 3 else "أقصى تطوير"
+	elif build_mode != "":
+		labels[12] = "إلغاء البناء"
+	else:
+		labels[12] = "ترقية / إلغاء"
 	for tab_index in range(COMMAND_TAB_LABELS.size()):
 		var tab_rect := _command_tab_rect(tab_index, size)
 		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
@@ -2143,10 +2148,18 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				else:
 					_order_destroy_selected_building()
 			elif i == 12:
-				selected.clear()
-				selected_enemy_building = -1
-				selected_player_building = -1
-				build_mode = ""
+				if build_mode != "":
+					build_mode = ""
+					notice = "تم إلغاء أمر البناء"
+					notice_time = 1.8
+				elif _has_selected_player_building():
+					_upgrade_selected_building()
+				else:
+					selected.clear()
+					selected_enemy_building = -1
+					selected_player_building = -1
+					notice = "حدد منشأة لترقيتها أو اختر أمر بناء"
+					notice_time = 2.0
 			elif i == 13:
 				build_mode = "missile_silo"
 				notice = "اختر موقعاً قرب قاعدتك لبناء منصة الصواريخ"
@@ -2463,13 +2476,48 @@ func _building_cost(kind: String) -> int:
 	return int(costs.get(kind, TURRET_COST))
 
 func _building_max_hp(building: Dictionary) -> int:
+	var base_hp := 400
 	match String(building.get("kind", "")):
-		"missile_silo":
-			return 500
-		"missile_defense":
-			return 450
-		_:
-			return 400
+		"missile_silo": base_hp = 500
+		"missile_defense": base_hp = 450
+	return int(round(float(base_hp) * (1.0 + float(maxi(1, int(building.get("level", 1))) - 1) * 0.20)))
+
+
+func _upgrade_selected_building() -> void:
+	if not _has_selected_player_building():
+		notice = "حدد منشأة من قاعدتك لترقيتها أو ألغِ وضع البناء"
+		notice_time = 2.2
+		return
+	var index := selected_player_building
+	var building: Dictionary = buildings[index]
+	if float(building.get("build_progress", 1.0)) < 1.0 or int(building.get("hp", 0)) <= 0:
+		notice = "لا يمكن ترقية منشأة غير مكتملة أو مدمرة"
+		notice_time = 2.2
+		return
+	var level := maxi(1, int(building.get("level", 1)))
+	if level >= 3:
+		notice = "وصلت المنشأة إلى أقصى مستوى تطوير"
+		notice_time = 2.2
+		return
+	var kind := String(building.get("kind", ""))
+	var building_index := index
+	if _power_demand(kind) > 0 and not _is_player_building_powered(building_index):
+		notice = "أعد استقرار شبكة الطاقة قبل ترقية هذه المنشأة"
+		notice_time = 2.5
+		return
+	var upgrade_cost := int(ceil(float(_building_cost(kind)) * (0.60 if level == 1 else 0.85)))
+	if credits < upgrade_cost:
+		notice = "الموارد غير كافية — الترقية تحتاج %d" % upgrade_cost
+		notice_time = 2.5
+		return
+	credits -= upgrade_cost
+	building["level"] = level + 1
+	building["hp"] = mini(_building_max_hp(building), int(building.get("hp", 0)) + 80)
+	buildings[index] = building
+	var level_name := "الثاني" if level + 1 == 2 else "الثالث"
+	notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
+	notice_time = 2.8
+	queue_redraw()
 
 
 func _has_selected_player_building() -> bool:
@@ -3645,7 +3693,7 @@ func _player_power_capacity() -> int:
 	var capacity := BASE_POWER_OUTPUT
 	for building in buildings:
 		if int(building.get("hp", 1)) > 0 and String(building.get("kind", "")) == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
-			capacity += POWER_PLANT_OUTPUT
+			capacity += POWER_PLANT_OUTPUT + (maxi(1, int(building.get("level", 1))) - 1) * 5
 	return capacity
 
 func _player_power_demand() -> int:
@@ -3791,7 +3839,14 @@ func _update_production_queues(delta: float) -> void:
 			return
 		if not producer_ready:
 			continue
-		order.remaining = maxf(0.0, float(order.remaining) - delta)
+		var producer_level := 1
+		for producer_index in range(buildings.size()):
+			var producer: Dictionary = buildings[producer_index]
+			if int(producer.get("production_id", -2)) == expected_producer_id and expected_producer_id >= 0:
+				producer_level = maxi(1, int(producer.get("level", 1)))
+				break
+		var production_speed := 1.0 + float(producer_level - 1) * 0.15
+		order.remaining = maxf(0.0, float(order.remaining) - delta * production_speed)
 		production_orders[i] = order
 		if float(order.remaining) <= 0.0:
 			if _team_unit_count("player") >= MAX_TEAM_UNITS:
