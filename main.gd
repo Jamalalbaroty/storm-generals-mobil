@@ -4558,6 +4558,8 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			shell = Color("#b69a58") if not is_enemy else Color("#a66c5d")
 		"bunker":
 			shell = Color("#777d73") if not is_enemy else Color("#98675e")
+		"wall", "wall_corner", "wall_gate":
+			shell = Color("#8d8b78") if not is_enemy else Color("#986e63")
 	# Ground shadow, reinforced foundation and faction identification stripe.
 	draw_colored_polygon(PackedVector2Array([p + Vector2(-36, 25), p + Vector2(-25, 17), p + Vector2(25, 17), p + Vector2(42, 25), p + Vector2(25, 33), p + Vector2(-25, 33)]), Color(0, 0, 0, 0.28))
 	draw_rect(Rect2(p + Vector2(-35, -25), Vector2(70, 54)), Color("#252d31"))
@@ -4628,6 +4630,26 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			for coil in range(3):
 				draw_circle(p + Vector2(-8 + coil * 8, 0), 4, Color("#f2d47b"))
 			draw_line(p + Vector2(-18, 19), p + Vector2(18, 19), accent, 3)
+		"wall":
+			draw_rect(Rect2(p + Vector2(-34, -9), Vector2(68, 18)), dark)
+			draw_rect(Rect2(p + Vector2(-31, -7), Vector2(62, 13)), shell)
+			draw_line(p + Vector2(-34, -10), p + Vector2(34, -10), accent, 4)
+			for merlon_x in [-22.0, -8.0, 8.0, 22.0]:
+				draw_rect(Rect2(p + Vector2(merlon_x - 3.0, -16), Vector2(6, 7)), shell)
+		"wall_corner":
+			draw_rect(Rect2(p + Vector2(-32, -8), Vector2(42, 16)), dark)
+			draw_rect(Rect2(p + Vector2(-29, -6), Vector2(38, 12)), shell)
+			draw_rect(Rect2(p + Vector2(9, -8), Vector2(16, 42)), dark)
+			draw_rect(Rect2(p + Vector2(11, -6), Vector2(12, 38)), shell)
+			draw_line(p + Vector2(-31, -10), p + Vector2(10, -10), accent, 4)
+			draw_line(p + Vector2(10, -10), p + Vector2(10, 32), accent, 4)
+		"wall_gate":
+			draw_rect(Rect2(p + Vector2(-34, -18), Vector2(12, 36)), dark)
+			draw_rect(Rect2(p + Vector2(22, -18), Vector2(12, 36)), dark)
+			draw_rect(Rect2(p + Vector2(-31, -16), Vector2(7, 32)), shell)
+			draw_rect(Rect2(p + Vector2(24, -16), Vector2(7, 32)), shell)
+			draw_line(p + Vector2(-28, -17), p + Vector2(28, -17), accent, 4)
+			draw_line(p + Vector2(-18, 10), p + Vector2(18, 10), Color("#d6c18a"), 3)
 		"shipyard":
 			draw_rect(Rect2(p + Vector2(-27, -14), Vector2(54, 29)), Color("#354e5a"))
 			draw_rect(Rect2(p + Vector2(-21, -9), Vector2(42, 19)), shell)
@@ -4640,7 +4662,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	if kind in ["barracks", "factory", "airfield", "missile_silo", "missile_defense"]:
 		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
 		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
-	var labels := {"power_plant": "محطة طاقة", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "anti_air": "مضاد جو", "bunker": "مخبأ دفاعي", "supply_depot": "مخزن إمداد"}
+	var labels := {"power_plant": "محطة طاقة", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "anti_air": "مضاد جو", "bunker": "مخبأ دفاعي", "supply_depot": "مخزن إمداد", "wall": "جدار دفاعي", "wall_corner": "زاوية تحصين", "wall_gate": "بوابة القاعدة"}
 	var label: String = labels.get(kind, "برج دفاع")
 	var display_label := "مستولى عليها: " + label if is_captured else label
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
@@ -4698,7 +4720,7 @@ func _place_building(pos: Vector2) -> void:
 	next_building_production_id += 1
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
-	var building_labels := {"power_plant": "محطة الطاقة", "shipyard": "حوض السفن", "missile_silo": "منصة الصواريخ", "missile_defense": "الدفاع الصاروخي", "barracks": "الثكنة", "factory": "المصنع", "airfield": "المطار", "anti_air": "الدفاع المضاد للطائرات", "turret": "برج الدفاع", "bunker": "المخبأ الدفاعي"}
+	var building_labels := {"power_plant": "محطة الطاقة", "shipyard": "حوض السفن", "missile_silo": "منصة الصواريخ", "missile_defense": "الدفاع الصاروخي", "barracks": "الثكنة", "factory": "المصنع", "airfield": "المطار", "anti_air": "الدفاع المضاد للطائرات", "turret": "برج الدفاع", "bunker": "المخبأ الدفاعي", "wall": "الجدار الدفاعي", "wall_corner": "زاوية التحصين", "wall_gate": "بوابة القاعدة"}
 	var building_name: String = building_labels.get(build_mode, "المبنى")
 	notice = "بدأ إنشاء %s — انتظر اكتمال البناء" % building_name
 	notice_time = 2.0
