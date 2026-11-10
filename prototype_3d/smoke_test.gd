@@ -189,6 +189,27 @@ func _initialize() -> void:
 		push_error("Mixed group movement orders overlapped instead of using formation offsets")
 		quit(1)
 		return
+
+	# Keep the entire formation inside arena bounds without distorting its spacing.
+	var edge_offsets: Array[Vector3] = []
+	for index in range(6):
+		edge_offsets.append(battlefield.call("_group_formation_offset", index, 6, Vector3.FORWARD, 5.0))
+	var edge_center := Vector3(17.64, 0.0, 17.64)
+	var fitted_center: Vector3 = battlefield.call("_fit_group_formation_to_arena", edge_center, edge_offsets)
+	for offset in edge_offsets:
+		var fitted_position: Vector3 = fitted_center + offset
+		if absf(fitted_position.x) > 17.641 or absf(fitted_position.z) > 17.641:
+			push_error("Group formation extended beyond arena bounds near the map edge")
+			quit(1)
+			return
+	for offset_index in range(edge_offsets.size()):
+		for other_index in range(offset_index + 1, edge_offsets.size()):
+			var before_distance := edge_offsets[offset_index].distance_to(edge_offsets[other_index])
+			var after_distance := (fitted_center + edge_offsets[offset_index]).distance_to(fitted_center + edge_offsets[other_index])
+			if absf(before_distance - after_distance) > 0.001:
+				push_error("Edge fitting distorted the group's formation spacing")
+				quit(1)
+				return
 	var enemy_screen := camera_for_pick.unproject_position(group_enemy.global_position + Vector3.UP)
 	if battlefield.call("_tank_at_screen_position", enemy_screen) != group_enemy:
 		push_error("Enemy tap target was not resolved to the intended hostile unit")
