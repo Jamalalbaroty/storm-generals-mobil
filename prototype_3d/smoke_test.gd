@@ -154,8 +154,10 @@ func _initialize() -> void:
 		return
 	group_tank.set_meta("source_team", "player")
 	group_tank.set_meta("source_unit_key", "player|mobile-test|tank")
+	group_tank.set_meta("unit_type", "tank")
 	group_infantry.set_meta("source_team", "player")
 	group_infantry.set_meta("source_unit_key", "player|mobile-test|infantry")
+	group_infantry.set_meta("unit_type", "infantry")
 	group_enemy.set_meta("source_team", "enemy")
 	group_enemy.set_meta("source_unit_key", "enemy|mobile-test|tank")
 	var issued_orders: Array[Dictionary] = []
@@ -189,6 +191,27 @@ func _initialize() -> void:
 		push_error("Mixed group movement orders overlapped instead of using formation offsets")
 		quit(1)
 		return
+
+
+	# Mixed formations must place artillery behind infantry and armor ahead of both.
+	var role_artillery := Node3D.new()
+	var role_infantry := Node3D.new()
+	var role_tank := Node3D.new()
+	var role_aircraft := Node3D.new()
+	role_artillery.set_meta("unit_type", "artillery")
+	role_infantry.set_meta("unit_type", "infantry")
+	role_tank.set_meta("unit_type", "tank")
+	role_aircraft.set_meta("unit_type", "helicopter")
+	var role_units: Array[Node3D] = [role_artillery, role_infantry, role_tank, role_aircraft]
+	var role_positions: Array[Vector3] = []
+	for role_unit in role_units:
+		role_positions.append(battlefield.call("_group_formation_offset_for_unit", role_unit, role_units, Vector3.FORWARD, 4.0))
+	if not (role_positions[0].z < role_positions[1].z and role_positions[1].z < role_positions[2].z and role_positions[2].z < role_positions[3].z):
+		push_error("Mixed formation did not arrange artillery, infantry, armor, and aircraft by tactical role")
+		quit(1)
+		return
+	for role_unit in role_units:
+		role_unit.free()
 
 	# Keep the entire formation inside arena bounds without distorting its spacing.
 	var edge_offsets: Array[Vector3] = []
