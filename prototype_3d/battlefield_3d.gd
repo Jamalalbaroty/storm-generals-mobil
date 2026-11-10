@@ -2254,6 +2254,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			return
 		selected_tank = tapped_tank
 		selected_live_units.clear()
+		_refresh_group_selection_rings()
 		attack_target = null
 		has_selected_destination = false
 		selection_ring.visible = true
