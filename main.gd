@@ -109,7 +109,6 @@ var command_tab := 0
 func _ready() -> void:
 	randomize()
 	_setup_battle_audio()
-	_setup_3d_gameplay_bridge()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
 
@@ -121,20 +120,22 @@ var use_3d_view := false
 const BATTLEFIELD_SYNC_INTERVAL := 0.12
 
 
-func _setup_3d_gameplay_bridge() -> void:
-	# Keep the current 2D renderer active while maintaining a live 3D counterpart.
+func _ensure_3d_gameplay_bridge() -> bool:
+	# The 3D prototype builds a large visual scene and audio graph. Defer that
+	# cost until the player explicitly opens 3D view; normal 2D matches stay lean.
+	if is_instance_valid(battlefield_3d):
+		return true
 	battlefield_3d = BATTLEFIELD_3D_SCENE.instantiate() as Node3D
 	if battlefield_3d == null:
 		push_warning("3D battlefield bridge could not instantiate")
-		return
+		return false
 	battlefield_3d.name = "Gameplay3DBridge"
 	battlefield_3d.visible = false
-	# The 3D scene is a full visual prototype; do not spend mobile CPU/GPU time
-	# animating its showcase units, radar, audio, and effects while the 2D view is active.
 	battlefield_3d.process_mode = Node.PROCESS_MODE_DISABLED
 	add_child(battlefield_3d)
 	if battlefield_3d.has_signal("gameplay_order_issued"):
 		battlefield_3d.connect("gameplay_order_issued", Callable(self, "_on_3d_gameplay_order_issued"))
+	return true
 
 
 func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
@@ -195,6 +196,9 @@ func _sync_3d_gameplay_bridge() -> void:
 
 func _set_3d_view_enabled(enabled: bool) -> void:
 	if enabled and not game_started:
+		return
+	if enabled and not _ensure_3d_gameplay_bridge():
+		use_3d_view = false
 		return
 	use_3d_view = enabled
 	if is_instance_valid(battlefield_3d):
