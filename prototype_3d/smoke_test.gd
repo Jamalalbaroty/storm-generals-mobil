@@ -50,6 +50,19 @@ func _initialize() -> void:
 		return
 	battlefield.call("_apply_mobile_quality_profile", OS.has_feature("mobile"))
 
+	# Verify the movement destination marker has four readable tactical reticle ticks.
+	var destination_marker := battlefield.get("order_marker") as MeshInstance3D
+	if destination_marker == null or destination_marker.get_child_count() != 4:
+		push_error("Movement destination marker is missing its four-point tactical reticle")
+		quit(1)
+		return
+	for reticle_index in range(4):
+		var reticle_tick := destination_marker.get_node_or_null("DestinationReticle%d" % reticle_index) as MeshInstance3D
+		if reticle_tick == null or not reticle_tick.mesh is BoxMesh:
+			push_error("Movement destination reticle tick is missing or has invalid geometry")
+			quit(1)
+			return
+
 	# Verify camera zoom limits, arena pan bounds, and the two-finger mobile gesture.
 	var camera_height_before: float = float(battlefield.get("camera_height"))
 	battlefield.call("_zoom_camera", 0.01)

@@ -2210,8 +2210,28 @@ func _build_order_indicators() -> void:
 	order_marker.mesh = marker_mesh
 	order_marker.position.y = 0.04
 	order_marker.material_override = _make_armour_material(Color(0.92, 0.76, 0.25))
-	order_marker.visible = false
 	add_child(order_marker)
+	var reticle_material := _make_armour_material(Color(1.0, 0.84, 0.32))
+	for reticle_index in range(4):
+		var reticle_tick := MeshInstance3D.new()
+		reticle_tick.name = "DestinationReticle%d" % reticle_index
+		var tick_mesh := BoxMesh.new()
+		tick_mesh.size = Vector3(0.34, 0.045, 0.075)
+		reticle_tick.mesh = tick_mesh
+		reticle_tick.material_override = reticle_material
+		match reticle_index:
+			0:
+				reticle_tick.position = Vector3(0.66, 0.075, 0.0)
+				reticle_tick.rotation.y = PI * 0.5
+			1:
+				reticle_tick.position = Vector3(-0.66, 0.075, 0.0)
+				reticle_tick.rotation.y = PI * 0.5
+			2:
+				reticle_tick.position = Vector3(0.0, 0.075, 0.66)
+			3:
+				reticle_tick.position = Vector3(0.0, 0.075, -0.66)
+		order_marker.add_child(reticle_tick)
+	order_marker.visible = false
 
 func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	selected_live_units.clear()
