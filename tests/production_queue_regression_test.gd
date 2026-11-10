@@ -357,7 +357,7 @@ func _run() -> void:
 	game.buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
 	game.missiles[0].pos = Vector2(400.0, 100.0)
 	game._update_missiles(0.1)
-	if not game.missiles.is_empty() or not is_equal_approx(float(game.buildings[3].attack_cd), game.MISSILE_DEFENSE_INTERCEPT_COOLDOWN):
+	if not game.missiles.is_empty() or not is_equal_approx(float(game.buildings[3].attack_cd), 0.75):
 		push_error("A powered missile defense must intercept incoming missiles")
 		quit(1)
 		return
@@ -493,5 +493,5 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
+	print("PASS: faction costs, enemy strategy, production recovery, grid power, and missile defense")
 	quit(0)
