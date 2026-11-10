@@ -397,6 +397,33 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(not game.get("units").is_empty() and String(game.get("units")[-1].get("kind", "")) == adaptive_case[1], "Enemy AI should answer %s with %s" % [adaptive_case[0], adaptive_case[1]])
 
 
+
+	# Enemy repairs only substantial damage, only on completed living structures,
+	# and preserves a small reserve for unit production.
+	game.get("enemy_buildings").clear()
+	game.set("enemy_credits", 1000)
+	game.get("enemy_buildings").append({
+		"kind": "factory",
+		"pos": game.get("enemy_base") + Vector2(-100.0, 40.0),
+		"hp": 300,
+		"build_progress": 1.0
+	})
+	var repair_before := int(game.get("enemy_credits"))
+	_expect(bool(game.call("_enemy_repair_damaged_building")), "Enemy AI should repair a completed factory after substantial damage")
+	_expect(int(game.get("enemy_buildings")[0].get("hp", 0)) == 500, "Enemy repair should restore the factory to its maximum health")
+	_expect(int(game.get("enemy_credits")) < repair_before, "Enemy repair should deduct its proportional resource cost")
+	var repaired_credits := int(game.get("enemy_credits"))
+	_expect(not bool(game.call("_enemy_repair_damaged_building")), "Enemy AI should not pay to repair a healthy factory")
+	_expect(int(game.get("enemy_credits")) == repaired_credits, "A healthy structure should not consume enemy resources")
+	game.get("enemy_buildings")[0]["hp"] = 390
+	game.get("enemy_buildings")[0]["build_progress"] = 0.5
+	_expect(not bool(game.call("_enemy_repair_damaged_building")), "Enemy AI must not repair a structure still under construction")
+	game.get("enemy_buildings")[0]["build_progress"] = 1.0
+	game.get("enemy_buildings")[0]["hp"] = 100
+	game.set("enemy_credits", 1)
+	_expect(not bool(game.call("_enemy_repair_damaged_building")), "Enemy AI must not spend resources it cannot afford or drain its production reserve")
+	_expect(int(game.get("enemy_buildings")[0].get("hp", 0)) == 100, "Unaffordable repairs must leave structure health unchanged")
+
 	# A major air threat should trigger urgent anti-air construction before
 	# optional base expansion, and an unfinished defense must count toward the cap.
 	game.get("units").clear()
