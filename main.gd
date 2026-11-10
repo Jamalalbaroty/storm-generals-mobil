@@ -670,8 +670,6 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
-						unit["airfield_takeoff"] = true
-						unit.erase("airfield_takeoff")
 					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
