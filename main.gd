@@ -551,11 +551,11 @@ func _process(delta: float) -> void:
 					# Base guards must close directly on an intruder; assault-lane offsets
 					# can otherwise keep a nearby threat just outside their firing radius.
 					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i))
+						destination = _enemy_infantry_support_position(unit.pos, units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i)) if unit.kind == "infantry" else _enemy_ground_assault_formation_position("tank", units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i))
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
 					if unit.kind == "tank" or unit.kind == "infantry":
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, _enemy_assault_formation_rank(i))
+						destination = _enemy_infantry_support_position(unit.pos, objective_destination, enemy_base, _enemy_assault_formation_rank(i)) if unit.kind == "infantry" else _enemy_ground_assault_formation_position("tank", objective_destination, enemy_base, _enemy_assault_formation_rank(i))
 				var distance_to_target: float = unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -1108,6 +1108,34 @@ func _enemy_assault_formation_rank(unit_index: int) -> int:
 		if String(candidate.get("kind", "")) in ["tank", "infantry"]:
 			rank += 1
 	return rank
+
+
+func _enemy_infantry_support_position(infantry_pos: Vector2, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
+	# Infantry screens the armor from behind instead of forming an unrelated front line.
+	var attack_direction: Vector2 = target_pos - assault_origin
+	if attack_direction.length_squared() <= 0.01:
+		attack_direction = Vector2.LEFT
+	else:
+		attack_direction = attack_direction.normalized()
+	var nearest_tank_index := -1
+	var nearest_tank_distance := 180.0
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if candidate.team != "enemy" or String(candidate.get("kind", "")) != "tank" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if bool(candidate.get("defense_guard", false)) or bool(candidate.get("landing_support_active", false)):
+			continue
+		if candidate.pos.distance_to(target_pos) > 240.0:
+			continue
+		var escort_distance: float = infantry_pos.distance_to(candidate.pos)
+		if escort_distance < nearest_tank_distance:
+			nearest_tank_distance = escort_distance
+			nearest_tank_index = candidate_index
+	if nearest_tank_index < 0:
+		return _enemy_ground_assault_formation_position("infantry", target_pos, assault_origin, unit_index)
+	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
+	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
+	return units[nearest_tank_index].pos - attack_direction * 48.0 + lateral_direction * lane_side * 26.0
 
 
 func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
