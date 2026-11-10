@@ -173,6 +173,10 @@ func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	unit.erase("airfield_returning")
 	unit.erase("airfield_landed")
 	unit.erase("airfield_recovery_id")
+	unit.erase("airfield_recovery_slot")
+	unit.erase("airfield_sortie_ready")
+	unit.erase("airfield_sortie_launch")
+	unit.erase("airfield_sortie_airfield_id")
 
 
 func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
@@ -616,6 +620,7 @@ func _process(delta: float) -> void:
 								# Release the aircraft for a fresh sortie after completing field service.
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
+								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
 								unit.erase("airfield_returning")
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
@@ -643,6 +648,31 @@ func _process(delta: float) -> void:
 						unit.erase("landing_support_active")
 						unit.erase("attack_target")
 						unit.erase("attack_focus_pos")
+				# Recovered aircraft taxi clear of the landing area before resuming flight.
+				if unit.kind in ["fighter", "helicopter"] and bool(unit.get("airfield_sortie_launch", false)):
+					var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
+					var sortie_airfield_index := -1
+					for sortie_index in range(buildings.size()):
+						if String(buildings[sortie_index].get("kind", "")) == "airfield" and int(buildings[sortie_index].get("production_id", -2)) == sortie_airfield_id and int(buildings[sortie_index].get("hp", 0)) > 0:
+							sortie_airfield_index = sortie_index
+							break
+					if sortie_airfield_index < 0:
+						unit.erase("airfield_sortie_launch")
+						unit.erase("airfield_sortie_ready")
+						unit.erase("airfield_sortie_airfield_id")
+					else:
+						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
+						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
+						if unit.pos.distance_to(sortie_launch_spot) > 8.0:
+							unit.pos += (sortie_launch_spot - unit.pos).normalized() * delta * (48.0 if unit.kind == "fighter" else 38.0)
+							continue
+						unit.pos = sortie_launch_spot
+						unit.erase("airfield_sortie_launch")
+						unit.erase("airfield_sortie_ready")
+						unit.erase("airfield_sortie_airfield_id")
+						unit["airfield_takeoff"] = true
+						unit.erase("airfield_takeoff")
+					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
 				if unit.kind in ["fighter", "helicopter"]:
