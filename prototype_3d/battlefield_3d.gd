@@ -30,6 +30,8 @@ var attack_move_order_mode := false
 var attack_move_order_button: Button
 var guard_order_mode := false
 var guard_order_button: Button
+var escort_order_mode := false
+var escort_order_button: Button
 var selection_gesture_start := Vector2.ZERO
 var selection_gesture_active := false
 var selection_gesture_dragging := false
@@ -2886,6 +2888,22 @@ func _build_order_indicators() -> void:
 	guard_order_button.toggled.connect(_on_guard_order_button_toggled)
 	hud_layer.add_child(guard_order_button)
 
+	escort_order_button = Button.new()
+	escort_order_button.name = "TankEscortOrderButton"
+	escort_order_button.text = "مرافقة المدفعية"
+	escort_order_button.toggle_mode = true
+	escort_order_button.anchor_left = 1.0
+	escort_order_button.anchor_top = 1.0
+	escort_order_button.anchor_right = 1.0
+	escort_order_button.anchor_bottom = 1.0
+	escort_order_button.offset_left = -204.0
+	escort_order_button.offset_top = -244.0
+	escort_order_button.offset_right = -20.0
+	escort_order_button.offset_bottom = -192.0
+	escort_order_button.visible = false
+	escort_order_button.toggled.connect(_on_escort_order_button_toggled)
+	hud_layer.add_child(escort_order_button)
+
 	order_marker = MeshInstance3D.new()
 	var marker_mesh := CylinderMesh.new()
 	marker_mesh.top_radius = 0.48
@@ -2967,6 +2985,22 @@ func _on_guard_order_button_toggled(enabled: bool) -> void:
 		guard_order_button.text = "انقر لتحديد موقع الحراسة" if enabled else "حراسة الموقع"
 
 
+func _on_escort_order_button_toggled(enabled: bool) -> void:
+	escort_order_mode = enabled
+	if enabled:
+		if is_instance_valid(guard_order_button):
+			guard_order_button.button_pressed = false
+			guard_order_mode = false
+		if is_instance_valid(attack_move_order_button):
+			attack_move_order_button.button_pressed = false
+			attack_move_order_mode = false
+		if is_instance_valid(patrol_order_button):
+			patrol_order_button.button_pressed = false
+			patrol_order_mode = false
+	if is_instance_valid(escort_order_button):
+		escort_order_button.text = "اختر مدفعية للمرافقة" if enabled else "مرافقة المدفعية"
+
+
 func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	selected_live_units.clear()
 	for unit in units_to_select:
@@ -2980,12 +3014,15 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	_update_selection_count_label()
 	var has_selected_aircraft := false
 	var has_selected_ground_force := false
+	var has_selected_tank := false
 	for selected_unit in selected_live_units:
 		var selected_kind := str(selected_unit.get_meta("unit_type", ""))
 		if selected_kind in ["fighter", "helicopter"]:
 			has_selected_aircraft = true
 		if selected_kind in ["tank", "artillery", "infantry"]:
 			has_selected_ground_force = true
+		if selected_kind == "tank":
+			has_selected_tank = true
 	if is_instance_valid(patrol_order_button):
 		patrol_order_button.visible = has_selected_aircraft
 		if not has_selected_aircraft:
@@ -2998,6 +3035,10 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 		guard_order_button.visible = has_selected_ground_force
 		if not has_selected_ground_force:
 			guard_order_button.button_pressed = false
+	if is_instance_valid(escort_order_button):
+		escort_order_button.visible = has_selected_tank
+		if not has_selected_tank:
+			escort_order_button.button_pressed = false
 	order_marker.visible = false
 
 
@@ -3072,10 +3113,23 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				attack_move_order_button.button_pressed = false
 			if guard_order_mode and is_instance_valid(guard_order_button):
 				guard_order_button.button_pressed = false
+			if escort_order_mode and is_instance_valid(escort_order_button):
+				escort_order_button.button_pressed = false
 			if guard_order_mode and is_instance_valid(guard_order_button):
 				guard_order_button.button_pressed = false
+			if escort_order_mode and is_instance_valid(escort_order_button):
+				escort_order_button.button_pressed = false
 			return
 	if tapped_tank != null:
+		if escort_order_mode and not selected_live_units.is_empty() and _is_live_player_unit(tapped_tank) and str(tapped_tank.get_meta("unit_type", "")) == "artillery":
+			var escort_target_key := str(tapped_tank.get_meta("source_unit_key", ""))
+			for escorting_unit in selected_live_units:
+				if is_instance_valid(escorting_unit) and str(escorting_unit.get_meta("unit_type", "")) == "tank":
+					gameplay_order_issued.emit(str(escorting_unit.get_meta("source_unit_key", "")), "escort", Vector3.ZERO, escort_target_key)
+			if is_instance_valid(escort_order_button):
+				escort_order_button.button_pressed = false
+			escort_order_mode = false
+			return
 		if _is_live_player_unit(tapped_tank):
 			var single_selection: Array[Node3D] = [tapped_tank]
 			_set_live_selection(single_selection)
@@ -3091,6 +3145,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				attack_move_order_button.button_pressed = false
 			if guard_order_mode and is_instance_valid(guard_order_button):
 				guard_order_button.button_pressed = false
+			if escort_order_mode and is_instance_valid(escort_order_button):
+				escort_order_button.button_pressed = false
 			return
 		selected_tank = tapped_tank
 		selected_live_units.clear()
@@ -3149,6 +3205,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				attack_move_order_button.button_pressed = false
 			if guard_order_mode and is_instance_valid(guard_order_button):
 				guard_order_button.button_pressed = false
+			if escort_order_mode and is_instance_valid(escort_order_button):
+				escort_order_button.button_pressed = false
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
