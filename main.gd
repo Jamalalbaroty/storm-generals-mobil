@@ -611,6 +611,7 @@ func _process(delta: float) -> void:
 									recovery_slot += 1
 							unit["airfield_returning"] = true
 							unit["airfield_landed"] = false
+							unit["airfield_rearm_progress"] = 0.0
 							unit["airfield_recovery_id"] = recovery_id
 							unit["airfield_recovery_slot"] = recovery_slot
 							unit.erase("target")
@@ -641,9 +642,13 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos = landing_spot
 							unit["airfield_landed"] = true
-							if float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
-								# Refuel and rearm only after the aircraft completes its airfield service.
+							var rearm_duration := 4.5
+							var rearm_progress := minf(rearm_duration, float(unit.get("airfield_rearm_progress", 0.0)) + delta)
+							unit["airfield_rearm_progress"] = rearm_progress
+							if rearm_progress >= rearm_duration:
 								unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
+							if rearm_progress >= rearm_duration and float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
+								# Launch only after rearming and field repairs are both complete.
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
 								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
@@ -651,6 +656,7 @@ func _process(delta: float) -> void:
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
 								unit.erase("airfield_recovery_slot")
+								unit.erase("airfield_rearm_progress")
 					continue
 				if unit.kind == "tank" or unit.kind == "artillery":
 					var landing_support_target = _landing_assault_support_target(unit.pos, "player")
