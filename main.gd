@@ -2787,15 +2787,7 @@ func _enemy_ai_turn() -> void:
 			player_heavy_ground_threat += 1
 		elif unit.kind == "infantry":
 			player_infantry_threat += 1
-	var next_strategy := "balanced"
-	if player_air_threat >= 2 and player_air_threat >= player_heavy_ground_threat:
-		next_strategy = "air_control"
-	elif player_naval_threat >= 2:
-		next_strategy = "naval_control"
-	elif player_heavy_ground_threat >= 3:
-		next_strategy = "armor_breaker"
-	elif player_infantry_threat >= 5:
-		next_strategy = "area_denial"
+	var next_strategy := _enemy_choose_strategy(player_air_threat, player_naval_threat, player_heavy_ground_threat, player_infantry_threat)
 	if next_strategy != enemy_strategy:
 		enemy_strategy = next_strategy
 		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
@@ -2853,6 +2845,19 @@ func _enemy_ai_turn() -> void:
 	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_threat: int, infantry_threat: int) -> String:
+	# Prioritize the strongest immediate threat; retain a balanced doctrine below response thresholds.
+	if air_threat >= 2 and air_threat >= heavy_ground_threat:
+		return "air_control"
+	if naval_threat >= 2:
+		return "naval_control"
+	if heavy_ground_threat >= 3:
+		return "armor_breaker"
+	if infantry_threat >= 5:
+		return "area_denial"
+	return "balanced"
+
 
 func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int, destroyer_count: int) -> bool:
 	var kind := ""
