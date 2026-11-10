@@ -24,6 +24,8 @@ var turret_scan_clock := 0.0
 var showcase_tanks: Array[Node3D] = []
 var selected_tank: Node3D
 var selected_live_units: Array[Node3D] = []
+var patrol_order_mode := false
+var patrol_order_button: Button
 var selection_gesture_start := Vector2.ZERO
 var selection_gesture_active := false
 var selection_gesture_dragging := false
@@ -2828,6 +2830,22 @@ func _build_order_indicators() -> void:
 	selection_count_label.visible = false
 	hud_layer.add_child(selection_count_label)
 
+	patrol_order_button = Button.new()
+	patrol_order_button.name = "AirPatrolOrderButton"
+	patrol_order_button.text = "تعيين دورية جوية"
+	patrol_order_button.toggle_mode = true
+	patrol_order_button.anchor_left = 1.0
+	patrol_order_button.anchor_top = 1.0
+	patrol_order_button.anchor_right = 1.0
+	patrol_order_button.anchor_bottom = 1.0
+	patrol_order_button.offset_left = -204.0
+	patrol_order_button.offset_top = -76.0
+	patrol_order_button.offset_right = -20.0
+	patrol_order_button.offset_bottom = -24.0
+	patrol_order_button.visible = false
+	patrol_order_button.toggled.connect(_on_patrol_order_button_toggled)
+	hud_layer.add_child(patrol_order_button)
+
 	order_marker = MeshInstance3D.new()
 	var marker_mesh := CylinderMesh.new()
 	marker_mesh.top_radius = 0.48
@@ -2872,6 +2890,12 @@ func _build_order_indicators() -> void:
 		order_marker.add_child(reticle_tick)
 	order_marker.visible = false
 
+func _on_patrol_order_button_toggled(enabled: bool) -> void:
+	patrol_order_mode = enabled
+	if is_instance_valid(patrol_order_button):
+		patrol_order_button.text = "انقر لتحديد مسار الدورية" if enabled else "تعيين دورية جوية"
+
+
 func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	selected_live_units.clear()
 	for unit in units_to_select:
@@ -2883,6 +2907,15 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	selection_ring.visible = is_instance_valid(selected_tank)
 	_refresh_group_selection_rings()
 	_update_selection_count_label()
+	var has_selected_aircraft := false
+	for selected_unit in selected_live_units:
+		if str(selected_unit.get_meta("unit_type", "")) in ["fighter", "helicopter"]:
+			has_selected_aircraft = true
+			break
+	if is_instance_valid(patrol_order_button):
+		patrol_order_button.visible = has_selected_aircraft
+		if not has_selected_aircraft:
+			patrol_order_button.button_pressed = false
 	order_marker.visible = false
 
 
@@ -2997,7 +3030,13 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			var formation_destination := _fit_group_formation_to_arena(selected_destination, formation_offsets)
 			for index in range(valid_units.size()):
 				var friendly := valid_units[index]
-				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + formation_offsets[index], "")
+				var source_key := str(friendly.get_meta("source_unit_key", ""))
+				if patrol_order_mode and str(friendly.get_meta("unit_type", "")) in ["fighter", "helicopter"]:
+					gameplay_order_issued.emit(source_key, "patrol", formation_destination + formation_offsets[index], "")
+				else:
+					gameplay_order_issued.emit(source_key, "move", formation_destination + formation_offsets[index], "")
+			if patrol_order_mode:
+				patrol_order_button.button_pressed = false
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
