@@ -1657,7 +1657,10 @@ func _draw() -> void:
 		var career_medals: Array = commander_profile.get("earned_medals", [])
 		var career_summary := "المعارك: %d  |  انتصارات: %d  |  هزائم: %d" % [int(commander_profile.get("battles_played", 0)), int(commander_profile.get("victories", 0)), int(commander_profile.get("defeats", 0))]
 		var kill_summary := "إجمالي القتلى: %d  |  الجو: %d  |  الدروع: %d  |  البحر: %d" % [int(commander_profile.get("total_kills", 0)), int(commander_profile.get("air_kills", 0)), int(commander_profile.get("armor_kills", 0)), int(commander_profile.get("naval_kills", 0))]
-		var medal_summary := "الأوسمة الدائمة: " + ("، ".join(career_medals) if not career_medals.is_empty() else "لم تحصل على أوسمة بعد")
+		var medal_names := PackedStringArray()
+		for medal in career_medals:
+			medal_names.append(String(medal))
+		var medal_summary := "الأوسمة الدائمة: " + ("، ".join(medal_names) if not medal_names.is_empty() else "لم تحصل على أوسمة بعد")
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.47), career_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 14, Color("#d8e6c2"))
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.51), kill_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 13, Color("#c4dce8"))
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.55), medal_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 12, Color("#f4d77a"))
