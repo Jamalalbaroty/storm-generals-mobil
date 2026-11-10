@@ -185,7 +185,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var launched_aircraft := battlefield.carrier_aircraft[0].get("node") as Node3D
-	if launched_aircraft == null or launched_aircraft.get_child_count() < 3 or launched_aircraft.global_position.y <= test_carrier.global_position.y:
+	if launched_aircraft == null or launched_aircraft.get_child_count() < 3 or launched_aircraft.position.y <= test_carrier.position.y:
 		push_error("Carrier patrol aircraft geometry or takeoff altitude is invalid")
 		quit(1)
 		return
