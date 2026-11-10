@@ -2256,13 +2256,35 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			else:
 				forward = forward.normalized()
 			var formation_spacing := _group_formation_spacing(valid_units)
+			var formation_offsets: Array[Vector3] = []
+			for index in range(valid_units.size()):
+				formation_offsets.append(_group_formation_offset(index, valid_units.size(), forward, formation_spacing))
+			var formation_destination := _fit_group_formation_to_arena(selected_destination, formation_offsets)
 			for index in range(valid_units.size()):
 				var friendly := valid_units[index]
-				var offset := _group_formation_offset(index, valid_units.size(), forward, formation_spacing)
-				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", selected_destination + offset, "")
+				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + formation_offsets[index], "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
+
+
+
+func _fit_group_formation_to_arena(destination: Vector3, offsets: Array[Vector3]) -> Vector3:
+	# Shift the whole formation near arena edges instead of clipping individual unit destinations.
+	var limit := ARENA_SIZE * 0.42
+	var min_x := 0.0
+	var max_x := 0.0
+	var min_z := 0.0
+	var max_z := 0.0
+	for offset in offsets:
+		min_x = minf(min_x, offset.x)
+		max_x = maxf(max_x, offset.x)
+		min_z = minf(min_z, offset.z)
+		max_z = maxf(max_z, offset.z)
+	var fitted := destination
+	fitted.x = clampf(fitted.x, -limit - min_x, limit - max_x)
+	fitted.z = clampf(fitted.z, -limit - min_z, limit - max_z)
+	return fitted
 
 
 func _group_formation_spacing(units: Array[Node3D]) -> float:
