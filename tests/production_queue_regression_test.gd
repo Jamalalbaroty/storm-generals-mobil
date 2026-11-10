@@ -320,6 +320,48 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Missile silos and interception defenses must obey the same power grid.
+	game.buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 5.0}
+	]
+	game.missiles.clear()
+	game.credits = 1200
+	game.supplies = 10
+	game._launch_player_missile()
+	if not game.missiles.is_empty() or game.credits != 1200 or game.supplies != 10:
+		push_error("An unpowered missile silo must not launch or charge for a missile")
+		quit(1)
+		return
+	game._update_missiles(1.0)
+	if not is_equal_approx(float(game.buildings[3].attack_cd), 5.0):
+		push_error("An unpowered missile silo must pause its reload timer")
+		quit(1)
+		return
+
+	game.buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "missile_defense", "hp": 450, "build_progress": 1.0, "attack_cd": 0.0}
+	]
+	game.enemy_buildings.clear()
+	game.missiles = [{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "enemy", "damage": 100, "life": 8.0}]
+	game._update_missiles(0.1)
+	if game.missiles.size() != 1 or game.buildings[3].attack_cd != 0.0:
+		push_error("An unpowered missile defense must not intercept incoming missiles")
+		quit(1)
+		return
+	game.buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game.missiles[0].pos = Vector2(400.0, 100.0)
+	game._update_missiles(0.1)
+	if not game.missiles.is_empty() or not is_equal_approx(float(game.buildings[3].attack_cd), game.MISSILE_DEFENSE_INTERCEPT_COOLDOWN):
+		push_error("A powered missile defense must intercept incoming missiles")
+		quit(1)
+		return
+
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
