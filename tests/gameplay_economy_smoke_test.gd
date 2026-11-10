@@ -281,7 +281,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 86, "Completed enemy anti-air should deal its real 34-point hit to a player fighter")
-	_expect(is_equal_approx(float(game.get("enemy_buildings")[0]["attack_cd"]), 0.55), "Enemy anti-air should use its 0.65-second firing cycle")
+	_expect(is_equal_approx(float(game.get("enemy_buildings")[0]["attack_cd"]), 0.65), "Enemy anti-air should use its 0.65-second firing cycle")
 
 	game.get("buildings").append({
 		"kind": "anti_air", "pos": Vector2(500.0, 300.0),
@@ -294,7 +294,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 86, "Powered player anti-air should deal its real 34-point hit to an enemy fighter")
-	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.55), "Player anti-air should use its 0.65-second firing cycle")
+	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.65), "Player anti-air should use its 0.65-second firing cycle")
 
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
