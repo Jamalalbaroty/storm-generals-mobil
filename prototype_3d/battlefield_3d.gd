@@ -1726,7 +1726,7 @@ func _build_tactical_radar_hud() -> void:
 	column.add_theme_constant_override("separation", 5)
 	panel.add_child(column)
 	var heading := Label.new()
-	heading.text = "TACTICAL // THREAT GRID"
+	heading.text = "شبكة التهديدات التكتيكية"
 	heading.add_theme_color_override("font_color", Color(0.66, 0.86, 0.72))
 	heading.add_theme_font_size_override("font_size", 13)
 	column.add_child(heading)
@@ -1777,20 +1777,20 @@ func _build_tactical_radar_hud() -> void:
 	var footer := HBoxContainer.new()
 	column.add_child(footer)
 	var status := Label.new()
-	status.text = "AIR 0  |  GROUND 0"
+	status.text = "جوي 0  |  بري 0"
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status.add_theme_font_size_override("font_size", 11)
 	status.add_theme_color_override("font_color", Color(0.42, 0.88, 0.60))
 	footer.add_child(status)
 	radar_status_label = status
 	var count := Label.new()
-	count.text = "CONTACTS  0"
+	count.text = "اتصالات  0"
 	count.add_theme_font_size_override("font_size", 11)
 	count.add_theme_color_override("font_color", Color(0.95, 0.35, 0.25))
 	footer.add_child(count)
 	radar_count_label = count
 	var ground_status := Label.new()
-	ground_status.text = "SECTOR SECURE  //  SCAN ACTIVE"
+	ground_status.text = "القطاع آمن  //  المسح نشط"
 	ground_status.add_theme_font_size_override("font_size", 10)
 	ground_status.add_theme_color_override("font_color", Color(0.55, 0.70, 0.59))
 	column.add_child(ground_status)
@@ -1847,12 +1847,12 @@ func _update_radar_hud(delta: float) -> void:
 				stale.queue_free()
 			radar_blip_widgets.erase(key)
 	if is_instance_valid(radar_count_label):
-		radar_count_label.text = "CONTACTS  %d" % (hostile_air + hostile_ground)
+		radar_count_label.text = "اتصالات  %d" % (hostile_air + hostile_ground)
 	if is_instance_valid(radar_status_label):
-		radar_status_label.text = "AIR %d  |  GROUND %d" % [hostile_air, hostile_ground]
+		radar_status_label.text = "جوي %d  |  بري %d" % [hostile_air, hostile_ground]
 		radar_status_label.add_theme_color_override("font_color", Color(1.0, 0.42, 0.20) if hostile_air + hostile_ground > 0 else Color(0.42, 0.88, 0.60))
 	if is_instance_valid(radar_ground_label):
-		radar_ground_label.text = "HOSTILE CONTACT // SCAN ACTIVE" if hostile_air + hostile_ground > 0 else "SECTOR SECURE  //  SCAN ACTIVE"
+		radar_ground_label.text = "رصد تحرك معادٍ // المسح نشط" if hostile_air + hostile_ground > 0 else "القطاع آمن // المسح نشط"
 		radar_ground_label.add_theme_color_override("font_color", Color(1.0, 0.48, 0.25) if hostile_air + hostile_ground > 0 else Color(0.55, 0.70, 0.59))
 
 func _build_showcase_radars() -> void:
