@@ -1102,6 +1102,7 @@ func _initialize() -> void:
 	bridge.call("_set_live_selection", [selected_before_cleanup])
 	bridge.set("attack_target", selected_before_cleanup)
 	bridge.set("has_selected_destination", true)
+	bridge.order_marker.visible = true
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
