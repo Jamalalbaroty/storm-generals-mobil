@@ -2972,6 +2972,8 @@ func _unit_repair_max_hp(unit: Dictionary) -> int:
 	match String(unit.get("kind", "")):
 		"tank": return 150
 		"artillery": return 100
+		"fighter": return 120
+		"helicopter": return 180
 		"destroyer": return 260
 		"carrier": return 520
 		"submarine": return 210
@@ -3019,6 +3021,38 @@ func _update_field_repairs(delta: float) -> void:
 		if float(builder.field_repair_fx_cd) <= 0.0:
 			_add_visual_effect("repair", builder.pos, target_unit.pos, Color("#8ce6a0"), 0.32, 0.0)
 			builder["field_repair_fx_cd"] = 0.75
+	for airfield in buildings:
+		if String(airfield.get("kind", "")) != "airfield" or String(airfield.get("team", "player")) != "player":
+			continue
+		if float(airfield.get("build_progress", 1.0)) < 1.0 or int(airfield.get("hp", 0)) <= 0:
+			continue
+		for aircraft in units:
+			if String(aircraft.get("team", "")) != "player" or String(aircraft.get("kind", "")) not in ["fighter", "helicopter"]:
+				continue
+			if bool(aircraft.get("carrier_home", false)):
+				continue
+			var aircraft_max_hp := _unit_repair_max_hp(aircraft)
+			if int(aircraft.get("hp", 0)) <= 0 or int(aircraft.hp) >= aircraft_max_hp:
+				continue
+			if aircraft.pos.distance_to(airfield.pos) > 105.0 or credits <= 0:
+				continue
+			aircraft["airfield_repair_work"] = minf(2.0, float(aircraft.get("airfield_repair_work", 0.0)) + delta * 4.0)
+			var air_repair_points := mini(int(floor(float(aircraft.airfield_repair_work))), aircraft_max_hp - int(aircraft.hp))
+			if air_repair_points <= 0:
+				continue
+			var air_cost_buffer := float(aircraft.get("airfield_repair_cost_buffer", 0.0)) + float(air_repair_points) * 0.55
+			var air_cost := int(floor(air_cost_buffer))
+			if air_cost > credits:
+				continue
+			aircraft["airfield_repair_work"] = float(aircraft.airfield_repair_work) - float(air_repair_points)
+			aircraft["airfield_repair_cost_buffer"] = air_cost_buffer - float(air_cost)
+			credits -= air_cost
+			aircraft["hp"] = mini(aircraft_max_hp, int(aircraft.hp) + air_repair_points)
+			aircraft["airfield_repair_fx_cd"] = maxf(0.0, float(aircraft.get("airfield_repair_fx_cd", 0.0)) - delta)
+			if float(aircraft.airfield_repair_fx_cd) <= 0.0:
+				_add_visual_effect("repair", airfield.pos, aircraft.pos, Color("#f4d77a"), 0.32, 0.0)
+				aircraft["airfield_repair_fx_cd"] = 0.85
+
 	for dock in buildings:
 		if String(dock.get("kind", "")) != "shipyard" or String(dock.get("team", "player")) != "player":
 			continue
