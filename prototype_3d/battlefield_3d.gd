@@ -2262,7 +2262,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			var formation_destination := _fit_group_formation_to_arena(selected_destination, formation_offsets)
 			for index in range(valid_units.size()):
 				var friendly := valid_units[index]
-				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + formation_offsets[index], "")
+				var role_offset := _group_formation_offset_for_unit(friendly, valid_units, forward, formation_spacing)
+				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + role_offset, "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
@@ -2306,6 +2307,44 @@ func _group_formation_spacing(units: Array[Node3D]) -> float:
 			unit_spacing = 10.5
 		spacing = maxf(spacing, unit_spacing)
 	return spacing
+
+
+
+func _group_formation_role(unit: Node3D) -> int:
+	var unit_type := str(unit.get_meta("unit_type", "tank")) if is_instance_valid(unit) else "tank"
+	if unit_type == "artillery":
+		return 0 # Fire-support line stays behind the main force.
+	if unit_type in ["infantry", "builder", "marine"]:
+		return 1 # Foot soldiers and builders occupy the center line.
+	if unit_type in ["helicopter", "fighter"]:
+		return 3 # Aircraft take the forward air-support lane.
+	return 2 # Armor and other direct-combat units form the front line.
+
+
+func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forward: Vector3, spacing: float) -> Vector3:
+	var role := _group_formation_role(unit)
+	var role_index := 0
+	var role_count := 0
+	for candidate in units:
+		if not is_instance_valid(candidate) or _group_formation_role(candidate) != role:
+			continue
+		if candidate == unit:
+			role_index = role_count
+		role_count += 1
+	var count := maxi(1, role_count)
+	var columns := mini(3, count)
+	var rows := int(ceil(float(count) / float(columns)))
+	var row := int(role_index / columns)
+	var column := role_index % columns
+	var direction := Vector3(forward.x, 0.0, forward.z)
+	if direction.length_squared() < 0.0001:
+		direction = Vector3.FORWARD
+	else:
+		direction = direction.normalized()
+	var right := Vector3(direction.z, 0.0, -direction.x)
+	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
+	var depth := (float(role - 1) + float(row) - float(rows - 1) * 0.5) * spacing
+	return right * lateral + direction * depth
 
 
 func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spacing: float = 2.6) -> Vector3:
