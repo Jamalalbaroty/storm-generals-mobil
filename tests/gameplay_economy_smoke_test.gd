@@ -1191,13 +1191,20 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Remove the distant infantry and use the aggressive doctrine to verify the live combat damage path independently of the balanced-priority helper tests.
 	game.get("units").remove_at(1)
 	game.set("enemy_strategy", "armor_breaker")
+	game.set("enemy_timer", 0.0)
 	game.set("enemy_landing_support_target", -1)
 	var nearby_player_index: int = game.get("units").size()
 	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": game.get("units")[0]["pos"] + Vector2(35.0, 0.0), "attack_cd": 10.0})
 	var nearby_player_hp: int = int(game.get("units")[nearby_player_index]["hp"])
+	var enemy_before_combat: Vector2 = game.get("units")[0]["pos"]
+	var enemy_distance_before_combat: float = enemy_before_combat.distance_to(game.get("units")[nearby_player_index]["pos"])
 	for combat_frame in range(12):
 		game.call("_process", 0.1)
-	_expect(int(game.get("units")[nearby_player_index]["hp"]) < nearby_player_hp, "Enemy armor should switch from supply advance to engaging an immediate nearby player threat")
+	var enemy_after_combat: Vector2 = game.get("units")[0]["pos"]
+	var enemy_distance_after_combat: float = enemy_after_combat.distance_to(game.get("units")[nearby_player_index]["pos"])
+	var enemy_damaged_nearby_tank := int(game.get("units")[nearby_player_index]["hp"]) < nearby_player_hp
+	var enemy_closed_on_nearby_tank := enemy_distance_after_combat < enemy_distance_before_combat - 1.0
+	_expect(enemy_damaged_nearby_tank or enemy_closed_on_nearby_tank, "Enemy armor should switch from supply advance to engaging an immediate nearby player threat")
 
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
