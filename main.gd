@@ -478,9 +478,9 @@ func _process(delta: float) -> void:
 					var artillery_fire_target: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
 					var artillery_destination: Vector2 = artillery_fire_target
 					if artillery_target >= 0 and not artillery_guard:
-						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, i)
+						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, _enemy_artillery_formation_rank(i))
 					var artillery_distance: float = unit.pos.distance_to(artillery_fire_target)
-					if artillery_distance <= 330.0:
+					if _enemy_artillery_in_firing_band(artillery_distance):
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
 							_add_visual_effect("explosion", artillery_fire_target, artillery_fire_target, Color("#ff9855"), 0.65, 58.0)
@@ -490,6 +490,7 @@ func _process(delta: float) -> void:
 								player_base_hp = maxi(0, player_base_hp - 30)
 							unit.attack_cd = 2.4
 					else:
+						# Avoid point-blank brawling; reposition behind the assault line or toward maximum range.
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
 				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
@@ -1103,6 +1104,20 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 	elif unit_kind == "infantry":
 		role_offset = -attack_direction * 22.0
 	return target_pos + role_offset + lateral_direction * lane_side * lane_offset
+
+
+func _enemy_artillery_formation_rank(unit_index: int) -> int:
+	# Artillery lanes are independent from tank/infantry indices and ignore dead or unrelated units.
+	var rank := 0
+	for index in range(mini(unit_index, units.size())):
+		var candidate: Dictionary = units[index]
+		if candidate.team == "enemy" and int(candidate.get("hp", 0)) > 0 and String(candidate.get("kind", "")) == "artillery":
+			rank += 1
+	return rank
+
+
+func _enemy_artillery_in_firing_band(distance: float) -> bool:
+	return distance >= 185.0 and distance <= 330.0
 
 
 func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
