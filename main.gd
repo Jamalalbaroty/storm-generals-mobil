@@ -1098,6 +1098,19 @@ func _fortification_resolve_segment(position: Vector2, previous: Vector2, segmen
 	return closest + normal * radius
 
 
+func _fortification_resolve_circle(position: Vector2, previous: Vector2, center: Vector2, radius: float) -> Vector2:
+	var offset := position - center
+	var distance := offset.length()
+	if distance >= radius:
+		return position
+	var normal := offset.normalized()
+	if distance <= 0.001:
+		normal = (previous - center).normalized()
+		if normal.length_squared() <= 0.001:
+			normal = Vector2.UP
+	return center + normal * radius
+
+
 func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> void:
 	var snapshot_count := mini(units.size(), previous_positions.size())
 	for unit_index in range(snapshot_count):
@@ -1110,18 +1123,22 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 		for hostile_side in [buildings, enemy_buildings]:
 			for fortification in hostile_side:
 				var kind := String(fortification.get("kind", ""))
-				if kind not in ["wall", "wall_corner", "wall_gate"] or int(fortification.get("hp", 0)) <= 0:
+				if int(fortification.get("hp", 0)) <= 0:
 					continue
 				if kind == "wall":
 					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(-31.0, 0.0), fortification.pos + Vector2(31.0, 0.0), collision_radius + 7.0)
 				elif kind == "wall_corner":
 					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(-31.0, 0.0), fortification.pos + Vector2(10.0, 0.0), collision_radius + 7.0)
 					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(10.0, 0.0), fortification.pos + Vector2(10.0, 40.0), collision_radius + 7.0)
-				else:
+				elif kind == "wall_gate":
 					# The gate keeps a clear central passage; only its two guard pillars block ground traffic.
 					for gate_side in [-1.0, 1.0]:
 						var pillar_center := fortification.pos + Vector2(gate_side * 28.0, 0.0)
 						resolved = _fortification_resolve_segment(resolved, previous, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), collision_radius + 6.0)
+				elif kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
+					# Ground vehicles and infantry cannot pass through solid defensive structures.
+					var structure_radius := 22.0 if kind in ["bunker", "missile_silo"] else (19.0 if kind == "missile_defense" else 16.0)
+					resolved = _fortification_resolve_circle(resolved, previous, fortification.pos, collision_radius + structure_radius)
 				previous = resolved
 		unit.pos = resolved
 		units[unit_index] = unit
