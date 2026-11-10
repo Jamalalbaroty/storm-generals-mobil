@@ -820,6 +820,53 @@ func sync_gameplay_effects(effect_records: Array, map_rect: Rect2) -> int:
 	return synced
 
 
+func _update_gameplay_building_damage_visuals(building: Node3D, current_hp: float, maximum_hp: float, kind: String) -> void:
+	var health_ratio := clampf(current_hp / maxf(1.0, maximum_hp), 0.0, 1.0)
+	var smoke_variant = building.get_node_or_null("DamageSmoke")
+	if health_ratio > 0.55:
+		if is_instance_valid(smoke_variant):
+			smoke_variant.queue_free()
+		return
+	var smoke := smoke_variant as GPUParticles3D
+	if not is_instance_valid(smoke):
+		smoke = GPUParticles3D.new()
+		smoke.name = "DamageSmoke"
+		smoke.position = Vector3(0.0, 3.0 if kind != "command" else 4.8, 0.0)
+		smoke.amount = 7
+		smoke.lifetime = 1.7
+		smoke.explosiveness = 0.0
+		smoke.emitting = true
+		var particle_material := ParticleProcessMaterial.new()
+		particle_material.direction = Vector3(0.0, 1.0, 0.0)
+		particle_material.spread = 22.0
+		particle_material.initial_velocity_min = 0.35
+		particle_material.initial_velocity_max = 1.15
+		particle_material.gravity = Vector3(0.0, 0.35, 0.0)
+		particle_material.scale_min = 0.16
+		particle_material.scale_max = 0.34
+		particle_material.color = Color(0.24, 0.25, 0.23, 0.62)
+		smoke.process_material = particle_material
+		var smoke_mesh := SphereMesh.new()
+		smoke_mesh.radius = 0.32
+		smoke_mesh.height = 0.64
+		smoke_mesh.radial_segments = 6
+		smoke_mesh.rings = 4
+		var smoke_surface := StandardMaterial3D.new()
+		smoke_surface.albedo_color = Color(0.25, 0.26, 0.24, 0.48)
+		smoke_surface.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		smoke_surface.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		smoke_mesh.material = smoke_surface
+		smoke.draw_pass_1 = smoke_mesh
+		building.add_child(smoke)
+		building.set_meta("damage_smoke", smoke)
+	if health_ratio <= 0.25:
+		smoke.amount = 13
+		smoke.lifetime = 2.1
+	else:
+		smoke.amount = 7
+		smoke.lifetime = 1.7
+
+
 func _gameplay_max_health_for_building(kind: String) -> float:
 	match kind:
 		"bunker":
@@ -880,6 +927,7 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			var maximum_hp := maxf(1.0, float(record.get("max_hp", _gameplay_max_health_for_building(kind))))
 			building.set_meta("health", current_hp)
 			building.set_meta("max_health", maximum_hp)
+			_update_gameplay_building_damage_visuals(building, current_hp, maximum_hp, kind)
 			if building.get_node_or_null("HealthBar") == null:
 				_create_showcase_health_bar(building)
 				var building_health_bar := building.get_node_or_null("HealthBar") as Node3D
