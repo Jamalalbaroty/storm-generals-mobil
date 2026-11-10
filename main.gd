@@ -2997,6 +2997,14 @@ func _enemy_ai_turn() -> void:
 		return
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
+	# Once an escort destroyer is available, launch the amphibious assault before
+	# filling additional naval-counter slots; otherwise naval doctrine starves its landing force.
+	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
+		enemy_supplies -= _unit_supply_cost("landing_craft")
+		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
+		return
 	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
 		return
 	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
@@ -3009,16 +3017,12 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= _unit_supply_cost("submarine")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
-	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
-		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
-		enemy_supplies -= _unit_supply_cost("landing_craft")
-		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
 	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
 		enemy_credits -= _unit_cost("destroyer", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("destroyer")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": _enemy_faction(), "hp": 260, "target": base_pos, "attack_cd": 0.0})
+
 	elif _enemy_has_powered_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= _unit_cost("fighter", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("fighter")

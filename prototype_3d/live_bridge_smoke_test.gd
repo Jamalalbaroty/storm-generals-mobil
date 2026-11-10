@@ -314,7 +314,9 @@ func _initialize() -> void:
 		{"pos": Vector2(900.0, 420.0), "kind": "airfield", "hp": 450, "build_progress": 1.0},
 		{"pos": Vector2(900.0, 480.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0},
 		{"pos": Vector2(780.0, 650.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0}
+		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0},
+		{"pos": Vector2(740.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(760.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
 	]
 	game.set("enemy_buildings", complete_ai_buildings)
 	game.set("enemy_credits", 100000)
