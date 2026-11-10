@@ -10,6 +10,11 @@ func _initialize() -> void:
 	root.add_child(game)
 	await process_frame
 
+	# Combat logic is under test here, not audio playback. Disable generated
+	# playback streams so headless CI cannot exit with asynchronous WAV handles.
+	(game.get("audio_players") as Array).clear()
+	(game.get("audio_streams") as Dictionary).clear()
+
 	var bridge := game.get("battlefield_3d") as Node3D
 	if bridge == null or bridge.get_parent() != game:
 		push_error("Active match did not create its dedicated 3D gameplay bridge")
