@@ -1,15 +1,8 @@
 name: Build Android APK
 
+# Android packaging is intentionally deferred until the game is feature-complete.
+# Run this workflow manually only when the team is ready to produce a test APK.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '**.gd'
-      - '**.tscn'
-      - '**.tres'
-      - 'project.godot'
-      - 'export_presets.cfg'
-      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 concurrency:
