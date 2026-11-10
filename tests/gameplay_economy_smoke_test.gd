@@ -958,6 +958,15 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(artillery_lane_a.distance_to(artillery_lane_c) >= 70.0, "Third artillery unit must not overlap the first support lane")
 	_expect(bool(game.call("_enemy_artillery_in_firing_band", artillery_lane_c.distance_to(Vector2(500.0, 300.0)))), "Expanded artillery support lanes should remain inside the firing envelope")
 
+	# Ground assault target hysteresis should prevent minor score changes from switching a squad's focus.
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	game.set("enemy_base", Vector2(900.0, 400.0))
+	game.get("units").append({"pos": Vector2(500.0, 400.0), "team": "player", "kind": "tank", "hp": 150})
+	game.get("units").append({"pos": Vector2(500.0, 400.0), "team": "player", "kind": "artillery", "hp": 100})
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 400.0), Vector2(500.0, 400.0))) == 0, "Ground assault should retain its current target when a new threat is only marginally better")
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 400.0), Vector2(-1000000.0, -1000000.0))) == 1, "Ground assault should select the higher-priority artillery threat when no valid target lock exists")
+
 	# Formation slots must be isolated from defensive guards and landing-support attachments.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(760.0, 320.0), "team": "enemy", "kind": "tank", "hp": 150})

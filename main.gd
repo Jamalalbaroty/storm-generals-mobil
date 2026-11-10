@@ -450,7 +450,9 @@ func _process(delta: float) -> void:
 						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
-					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos)
+					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos, unit.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)))
+					if artillery_target >= 0 and enemy_landing_support_target < 0:
+						unit["assault_target_pos"] = units[artillery_target].pos
 					var artillery_guard := bool(unit.get("defense_guard", false))
 					if artillery_guard:
 						var guard_target := -1
@@ -498,7 +500,9 @@ func _process(delta: float) -> void:
 						# Avoid point-blank brawling; reposition behind the assault line or toward maximum range.
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos)
+				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos, unit.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)))
+				if player_target >= 0 and enemy_landing_support_target < 0:
+					unit["assault_target_pos"] = units[player_target].pos
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
@@ -1330,11 +1334,14 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 	return best_index
 
 
-func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO) -> int:
+func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, preferred_pos: Vector2 = Vector2(-1000000.0, -1000000.0)) -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
 	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
 	var best_index := -1
 	var best_score := INF
+	var preferred_index := -1
+	var preferred_score := INF
+	var preferred_distance := INF
 	for candidate_index in range(units.size()):
 		var candidate: Dictionary = units[candidate_index]
 		if candidate.team != "player" or candidate.get("hp", 0) <= 0:
@@ -1358,6 +1365,14 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO) -> in
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
+		var lock_distance: float = candidate.pos.distance_to(preferred_pos)
+		if preferred_pos.x > -999999.0 and lock_distance <= 120.0 and lock_distance < preferred_distance:
+			preferred_distance = lock_distance
+			preferred_score = score
+			preferred_index = candidate_index
+	# Keep the current focus when a new candidate is only marginally better; switch decisively for a major threat change.
+	if preferred_index >= 0 and preferred_score <= best_score + 45.0:
+		return preferred_index
 	return best_index
 
 
