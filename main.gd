@@ -222,6 +222,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
 		source_unit.erase("guard_radius")
+		source_unit.erase("escort_active")
+		source_unit.erase("escort_target_id")
+		source_unit.erase("escort_offset")
 		if order_type == "attack_move":
 			source_unit["attack_move_active"] = true
 		else:
@@ -254,6 +257,40 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("attack_base")
 		notice = "القوات اتخذت مواقع الحراسة والدفاع"
 		notice_time = 1.8
+	elif order_type == "escort":
+		if String(source_unit.get("kind", "")) != "tank":
+			return
+		var escort_parts := target_key.split("|")
+		if escort_parts.size() < 3 or escort_parts[0] != "player" or not escort_parts[1].is_valid_int():
+			return
+		var escort_target_id := int(escort_parts[1])
+		var escort_target_index := -1
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if candidate.team == "player" and int(candidate.get("3d_sync_id", -1)) == escort_target_id and String(candidate.get("kind", "")) == "artillery" and int(candidate.get("hp", 0)) > 0:
+				escort_target_index = candidate_index
+				break
+		if escort_target_index < 0:
+			return
+		_cancel_airfield_recovery(source_unit)
+		var escort_target: Dictionary = units[escort_target_index]
+		source_unit["escort_target_id"] = escort_target_id
+		source_unit["escort_offset"] = source_unit.pos - escort_target.pos
+		source_unit["escort_active"] = true
+		source_unit.erase("target")
+		source_unit.erase("guard_active")
+		source_unit.erase("guard_position")
+		source_unit.erase("guard_radius")
+		source_unit.erase("escort_active")
+		source_unit.erase("escort_target_id")
+		source_unit.erase("escort_offset")
+		source_unit.erase("attack_move_active")
+		source_unit.erase("attack_target")
+		source_unit.erase("attack_focus_pos")
+		source_unit.erase("attack_building")
+		source_unit.erase("attack_base")
+		notice = "الدبابة بدأت مرافقة المدفعية وحمايتها"
+		notice_time = 1.8
 	elif order_type == "patrol":
 		if String(source_unit.get("kind", "")) not in ["fighter", "helicopter"]:
 			return
@@ -263,6 +300,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var patrol_ny := clampf((world_position.z + patrol_world_limit) / (patrol_world_limit * 2.0), 0.0, 1.0)
 		var patrol_destination := Vector2(patrol_nx * patrol_map_size.x, patrol_ny * patrol_map_size.y)
 		_cancel_airfield_recovery(source_unit)
+		source_unit.erase("escort_active")
+		source_unit.erase("escort_target_id")
+		source_unit.erase("escort_offset")
 		source_unit["air_patrol_points"] = [source_unit.pos, patrol_destination]
 		source_unit["air_patrol_index"] = 1
 		source_unit.erase("target")
@@ -840,6 +880,36 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("target")
 				continue
+			if bool(unit.get("escort_active", false)):
+				var escort_target_id := int(unit.get("escort_target_id", -1))
+				var escort_target_index := -1
+				for escort_candidate_index in range(units.size()):
+					if units[escort_candidate_index].team == "player" and int(units[escort_candidate_index].get("3d_sync_id", -1)) == escort_target_id and String(units[escort_candidate_index].get("kind", "")) == "artillery" and int(units[escort_candidate_index].get("hp", 0)) > 0:
+						escort_target_index = escort_candidate_index
+						break
+				if escort_target_index < 0:
+					unit.erase("escort_active")
+					unit.erase("escort_target_id")
+					unit.erase("escort_offset")
+				else:
+					var escort_target: Dictionary = units[escort_target_index]
+					var escort_offset: Vector2 = unit.get("escort_offset", Vector2(38.0, 0.0))
+					var escort_position: Vector2 = escort_target.pos + escort_offset
+					var escort_enemy_index := int(unit.get("attack_target", -1))
+					if escort_enemy_index >= 0 and (escort_enemy_index >= units.size() or units[escort_enemy_index].team != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or units[escort_enemy_index].pos.distance_to(escort_target.pos) > 185.0):
+						unit.erase("attack_target")
+						unit.erase("attack_focus_pos")
+						escort_enemy_index = -1
+					if escort_enemy_index < 0 and not unit.has("attack_building"):
+						var nearby_escort_enemy := _nearest_enemy_unit(escort_target.pos, 145.0)
+						if nearby_escort_enemy >= 0:
+							unit["attack_target"] = nearby_escort_enemy
+							unit["attack_focus_pos"] = units[nearby_escort_enemy].pos
+							escort_enemy_index = nearby_escort_enemy
+					if escort_enemy_index < 0 and not unit.has("attack_building"):
+						if unit.pos.distance_to(escort_position) > 16.0:
+							unit.pos += (escort_position - unit.pos).normalized() * delta * 38.0
+						continue
 			if bool(unit.get("guard_active", false)):
 				var guard_post: Vector2 = unit.get("guard_position", unit.pos)
 				var guard_radius := float(unit.get("guard_radius", 180.0))
