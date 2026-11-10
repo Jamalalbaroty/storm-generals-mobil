@@ -50,6 +50,66 @@ func _initialize() -> void:
 		return
 	battlefield.call("_apply_mobile_quality_profile", OS.has_feature("mobile"))
 
+	# Verify camera zoom limits, arena pan bounds, and the two-finger mobile gesture.
+	var camera_height_before: float = float(battlefield.get("camera_height"))
+	battlefield.call("_zoom_camera", 0.01)
+	if absf(float(battlefield.get("camera_height")) - 14.0) > 0.001:
+		push_error("RTS camera zoomed below its minimum safe height")
+		quit(1)
+		return
+	battlefield.call("_zoom_camera", 1000.0)
+	if absf(float(battlefield.get("camera_height")) - 48.0) > 0.001:
+		push_error("RTS camera zoomed above its maximum safe height")
+		quit(1)
+		return
+	battlefield.set("camera_focus", Vector3.ZERO)
+	battlefield.call("_update_camera_pose")
+	battlefield.call("_pan_camera", Vector2(50000.0, -50000.0))
+	var bounded_focus: Vector3 = battlefield.get("camera_focus")
+	if absf(bounded_focus.x) > 17.641 or absf(bounded_focus.z) > 17.641:
+		push_error("RTS camera pan escaped the playable arena bounds")
+		quit(1)
+		return
+	battlefield.set("camera_focus", Vector3.ZERO)
+	battlefield.set("camera_height", camera_height_before)
+	battlefield.call("_update_camera_pose")
+	var first_touch := InputEventScreenTouch.new()
+	first_touch.index = 0
+	first_touch.position = Vector2(100.0, 100.0)
+	first_touch.pressed = true
+	battlefield.call("_unhandled_input", first_touch)
+	var second_touch := InputEventScreenTouch.new()
+	second_touch.index = 1
+	second_touch.position = Vector2(200.0, 100.0)
+	second_touch.pressed = true
+	battlefield.call("_unhandled_input", second_touch)
+	var pinch_drag := InputEventScreenDrag.new()
+	pinch_drag.index = 1
+	pinch_drag.position = Vector2(260.0, 120.0)
+	battlefield.call("_unhandled_input", pinch_drag)
+	var pinch_focus: Vector3 = battlefield.get("camera_focus")
+	if float(battlefield.get("camera_height")) >= camera_height_before or pinch_focus.length() <= 0.01:
+		push_error("Two-finger mobile gesture did not apply pinch zoom and camera pan")
+		quit(1)
+		return
+	var release_second := InputEventScreenTouch.new()
+	release_second.index = 1
+	release_second.position = pinch_drag.position
+	release_second.pressed = false
+	battlefield.call("_unhandled_input", release_second)
+	var release_first := InputEventScreenTouch.new()
+	release_first.index = 0
+	release_first.position = first_touch.position
+	release_first.pressed = false
+	battlefield.call("_unhandled_input", release_first)
+	if battlefield.get("selected_tank") != null:
+		push_error("Ending a pinch gesture incorrectly selected a battlefield unit")
+		quit(1)
+		return
+	battlefield.set("camera_focus", Vector3.ZERO)
+	battlefield.set("camera_height", camera_height_before)
+	battlefield.call("_update_camera_pose")
+
 	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
 	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
 	if rock_scatter == null or scrub_scatter == null:
