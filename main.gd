@@ -2556,7 +2556,7 @@ func _update_building_construction(delta: float) -> void:
 		var progress := float(building.get("build_progress", 1.0))
 		if progress >= 1.0:
 			continue
-		var builder_near := false
+		var nearby_builders := 0
 		for worker in units:
 			if worker.team != "player" or worker.kind != "builder" or int(worker.get("hp", 0)) <= 0:
 				continue
@@ -2564,12 +2564,14 @@ func _update_building_construction(delta: float) -> void:
 			if assigned_target.distance_to(building.pos) >= 4.0:
 				continue
 			if worker.pos.distance_to(building.pos) <= 48.0:
-				builder_near = true
-				break
-		if not builder_near:
+				nearby_builders += 1
+		if nearby_builders <= 0:
 			continue
+		# Coordinated builders speed up construction, with diminishing returns
+		# and a hard cap so adding workers never makes buildings instantaneous.
+		var construction_multiplier := minf(2.5, 1.0 + float(nearby_builders - 1) * 0.5)
 		var duration := maxf(1.0, float(building.get("build_duration", 8.0)))
-		progress = minf(1.0, progress + delta / duration)
+		progress = minf(1.0, progress + delta * construction_multiplier / duration)
 		building["build_progress"] = progress
 		buildings[i] = building
 		if progress >= 1.0:
