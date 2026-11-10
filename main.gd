@@ -1826,6 +1826,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			faction = ""
 			units.clear()
 			buildings.clear()
+			production_orders.clear()
 			enemy_buildings.clear()
 			selected.clear()
 			selected_enemy_building = -1
