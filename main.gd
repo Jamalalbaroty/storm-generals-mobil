@@ -3081,10 +3081,6 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
 		notice_time = 2.0
 		return
-	var enemy_anti_air_count := 0
-	for existing_building in enemy_buildings:
-		if existing_building.kind == "anti_air":
-			enemy_anti_air_count += 1
 	var enemy_tanks := 0
 	var enemy_infantry := 0
 	var enemy_artillery := 0
@@ -3116,12 +3112,6 @@ func _enemy_ai_turn() -> void:
 		elif unit.kind == "infantry":
 			enemy_infantry += 1
 
-	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
-		enemy_credits -= _building_cost("anti_air")
-		_enemy_add_building("anti_air", build_pos, 380)
-		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
-		notice_time = 2.0
-		return
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
 	# Once an escort destroyer is available, launch the amphibious assault before
