@@ -571,6 +571,9 @@ func _process(delta: float) -> void:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
 							if unit.kind == "artillery":
+								# Telegraph the impact zone and show the muzzle blast before the shell arc.
+								_add_visual_effect("targeting", enemy.pos, enemy.pos, Color("#ffcc70"), 0.46, 76.0)
+								_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 								_add_visual_effect("shell", unit.pos, enemy.pos, Color("#ffb45e"), 0.42, 66.0)
 								_apply_artillery_blast(enemy.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
 								unit.attack_cd = 2.4
@@ -1748,7 +1751,20 @@ func _draw() -> void:
 		var fade: float = 1.0 - progress
 		var tint: Color = effect.color
 		tint.a = fade
-		if effect.kind == "shell":
+		if effect.kind == "targeting":
+			# Ground marker previews the full blast footprint for tactical readability.
+			var marker_radius := float(effect.radius) * (0.82 + progress * 0.18)
+			draw_arc(effect.finish, marker_radius, 0.0, TAU, 40, Color(1.0, 0.76, 0.30, fade * 0.88), 2.2)
+			draw_arc(effect.finish, marker_radius * 0.78, 0.0, TAU, 32, Color(1.0, 0.88, 0.56, fade * 0.48), 1.0)
+			for mark_index in range(4):
+				var mark_angle := TAU * float(mark_index) / 4.0
+				var mark_direction := Vector2(cos(mark_angle), sin(mark_angle))
+				draw_line(effect.finish + mark_direction * marker_radius * 0.86, effect.finish + mark_direction * marker_radius * 1.08, Color(1.0, 0.78, 0.38, fade), 2.0)
+		elif effect.kind == "muzzle":
+			var muzzle_radius := float(effect.radius) * (0.35 + progress)
+			draw_circle(effect.finish, muzzle_radius, Color(1.0, 0.64, 0.28, fade * 0.38))
+			draw_circle(effect.finish, muzzle_radius * 0.42, Color(1.0, 0.94, 0.72, fade * 0.82))
+		elif effect.kind == "shell":
 			# A compact ballistic arc makes heavy artillery fire readable at a glance.
 			var shell_position: Vector2 = effect.start.lerp(effect.finish, progress)
 			var arc_height := sin(progress * PI) * minf(54.0, effect.start.distance_to(effect.finish) * 0.16)
