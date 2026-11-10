@@ -265,5 +265,29 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# A finished match must freeze all economic and AI simulation until restart.
+	game.game_started = true
+	game.paused = false
+	game.battle_result = "انتصرت! دمرت قاعدة العدو"
+	game.credits = 700
+	game.income_timer = 0.0
+	game.enemy_credits = 640
+	game.enemy_income_timer = 0.5
+	game.enemy_timer = 11.5
+	game.production_orders = [{"kind": "tank", "remaining": 1.5, "duration": 3.0}]
+	game._process(1.0)
+	if game.credits != 700 or game.income_timer != 0.0:
+		push_error("A completed match continued granting player passive income")
+		quit(1)
+		return
+	if game.enemy_credits != 640 or not is_equal_approx(float(game.enemy_income_timer), 0.5) or not is_equal_approx(float(game.enemy_timer), 11.5):
+		push_error("A completed match continued advancing enemy income or AI timers")
+		quit(1)
+		return
+	if game.production_orders.size() != 1 or not is_equal_approx(float(game.production_orders[0].remaining), 1.5):
+		push_error("A completed match continued advancing the production queue")
+		quit(1)
+		return
+
 	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
 	quit(0)
