@@ -1009,6 +1009,24 @@ func _run_gameplay_economy_smoke_test() -> void:
 		var assault_focus: Vector2 = game.get("units")[assault_index].get("assault_target_pos", Vector2(-1000000.0, -1000000.0))
 		_expect(assault_focus.distance_to(coordinated_target) < 0.1, "Every live assault role should retain the same valid local threat focus")
 
+	# Faction balance contract: preserve each army's intended economic and combat identity.
+	var faction_names: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+	for army_name in faction_names:
+		var profile: Dictionary = game.call("_faction_profile", army_name)
+		_expect(profile.has("unit_costs") and profile.has("helicopter_damage") and profile.has("missile_damage") and profile.has("naval_damage"), "%s must define a complete faction balance profile" % army_name)
+		_expect(int(game.call("_unit_cost", "tank", army_name)) > 0 and int(game.call("_unit_cost", "infantry", army_name)) > 0, "%s must have valid ground unit costs" % army_name)
+		_expect(float(profile.get("helicopter_cooldown", 0.0)) > 0.0, "%s helicopter cooldown must be positive" % army_name)
+	_expect(int(game.call("_unit_cost", "tank", "الصيني")) < int(game.call("_unit_cost", "tank", "الأمريكي")), "Chinese armor should retain its economy advantage")
+	_expect(int(game.call("_unit_cost", "infantry", "الجيش العربي")) < int(game.call("_unit_cost", "infantry", "الأمريكي")), "Arab infantry should retain its affordability advantage")
+	_expect(int(game.call("_unit_cost", "artillery", "الجيش العربي")) < int(game.call("_unit_cost", "artillery", "الأمريكي")), "Arab artillery should retain its affordability advantage")
+	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")), "Watan elite armor should carry a resource premium")
+	_expect(int(game.call("_unit_cost", "fighter", "وطن")) > int(game.call("_unit_cost", "fighter", "الأمريكي")), "Watan elite air units should carry a resource premium")
+	var watan_helicopter: Dictionary = {"faction": "وطن"}
+	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
+	_expect(int(game.call("_helicopter_damage", watan_helicopter)) > int(game.call("_helicopter_damage", american_helicopter)), "Watan helicopter should retain elite damage")
+	_expect(float(game.call("_helicopter_cooldown", watan_helicopter)) < float(game.call("_helicopter_cooldown", american_helicopter)), "Watan helicopter should retain its faster firing cycle")
+	_expect(int(game.call("_naval_damage", {"kind": "destroyer", "faction": "وطن"}, -1)) > int(game.call("_naval_damage", {"kind": "destroyer", "faction": "الأمريكي"}, -1)), "Watan naval forces should retain their damage advantage")
+
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
 	game.set("credits", 2000)
