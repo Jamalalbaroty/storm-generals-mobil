@@ -28,6 +28,8 @@ var patrol_order_mode := false
 var patrol_order_button: Button
 var attack_move_order_mode := false
 var attack_move_order_button: Button
+var guard_order_mode := false
+var guard_order_button: Button
 var selection_gesture_start := Vector2.ZERO
 var selection_gesture_active := false
 var selection_gesture_dragging := false
@@ -2868,6 +2870,22 @@ func _build_order_indicators() -> void:
 	attack_move_order_button.toggled.connect(_on_attack_move_order_button_toggled)
 	hud_layer.add_child(attack_move_order_button)
 
+	guard_order_button = Button.new()
+	guard_order_button.name = "GroundGuardOrderButton"
+	guard_order_button.text = "حراسة الموقع"
+	guard_order_button.toggle_mode = true
+	guard_order_button.anchor_left = 1.0
+	guard_order_button.anchor_top = 1.0
+	guard_order_button.anchor_right = 1.0
+	guard_order_button.anchor_bottom = 1.0
+	guard_order_button.offset_left = -204.0
+	guard_order_button.offset_top = -188.0
+	guard_order_button.offset_right = -20.0
+	guard_order_button.offset_bottom = -136.0
+	guard_order_button.visible = false
+	guard_order_button.toggled.connect(_on_guard_order_button_toggled)
+	hud_layer.add_child(guard_order_button)
+
 	order_marker = MeshInstance3D.new()
 	var marker_mesh := CylinderMesh.new()
 	marker_mesh.top_radius = 0.48
@@ -2914,6 +2932,9 @@ func _build_order_indicators() -> void:
 
 func _on_patrol_order_button_toggled(enabled: bool) -> void:
 	patrol_order_mode = enabled
+	if enabled and is_instance_valid(guard_order_button):
+		guard_order_button.button_pressed = false
+		guard_order_mode = false
 	if enabled and is_instance_valid(attack_move_order_button):
 		attack_move_order_button.button_pressed = false
 		attack_move_order_mode = false
@@ -2923,11 +2944,27 @@ func _on_patrol_order_button_toggled(enabled: bool) -> void:
 
 func _on_attack_move_order_button_toggled(enabled: bool) -> void:
 	attack_move_order_mode = enabled
+	if enabled and is_instance_valid(guard_order_button):
+		guard_order_button.button_pressed = false
+		guard_order_mode = false
 	if enabled and is_instance_valid(patrol_order_button):
 		patrol_order_button.button_pressed = false
 		patrol_order_mode = false
 	if is_instance_valid(attack_move_order_button):
 		attack_move_order_button.text = "انقر لتحديد هدف التقدم" if enabled else "هجوم أثناء التقدم"
+
+
+func _on_guard_order_button_toggled(enabled: bool) -> void:
+	guard_order_mode = enabled
+	if enabled:
+		if is_instance_valid(attack_move_order_button):
+			attack_move_order_button.button_pressed = false
+			attack_move_order_mode = false
+		if is_instance_valid(patrol_order_button):
+			patrol_order_button.button_pressed = false
+			patrol_order_mode = false
+	if is_instance_valid(guard_order_button):
+		guard_order_button.text = "انقر لتحديد موقع الحراسة" if enabled else "حراسة الموقع"
 
 
 func _set_live_selection(units_to_select: Array[Node3D]) -> void:
@@ -2957,6 +2994,10 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 		attack_move_order_button.visible = has_selected_ground_force
 		if not has_selected_ground_force:
 			attack_move_order_button.button_pressed = false
+	if is_instance_valid(guard_order_button):
+		guard_order_button.visible = has_selected_ground_force
+		if not has_selected_ground_force:
+			guard_order_button.button_pressed = false
 	order_marker.visible = false
 
 
@@ -3029,6 +3070,10 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			order_marker.visible = false
 			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
 				attack_move_order_button.button_pressed = false
+			if guard_order_mode and is_instance_valid(guard_order_button):
+				guard_order_button.button_pressed = false
+			if guard_order_mode and is_instance_valid(guard_order_button):
+				guard_order_button.button_pressed = false
 			return
 	if tapped_tank != null:
 		if _is_live_player_unit(tapped_tank):
@@ -3044,6 +3089,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			order_marker.visible = false
 			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
 				attack_move_order_button.button_pressed = false
+			if guard_order_mode and is_instance_valid(guard_order_button):
+				guard_order_button.button_pressed = false
 			return
 		selected_tank = tapped_tank
 		selected_live_units.clear()
@@ -3090,6 +3137,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				var friendly_kind := str(friendly.get_meta("unit_type", ""))
 				if patrol_order_mode and friendly_kind in ["fighter", "helicopter"]:
 					gameplay_order_issued.emit(source_key, "patrol", formation_destination + formation_offsets[index], "")
+				elif guard_order_mode and friendly_kind in ["tank", "artillery", "infantry"]:
+					gameplay_order_issued.emit(source_key, "guard", formation_destination + formation_offsets[index], "")
 				elif attack_move_order_mode and friendly_kind in ["tank", "artillery", "infantry"]:
 					gameplay_order_issued.emit(source_key, "attack_move", formation_destination + formation_offsets[index], "")
 				else:
@@ -3098,6 +3147,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				patrol_order_button.button_pressed = false
 			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
 				attack_move_order_button.button_pressed = false
+			if guard_order_mode and is_instance_valid(guard_order_button):
+				guard_order_button.button_pressed = false
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
