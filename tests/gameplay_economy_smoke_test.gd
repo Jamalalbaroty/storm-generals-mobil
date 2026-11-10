@@ -159,6 +159,44 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(String(game.get("enemy_strategy")) == adaptive_case[0], "Enemy AI should recognize %s player composition" % adaptive_case[0])
 		_expect(not game.get("units").is_empty() and String(game.get("units")[-1].get("kind", "")) == adaptive_case[1], "Enemy AI should answer %s with %s" % [adaptive_case[0], adaptive_case[1]])
 
+
+	# Guard the four faction profiles and the premium cost of the strongest "Watan" units.
+	var faction_cases := [
+		["الصيني", 30, 1.35, 185, 14.0, 40],
+		["الأمريكي", 32, 1.25, 195, 13.0, 44],
+		["الجيش العربي", 34, 1.20, 205, 12.0, 42],
+		["وطن", 38, 1.10, 230, 11.0, 50]
+	]
+	_expect(game.get("FACTIONS").size() == 4, "The game should expose exactly four player-facing factions")
+	_expect(not game.get("FACTIONS").has("GLA"), "Legacy GLA naming must not appear in player-facing faction selection")
+	for faction_case in faction_cases:
+		var army_name: String = faction_case[0]
+		var helicopter_profile: Dictionary = {"kind": "helicopter", "faction": army_name}
+		var naval_profile: Dictionary = {"kind": "destroyer", "faction": army_name}
+		_expect(game.call("_helicopter_damage", helicopter_profile) == int(faction_case[1]), "%s helicopter damage should match its balance profile" % army_name)
+		_expect(is_equal_approx(float(game.call("_helicopter_cooldown", helicopter_profile)), float(faction_case[2])), "%s helicopter cooldown should match its balance profile" % army_name)
+		_expect(game.call("_missile_damage", army_name) == int(faction_case[3]), "%s missile damage should match its balance profile" % army_name)
+		_expect(is_equal_approx(float(game.call("_missile_cooldown", army_name)), float(faction_case[4])), "%s missile cooldown should match its balance profile" % army_name)
+		_expect(game.call("_naval_damage", naval_profile, -1) == int(faction_case[5]), "%s naval damage should match its balance profile" % army_name)
+
+	# Watan has the strongest raw helicopter/missile output, but its 850-credit
+	# premium should keep per-credit output within a deliberate 25% advantage.
+	var china_heli_dps := 30.0 / 1.35
+	var watan_heli_dps := 38.0 / 1.10
+	var china_missile_dps := 185.0 / 14.0
+	var watan_missile_dps := 230.0 / 11.0
+	_expect(game.call("_helicopter_cost", "وطن") == 850 and game.call("_helicopter_cost", "الصيني") == 650, "Watan helicopters should carry the agreed premium cost")
+	_expect(game.call("_missile_cost", "وطن") == 850 and game.call("_missile_cost", "الصيني") == 650, "Watan missiles should carry the agreed premium cost")
+	_expect((watan_heli_dps / 850.0) / (china_heli_dps / 650.0) <= 1.25, "Watan helicopter damage efficiency should stay within 25% of the Chinese baseline")
+	_expect((watan_missile_dps / 850.0) / (china_missile_dps / 650.0) <= 1.25, "Watan missile damage efficiency should stay within 25% of the Chinese baseline")
+
+	# Preserve specialist naval counters regardless of faction base damage.
+	game.get("units").clear()
+	game.get("units").append({"kind": "submarine", "team": "enemy", "pos": Vector2.ZERO, "hp": 200})
+	_expect(game.call("_naval_damage", {"kind": "destroyer", "faction": "وطن"}, 0) == 78, "Destroyers should retain their 78-damage anti-submarine role")
+	_expect(game.call("_naval_damage", {"kind": "submarine", "faction": "وطن"}, -1) == 62, "Submarines should retain their 62-damage role")
+	_expect(game.call("_naval_damage", {"kind": "carrier", "faction": "وطن"}, -1) == 24, "Carriers should retain their 24-damage role")
+
 	game.queue_free()
 	if failure_count > 0:
 		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
