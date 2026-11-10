@@ -2787,6 +2787,110 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String
 			wheel.material_override = _make_armour_material(Color(0.19, 0.20, 0.18))
 			tank.add_child(wheel)
 			wheel_nodes.append(wheel)
+
+	# Zero Hour-style hull readability: sloped front plate, segmented side skirts,
+	# rear engine deck and faction-specific field equipment.
+	var glacis := MeshInstance3D.new()
+	glacis.name = "GlacisArmour"
+	var glacis_mesh := BoxMesh.new()
+	glacis_mesh.size = Vector3(2.72, 0.20, 1.12)
+	glacis.mesh = glacis_mesh
+	glacis.position = Vector3(0.0, 1.24, -1.68)
+	glacis.rotation_degrees.x = -12.0
+	glacis.material_override = _make_armour_material(faction_color.lightened(0.04))
+	tank.add_child(glacis)
+
+	for side in [-1.0, 1.0]:
+		for panel_index in range(3):
+			var skirt_panel := MeshInstance3D.new()
+			skirt_panel.name = "TrackSideSkirt"
+			var skirt_mesh := BoxMesh.new()
+			skirt_mesh.size = Vector3(0.16, 0.58, 1.28)
+			skirt_panel.mesh = skirt_mesh
+			skirt_panel.position = Vector3(side * 1.78, 0.92, -1.32 + float(panel_index) * 1.34)
+			skirt_panel.material_override = _make_armour_material(faction_color.darkened(0.13))
+			tank.add_child(skirt_panel)
+
+	var engine_deck := MeshInstance3D.new()
+	engine_deck.name = "RearEngineDeck"
+	var engine_mesh := BoxMesh.new()
+	engine_mesh.size = Vector3(2.36, 0.18, 0.92)
+	engine_deck.mesh = engine_mesh
+	engine_deck.position = Vector3(0.0, 1.31, 1.62)
+	engine_deck.material_override = _make_armour_material(Color(0.14, 0.16, 0.15))
+	tank.add_child(engine_deck)
+
+	var faction_accent := _get_faction_accent_color(faction_id)
+	if faction_id == "american":
+		# American profile: compact command antenna and paired rear stowage boxes.
+		var antenna := MeshInstance3D.new()
+		var antenna_mesh := CylinderMesh.new()
+		antenna_mesh.top_radius = 0.025
+		antenna_mesh.bottom_radius = 0.035
+		antenna_mesh.height = 1.45
+		antenna.mesh = antenna_mesh
+		antenna.position = Vector3(0.66, 2.15, 0.18)
+		antenna.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
+		turret_pivot.add_child(antenna)
+		for side in [-1.0, 1.0]:
+			var stowage := MeshInstance3D.new()
+			var stowage_mesh := BoxMesh.new()
+			stowage_mesh.size = Vector3(0.42, 0.34, 0.62)
+			stowage.mesh = stowage_mesh
+			stowage.position = Vector3(side * 1.28, 0.98, 1.46)
+			stowage.material_override = _make_armour_material(Color(0.28, 0.27, 0.22))
+			tank.add_child(stowage)
+	elif faction_id == "chinese":
+		# Chinese profile: visible modular armour blocks along both turret cheeks.
+		for side in [-1.0, 1.0]:
+			for block_index in range(2):
+				var armour_block := MeshInstance3D.new()
+				var block_mesh := BoxMesh.new()
+				block_mesh.size = Vector3(0.34, 0.48, 0.66)
+				armour_block.mesh = block_mesh
+				armour_block.position = Vector3(side * 1.02, 0.12, -0.42 + float(block_index) * 0.82)
+				armour_block.material_override = _make_armour_material(faction_color.darkened(0.22))
+				turret_pivot.add_child(armour_block)
+	elif faction_id == "arab":
+		# Arab Army profile: practical external stowage and protective side rails.
+		for side in [-1.0, 1.0]:
+			var rail := MeshInstance3D.new()
+			var rail_mesh := BoxMesh.new()
+			rail_mesh.size = Vector3(0.10, 0.48, 2.55)
+			rail.mesh = rail_mesh
+			rail.position = Vector3(side * 1.24, 0.20, 0.12)
+			rail.material_override = _make_armour_material(Color(0.20, 0.22, 0.18))
+			turret_pivot.add_child(rail)
+		var spare_track := MeshInstance3D.new()
+		var spare_mesh := CylinderMesh.new()
+		spare_mesh.top_radius = 0.34
+		spare_mesh.bottom_radius = 0.34
+		spare_mesh.height = 0.16
+		spare_track.mesh = spare_mesh
+		spare_track.rotation_degrees.z = 90.0
+		spare_track.position = Vector3(1.30, 0.95, 1.20)
+		spare_track.material_override = _make_armour_material(Color(0.12, 0.13, 0.12))
+		tank.add_child(spare_track)
+	elif faction_id == "watan":
+		# Watan profile: reinforced turret cheeks and a prominent command mast.
+		for side in [-1.0, 1.0]:
+			var cheek := MeshInstance3D.new()
+			var cheek_mesh := BoxMesh.new()
+			cheek_mesh.size = Vector3(0.42, 0.68, 1.38)
+			cheek.mesh = cheek_mesh
+			cheek.position = Vector3(side * 1.04, 0.12, -0.10)
+			cheek.material_override = _make_armour_material(faction_color.darkened(0.12))
+			turret_pivot.add_child(cheek)
+		var command_mast := MeshInstance3D.new()
+		var mast_mesh := CylinderMesh.new()
+		mast_mesh.top_radius = 0.035
+		mast_mesh.bottom_radius = 0.05
+		mast_mesh.height = 1.8
+		command_mast.mesh = mast_mesh
+		command_mast.position = Vector3(-0.72, 1.18, 0.32)
+		command_mast.material_override = _make_armour_material(faction_accent)
+		turret_pivot.add_child(command_mast)
+
 	tank_wheels[tank] = wheel_nodes
 	wheel_last_positions[tank] = tank.global_position
 
