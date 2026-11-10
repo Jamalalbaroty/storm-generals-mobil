@@ -1168,6 +1168,17 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			var maximum_hp := maxf(1.0, float(record.get("max_hp", _gameplay_max_health_for_building(kind))))
 			building.set_meta("health", current_hp)
 			building.set_meta("max_health", maximum_hp)
+			var defense_target = record.get("defense_target_pos", null)
+			var weapon_pivot := building.get_node_or_null("DefenseWeaponPivot") as Node3D
+			if is_instance_valid(weapon_pivot) and defense_target is Vector2:
+				var target_world := Vector3(
+					lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, clampf((defense_target.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)),
+					weapon_pivot.position.y,
+					lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, clampf((defense_target.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0))
+				)
+				var aim_direction := target_world - building.position
+				if aim_direction.length_squared() > 0.001:
+					weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y, atan2(aim_direction.x, aim_direction.z), 0.28)
 			_update_gameplay_building_damage_visuals(building, current_hp, maximum_hp, kind)
 			if building.get_node_or_null("HealthBar") == null:
 				_create_showcase_health_bar(building)
@@ -1519,14 +1530,18 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		mount.position.y = 3.35
 		mount.material_override = _make_armour_material(tint.darkened(0.18))
 		building.add_child(mount)
+		var weapon_pivot := Node3D.new()
+		weapon_pivot.name = "DefenseWeaponPivot"
+		weapon_pivot.position = Vector3(0.0, 3.55, 0.0)
+		building.add_child(weapon_pivot)
 		for barrel_index in range(2 if kind == "anti_air" else 1):
 			var barrel := MeshInstance3D.new()
 			var barrel_mesh := BoxMesh.new()
 			barrel_mesh.size = Vector3(0.20, 0.22, 2.25)
 			barrel.mesh = barrel_mesh
-			barrel.position = Vector3(-0.22 + float(barrel_index) * 0.44, 3.55, -1.55)
+			barrel.position = Vector3(-0.22 + float(barrel_index) * 0.44, 0.0, -1.55)
 			barrel.material_override = _make_armour_material(Color(0.12, 0.14, 0.13))
-			building.add_child(barrel)
+			weapon_pivot.add_child(barrel)
 		# Army-specific defensive silhouette details remain low-poly and inexpensive.
 		if kind == "turret":
 			var gun_shield := MeshInstance3D.new()
@@ -1536,7 +1551,8 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			gun_shield.mesh = shield_mesh
 			gun_shield.position = Vector3(0.0, 3.92, -1.18)
 			gun_shield.material_override = _make_armour_material(tint.darkened(0.24))
-			building.add_child(gun_shield)
+			gun_shield.position.y -= weapon_pivot.position.y
+			weapon_pivot.add_child(gun_shield)
 			if faction_id == "american":
 				var range_finder := MeshInstance3D.new()
 				var finder_mesh := BoxMesh.new()
@@ -1572,6 +1588,10 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 				reinforced_ring.material_override = _make_armour_material(faction_accent)
 				building.add_child(reinforced_ring)
 		else:
+			var aa_radar_pivot := Node3D.new()
+			var aa_weapon_pivot := building.get_node_or_null("DefenseWeaponPivot") as Node3D
+			if is_instance_valid(aa_weapon_pivot):
+				aa_weapon_pivot.position.y = 3.55
 			var aa_radar_pivot := Node3D.new()
 			aa_radar_pivot.name = "AntiAirRadarPivot"
 			aa_radar_pivot.position = Vector3(0.0, 4.08, 0.62)
