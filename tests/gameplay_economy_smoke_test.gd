@@ -1188,8 +1188,10 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for objective_frame in range(20):
 		game.call("_process", 0.1)
 	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
-	# Remove the distant infantry so the newly arrived tank is the only valid immediate combat target.
+	# Remove the distant infantry and use the aggressive doctrine to verify the live combat damage path independently of the balanced-priority helper tests.
 	game.get("units").remove_at(1)
+	game.set("enemy_strategy", "armor_breaker")
+	game.set("enemy_landing_support_target", -1)
 	var nearby_player_index: int = game.get("units").size()
 	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": game.get("units")[0]["pos"] + Vector2(35.0, 0.0), "attack_cd": 10.0})
 	var nearby_player_hp: int = int(game.get("units")[nearby_player_index]["hp"])
