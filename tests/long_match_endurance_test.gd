@@ -91,6 +91,7 @@ func _run() -> void:
 	# Queue a real player tank and let the normal frame loop complete it.
 	var credits_before_queue: int = int(game.get("credits"))
 	game.call("_enqueue_unit", "tank")
+	var supplies_after_queue: int = int(game.get("supplies"))
 	_expect(game.get("production_orders").size() == 1, "A powered factory should accept a tank order before the endurance run")
 	_expect(int(game.get("credits")) < credits_before_queue, "Player production should reserve credits")
 	for frame in range(80):
