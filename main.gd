@@ -2630,6 +2630,13 @@ func _enemy_has_any_building(kind: String) -> bool:
 	return false
 
 
+func _enemy_has_building_under_construction(kind: String) -> bool:
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == kind and int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) < 1.0:
+			return true
+	return false
+
+
 func _enemy_power_capacity() -> int:
 	var capacity := BASE_POWER_OUTPUT
 	for building in enemy_buildings:
@@ -2839,7 +2846,7 @@ func _enemy_ai_turn() -> void:
 			player_missile_threat = true
 			break
 	# Expand enemy generation before adding more powered infrastructure.
-	if build_pos.x >= 0.0 and _enemy_power_demand() >= _enemy_power_capacity() and not _enemy_has_any_building("power_plant") and enemy_credits >= _building_cost("power_plant"):
+	if build_pos.x >= 0.0 and _enemy_power_demand() >= _enemy_power_capacity() and not _enemy_has_building_under_construction("power_plant") and enemy_credits >= _building_cost("power_plant"):
 		enemy_credits -= _building_cost("power_plant")
 		_enemy_add_building("power_plant", build_pos, 400)
 		notice = "العدو يعزز شبكة الطاقة بمحطة جديدة"
