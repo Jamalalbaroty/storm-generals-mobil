@@ -956,7 +956,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var artillery_lane_c: Vector2 = game.call("_enemy_artillery_support_position", Vector2(500.0, 300.0), Vector2(900.0, 300.0), 2)
 	_expect(artillery_lane_a.distance_to(artillery_lane_b) >= 70.0, "First and second artillery units should occupy separate support lanes")
 	_expect(artillery_lane_a.distance_to(artillery_lane_c) >= 70.0, "Third artillery unit must not overlap the first support lane")
-	_expect(bool(game.call("_enemy_artillery_in_firing_band", artillery_lane_c.distance_to(Vector2(500.0, 300.0))), "Expanded artillery support lanes should remain inside the firing envelope")
+	_expect(bool(game.call("_enemy_artillery_in_firing_band", artillery_lane_c.distance_to(Vector2(500.0, 300.0)))), "Expanded artillery support lanes should remain inside the firing envelope")
 
 	# Formation slots must be isolated from defensive guards and landing-support attachments.
 	game.get("units").clear()
