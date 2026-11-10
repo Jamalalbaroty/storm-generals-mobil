@@ -1667,6 +1667,78 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 				protected_roof.material_override = _make_armour_material(faction_accent)
 				building.add_child(protected_roof)
 
+	# Functional-looking facility landmarks, kept low-poly for mobile rendering.
+	if kind == "command":
+		var command_radar_ring := MeshInstance3D.new()
+		var command_ring_mesh := TorusMesh.new()
+		command_ring_mesh.inner_radius = 0.52
+		command_ring_mesh.outer_radius = 0.66
+		command_radar_ring.mesh = command_ring_mesh
+		command_radar_ring.position = Vector3(0.0, 4.58, 0.0)
+		command_radar_ring.material_override = _make_armour_material(faction_accent)
+		building.add_child(command_radar_ring)
+		var command_access_step := MeshInstance3D.new()
+		var command_step_mesh := BoxMesh.new()
+		command_step_mesh.size = Vector3(2.0, 0.18, 0.72)
+		command_access_step.mesh = command_step_mesh
+		command_access_step.position = Vector3(0.0, 0.10, -3.08)
+		command_access_step.material_override = _make_armour_material(tint.darkened(0.22))
+		building.add_child(command_access_step)
+	elif kind == "barracks":
+		var barracks_canopy := MeshInstance3D.new()
+		var barracks_canopy_mesh := BoxMesh.new()
+		barracks_canopy_mesh.size = Vector3(3.2, 0.18, 1.45)
+		barracks_canopy.mesh = barracks_canopy_mesh
+		barracks_canopy.position = Vector3(0.0, 2.12, -3.25)
+		barracks_canopy.material_override = _make_armour_material(tint.lightened(0.16))
+		building.add_child(barracks_canopy)
+		for pad_index in range(3):
+			var training_pad := MeshInstance3D.new()
+			var pad_mesh := BoxMesh.new()
+			pad_mesh.size = Vector3(0.72, 0.06, 0.72)
+			training_pad.mesh = pad_mesh
+			training_pad.position = Vector3(-1.45 + float(pad_index) * 1.45, 0.06, 3.45)
+			training_pad.material_override = _make_armour_material(faction_accent.darkened(0.16))
+			building.add_child(training_pad)
+	elif kind == "factory":
+		var factory_loading_bay := MeshInstance3D.new()
+		var loading_mesh := BoxMesh.new()
+		loading_mesh.size = Vector3(3.0, 1.9, 0.18)
+		factory_loading_bay.mesh = loading_mesh
+		factory_loading_bay.position = Vector3(0.0, 1.05, -2.72)
+		factory_loading_bay.material_override = _make_armour_material(Color(0.075, 0.09, 0.085))
+		building.add_child(factory_loading_bay)
+		for rail_side in [-1.0, 1.0]:
+			var factory_rail := MeshInstance3D.new()
+			var rail_mesh := BoxMesh.new()
+			rail_mesh.size = Vector3(0.18, 0.22, 5.0)
+			factory_rail.mesh = rail_mesh
+			factory_rail.position = Vector3(rail_side * 2.15, 0.18, 0.15)
+			factory_rail.material_override = _make_armour_material(faction_accent.darkened(0.12))
+			building.add_child(factory_rail)
+	elif kind == "airfield":
+		var hangar_shell := MeshInstance3D.new()
+		var hangar_mesh := BoxMesh.new()
+		hangar_mesh.size = Vector3(5.6, 2.55, 3.4)
+		hangar_shell.mesh = hangar_mesh
+		hangar_shell.position = Vector3(0.0, 1.30, -4.45)
+		hangar_shell.material_override = _make_armour_material(tint.darkened(0.12))
+		building.add_child(hangar_shell)
+		var hangar_opening := MeshInstance3D.new()
+		var opening_mesh := BoxMesh.new()
+		opening_mesh.size = Vector3(3.2, 1.95, 0.10)
+		hangar_opening.mesh = opening_mesh
+		hangar_opening.position = Vector3(0.0, 1.05, -2.72)
+		hangar_opening.material_override = _make_armour_material(Color(0.055, 0.065, 0.06))
+		building.add_child(hangar_opening)
+		var tower_window_band := MeshInstance3D.new()
+		var band_mesh := BoxMesh.new()
+		band_mesh.size = Vector3(1.25, 0.42, 0.12)
+		tower_window_band.mesh = band_mesh
+		tower_window_band.position = Vector3(2.65, 2.62, -4.35)
+		tower_window_band.material_override = _make_armour_material(Color(0.12, 0.28, 0.34))
+		building.add_child(tower_window_band)
+
 	if show_progress:
 		building.set_meta("construction_progress", clampf(build_progress, 0.0, 1.0))
 		var progress_back := MeshInstance3D.new()
