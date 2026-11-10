@@ -273,6 +273,7 @@ func _process(delta: float) -> void:
 		_update_supply_control(delta)
 		_update_building_construction(delta)
 		_update_production_queues(delta)
+		_update_enemy_building_construction(delta)
 		_update_building_capture(delta)
 		_update_submarine_detection()
 		_update_missiles(delta)
@@ -305,6 +306,8 @@ func _process(delta: float) -> void:
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb34d"), 0.22, 13.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.8
 		for building in enemy_buildings:
+			if float(building.get("build_progress", 1.0)) < 1.0:
+				continue
 			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
 				var target := _nearest_player_unit(building.pos, building.kind == "anti_air")
@@ -1455,6 +1458,8 @@ func _draw() -> void:
 	for building_index in enemy_buildings.size():
 		var building: Dictionary = enemy_buildings[building_index]
 		_draw_building(building.pos, building.kind, true)
+		if float(building.get("build_progress", 1.0)) < 1.0:
+			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
 		if building_index == selected_enemy_building:
 			draw_arc(building.pos, 39.0, 0.0, TAU, 48, Color("#ffe27a"), 3.0)
 		_draw_building_health(building.pos, int(building.get("hp", 400)))
@@ -2229,6 +2234,8 @@ func _update_building_construction(delta: float) -> void:
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
 		var building: Dictionary = enemy_buildings[i]
+		if float(building.get("build_progress", 1.0)) < 1.0:
+			continue
 		var infantry_near := false
 		var enemy_guard_near := false
 		for unit in units:
@@ -2479,6 +2486,51 @@ func _draw_missiles() -> void:
 		draw_colored_polygon(PackedVector2Array([p + Vector2(11, 0), p + Vector2(-7, -5), p + Vector2(-7, 5)]), tint)
 		draw_circle(p + Vector2(-12, 0), 5.0, Color("#ffb45f", 0.7))
 
+func _enemy_build_duration(kind: String) -> float:
+	match kind:
+		"barracks", "turret", "anti_air":
+			return 7.0
+		"factory", "missile_defense":
+			return 10.0
+		"airfield":
+			return 11.0
+		"missile_silo":
+			return 13.0
+		"shipyard":
+			return 14.0
+	return 8.0
+
+
+func _enemy_add_building(kind: String, position: Vector2, hp: int, attack_cd: float = 0.0) -> void:
+	enemy_buildings.append({
+		"pos": position,
+		"kind": kind,
+		"hp": hp,
+		"attack_cd": attack_cd,
+		"build_progress": 0.0,
+		"build_duration": _enemy_build_duration(kind)
+	})
+
+
+func _update_enemy_building_construction(delta: float) -> void:
+	var completed_any := false
+	for i in range(enemy_buildings.size()):
+		var building: Dictionary = enemy_buildings[i]
+		var progress := float(building.get("build_progress", 1.0))
+		if progress >= 1.0:
+			continue
+		var duration := maxf(1.0, float(building.get("build_duration", 8.0)))
+		progress = minf(1.0, progress + delta / duration)
+		building["build_progress"] = progress
+		enemy_buildings[i] = building
+		if progress >= 1.0:
+			completed_any = true
+	if completed_any:
+		notice = "اكتمل إنشاء أحد مباني العدو"
+		notice_time = 1.8
+		queue_redraw()
+
+
 func _enemy_has_building(kind: String) -> bool:
 	for building in enemy_buildings:
 		if building.kind == kind and float(building.get("build_progress", 1.0)) >= 1.0:
@@ -2635,50 +2687,50 @@ func _enemy_ai_turn() -> void:
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= _building_cost("barracks"):
 		enemy_credits -= _building_cost("barracks")
-		enemy_buildings.append({"pos": build_pos, "kind": "barracks", "hp": 400, "attack_cd": 0.0})
+		_enemy_add_building("barracks", build_pos, 400)
 		notice = "العدو أنشأ ثكنة عسكرية"
 		notice_time = 2.0
 		return
 	if build_pos.x >= 0.0 and not _enemy_has_building("factory") and enemy_credits >= _building_cost("factory"):
 		enemy_credits -= _building_cost("factory")
-		enemy_buildings.append({"pos": build_pos, "kind": "factory", "hp": 500, "attack_cd": 0.0})
+		_enemy_add_building("factory", build_pos, 500)
 		notice = "العدو أنشأ مصنع دبابات"
 		notice_time = 2.0
 		return
 	if build_pos.x >= 0.0 and not _enemy_has_building("turret") and enemy_credits >= _building_cost("turret"):
 		enemy_credits -= _building_cost("turret")
-		enemy_buildings.append({"pos": build_pos, "kind": "turret", "hp": 350, "attack_cd": 0.0})
+		_enemy_add_building("turret", build_pos, 350)
 		notice = "العدو نشر برجاً دفاعياً"
 		notice_time = 2.0
 		return
 	if build_pos.x >= 0.0 and not _enemy_has_building("airfield") and enemy_credits >= _building_cost("airfield"):
 		enemy_credits -= _building_cost("airfield")
-		enemy_buildings.append({"pos": build_pos, "kind": "airfield", "hp": 450, "attack_cd": 0.0})
+		_enemy_add_building("airfield", build_pos, 450)
 		notice = "العدو أنشأ مطاراً حربياً"
 		notice_time = 2.0
 		return
 	if build_pos.x >= 0.0 and not _enemy_has_building("missile_silo") and enemy_credits >= _building_cost("missile_silo"):
 		enemy_credits -= _building_cost("missile_silo")
-		enemy_buildings.append({"pos": build_pos, "kind": "missile_silo", "hp": 500, "attack_cd": 8.0})
+		_enemy_add_building("missile_silo", build_pos, 500, 8.0)
 		notice = "العدو أنشأ منصة صواريخ"
 		notice_time = 2.0
 		return
 	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= _building_cost("missile_defense"):
 		enemy_credits -= _building_cost("missile_defense")
-		enemy_buildings.append({"pos": build_pos, "kind": "missile_defense", "hp": 450, "attack_cd": 0.0})
+		_enemy_add_building("missile_defense", build_pos, 450)
 		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
 	if not _enemy_has_building("shipyard") and enemy_credits >= _building_cost("shipyard"):
 		enemy_credits -= _building_cost("shipyard")
 		var naval_site := Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		enemy_buildings.append({"pos": naval_site, "kind": "shipyard", "hp": 500, "attack_cd": 0.0})
+		_enemy_add_building("shipyard", naval_site, 500)
 		notice = "العدو أنشأ حوض سفن ساحلياً"
 		notice_time = 2.0
 		return
 	if build_pos.x >= 0.0 and not _enemy_has_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
 		enemy_credits -= _building_cost("anti_air")
-		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
+		_enemy_add_building("anti_air", build_pos, 380)
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
 		notice_time = 2.0
 		return
@@ -2688,7 +2740,7 @@ func _enemy_ai_turn() -> void:
 			enemy_anti_air_count += 1
 	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
 		enemy_credits -= _building_cost("anti_air")
-		enemy_buildings.append({"pos": build_pos, "kind": "anti_air", "hp": 380, "attack_cd": 0.0})
+		_enemy_add_building("anti_air", build_pos, 380)
 		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
 		notice_time = 2.0
 		return
