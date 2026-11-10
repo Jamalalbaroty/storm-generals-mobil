@@ -68,6 +68,7 @@ var tank_barrels: Dictionary = {}
 var wheel_last_positions: Dictionary = {}
 var game_building_nodes: Dictionary = {}
 var game_unit_nodes: Dictionary = {}
+var gameplay_effect_nodes: Dictionary = {}
 var next_game_unit_sync_id := 1
 var naval_propellers: Array[Node3D] = []
 var naval_animation_clock := 0.0
@@ -731,6 +732,92 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
 			var turret_local_yaw := wrapf(turret_world_yaw - unit.rotation.y, -PI, PI)
 			turret_pivot.rotation.y = lerp_angle(turret_pivot.rotation.y, turret_local_yaw, blend)
+
+
+func _gameplay_effect_world_position(source_pos: Vector2, map_rect: Rect2, height: float = 0.35) -> Vector3:
+	var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
+	var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
+	return Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), height, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
+
+
+func sync_gameplay_effects(effect_records: Array, map_rect: Rect2) -> int:
+	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
+		return 0
+	var active_ids: Dictionary = {}
+	var synced := 0
+	for value in effect_records:
+		if not value is Dictionary:
+			continue
+		var record: Dictionary = value
+		var effect_id := int(record.get("id", -1))
+		if effect_id < 0:
+			continue
+		active_ids[effect_id] = true
+		if gameplay_effect_nodes.has(effect_id) and is_instance_valid(gameplay_effect_nodes[effect_id]):
+			continue
+		var effect_kind := String(record.get("kind", "flash"))
+		var start_pos: Vector2 = record.get("start", Vector2.ZERO)
+		var finish_pos: Vector2 = record.get("finish", start_pos)
+		var tint: Color = record.get("color", Color(1.0, 0.65, 0.28))
+		var duration := maxf(0.08, float(record.get("life", 0.2)))
+		var radius := maxf(0.0, float(record.get("radius", 0.0)))
+		var start_world := _gameplay_effect_world_position(start_pos, map_rect, 0.42)
+		var finish_world := _gameplay_effect_world_position(finish_pos, map_rect, 0.48)
+		var effect := MeshInstance3D.new()
+		effect.name = "GameplayEffect_%d" % effect_id
+		var mesh: Mesh
+		if effect_kind == "targeting":
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.72
+			ring.outer_radius = 0.92
+			mesh = ring
+			effect.position = finish_world + Vector3.UP * 0.08
+			effect.scale = Vector3.ONE * clampf(radius / 42.0, 0.65, 2.2)
+		elif effect_kind in ["tracer", "tank_round", "shell"]:
+			var beam := CylinderMesh.new()
+			beam.top_radius = 0.045 if effect_kind != "shell" else 0.10
+			beam.bottom_radius = beam.top_radius
+			beam.height = maxf(0.1, start_world.distance_to(finish_world))
+			mesh = beam
+			effect.position = (start_world + finish_world) * 0.5
+			effect.look_at(finish_world, Vector3.UP)
+			effect.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+		else:
+			var sphere := SphereMesh.new()
+			sphere.radius = 0.5
+			sphere.height = 1.0
+			sphere.radial_segments = 10
+			sphere.rings = 6
+			mesh = sphere
+			effect.position = finish_world + Vector3.UP * 0.28
+			var size := clampf(radius / 48.0, 0.22, 2.4)
+			effect.scale = Vector3.ONE * size
+		effect.mesh = mesh
+		var material := StandardMaterial3D.new()
+		material.albedo_color = tint
+		material.emission_enabled = true
+		material.emission = tint
+		material.emission_energy_multiplier = 1.4 if effect_kind in ["explosion", "muzzle", "flash"] else 0.65
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if tint.a < 0.99 else BaseMaterial3D.TRANSPARENCY_DISABLED
+		effect.material_override = material
+		add_child(effect)
+		gameplay_effect_nodes[effect_id] = effect
+		var tween := create_tween()
+		tween.set_parallel(true)
+		if effect_kind in ["explosion", "flash", "muzzle"]:
+			tween.tween_property(effect, "scale", effect.scale * 1.65, duration)
+		if material.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA:
+			tween.tween_property(material, "albedo_color:a", 0.0, duration)
+		tween.chain().tween_callback(effect.queue_free)
+		synced += 1
+	for old_id in gameplay_effect_nodes.keys():
+		if not active_ids.has(old_id):
+			var old_effect = gameplay_effect_nodes[old_id]
+			if is_instance_valid(old_effect):
+				old_effect.queue_free()
+			gameplay_effect_nodes.erase(old_id)
+	return synced
 
 
 func _gameplay_max_health_for_building(kind: String) -> float:
