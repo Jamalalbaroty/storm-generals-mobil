@@ -343,6 +343,18 @@ func _run_gameplay_economy_smoke_test() -> void:
 	is_retreating = game.call("_update_enemy_retreat", wounded_tank, 1.0)
 	_expect(not is_retreating and not wounded_tank.has("retreating") and int(wounded_tank.hp) >= 90, "A recovered tank should leave retreat mode at 60 percent health")
 
+	# Defensive assignments should hold their post while healthy, then make an emergency withdrawal before destruction.
+	var guarded_wounded_tank: Dictionary = {"kind": "tank", "hp": 30, "pos": retreat_origin, "defense_guard": true}
+	var guard_retreating: bool = game.call("_update_enemy_retreat", guarded_wounded_tank, 1.0)
+	_expect(not guard_retreating and not guarded_wounded_tank.has("retreating"), "A healthy base guard should retain its defensive post")
+	guarded_wounded_tank["hp"] = 17
+	guard_retreating = game.call("_update_enemy_retreat", guarded_wounded_tank, 1.0)
+	_expect(guard_retreating and bool(guarded_wounded_tank.get("retreating", false)), "A critically wounded base guard should retreat instead of fighting to destruction")
+	var landing_support_artillery: Dictionary = {"kind": "artillery", "hp": 11, "pos": retreat_origin, "landing_support_active": true, "landing_support_target": 0}
+	var support_retreating: bool = game.call("_update_enemy_retreat", landing_support_artillery, 1.0)
+	_expect(support_retreating and bool(landing_support_artillery.get("retreating", false)), "Critically wounded landing-support artillery should make an emergency retreat")
+	_expect(not landing_support_artillery.has("landing_support_target"), "Emergency retreat should clear the stale landing-support target")
+
 	# Verify that each adaptive strategy can order its intended counter-unit.
 	game.get("enemy_buildings").clear()
 	game.get("enemy_buildings").append({"kind": "airfield", "pos": game.get("enemy_base"), "hp": 450, "build_progress": 1.0})
