@@ -10,10 +10,6 @@ on:
       - main
   workflow_dispatch:
 
-concurrency:
-  group: godot-regression-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   regression:
     name: Godot 4.4 headless regression
