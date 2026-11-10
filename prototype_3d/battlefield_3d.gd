@@ -1335,6 +1335,42 @@ func _add_faction_insignia(parent: Node3D, faction_id: String, local_position: V
 	return insignia
 
 
+func _add_fortification_wall_arm(parent: Node3D, local_pos: Vector3, yaw: float, tint: Color) -> void:
+	var wall_arm := Node3D.new()
+	wall_arm.position = local_pos
+	wall_arm.rotation.y = yaw
+	parent.add_child(wall_arm)
+	var footing := MeshInstance3D.new()
+	var footing_mesh := BoxMesh.new()
+	footing_mesh.size = Vector3(7.2, 0.34, 1.05)
+	footing.mesh = footing_mesh
+	footing.position.y = 0.20
+	footing.material_override = _make_armour_material(tint.darkened(0.30))
+	wall_arm.add_child(footing)
+	var wall_plate := MeshInstance3D.new()
+	var plate_mesh := BoxMesh.new()
+	plate_mesh.size = Vector3(6.75, 1.45, 0.72)
+	wall_plate.mesh = plate_mesh
+	wall_plate.position.y = 1.02
+	wall_plate.material_override = _make_armour_material(tint)
+	wall_arm.add_child(wall_plate)
+	var coping := MeshInstance3D.new()
+	var coping_mesh := BoxMesh.new()
+	coping_mesh.size = Vector3(7.35, 0.22, 1.18)
+	coping.mesh = coping_mesh
+	coping.position.y = 1.82
+	coping.material_override = _make_armour_material(tint.lightened(0.14))
+	wall_arm.add_child(coping)
+	for merlon_index in range(5):
+		var merlon := MeshInstance3D.new()
+		var merlon_mesh := BoxMesh.new()
+		merlon_mesh.size = Vector3(0.62, 0.30, 0.86)
+		merlon.mesh = merlon_mesh
+		merlon.position = Vector3(-2.8 + float(merlon_index) * 1.4, 2.08, 0.0)
+		merlon.material_override = _make_armour_material(tint.darkened(0.12))
+		wall_arm.add_child(merlon)
+
+
 func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String, build_progress: float = 1.0, show_progress: bool = false) -> Node3D:
 	var building := Node3D.new()
 	building.name = faction_id + "_" + kind
@@ -1344,7 +1380,63 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 	add_child(building)
 	var faction_accent := _get_faction_accent_color(faction_id)
 
+	if kind in ["wall", "wall_corner", "wall_gate"]:
+		building.name = faction_id + "_" + kind
+		building.set_meta("fortification_piece", true)
+		var wall_tint := tint.darkened(0.12)
+		if kind == "wall":
+			_add_fortification_wall_arm(building, Vector3.ZERO, 0.0, wall_tint)
+		elif kind == "wall_corner":
+			_add_fortification_wall_arm(building, Vector3(-3.35, 0.0, 0.0), 0.0, wall_tint)
+			_add_fortification_wall_arm(building, Vector3(0.0, 0.0, 3.35), PI * 0.5, wall_tint)
+		else:
+			for gate_side in [-1.0, 1.0]:
+				var gate_pillar := MeshInstance3D.new()
+				var pillar_mesh := BoxMesh.new()
+				pillar_mesh.size = Vector3(0.82, 2.25, 1.0)
+				gate_pillar.mesh = pillar_mesh
+				gate_pillar.position = Vector3(gate_side * 3.0, 1.12, 0.0)
+				gate_pillar.material_override = _make_armour_material(wall_tint)
+				building.add_child(gate_pillar)
+				var pillar_cap := MeshInstance3D.new()
+				var cap_mesh := BoxMesh.new()
+				cap_mesh.size = Vector3(1.12, 0.22, 1.25)
+				pillar_cap.mesh = cap_mesh
+				pillar_cap.position = Vector3(gate_side * 3.0, 2.30, 0.0)
+				pillar_cap.material_override = _make_armour_material(faction_accent)
+				building.add_child(pillar_cap)
+			var gate_threshold := MeshInstance3D.new()
+			var threshold_mesh := BoxMesh.new()
+			threshold_mesh.size = Vector3(6.8, 0.22, 1.25)
+			gate_threshold.mesh = threshold_mesh
+			gate_threshold.position.y = 0.12
+			gate_threshold.material_override = _make_armour_material(Color(0.22, 0.24, 0.22))
+			building.add_child(gate_threshold)
+		if show_progress:
+			building.set_meta("construction_progress", clampf(build_progress, 0.0, 1.0))
+			var progress_back := MeshInstance3D.new()
+			progress_back.name = "ConstructionProgressBackground"
+			var back_mesh := BoxMesh.new()
+			back_mesh.size = Vector3(4.0, 0.10, 0.16)
+			progress_back.mesh = back_mesh
+			progress_back.position = Vector3(0.0, 2.75, 0.0)
+			progress_back.material_override = _make_armour_material(Color(0.07, 0.09, 0.08))
+			progress_back.visible = build_progress < 1.0
+			building.add_child(progress_back)
+			var progress_fill := MeshInstance3D.new()
+			progress_fill.name = "ConstructionProgressFill"
+			var fill_mesh := BoxMesh.new()
+			fill_mesh.size = Vector3(3.8, 0.12, 0.18)
+			progress_fill.mesh = fill_mesh
+			progress_fill.position = Vector3(-1.9, 2.76, -0.01)
+			progress_fill.material_override = _make_armour_material(Color(0.34, 0.82, 0.48))
+			progress_fill.scale.x = maxf(0.001, clampf(build_progress, 0.0, 1.0))
+			progress_fill.visible = build_progress < 1.0
+			building.add_child(progress_fill)
+		return building
+
 	if kind == "airfield":
+
 		var apron := MeshInstance3D.new()
 		var apron_mesh := PlaneMesh.new()
 		apron_mesh.size = Vector2(9.0, 7.0)
