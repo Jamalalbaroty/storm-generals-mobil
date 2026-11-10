@@ -80,7 +80,9 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.config/godot" "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          cp -a /root/.local/share/godot/export_templates/4.4.1.stable/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          if [ "$HOME/.local/share/godot/export_templates/4.4.1.stable" != "/root/.local/share/godot/export_templates/4.4.1.stable" ]; then
+            cp -a /root/.local/share/godot/export_templates/4.4.1.stable/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          fi
           cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
           [resource]
