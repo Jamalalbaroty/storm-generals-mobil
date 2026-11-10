@@ -3053,10 +3053,12 @@ func _update_enemy_defense_assignments() -> void:
 				match String(building.get("kind", "")):
 					"factory", "barracks":
 						building_priority = 5
-					"airfield":
+					"airfield", "missile_silo":
 						building_priority = 4
-					"shipyard", "missile_silo":
+					"shipyard", "anti_air", "missile_defense":
 						building_priority = 3
+					"turret":
+						building_priority = 2
 				if building_priority <= 0:
 					continue
 				# Prefer critical production assets, then those furthest from the main base.
