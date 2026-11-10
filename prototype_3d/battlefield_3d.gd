@@ -760,13 +760,31 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			continue
 		var unit := unit_variant as Node3D
 		var target_variant = unit.get_meta("gameplay_visual_target", unit.global_position)
+		var aircraft_kind := String(unit.get_meta("gameplay_unit_kind", unit.get_meta("unit_type", "")))
+		var is_aircraft := aircraft_kind in ["fighter", "helicopter"]
+		var horizontal_travel := 0.0
 		if target_variant is Vector3:
+			horizontal_travel = Vector2(target_variant.x - unit.global_position.x, target_variant.z - unit.global_position.z).length()
 			unit.global_position = unit.global_position.lerp(target_variant, blend)
+		if is_aircraft:
+			# Small climb under forward movement; helicopters retain a gentle hover motion.
+			var base_altitude := 5.2 if aircraft_kind == "helicopter" else 6.4
+			var climb_target := clampf(horizontal_travel * 0.035, 0.0, 0.42)
+			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind == "helicopter" else 1.15)
+			unit.set_meta("gameplay_hover_phase", hover_phase)
+			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind == "helicopter" else 0.035)
+			var altitude_target := base_altitude + climb_target + hover_amount
+			unit.global_position.y = lerpf(unit.global_position.y, altitude_target, clampf(delta * 3.2, 0.0, 1.0))
 		var body_yaw := float(unit.get_meta("gameplay_body_yaw_target", unit.rotation.y))
 		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, blend)
 		# Aircraft bank gently into turns; ground vehicles always settle level.
 		var bank_target := float(unit.get_meta("gameplay_flight_bank_target", 0.0))
 		unit.rotation.z = lerpf(unit.rotation.z, bank_target, clampf(delta * 5.5, 0.0, 1.0))
+		if is_aircraft:
+			var pitch_target := clampf(climb_target * 0.22, 0.0, 0.12)
+			unit.rotation.x = lerpf(unit.rotation.x, pitch_target, clampf(delta * 3.0, 0.0, 1.0))
+		else:
+			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
 		var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
 		if is_instance_valid(turret_pivot) and unit.has_meta("gameplay_turret_yaw_target"):
 			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
