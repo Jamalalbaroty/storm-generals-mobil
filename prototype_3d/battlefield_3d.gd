@@ -117,6 +117,7 @@ func _process(delta: float) -> void:
 		if is_instance_valid(parent_unit) and not bool(parent_unit.get_meta("source_gameplay_unit", false)) and parent_unit != selected_tank:
 			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
 	_update_showcase_orders(delta)
+	_update_gameplay_unit_visuals(delta)
 	_update_showcase_combat(delta)
 	_update_showcase_health_bars()
 	_update_infantry_animation(delta)
@@ -685,7 +686,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			game_unit_nodes[key] = unit
 		else:
-			unit.global_position = world_pos
+			# Keep simulation coordinates authoritative while smoothing the 3D proxy between sync ticks.
+			unit.set_meta("gameplay_visual_target", world_pos)
 			unit.set_meta("health", current_health)
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
@@ -711,6 +713,20 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
 	return synced_count
+
+func _update_gameplay_unit_visuals(delta: float) -> void:
+	# The 2D RTS remains authoritative; interpolate only its 3D presentation
+	# so the 0.12-second bridge cadence does not make live units visibly jump.
+	var blend := clampf(delta * 16.0, 0.0, 1.0)
+	for unit_key in game_unit_nodes.keys():
+		var unit_variant = game_unit_nodes[unit_key]
+		if not is_instance_valid(unit_variant):
+			continue
+		var unit := unit_variant as Node3D
+		var target_variant = unit.get_meta("gameplay_visual_target", unit.global_position)
+		if target_variant is Vector3:
+			unit.global_position = unit.global_position.lerp(target_variant, blend)
+
 
 func _gameplay_max_health_for_building(kind: String) -> float:
 	match kind:
