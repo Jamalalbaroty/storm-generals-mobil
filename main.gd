@@ -555,7 +555,13 @@ func _process(delta: float) -> void:
 					# Base guards must close directly on an intruder; assault-lane offsets
 					# can otherwise keep a nearby threat just outside their firing radius.
 					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
-						destination = _enemy_infantry_support_position(unit.pos, units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i)) if unit.kind == "infantry" else _enemy_ground_assault_formation_position("tank", units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i))
+						var immediate_threat_pos: Vector2 = units[player_target].pos
+						# Stop steering toward a formation slot behind a threat already in close-combat range.
+						# Preserve formation spacing for distant advances; nearby units acquire the actual target.
+						if unit.pos.distance_to(immediate_threat_pos) > 180.0:
+							destination = _enemy_infantry_support_position(unit.pos, immediate_threat_pos, enemy_base, _enemy_assault_formation_rank(i)) if unit.kind == "infantry" else _enemy_ground_assault_formation_position("tank", immediate_threat_pos, enemy_base, _enemy_assault_formation_rank(i))
+						else:
+							destination = immediate_threat_pos
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
 					if unit.kind == "tank" or unit.kind == "infantry":
