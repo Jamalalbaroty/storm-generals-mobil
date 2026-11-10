@@ -209,6 +209,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 100, "Desert terrain should not grant infantry cover")
 	_expect(game.call("_terrain_adjusted_damage", {"kind": "tank"}, 100) == 100, "Infantry terrain cover must not reduce tank damage")
 
+	game.set("map_type", "ساحل الغابات")
 	# Exercise the real splash-damage path: terrain cover applies to infantry only,
 	# damage stays on the intended team/radius, and lethal hits clamp at zero HP.
 	game.get("units").clear()
