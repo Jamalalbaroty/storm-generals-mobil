@@ -1072,6 +1072,7 @@ func _process(delta: float) -> void:
 				var target: Vector2 = unit.target
 				if unit.pos.distance_to(target) > 8.0:
 					unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+		_resolve_ground_unit_spacing()
 		_resolve_fortification_collisions(wall_collision_origins)
 		_cleanup_destroyed_units()
 		_resolve_battle_result()
@@ -1146,6 +1147,37 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 				previous = resolved
 		unit.pos = resolved
 		units[unit_index] = unit
+
+
+func _resolve_ground_unit_spacing() -> void:
+	# Keep friendly ground formations readable without changing orders or combat ranges.
+	var excluded_kinds := ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
+	for pass_index in range(2):
+		for first_index in range(units.size()):
+			var first: Dictionary = units[first_index]
+			if int(first.get("hp", 0)) <= 0 or String(first.get("kind", "")) in excluded_kinds:
+				continue
+			for second_index in range(first_index + 1, units.size()):
+				var second: Dictionary = units[second_index]
+				if String(first.get("team", "")) != String(second.get("team", "")):
+					continue
+				if int(second.get("hp", 0)) <= 0 or String(second.get("kind", "")) in excluded_kinds:
+					continue
+				var offset: Vector2 = second.pos - first.pos
+				var distance := offset.length()
+				var first_kind := String(first.get("kind", ""))
+				var second_kind := String(second.get("kind", ""))
+				var first_radius := 13.0 if first_kind in ["tank", "artillery"] else 9.0
+				var second_radius := 13.0 if second_kind in ["tank", "artillery"] else 9.0
+				var minimum_distance := first_radius + second_radius
+				if distance >= minimum_distance:
+					continue
+				var direction := offset / distance if distance > 0.001 else Vector2.RIGHT
+				var correction := (minimum_distance - distance) * 0.5
+				first.pos -= direction * correction
+				second.pos += direction * correction
+				units[first_index] = first
+				units[second_index] = second
 
 
 func _resolve_battle_result() -> bool:
