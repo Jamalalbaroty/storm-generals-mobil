@@ -2425,7 +2425,7 @@ func _launch_player_missile() -> void:
 		return
 	var silo_index := -1
 	for i in buildings.size():
-		if buildings[i].kind == "missile_silo" and float(buildings[i].get("attack_cd", 0.0)) <= 0.0:
+		if buildings[i].kind == "missile_silo" and _is_player_building_powered(i) and float(buildings[i].get("attack_cd", 0.0)) <= 0.0:
 			silo_index = i
 			break
 	if silo_index < 0:
@@ -2462,8 +2462,9 @@ func _launch_enemy_missile() -> void:
 	missiles.append({"pos": enemy_buildings[silo_index].pos + Vector2(0, -24), "target": base_pos, "target_kind": "base", "team": "enemy", "damage": _missile_damage(enemy_faction), "life": 8.0})
 
 func _update_missiles(delta: float) -> void:
-	for building in buildings:
-		if building.kind == "missile_silo" or building.kind == "missile_defense":
+	for building_index in range(buildings.size()):
+		var building: Dictionary = buildings[building_index]
+		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_player_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
 	for building in enemy_buildings:
 		if building.kind == "missile_silo" or building.kind == "missile_defense":
@@ -2476,8 +2477,12 @@ func _update_missiles(delta: float) -> void:
 		var missile: Dictionary = missiles[i]
 		var hostile_buildings: Array[Dictionary] = buildings if missile.team == "enemy" else enemy_buildings
 		var intercepted := false
-		for defense in hostile_buildings:
+		for defense_index in range(hostile_buildings.size()):
+			var defense: Dictionary = hostile_buildings[defense_index]
 			if defense.kind != "missile_defense" or float(defense.get("attack_cd", 0.0)) > 0.0:
+				continue
+			# Player missile defenses must have grid power; enemy power is modeled separately.
+			if missile.team == "enemy" and not _is_player_building_powered(defense_index):
 				continue
 			if defense.pos.distance_to(missile.pos) <= 190.0:
 				defense.attack_cd = MISSILE_DEFENSE_INTERCEPT_COOLDOWN
