@@ -72,12 +72,12 @@ func _run() -> void:
 	})
 
 	var units: Array = game.get("units")
-	units.append({"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 5000, "pos": player_port, "attack_cd": 10.0})
-	units.append({"kind": "infantry", "team": "enemy", "faction": "الصيني", "hp": 5000, "pos": enemy_port, "attack_cd": 10.0})
+	units.append({"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 50000, "pos": player_port, "attack_cd": 10.0})
+	units.append({"kind": "infantry", "team": "enemy", "faction": "الصيني", "hp": 50000, "pos": enemy_port, "attack_cd": 10.0})
 	for tank_index in range(3):
 		units.append({
 			"kind": "tank", "team": "player", "faction": "الأمريكي",
-			"hp": 5000, "pos": Vector2(440.0, 300.0 + float(tank_index) * 34.0),
+			"hp": 12000, "pos": Vector2(440.0, 300.0 + float(tank_index) * 34.0),
 			"attack_cd": 0.0
 		})
 	for tank_index in range(3):
