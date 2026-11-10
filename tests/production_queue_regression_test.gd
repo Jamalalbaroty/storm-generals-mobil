@@ -28,6 +28,28 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Threat assessment must select a predictable doctrine with explicit priority.
+	if game._enemy_choose_strategy(2, 0, 2, 0) != "air_control":
+		push_error("Enemy should prioritize a matching air threat")
+		quit(1)
+		return
+	if game._enemy_choose_strategy(1, 2, 3, 0) != "naval_control":
+		push_error("Enemy should respond to a significant naval threat")
+		quit(1)
+		return
+	if game._enemy_choose_strategy(0, 1, 3, 0) != "armor_breaker":
+		push_error("Enemy should counter a heavy ground force")
+		quit(1)
+		return
+	if game._enemy_choose_strategy(0, 0, 0, 5) != "area_denial":
+		push_error("Enemy should use area denial against massed infantry")
+		quit(1)
+		return
+	if game._enemy_choose_strategy(1, 1, 2, 4) != "balanced":
+		push_error("Enemy should retain balanced doctrine below threat thresholds")
+		quit(1)
+		return
+
 	# Enemy counter-production must respect faction pricing, supplies, and doctrine caps.
 	game.units.clear()
 	game.enemy_buildings.clear()
@@ -111,5 +133,5 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("PASS: faction costs, enemy counter-production caps, and production queue recovery")
+	print("PASS: faction costs, enemy strategy selection, counter-production caps, and production queue recovery")
 	quit(0)
