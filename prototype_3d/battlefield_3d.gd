@@ -3027,6 +3027,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			attack_target = null
 			has_selected_destination = false
 			order_marker.visible = false
+			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
+				attack_move_order_button.button_pressed = false
 			return
 	if tapped_tank != null:
 		if _is_live_player_unit(tapped_tank):
@@ -3040,6 +3042,8 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			attack_target = tapped_tank
 			has_selected_destination = false
 			order_marker.visible = false
+			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
+				attack_move_order_button.button_pressed = false
 			return
 		selected_tank = tapped_tank
 		selected_live_units.clear()
