@@ -561,6 +561,29 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for active_unit in game.get("units"):
 		_expect(int(active_unit.get("hp", 0)) > 0, "No destroyed unit may remain in the active array after a long battle")
 
+	# Verify the real enemy unit update path retreats, heals, and rejoins after recovery.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 999.0)
+	game.set("enemy_missile_timer", 999.0)
+	game.set("enemy_income_timer", 999.0)
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	var live_retreat_factory := Vector2(260.0, 180.0)
+	game.get("enemy_buildings").append({"kind": "factory", "pos": live_retreat_factory, "hp": 500, "build_progress": 1.0})
+	game.get("units").append({
+		"kind": "tank", "team": "enemy", "faction": "الصيني",
+		"hp": 20, "pos": live_retreat_factory + Vector2(40.0, 0.0), "attack_cd": 10.0
+	})
+	game.call("_process", 1.0)
+	_expect(bool(game.get("units")[0].get("retreating", false)), "Live enemy tank update should enter retreat mode when critically damaged")
+	_expect(int(game.get("units")[0]["hp"]) == 28, "Live retreat should heal the tank by eight health per second beside a completed factory")
+	for recovery_frame in range(8):
+		game.call("_process", 1.0)
+	_expect(int(game.get("units")[0]["hp"]) >= 90, "Live retreat should recover the tank to at least 60 percent health")
+	_expect(not game.get("units")[0].has("retreating"), "Recovered enemy tank should leave retreat mode and rejoin normal unit updates")
+
 	# Sonar detection must respect destroyer range and remain hidden outside it.
 	game.get("units").clear()
 	var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
