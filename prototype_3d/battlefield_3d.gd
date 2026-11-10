@@ -745,6 +745,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				unit.set_meta("gameplay_aircraft_sortie_launch_seen", false)
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
 			unit.set_meta("gameplay_aircraft_ammo", int(record.get("aircraft_ammo", 8 if kind == "fighter" else 12)))
+			unit.set_meta("gameplay_aircraft_rearm_progress", float(record.get("airfield_rearm_progress", 0.0)))
+			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
 	for existing_key in game_unit_nodes.keys():
@@ -767,6 +769,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				# Only the authoritative death callback creates a wreck.
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
+	_update_selection_count_label()
 	return synced_count
 
 func _update_gameplay_unit_visuals(delta: float) -> void:
@@ -2931,7 +2934,9 @@ func _update_selection_count_label() -> void:
 		var selected_kind := str(selected_unit.get_meta("unit_type", ""))
 		if selected_kind in ["fighter", "helicopter"]:
 			var ammunition := int(selected_unit.get_meta("gameplay_aircraft_ammo", 8 if selected_kind == "fighter" else 12))
-			aircraft_status = " | AMMO %d" % ammunition
+			var is_landed := bool(selected_unit.get_meta("gameplay_aircraft_landed", false))
+			var rearm_progress := float(selected_unit.get_meta("gameplay_aircraft_rearm_progress", 0.0))
+			aircraft_status = " | REARM %d%%" % roundi(rearm_progress / 4.5 * 100.0) if is_landed else " | AMMO %d" % ammunition
 			break
 	selection_count_label.text = "UNITS: %d%s" % [count, aircraft_status]
 	selection_count_label.visible = count > 0
