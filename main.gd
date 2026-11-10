@@ -347,14 +347,16 @@ func _process(delta: float) -> void:
 			if (building.kind == "turret" or building.kind == "anti_air" or building.kind == "bunker") and _is_player_building_powered(defense_index):
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
 				var is_bunker := building.kind == "bunker"
-				var target := _nearest_enemy_ground_unit(building.pos, 185.0) if is_bunker else _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
+				var bunker_level := maxi(1, int(building.get("level", 1))) if is_bunker else 1
+				var bunker_range := 185.0 + float(bunker_level - 1) * 30.0
+				var target := _nearest_enemy_ground_unit(building.pos, bunker_range) if is_bunker else _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
-					var defense_damage := 22 if is_bunker else (34 if building.kind == "anti_air" else 18)
+					var defense_damage := 22 + (bunker_level - 1) * 5 if is_bunker else (34 if building.kind == "anti_air" else 18)
 					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], defense_damage))
 					var defense_color := Color("#c8b58a") if is_bunker else (Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"))
 					_add_visual_effect("tracer", building.pos, units[target].pos, defense_color, 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, defense_color, 0.22, 13.0)
-					building.attack_cd = 1.15 if is_bunker else (0.65 if building.kind == "anti_air" else 0.8)
+					building.attack_cd = maxf(0.85, 1.15 - float(bunker_level - 1) * 0.10) if is_bunker else (0.65 if building.kind == "anti_air" else 0.8)
 		for defense_index in range(enemy_buildings.size()):
 			var building: Dictionary = enemy_buildings[defense_index]
 			if not _is_enemy_building_powered(defense_index):
@@ -853,8 +855,12 @@ func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 	var damage_multiplier := 1.0
 	if team == "player":
 		for fortification in buildings:
-			if String(fortification.get("kind", "")) == "bunker" and float(fortification.get("build_progress", 1.0)) >= 1.0 and int(fortification.get("hp", 0)) > 0 and target.get("pos", Vector2.ZERO).distance_to(fortification.pos) <= 82.0:
-				damage_multiplier *= 0.78
+			if String(fortification.get("kind", "")) != "bunker" or float(fortification.get("build_progress", 1.0)) < 1.0 or int(fortification.get("hp", 0)) <= 0:
+				continue
+			var bunker_level := maxi(1, int(fortification.get("level", 1)))
+			var cover_radius := 82.0 + float(bunker_level - 1) * 8.0
+			if target.get("pos", Vector2.ZERO).distance_to(fortification.pos) <= cover_radius:
+				damage_multiplier *= 0.78 - float(bunker_level - 1) * 0.04
 				break
 	if kind == "infantry":
 		if map_type == "ساحل الغابات":
