@@ -812,6 +812,17 @@ func sync_gameplay_effects(effect_records: Array, map_rect: Rect2) -> int:
 			mesh = ring
 			effect.position = finish_world + Vector3.UP * 0.08
 			effect.scale = Vector3.ONE * clampf(radius / 42.0, 0.65, 2.2)
+		elif effect_kind == "air_missile":
+			# A compact airborne projectile travels from launcher to impact point.
+			var missile := CylinderMesh.new()
+			missile.top_radius = 0.055
+			missile.bottom_radius = 0.085
+			missile.height = 0.72
+			mesh = missile
+			effect.position = start_world + Vector3.UP * 0.78
+			if effect.position.distance_squared_to(finish_world) > 0.01:
+				effect.look_at(finish_world + Vector3.UP * 0.48, Vector3.UP)
+				effect.rotate_object_local(Vector3.RIGHT, PI * 0.5)
 		elif effect_kind in ["tracer", "tank_round", "shell"]:
 			var beam := CylinderMesh.new()
 			beam.top_radius = 0.045 if effect_kind != "shell" else 0.10
@@ -844,6 +855,8 @@ func sync_gameplay_effects(effect_records: Array, map_rect: Rect2) -> int:
 		gameplay_effect_nodes[effect_id] = effect
 		var tween := create_tween()
 		tween.set_parallel(true)
+		if effect_kind == "air_missile":
+			tween.tween_property(effect, "position", finish_world + Vector3.UP * 0.48, duration)
 		if effect_kind in ["explosion", "flash", "muzzle"]:
 			tween.tween_property(effect, "scale", effect.scale * 1.65, duration)
 		if material.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA:
