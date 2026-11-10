@@ -103,13 +103,13 @@ func _run() -> void:
 		return
 
 	# Formation ranks must ignore player/support units and dead enemy units.
-	game.units = [
+	game.units.assign([
 		{"team": "player", "kind": "tank", "hp": 150},
 		{"team": "enemy", "kind": "artillery", "hp": 100},
 		{"team": "enemy", "kind": "tank", "hp": 150},
 		{"team": "enemy", "kind": "infantry", "hp": 60},
 		{"team": "enemy", "kind": "tank", "hp": 0}
-	]
+	])
 	if game._enemy_assault_formation_rank(2) != 0 or game._enemy_assault_formation_rank(4) != 2:
 		push_error("Enemy formation rank must count only preceding living enemy tanks and infantry")
 		quit(1)
@@ -122,13 +122,13 @@ func _run() -> void:
 		return
 
 	# Artillery uses its own live-unit lanes and maintains a safe 185-330 unit firing band.
-	game.units = [
+	game.units.assign([
 		{"team": "player", "kind": "tank", "hp": 150},
 		{"team": "enemy", "kind": "tank", "hp": 150},
 		{"team": "enemy", "kind": "artillery", "hp": 100},
 		{"team": "enemy", "kind": "artillery", "hp": 100},
 		{"team": "enemy", "kind": "artillery", "hp": 0}
-	]
+	])
 	if game._enemy_artillery_formation_rank(2) != 0 or game._enemy_artillery_formation_rank(4) != 2:
 		push_error("Artillery formation rank must count only preceding living enemy artillery")
 		quit(1)
@@ -207,13 +207,13 @@ func _run() -> void:
 		"hp": 400,
 		"build_progress": 1.0
 	})
-	game.production_orders = [{
+	game.production_orders.assign([{
 		"producer_pos": Vector2(300.0, 300.0),
 		"producer_kind": "factory",
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
-	}]
+	}])
 	game._update_production_queues(0.1)
 	if not game.production_orders.is_empty() or game.credits != 225 or game.supplies != 1:
 		push_error("A replacement building at the old producer position must not inherit its production order")
@@ -231,14 +231,14 @@ func _run() -> void:
 		"build_progress": 1.0,
 		"production_id": 42
 	})
-	game.production_orders = [{
+	game.production_orders.assign([{
 		"producer_pos": Vector2(300.0, 300.0),
 		"producer_kind": "factory",
 		"producer_id": 41,
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
-	}]
+	}])
 	game._update_production_queues(0.1)
 	if not game.production_orders.is_empty() or game.credits != 225 or game.supplies != 1:
 		push_error("A same-kind replacement must not inherit the destroyed factory's production queue")
@@ -290,14 +290,14 @@ func _run() -> void:
 		push_error("Production factory should lose power when higher-priority defenses consume the grid")
 		quit(1)
 		return
-	game.production_orders = [{
+	game.production_orders.assign([{
 		"producer_pos": Vector2(400.0, 100.0),
 		"producer_kind": "factory",
 		"producer_id": 77,
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
-	}]
+	}])
 	game._update_production_queues(1.0)
 	if not is_equal_approx(float(game.production_orders[0].remaining), 3.0):
 		push_error("Production must pause while its factory is unpowered")
@@ -321,12 +321,12 @@ func _run() -> void:
 		return
 
 	# Missile silos and interception defenses must obey the same power grid.
-	game.buildings = [
+	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 5.0}
-	]
+	])
 	game.missiles.clear()
 	game.credits = 1200
 	game.supplies = 10
@@ -352,14 +352,14 @@ func _run() -> void:
 		quit(1)
 		return
 
-	game.buildings = [
+	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "missile_defense", "hp": 450, "build_progress": 1.0, "attack_cd": 0.0}
-	]
+	])
 	game.enemy_buildings.clear()
-	game.missiles = [{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "enemy", "damage": 100, "life": 8.0}]
+	game.missiles.assign([{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "enemy", "damage": 100, "life": 8.0}])
 	game._update_missiles(0.1)
 	if game.missiles.size() != 1 or game.buildings[3].attack_cd != 0.0:
 		push_error("An unpowered missile defense must not intercept incoming missiles")
@@ -374,22 +374,22 @@ func _run() -> void:
 		return
 
 	# Integrated outage: defense keeps priority while factory and missile silo pause.
-	game.buildings = [
+	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0, "production_id": 77},
 		{"pos": Vector2(500.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 0.0},
 		{"pos": Vector2(600.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
-	]
-	game.production_orders = [{
+	])
+	game.production_orders.assign([{
 		"producer_pos": Vector2(400.0, 100.0),
 		"producer_kind": "factory",
 		"producer_id": 77,
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
-	}]
+	}])
 	game.missiles.clear()
 	game.credits = 1200
 	game.supplies = 10
@@ -422,13 +422,13 @@ func _run() -> void:
 		return
 
 	# Destroyed player structures must neither provide nor consume grid power.
-	game.buildings = [
+	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0},
 		{"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 0, "build_progress": 1.0}
-	]
+	])
 	if game._player_power_capacity() != 8 or game._player_power_demand() != 10 or game._is_player_building_powered(3):
 		push_error("Destroyed player power plants must not supply capacity or power an overloaded factory")
 		quit(1)
@@ -442,12 +442,12 @@ func _run() -> void:
 	# Enemy production and missile systems must obey the same power allocation.
 	game.enemy_credits = 2000
 	game.enemy_supplies = 10
-	game.enemy_buildings = [
+	game.enemy_buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
-	]
+	])
 	if game._enemy_power_capacity() != 8 or game._enemy_power_demand() != 10:
 		push_error("Enemy power capacity and demand should mirror the player's grid rules")
 		quit(1)
@@ -487,12 +487,12 @@ func _run() -> void:
 		return
 
 	# Enemy missile launchers and interception defenses also pause without power.
-	game.enemy_buildings = [
+	game.enemy_buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 5.0}
-	]
+	])
 	game.missiles.clear()
 	game.enemy_credits = 1200
 	game.enemy_supplies = 10
@@ -514,13 +514,13 @@ func _run() -> void:
 		push_error("A powered enemy silo should resume its paused readiness timer and launch normally")
 		quit(1)
 		return
-	game.enemy_buildings = [
+	game.enemy_buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "missile_defense", "hp": 450, "build_progress": 1.0, "attack_cd": 0.0}
-	]
-	game.missiles = [{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "player", "damage": 100, "life": 8.0}]
+	])
+	game.missiles.assign([{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "player", "damage": 100, "life": 8.0}])
 	game._update_missiles(0.1)
 	if game.missiles.size() != 1 or game.enemy_buildings[3].attack_cd != 0.0:
 		push_error("An unpowered enemy missile defense must not intercept player missiles")
@@ -535,19 +535,19 @@ func _run() -> void:
 		return
 
 	# Enemy AI should invest in power before expanding beyond its available grid.
-	game.enemy_buildings = [
+	game.enemy_buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
-	]
+	])
 	game.enemy_credits = 1200
 	game._enemy_ai_turn()
 	if not game._enemy_has_any_building("power_plant"):
 		push_error("Enemy AI should construct a power plant when current demand exceeds capacity")
 		quit(1)
 		return
-	game.enemy_buildings = []
+	game.enemy_buildings.assign([])
 	for i in range(6):
 		game.enemy_buildings.append({"pos": Vector2(100.0 + i * 80.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0})
 	for i in range(3):
@@ -575,21 +575,21 @@ func _run() -> void:
 	game.enemy_missile_timer = 0.0
 	game.enemy_income_timer = 0.0
 	game.income_timer = 0.0
-	game.units = [{
+	game.units.assign([{
 		"pos": Vector2(1700.0, 100.0),
 		"team": "player",
 		"kind": "tank",
 		"hp": 150,
 		"target": Vector2(1700.0, 100.0),
 		"attack_cd": 1000.0
-	}]
-	game.enemy_buildings = [
+	}])
+	game.enemy_buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
 		{"pos": Vector2(500.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
 		{"pos": Vector2(900.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
 		{"pos": Vector2(1300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
 		{"pos": Vector2(1700.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0}
-	]
+	])
 	game._process(0.1)
 	if int(game.units[0].hp) != 150:
 		push_error("An unpowered enemy turret must not fire at player units")
@@ -605,7 +605,7 @@ func _run() -> void:
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
-	game.production_orders = [{"kind": "tank", "remaining": 2.0, "duration": 3.0}]
+	game.production_orders.assign([{"kind": "tank", "remaining": 2.0, "duration": 3.0}])
 	game.dragging = true
 	game._handle_pointer(game._restart_rect(game.get_viewport_rect().size).get_center(), false)
 	if game.game_started or game.battle_result != "" or not game.production_orders.is_empty():
@@ -620,7 +620,7 @@ func _run() -> void:
 	# The terminal overlay must remain clickable while the 3D battlefield is active.
 	game.game_started = true
 	game.battle_result = "هُزمت! سقطت قاعدتك"
-	game.production_orders = [{"kind": "infantry", "remaining": 1.0, "duration": 2.0}]
+	game.production_orders.assign([{"kind": "infantry", "remaining": 1.0, "duration": 2.0}])
 	game._set_3d_view_enabled(true)
 	var restart_position: Vector2 = game._restart_rect(game.get_viewport_rect().size).get_center()
 	var restart_press := InputEventScreenTouch.new()
@@ -653,14 +653,14 @@ func _run() -> void:
 	game.buildings.clear()
 	game.enemy_buildings.clear()
 	game.production_orders.clear()
-	game.units = [{
+	game.units.assign([{
 		"pos": game.enemy_base,
 		"team": "player",
 		"kind": "tank",
 		"hp": 100,
 		"attack_base": true,
 		"attack_cd": 0.0
-	}]
+	}])
 	game._process(0.1)
 	if game.battle_result != "انتصرت! دمرت قاعدة العدو":
 		push_error("Destroying the enemy base during combat must resolve victory in the same frame")
@@ -673,13 +673,13 @@ func _run() -> void:
 	game.enemy_timer = 0.0
 	game.enemy_income_timer = 0.0
 	game.income_timer = 0.0
-	game.units = [{
+	game.units.assign([{
 		"pos": game.base_pos,
 		"team": "enemy",
 		"kind": "tank",
 		"hp": 100,
 		"attack_cd": 0.0
-	}]
+	}])
 	game._process(0.1)
 	if game.battle_result != "هُزمت! سقطت قاعدتك":
 		push_error("Losing the player base during combat must resolve defeat in the same frame")
@@ -718,7 +718,7 @@ func _run() -> void:
 	game.enemy_credits = 640
 	game.enemy_income_timer = 0.5
 	game.enemy_timer = 11.5
-	game.production_orders = [{"kind": "tank", "remaining": 1.5, "duration": 3.0}]
+	game.production_orders.assign([{"kind": "tank", "remaining": 1.5, "duration": 3.0}])
 	game._process(1.0)
 	if game.credits != 700 or game.income_timer != 0.0:
 		push_error("A completed match continued granting player passive income")
