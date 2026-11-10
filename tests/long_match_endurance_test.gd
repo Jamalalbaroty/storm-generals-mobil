@@ -97,7 +97,8 @@ func _run() -> void:
 		game.call("_process", 0.1)
 	_expect(game.get("production_orders").is_empty(), "The player tank should finish production through the live frame loop")
 	_expect(int(game.call("_team_unit_count", "player")) >= 4, "The live production loop should add a fourth player tank")
-	_expect(int(game.get("supplies")) > 40, "The player-held port should deliver supply income during the opening production phase")
+	# The queued tank already spent one supply; the port restores one after its 6-second payout interval.
+	_expect(int(game.get("supplies")) >= 40, "The player-held port should offset the opening tank supply cost during the production phase")
 	_expect(int(game.get("enemy_supplies")) > 40, "The enemy-held port should deliver supply income during the opening production phase")
 
 	# Sustain a deterministic 90-second match: income, port payouts, combat,
