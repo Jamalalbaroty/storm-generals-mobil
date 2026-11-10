@@ -1683,15 +1683,25 @@ func _draw_hud(size: Vector2) -> void:
 				selected_player_units.append(selected_unit)
 	if not selected_player_units.is_empty():
 		var total_xp := 0.0
+		var progress_total := 0.0
 		var highest_rank := 0
+		var elite_count := 0
 		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
 		var dossier_name := String(kind_labels.get(String(selected_player_units[0].get("kind", "")), "الوحدة"))
 		for selected_unit in selected_player_units:
-			total_xp += float(selected_unit.get("combat_xp", 0.0))
-			highest_rank = maxi(highest_rank, int(selected_unit.get("veterancy", 0)))
+			var unit_xp := float(selected_unit.get("combat_xp", 0.0))
+			var unit_rank := int(selected_unit.get("veterancy", 0))
+			total_xp += unit_xp
+			highest_rank = maxi(highest_rank, unit_rank)
+			if unit_rank >= 2:
+				elite_count += 1
+				progress_total += 1.0
+			elif unit_rank == 1:
+				progress_total += clampf((unit_xp - 100.0) / 150.0, 0.0, 1.0)
+			else:
+				progress_total += clampf(unit_xp / 100.0, 0.0, 1.0)
 		var average_xp := total_xp / float(selected_player_units.size())
-		var next_threshold := 250.0 if highest_rank >= 1 else 100.0
-		var progress := clampf(average_xp / next_threshold, 0.0, 1.0) if highest_rank < 2 else 1.0
+		var progress := progress_total / float(selected_player_units.size())
 		var rank_label := "نخبة" if highest_rank >= 2 else ("مخضرم" if highest_rank == 1 else "مجند")
 		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 48))
 		draw_rect(dossier, Color("#10232b", 0.94), true)
@@ -1702,7 +1712,8 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), "الحد التالي: %s" % ("أقصى رتبة" if highest_rank >= 2 else str(int(next_threshold)) + " خبرة"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
+		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
 	if _has_selected_player_building():
 		labels[10] = "إصلاح المنشأة"
