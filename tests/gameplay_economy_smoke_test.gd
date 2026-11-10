@@ -58,6 +58,25 @@ func _run_gameplay_economy_smoke_test() -> void:
 			faction_rects.append(faction_rect)
 		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
 		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
+	# Exercise the real press/release path, not only the geometry helpers.
+	# Each army card must start a match and assign the chosen faction to the builder.
+	var active_viewport: Vector2 = game.get_viewport_rect().size
+	for faction_index in range(FACTIONS.size()):
+		game.set("game_started", false)
+		game.set("faction", "")
+		game.get("units").clear()
+		var touch_target: Rect2 = game.call("_faction_rect", faction_index, active_viewport)
+		game.call("_handle_pointer", touch_target.get_center(), true)
+		game.call("_handle_pointer", touch_target.get_center(), false)
+		_expect(bool(game.get("game_started")), "Tapping army card %d should start the match" % faction_index)
+		_expect(String(game.get("faction")) == String(game.get("FACTIONS")[faction_index]), "Tapping army card %d should select the matching faction" % faction_index)
+		var starting_units: Array = game.get("units")
+		_expect(not starting_units.is_empty() and String(starting_units[0].get("kind", "")) == "builder", "Each faction should receive its starting builder")
+		if not starting_units.is_empty():
+			_expect(String(starting_units[0].get("faction", "")) == String(game.get("FACTIONS")[faction_index]), "Starting builder should inherit the selected faction")
+	game.set("game_started", false)
+	game.get("units").clear()
+
 	var mobile_viewport := Vector2(1280.0, 720.0)
 	var first_command_button: Rect2 = game.call("_button_rect", 0, mobile_viewport)
 	var last_command_button: Rect2 = game.call("_button_rect", 5, mobile_viewport)
