@@ -3034,16 +3034,26 @@ func _update_enemy_retreat(unit: Dictionary, delta: float) -> bool:
 
 
 func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
-	# Damaged mobile troops fall back to the nearest completed friendly asset instead of fighting to destruction.
-	var safest_destination: Vector2 = enemy_base
-	var nearest_distance: float = from_pos.distance_squared_to(enemy_base)
+	# Prefer completed friendly assets that are both reachable and away from nearby player forces.
+	var candidate_positions: Array[Vector2] = [enemy_base]
 	for building in enemy_buildings:
 		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
 			continue
-		var candidate_distance: float = from_pos.distance_squared_to(building.pos)
-		if candidate_distance < nearest_distance:
-			nearest_distance = candidate_distance
-			safest_destination = building.pos
+		candidate_positions.append(building.pos)
+	var safest_destination: Vector2 = enemy_base
+	var best_score := INF
+	for candidate in candidate_positions:
+		var nearest_hostile_distance := INF
+		for hostile in units:
+			if String(hostile.get("team", "")) != "player" or int(hostile.get("hp", 0)) <= 0:
+				continue
+			nearest_hostile_distance = minf(nearest_hostile_distance, candidate.distance_to(hostile.pos))
+		# A nearby hostile adds a proportional penalty, while distance still favors practical retreats.
+		var danger_penalty := maxf(0.0, 220.0 - nearest_hostile_distance) * 2.5
+		var candidate_score := from_pos.distance_to(candidate) + danger_penalty
+		if candidate_score < best_score:
+			best_score = candidate_score
+			safest_destination = candidate
 	return safest_destination
 
 
