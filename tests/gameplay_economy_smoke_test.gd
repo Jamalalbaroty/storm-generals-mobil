@@ -217,6 +217,32 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.get("units").size() == units_before_unaffordable_order, "Rejected counter production must not create a free unit")
 	_expect(int(game.get("enemy_credits")) == credits_before_unaffordable_order and int(game.get("enemy_supplies")) == supplies_before_unaffordable_order, "Rejected counter production must preserve the enemy's remaining resources")
 
+	# Stress the enemy's production budget across repeated AI turns with scarce supplies.
+	game.get("units").clear()
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_credits", 2000)
+	game.set("enemy_supplies", 4)
+	for threat_index in range(5):
+		game.get("units").append({
+			"pos": Vector2(900.0 + float(threat_index) * 18.0, 360.0),
+			"team": "player", "kind": "infantry", "hp": 60
+		})
+	for ai_turn_index in range(20):
+		game.call("_enemy_ai_turn")
+	_expect(int(game.get("enemy_credits")) >= 0, "Repeated enemy AI turns must never drive credits below zero")
+	_expect(int(game.get("enemy_supplies")) >= 0, "Repeated enemy AI turns must never drive supplies below zero")
+	var stress_artillery_count := 0
+	var stress_infantry_count := 0
+	for stress_unit in game.get("units"):
+		if String(stress_unit.get("team", "")) != "enemy":
+			continue
+		if String(stress_unit.get("kind", "")) == "artillery":
+			stress_artillery_count += 1
+		elif String(stress_unit.get("kind", "")) == "infantry":
+			stress_infantry_count += 1
+	_expect(stress_artillery_count <= 3, "Repeated area-denial turns must respect the artillery counter-unit cap")
+	_expect(stress_infantry_count <= 8, "Repeated enemy production must respect the infantry force cap")
+
 	# Guard the four faction profiles and the premium cost of the strongest "Watan" units.
 	var faction_cases := [
 		["الصيني", 30, 1.35, 185, 14.0, 40],
