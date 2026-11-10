@@ -265,6 +265,23 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("credits")) == 48, "Contested port must stop paying credits")
 	_expect(int(game.get("supplies")) == 1, "Contested port must stop paying supplies")
 
+	# Enemy strategic logistics should favor valuable player-held objectives and dispatch only one guard per threatened point.
+	game.get("supply_points").clear()
+	game.get("supply_points").append({"pos": Vector2(200.0, 300.0), "owner": "neutral", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
+	game.get("supply_points").append({"pos": Vector2(600.0, 300.0), "owner": "player", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
+	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "player", "kind": "port", "payout": 0.0, "supply_payout": 0.0})
+	_expect(int(game.call("_enemy_best_supply_objective", Vector2(550.0, 300.0))) == 2, "Enemy strategy should prioritize the nearby player-held port over a regular supply point")
+	game.get("supply_points").clear()
+	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "enemy", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
+	game.get("units").clear()
+	game.get("units").append({"pos": Vector2(400.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
+	game.get("units").append({"pos": Vector2(650.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60})
+	game.get("units").append({"pos": Vector2(540.0, 300.0), "team": "player", "kind": "tank", "hp": 150})
+	_expect(int(game.call("_enemy_supply_reinforcement_point", 0)) == 0, "Nearest enemy guard should be assigned to reinforce a threatened owned supply point")
+	_expect(int(game.call("_enemy_supply_reinforcement_point", 1)) == -1, "A second enemy unit should not duplicate the same supply reinforcement assignment")
+	game.get("units").append({"pos": Vector2(500.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60})
+	_expect(int(game.call("_enemy_supply_reinforcement_point", 0)) == -1, "An already garrisoned supply point should not request another reinforcement")
+
 	game.get("units").clear()
 	game.get("units").append({"pos": game.get("enemy_base"), "team": "enemy", "kind": "infantry", "hp": 60})
 	game.get("enemy_buildings").clear()
