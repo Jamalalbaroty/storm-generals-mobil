@@ -316,6 +316,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
 		source_unit.erase("guard_radius")
+		source_unit.erase("escort_active")
+		source_unit.erase("escort_target_id")
+		source_unit.erase("escort_offset")
 		source_unit.erase("attack_move_active")
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
