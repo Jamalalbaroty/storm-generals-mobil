@@ -227,5 +227,20 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# A new battle must not inherit queued production from the finished match.
+	game.game_started = true
+	game.battle_result = "انتصرت! دمرت قاعدة العدو"
+	game.production_orders = [{"kind": "tank", "remaining": 2.0, "duration": 3.0}]
+	game.dragging = true
+	game._handle_pointer(game._restart_rect(game.get_viewport_rect().size).get_center(), false)
+	if game.game_started or game.battle_result != "" or not game.production_orders.is_empty():
+		push_error("Restart must return to faction selection and clear stale production orders")
+		quit(1)
+		return
+	if game.credits != game.STARTING_CREDITS or game.player_base_hp != 1000 or game.enemy_base_hp != 1000:
+		push_error("Restart must restore the initial economy and both base health values")
+		quit(1)
+		return
+
 	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
 	quit(0)
