@@ -1331,6 +1331,7 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 	building.set_meta("building_kind", kind)
 	building.set_meta("faction_id", faction_id)
 	add_child(building)
+	var faction_accent := _get_faction_accent_color(faction_id)
 
 	if kind == "airfield":
 		var apron := MeshInstance3D.new()
@@ -1433,6 +1434,21 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		firing_slit.position = Vector3(0.0, 1.55, -3.12)
 		firing_slit.material_override = _make_armour_material(Color(0.08, 0.10, 0.10))
 		building.add_child(firing_slit)
+		for bunker_side in [-1.0, 1.0]:
+			var bunker_buttress := MeshInstance3D.new()
+			var buttress_mesh := BoxMesh.new()
+			buttress_mesh.size = Vector3(0.72, 1.35, 5.25)
+			bunker_buttress.mesh = buttress_mesh
+			bunker_buttress.position = Vector3(bunker_side * 3.35, 0.95, 0.0)
+			bunker_buttress.material_override = _make_armour_material(tint.darkened(0.20))
+			building.add_child(bunker_buttress)
+		var bunker_emblem := MeshInstance3D.new()
+		var emblem_mesh := BoxMesh.new()
+		emblem_mesh.size = Vector3(1.25, 0.18, 0.10)
+		bunker_emblem.mesh = emblem_mesh
+		bunker_emblem.position = Vector3(0.0, 2.42, -3.18)
+		bunker_emblem.material_override = _make_armour_material(faction_accent)
+		building.add_child(bunker_emblem)
 	for side in [-1.0, 1.0]:
 		var window := MeshInstance3D.new()
 		var window_mesh := BoxMesh.new()
@@ -1511,6 +1527,71 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			barrel.position = Vector3(-0.22 + float(barrel_index) * 0.44, 3.55, -1.55)
 			barrel.material_override = _make_armour_material(Color(0.12, 0.14, 0.13))
 			building.add_child(barrel)
+		# Army-specific defensive silhouette details remain low-poly and inexpensive.
+		if kind == "turret":
+			var gun_shield := MeshInstance3D.new()
+			gun_shield.name = "TurretArmourShield"
+			var shield_mesh := BoxMesh.new()
+			shield_mesh.size = Vector3(1.35, 0.78, 0.28)
+			gun_shield.mesh = shield_mesh
+			gun_shield.position = Vector3(0.0, 3.92, -1.18)
+			gun_shield.material_override = _make_armour_material(tint.darkened(0.24))
+			building.add_child(gun_shield)
+			if faction_id == "american":
+				var range_finder := MeshInstance3D.new()
+				var finder_mesh := BoxMesh.new()
+				finder_mesh.size = Vector3(0.62, 0.16, 0.22)
+				range_finder.mesh = finder_mesh
+				range_finder.position = Vector3(0.0, 4.02, 0.12)
+				range_finder.material_override = _make_armour_material(Color(0.22, 0.62, 0.78))
+				building.add_child(range_finder)
+			elif faction_id == "chinese":
+				for side in [-1.0, 1.0]:
+					var side_plate := MeshInstance3D.new()
+					var plate_mesh := BoxMesh.new()
+					plate_mesh.size = Vector3(0.24, 0.72, 1.35)
+					side_plate.mesh = plate_mesh
+					side_plate.position = Vector3(side * 0.92, 3.72, -0.10)
+					side_plate.material_override = _make_armour_material(faction_accent.darkened(0.18))
+					building.add_child(side_plate)
+			elif faction_id == "arab":
+				var sand_bag_line := MeshInstance3D.new()
+				var bags_mesh := BoxMesh.new()
+				bags_mesh.size = Vector3(2.45, 0.42, 0.62)
+				sand_bag_line.mesh = bags_mesh
+				sand_bag_line.position = Vector3(0.0, 2.72, 1.95)
+				sand_bag_line.material_override = _make_armour_material(Color(0.57, 0.46, 0.29))
+				building.add_child(sand_bag_line)
+			elif faction_id == "watan":
+				var reinforced_ring := MeshInstance3D.new()
+				var ring_mesh := TorusMesh.new()
+				ring_mesh.inner_radius = 1.10
+				ring_mesh.outer_radius = 1.28
+				reinforced_ring.mesh = ring_mesh
+				reinforced_ring.position.y = 3.78
+				reinforced_ring.material_override = _make_armour_material(faction_accent)
+				building.add_child(reinforced_ring)
+		else:
+			var aa_radar_pivot := Node3D.new()
+			aa_radar_pivot.name = "AntiAirRadarPivot"
+			aa_radar_pivot.position = Vector3(0.0, 4.08, 0.62)
+			building.add_child(aa_radar_pivot)
+			var aa_radar_dish := MeshInstance3D.new()
+			var aa_dish_mesh := SphereMesh.new()
+			aa_dish_mesh.radius = 0.48
+			aa_dish_mesh.height = 0.16
+			aa_radar_dish.mesh = aa_dish_mesh
+			aa_radar_dish.rotation.x = -0.52
+			aa_radar_dish.material_override = _make_armour_material(faction_accent.lightened(0.12))
+			aa_radar_pivot.add_child(aa_radar_dish)
+			var aa_signal := MeshInstance3D.new()
+			var signal_mesh := BoxMesh.new()
+			signal_mesh.size = Vector3(1.25, 0.08, 0.08)
+			aa_signal.mesh = signal_mesh
+			aa_signal.position = Vector3(0.0, 4.45, 0.62)
+			aa_signal.material_override = _make_armour_material(faction_accent)
+			building.add_child(aa_signal)
+
 	elif kind == "missile_silo":
 		var silo := MeshInstance3D.new()
 		var silo_mesh := CylinderMesh.new()
@@ -1531,6 +1612,27 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		hatch.material_override = _make_armour_material(Color(0.48, 0.43, 0.31))
 		building.add_child(hatch)
 	elif kind == "missile_defense":
+		# Four compact interceptor canisters flank the tracking mast.
+		for launcher_side in [-1.0, 1.0]:
+			for launcher_row in [-1.0, 1.0]:
+				var interceptor_tube := MeshInstance3D.new()
+				var tube_mesh := CylinderMesh.new()
+				tube_mesh.top_radius = 0.22
+				tube_mesh.bottom_radius = 0.27
+				tube_mesh.height = 1.75
+				interceptor_tube.mesh = tube_mesh
+				interceptor_tube.position = Vector3(launcher_side * 1.65, 3.65, launcher_row * 1.35)
+				interceptor_tube.material_override = _make_armour_material(tint.darkened(0.22))
+				building.add_child(interceptor_tube)
+				var tube_cap := MeshInstance3D.new()
+				var cap_mesh := CylinderMesh.new()
+				cap_mesh.top_radius = 0.29
+				cap_mesh.bottom_radius = 0.29
+				cap_mesh.height = 0.10
+				tube_cap.mesh = cap_mesh
+				tube_cap.position = interceptor_tube.position + Vector3.UP * 0.91
+				tube_cap.material_override = _make_armour_material(faction_accent)
+				building.add_child(tube_cap)
 		var radar_mast := MeshInstance3D.new()
 		var mast_mesh := CylinderMesh.new()
 		mast_mesh.top_radius = 0.06
@@ -1657,7 +1759,6 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		building.add_child(crane_beam)
 
 	# Faction architecture language: compact RTS-readable silhouettes per army.
-	var faction_accent := _get_faction_accent_color(faction_id)
 	if kind in ["command", "barracks", "factory", "airfield"]:
 		var identity_panel := MeshInstance3D.new()
 		identity_panel.name = "FactionArchitecturePanel"
