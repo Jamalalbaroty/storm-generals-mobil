@@ -49,7 +49,7 @@ func _initialize() -> void:
 		return
 	for scatter_node in [rock_scatter, scrub_scatter]:
 		for instance_index in range(scatter_node.multimesh.instance_count):
-			var instance_transform := scatter_node.multimesh.get_instance_transform(instance_index)
+			var instance_transform: Transform3D = scatter_node.multimesh.get_instance_transform(instance_index)
 			if instance_transform.origin.y < 0.0 or absf(instance_transform.origin.x) > 19.0 or absf(instance_transform.origin.z) > 19.0:
 				push_error("Terrain scatter instance is outside the safe ground bounds")
 				quit(1)
