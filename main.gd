@@ -1172,7 +1172,8 @@ func _resolve_ground_unit_spacing() -> void:
 				var minimum_distance := first_radius + second_radius
 				if distance >= minimum_distance:
 					continue
-				var direction := offset / distance if distance > 0.001 else Vector2.RIGHT
+				var fallback_angle := float(first_index * 37 + second_index * 17) * 2.39996323
+				var direction := offset / distance if distance > 0.001 else Vector2(cos(fallback_angle), sin(fallback_angle))
 				var correction := (minimum_distance - distance) * 0.5
 				first.pos -= direction * correction
 				second.pos += direction * correction
