@@ -527,7 +527,7 @@ func _process(delta: float) -> void:
 								closest_threat_distance = threat_distance
 								defender_target = candidate_index
 				# Guards leave their patrol point only when an asset is threatened.
-				var engage_player := enemy_landing_support_target >= 0 or (player_target >= 0 and (enemy_strategy != "balanced" or nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0))
+				var engage_player := _enemy_should_engage_player(player_target >= 0, player_distance, nearest_objective_distance, enemy_strategy, enemy_landing_support_target >= 0)
 				if is_defender:
 					# A guard's assignment is strict: it may engage only a ground unit that threatens its live base or a live building.
 					# Landing-assault support must not override this asset-protection rule.
@@ -2855,6 +2855,15 @@ func _enemy_ai_turn() -> void:
 	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _enemy_should_engage_player(has_player_target: bool, player_distance: float, objective_distance: float, strategy: String, landing_support_active: bool) -> bool:
+	# Landing support and non-balanced doctrines may engage immediately; balanced forces weigh nearby supply objectives.
+	if landing_support_active:
+		return true
+	if not has_player_target:
+		return false
+	return strategy != "balanced" or objective_distance == INF or player_distance <= objective_distance + 80.0
+
 
 func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_threat: int, infantry_threat: int) -> String:
 	# Prioritize the strongest immediate threat; retain a balanced doctrine below response thresholds.
