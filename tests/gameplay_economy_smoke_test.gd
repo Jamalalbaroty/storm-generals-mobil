@@ -950,6 +950,14 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var fallback_support_pos: Vector2 = game.call("_enemy_infantry_support_position", Vector2(650.0, 330.0), Vector2(900.0, 300.0), Vector2(100.0, 300.0), 1)
 	_expect(fallback_support_pos != infantry_support_pos, "Infantry should ignore defensive tanks when selecting an assault escort")
 
+	# Offensive artillery support lanes must remain distinct as the battery grows.
+	var artillery_lane_a: Vector2 = game.call("_enemy_artillery_support_position", Vector2(500.0, 300.0), Vector2(900.0, 300.0), 0)
+	var artillery_lane_b: Vector2 = game.call("_enemy_artillery_support_position", Vector2(500.0, 300.0), Vector2(900.0, 300.0), 1)
+	var artillery_lane_c: Vector2 = game.call("_enemy_artillery_support_position", Vector2(500.0, 300.0), Vector2(900.0, 300.0), 2)
+	_expect(artillery_lane_a.distance_to(artillery_lane_b) >= 70.0, "First and second artillery units should occupy separate support lanes")
+	_expect(artillery_lane_a.distance_to(artillery_lane_c) >= 70.0, "Third artillery unit must not overlap the first support lane")
+	_expect(bool(game.call("_enemy_artillery_in_firing_band", artillery_lane_c.distance_to(Vector2(500.0, 300.0)))), "Expanded artillery support lanes should remain inside the firing envelope")
+
 	# Formation slots must be isolated from defensive guards and landing-support attachments.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(760.0, 320.0), "team": "enemy", "kind": "tank", "hp": 150})

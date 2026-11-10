@@ -1189,7 +1189,9 @@ func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vect
 		attack_direction = attack_direction.normalized()
 	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
 	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
-	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * 38.0
+	var lane_rank := int(floor(float(unit_index) / 2.0)) + 1
+	var lane_offset := minf(70.0 * float(lane_rank), 210.0)
+	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * lane_offset
 
 func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 	# Landing infantry prioritize production and air facilities, then defensive assets.
