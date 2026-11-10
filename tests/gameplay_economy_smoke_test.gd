@@ -418,6 +418,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 			"hp": 120
 		})
 	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "air_control", "Enemy AI should switch to air-control doctrine as soon as a major air threat appears")
 	var urgent_anti_air_count := 0
 	for defense in game.get("enemy_buildings"):
 		if String(defense.get("kind", "")) == "anti_air" and int(defense.get("hp", 1)) > 0:
