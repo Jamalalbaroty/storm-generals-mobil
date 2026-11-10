@@ -269,9 +269,12 @@ func _run_gameplay_economy_smoke_test() -> void:
 			"hp": 150, "pos": Vector2(70.0 + float(live_threat_index) * 35.0, 650.0),
 			"attack_cd": 10.0
 		})
-	for live_ai_frame in range(380):
+	# Observe the first scheduled strategic decision before enemy counters can destroy the test threat.
+	for live_ai_frame in range(121):
 		game.call("_process", 0.1)
-	_expect(String(game.get("enemy_strategy")) == "armor_breaker", "Live enemy AI turns should retain the armor-breaker doctrine against a sustained tank threat")
+	_expect(String(game.get("enemy_strategy")) == "armor_breaker", "The first live enemy AI turn should choose armor-breaker against three active player tanks")
+	for later_ai_frame in range(259):
+		game.call("_process", 0.1)
 	var live_counter_helicopters := 0
 	for live_ai_unit in game.get("units"):
 		if String(live_ai_unit.get("team", "")) == "enemy" and String(live_ai_unit.get("kind", "")) == "helicopter":
