@@ -1,5 +1,7 @@
 extends SceneTree
 
+var failure_count: int = 0
+
 func _initialize() -> void:
 	call_deferred("_run_gameplay_economy_smoke_test")
 
@@ -12,6 +14,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("credits", 0)
 	game.set("supplies", 0)
 	game.call("_initialize_supply_points", Vector2(1280.0, 720.0))
+	# Isolate the port economy from the two default player/enemy supply points.
+	game.get("supply_points")[0]["owner"] = "neutral"
+	game.get("supply_points")[1]["owner"] = "neutral"
 	var port_position: Vector2 = game.get("supply_points")[2]["pos"]
 	var live_units: Array = game.get("units")
 	live_units.append({"pos": port_position, "team": "player", "kind": "infantry", "hp": 60})
@@ -76,12 +81,16 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(game.get("units").size() == produced_before + 1, "Counter production should add exactly one unit")
 		_expect(String(game.get("units")[-1]["kind"]) == counter_case[1], "Enemy strategy %s should produce %s" % [counter_case[0], counter_case[1]])
 
-	print("Gameplay smoke test passed: supply economy, enemy recovery, and all four adaptive counter-production strategies.")
 	game.queue_free()
+	if failure_count > 0:
+		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
+		quit(1)
+		return
+	print("Gameplay smoke test passed: supply economy, enemy recovery, and all four adaptive counter-production strategies.")
 	quit()
 
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
+		failure_count += 1
 		push_error("Gameplay economy smoke test failed: " + message)
-		quit(1)
