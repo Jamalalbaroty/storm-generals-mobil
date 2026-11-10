@@ -6,21 +6,22 @@ const CAMPAIGN_MISSIONS := [
 	{"name": "شرارة العاصفة", "map": "الساحل الصحراوي", "brief": "أنشئ قاعدة متينة ودمر مركز قيادة العدو", "reward": 250, "secondary": "حافظ على سلامة قاعدتك بأكثر من 50٪", "bonus": 100},
 	{"name": "خطوط الإمداد", "map": "ساحل الغابات", "brief": "سيطر على الموارد وامنع العدو من تثبيت مواقعه", "reward": 350, "secondary": "سيطر على نقطتي إمداد على الأقل", "bonus": 150},
 	{"name": "قبضة الجبال", "map": "الساحل الجبلي", "brief": "استخدم الدروع والمدفعية لفتح الطريق نحو القاعدة", "reward": 450, "secondary": "أنشئ أربع منشآت مكتملة على الأقل", "bonus": 175},
-	{"name": "حصار الميناء", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية والبحرية لتدمير دفاعات العدو", "reward": 550, "secondary": "امتلك وحدة جوية ووحدة بحرية حية على الأقل", "bonus": 200},
+	{"name": "حصار المدينة", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية لاختراق دفاعات العدو وتدمير مركز قيادته", "reward": 550, "secondary": "امتلك وحدة جوية ووحدة مدرعة حية على الأقل", "bonus": 200},
 	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750, "secondary": "أنه المعركة مع بقاء 60٪ من صحة قاعدتك", "bonus": 300}
 ]
-const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "البحرية", "التحصينات"]
+const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "التحصينات"]
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
-	[16, 17, 18, 19, 20, 12],
 	[23, 24]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
 const MAX_TEAM_UNITS := 40
+const NAVAL_SYSTEM_ENABLED := false
+const NAVAL_UNIT_KINDS := ["destroyer", "carrier", "submarine", "landing_craft"]
 const PASSIVE_INCOME := 6.0
 const MAX_CREDITS := 5000
 const BARRACKS_COST := 250
@@ -361,7 +362,7 @@ func _process(delta: float) -> void:
 		_update_production_queues(delta)
 		_update_enemy_building_construction(delta)
 		_update_building_capture(delta)
-		_update_submarine_detection()
+		# Naval systems are out of scope for the land-and-air release.
 		_update_missiles(delta)
 		_update_combat_alerts()
 		if _resolve_battle_result():
@@ -819,15 +820,15 @@ func _campaign_secondary_objective_met() -> bool:
 			return completed_buildings >= 4
 		3:
 			var has_air := false
-			var has_naval := false
+			var has_armour := false
 			for unit in units:
 				if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
 					continue
 				if String(unit.get("kind", "")) in ["fighter", "helicopter"]:
 					has_air = true
-				if _is_naval_kind(String(unit.get("kind", ""))):
-					has_naval = true
-			return has_air and has_naval
+				if String(unit.get("kind", "")) in ["tank", "artillery"]:
+					has_armour = true
+			return has_air and has_armour
 		4:
 			return player_base_hp >= 600
 	return false
@@ -3876,13 +3877,7 @@ func _enemy_ai_turn() -> void:
 		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_any_building("shipyard") and enemy_credits >= _building_cost("shipyard"):
-		enemy_credits -= _building_cost("shipyard")
-		var naval_site := Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		_enemy_add_building("shipyard", naval_site, 500)
-		notice = "العدو أنشأ حوض سفن ساحلياً"
-		notice_time = 2.0
-		return
+	# Enemy naval expansion is intentionally disabled in the land-and-air release.
 	if build_pos.x >= 0.0 and not _enemy_has_any_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
 		enemy_credits -= _building_cost("anti_air")
 		_enemy_add_building("anti_air", build_pos, 380)
@@ -4185,6 +4180,11 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
 
 func _place_building(pos: Vector2) -> void:
+	if not NAVAL_SYSTEM_ENABLED and build_mode == "shipyard":
+		build_mode = ""
+		notice = "الأحواض والمنشآت البحرية مؤجلة عن النسخة الحالية"
+		notice_time = 2.5
+		return
 	var builder_index := -1
 	for selected_index in selected:
 		if selected_index >= 0 and selected_index < units.size() and units[selected_index].team == "player" and units[selected_index].kind == "builder" and units[selected_index].get("hp", 0) > 0:
@@ -4310,7 +4310,7 @@ func _production_building_for(kind: String) -> String:
 		return "factory"
 	if kind in ["fighter", "helicopter"]:
 		return "airfield"
-	if kind in ["destroyer", "carrier", "submarine", "landing_craft"]:
+	if NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
 		return "shipyard"
 	return ""
 
@@ -4329,6 +4329,10 @@ func _production_duration(kind: String) -> float:
 	return 6.0
 
 func _enqueue_unit(kind: String) -> void:
+	if not NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
+		notice = "النظام البحري مؤجل — الإنتاج البري والجوي متاح حالياً"
+		notice_time = 2.5
+		return
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
 	var producer_id := -1
@@ -4426,7 +4430,11 @@ func _update_production_queues(delta: float) -> void:
 			return
 
 func _spawn_unit(kind: String, already_paid: bool = false) -> void:
-	if _team_unit_count("player") >= MAX_TEAM_UNITS:
+	if not NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
+		notice = "الوحدات البحرية مؤجلة عن النسخة الحالية"
+		notice_time = 2.5
+		return
+	if _team_unit_count("player") >= MAX_TEAM_UNITS
 		notice = "وصلت إلى الحد الأقصى للقوات (%d)" % MAX_TEAM_UNITS
 		notice_time = 2.5
 		return
