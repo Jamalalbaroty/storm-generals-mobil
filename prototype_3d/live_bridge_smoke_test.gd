@@ -113,8 +113,8 @@ func _initialize() -> void:
 		push_error("Ending a pinch gesture left gesture state active or triggered unintended unit selection")
 		quit(1)
 		return
-	var enemy_screen: Vector2 = bridge.rts_camera.unproject_position(enemy_fighter.global_position + Vector3.UP)
-	var player_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
+	var enemy_screen: Vector2 = bridge.rts_camera.unproject_position(enemy_fighter.position + Vector3.UP)
+	var player_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.position + Vector3.UP)
 	bridge.call("_handle_world_tap", enemy_screen)
 	bridge.call("_handle_world_tap", player_screen)
 	if bridge.get("selected_tank") != player_tank:
@@ -127,11 +127,11 @@ func _initialize() -> void:
 		push_error("Tapping an enemy live unit did not issue an attack from the selected friendly unit")
 		quit(1)
 		return
-	var player_position_before: Vector3 = player_tank.global_position
+	var player_position_before: Vector3 = player_tank.position
 	bridge.set("has_selected_destination", true)
 	bridge.set("selected_destination", player_position_before + Vector3(10.0, 0.0, 0.0))
 	bridge.call("_update_showcase_orders", 1.0)
-	if player_tank.global_position.distance_to(player_position_before) > 0.001:
+	if player_tank.position.distance_to(player_position_before) > 0.001:
 		push_error("A live 3D proxy moved locally instead of following the authoritative RTS simulation")
 		quit(1)
 		return
@@ -168,8 +168,8 @@ func _initialize() -> void:
 		push_error("Live bridge did not create the second friendly unit for multi-selection")
 		quit(1)
 		return
-	var first_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.global_position + Vector3.UP)
-	var second_screen: Vector2 = bridge.rts_camera.unproject_position(second_player.global_position + Vector3.UP)
+	var first_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.position + Vector3.UP)
+	var second_screen: Vector2 = bridge.rts_camera.unproject_position(second_player.position + Vector3.UP)
 	var drag_start := Vector2(minf(first_screen.x, second_screen.x) - 42.0, minf(first_screen.y, second_screen.y) - 42.0)
 	var drag_finish := Vector2(maxf(first_screen.x, second_screen.x) + 42.0, maxf(first_screen.y, second_screen.y) + 42.0)
 	bridge.call("_select_live_units_in_screen_rect", drag_start, drag_finish)
