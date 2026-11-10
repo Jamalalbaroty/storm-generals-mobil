@@ -50,6 +50,32 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Engagement timing: landing support and active doctrines respond immediately, while balanced forces weigh supply objectives.
+	if not game._enemy_should_engage_player(true, 500.0, 100.0, "balanced", true):
+		push_error("Landing-assault support should engage despite a distant player target")
+		quit(1)
+		return
+	if game._enemy_should_engage_player(false, INF, 100.0, "armor_breaker", false):
+		push_error("Enemy should not engage when no player target exists")
+		quit(1)
+		return
+	if not game._enemy_should_engage_player(true, 400.0, 100.0, "armor_breaker", false):
+		push_error("Non-balanced doctrine should respond to a player target immediately")
+		quit(1)
+		return
+	if not game._enemy_should_engage_player(true, 250.0, INF, "balanced", false):
+		push_error("Balanced forces should engage when no supply objective is available")
+		quit(1)
+		return
+	if not game._enemy_should_engage_player(true, 170.0, 100.0, "balanced", false):
+		push_error("Balanced forces should engage a player threat near their supply route")
+		quit(1)
+		return
+	if game._enemy_should_engage_player(true, 250.0, 100.0, "balanced", false):
+		push_error("Balanced forces should keep pursuing a closer strategic supply objective")
+		quit(1)
+		return
+
 	# Supply objective selection must favor valuable recaptures and neutral ports, never friendly points.
 	game.supply_points = [
 		{"pos": Vector2(100.0, 0.0), "owner": "neutral", "kind": "supply"},
