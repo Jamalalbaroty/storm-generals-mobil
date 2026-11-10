@@ -70,7 +70,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		["naval_control", "destroyer"]
 	]
 	for counter_case in counter_cases:
-		var produced_before := game.get("units").size()
+		var produced_before: int = game.get("units").size()
 		var ordered: bool = game.call("_enemy_counter_production", counter_case[0], 0, 0, 0, 0)
 		_expect(ordered, "Enemy strategy %s should be able to order %s" % [counter_case[0], counter_case[1]])
 		_expect(game.get("units").size() == produced_before + 1, "Counter production should add exactly one unit")
