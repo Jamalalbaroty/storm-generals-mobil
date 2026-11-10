@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd > /tmp/gameplay-smoke.log 2>&1
+          godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd --verbose > /tmp/gameplay-smoke.log 2>&1
           gameplay_status=$?
           set -e
           cat /tmp/gameplay-smoke.log
