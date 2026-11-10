@@ -7,6 +7,9 @@ func _initialize() -> void:
 
 
 func _run_gameplay_economy_smoke_test() -> void:
+	_expect(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)) == 0, "Mobile game should use landscape orientation")
+	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_width", 0)) > int(ProjectSettings.get_setting("display/window/size/viewport_height", 0)), "Mobile viewport should remain wider than it is tall")
+
 	var game: Node = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -21,6 +24,156 @@ func _run_gameplay_economy_smoke_test() -> void:
 		audio_player.free()
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
+
+	# Mobile command deck keeps all 23 gameplay actions reachable in four compact tabs.
+	var expected_command_tabs: Array = [
+		[0, 1, 2, 3, 4, 5],
+		[6, 7, 8, 9, 21, 22],
+		[10, 11, 12, 13, 14, 15],
+		[16, 17, 18, 19, 20, 12]
+	]
+	var covered_actions: Dictionary = {}
+	for tab_index in range(expected_command_tabs.size()):
+		game.set("command_tab", tab_index)
+		var visible_actions: Array = game.call("_command_action_ids")
+		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
+		for action_id in visible_actions:
+			covered_actions[int(action_id)] = true
+	_expect(covered_actions.size() == 23, "The compact command tabs should retain access to all 23 gameplay actions")
+	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
+	var picker_viewports: Array[Vector2] = [
+		Vector2(1280.0, 720.0),
+		Vector2(800.0, 480.0),
+		Vector2(720.0, 1280.0),
+		Vector2(360.0, 800.0),
+		Vector2(320.0, 568.0)
+	]
+	for picker_viewport in picker_viewports:
+		var faction_rects: Array[Rect2] = []
+		for faction_index in range(4):
+			var faction_rect: Rect2 = game.call("_faction_rect", faction_index, picker_viewport)
+			_expect(faction_rect.position.x >= 0.0 and faction_rect.position.y >= 0.0 and faction_rect.end.x <= picker_viewport.x and faction_rect.end.y <= picker_viewport.y, "Every army choice must fit inside viewport %s" % picker_viewport)
+			for previous_rect in faction_rects:
+				_expect(not faction_rect.intersects(previous_rect), "Army choice touch targets must not overlap on viewport %s" % picker_viewport)
+			faction_rects.append(faction_rect)
+		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
+		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
+	# Exercise the real press/release path, not only the geometry helpers.
+	# Each army card must start a match and assign the chosen faction to the builder.
+	var active_viewport: Vector2 = game.get_viewport_rect().size
+	var expected_factions: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+	for faction_index in range(expected_factions.size()):
+		game.set("game_started", false)
+		game.set("faction", "")
+		game.get("units").clear()
+		var touch_target: Rect2 = game.call("_faction_rect", faction_index, active_viewport)
+		game.call("_handle_pointer", touch_target.get_center(), true)
+		game.call("_handle_pointer", touch_target.get_center(), false)
+		_expect(bool(game.get("game_started")), "Tapping army card %d should start the match" % faction_index)
+		_expect(String(game.get("faction")) == expected_factions[faction_index], "Tapping army card %d should select the matching faction" % faction_index)
+		var starting_units: Array = game.get("units")
+		_expect(not starting_units.is_empty() and String(starting_units[0].get("kind", "")) == "builder", "Each faction should receive its starting builder")
+		if not starting_units.is_empty():
+			_expect(String(starting_units[0].get("faction", "")) == expected_factions[faction_index], "Starting builder should inherit the selected faction")
+	game.set("game_started", false)
+	game.get("units").clear()
+
+	# Verify touch selection, move orders, and direct attack orders through the
+	# same pointer handler used by mobile input.
+	var battle_viewport: Vector2 = game.get_viewport_rect().size
+	var army_start_rect: Rect2 = game.call("_faction_rect", 0, battle_viewport)
+	var army_start: Vector2 = army_start_rect.get_center()
+	game.call("_handle_pointer", army_start, true)
+	game.call("_handle_pointer", army_start, false)
+	var builder_position: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
+	game.call("_handle_pointer", builder_position, true)
+	game.call("_handle_pointer", builder_position, false)
+	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Touching the starting builder should select it")
+	var move_target := Vector2(450.0, 430.0)
+	game.call("_handle_pointer", move_target, true)
+	game.call("_handle_pointer", move_target, false)
+	_expect(game.get("units").size() > 0 and game.get("units")[0].get("target", Vector2.ZERO).distance_to(move_target) < 0.1, "Tapping open battlefield after selecting a unit should issue a move order")
+	game.get("units").append({"pos": Vector2(650.0, 330.0), "team": "enemy", "kind": "infantry", "hp": 60, "attack_cd": 0.0})
+	var enemy_target: Vector2 = game.get("units")[1]["pos"]
+	game.call("_handle_pointer", enemy_target, true)
+	game.call("_handle_pointer", enemy_target, false)
+	_expect(int(game.get("units")[0].get("attack_target", -1)) == 1, "Tapping a visible enemy while a friendly unit is selected should issue an attack order")
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.set("game_started", false)
+
+	# End-to-end player loop: tap build commands, place/finish structures, then produce infantry and armor.
+	var build_loop_viewport: Vector2 = game.get_viewport_rect().size
+	game.set("command_tab", 0)
+	var build_loop_army: Vector2 = game.call("_faction_rect", 0, build_loop_viewport).get_center()
+	game.call("_handle_pointer", build_loop_army, true)
+	game.call("_handle_pointer", build_loop_army, false)
+	var build_loop_builder: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
+	game.call("_handle_pointer", build_loop_builder, true)
+	game.call("_handle_pointer", build_loop_builder, false)
+	game.set("credits", 5000)
+	game.set("supplies", 20)
+
+	var barracks_command: Vector2 = game.call("_button_rect", 2, build_loop_viewport).get_center()
+	game.call("_handle_pointer", barracks_command, true)
+	game.call("_handle_pointer", barracks_command, false)
+	var barracks_site: Vector2 = game.get("base_pos") + Vector2(120.0, 80.0)
+	game.call("_handle_pointer", barracks_site, true)
+	game.call("_handle_pointer", barracks_site, false)
+	_expect(game.get("buildings").size() == 1 and String(game.get("buildings")[0].get("kind", "")) == "barracks", "Build command should place a barracks at a valid tapped site")
+	if not game.get("buildings").is_empty():
+		game.get("units")[0]["pos"] = barracks_site
+		game.call("_update_building_construction", 8.0)
+		_expect(float(game.get("buildings")[0].get("build_progress", 0.0)) >= 1.0, "Builder should complete the placed barracks")
+		var infantry_credits_before: int = int(game.get("credits"))
+		var infantry_supplies_before: int = int(game.get("supplies"))
+		game.call("_enqueue_unit", "infantry")
+		_expect(game.get("production_orders").size() == 1, "Completed barracks should accept an infantry production order")
+		_expect(int(game.get("credits")) < infantry_credits_before, "Infantry queue should reserve credits")
+		_expect(int(game.get("supplies")) == infantry_supplies_before and int(game.call("_unit_supply_cost", "infantry")) == 0, "Infantry should not consume supplies under the faction economy rules")
+		game.call("_update_production_queues", 3.0)
+		var produced_infantry := 0
+		for loop_unit in game.get("units"):
+			if String(loop_unit.get("kind", "")) == "infantry" and String(loop_unit.get("team", "")) == "player":
+				produced_infantry += 1
+		_expect(produced_infantry == 1 and game.get("production_orders").is_empty(), "Completed infantry production should spawn exactly one friendly soldier")
+
+		var factory_command: Vector2 = game.call("_button_rect", 3, build_loop_viewport).get_center()
+		game.call("_handle_pointer", factory_command, true)
+		game.call("_handle_pointer", factory_command, false)
+		var factory_site: Vector2 = game.get("base_pos") + Vector2(145.0, -90.0)
+		game.call("_handle_pointer", factory_site, true)
+		game.call("_handle_pointer", factory_site, false)
+		_expect(game.get("buildings").size() == 2 and String(game.get("buildings")[1].get("kind", "")) == "factory", "Build command should place a factory separately from the barracks")
+		if game.get("buildings").size() == 2:
+			game.get("units")[0]["pos"] = factory_site
+			game.call("_update_building_construction", 10.0)
+			_expect(float(game.get("buildings")[1].get("build_progress", 0.0)) >= 1.0, "Builder should complete the placed factory")
+			var tank_credits_before: int = int(game.get("credits"))
+			var tank_supplies_before: int = int(game.get("supplies"))
+			game.call("_enqueue_unit", "tank")
+			_expect(game.get("production_orders").size() == 1, "Completed factory should accept a tank production order")
+			_expect(int(game.get("credits")) < tank_credits_before and int(game.get("supplies")) < tank_supplies_before, "Tank queue should reserve credits and supplies")
+			game.call("_update_production_queues", 7.0)
+			var produced_tanks := 0
+			for loop_unit in game.get("units"):
+				if String(loop_unit.get("kind", "")) == "tank" and String(loop_unit.get("team", "")) == "player":
+					produced_tanks += 1
+			_expect(produced_tanks == 1 and game.get("production_orders").is_empty(), "Completed tank production should spawn exactly one friendly tank")
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("production_orders").clear()
+	game.get("selected").clear()
+	game.set("game_started", false)
+
+	var mobile_viewport := Vector2(1280.0, 720.0)
+	var first_command_button: Rect2 = game.call("_button_rect", 0, mobile_viewport)
+	var last_command_button: Rect2 = game.call("_button_rect", 5, mobile_viewport)
+	var first_command_tab: Rect2 = game.call("_command_tab_rect", 0, mobile_viewport)
+	_expect(first_command_button.size.y >= 44.0 and first_command_button.size.x >= 300.0, "Command buttons should remain comfortable touch targets")
+	_expect(last_command_button.end.y <= mobile_viewport.y, "The final command row should remain inside the mobile viewport")
+	_expect(first_command_tab.position.y - 197.0 >= 340.0, "The compact command deck should preserve a useful central battlefield area")
+	game.set("command_tab", 0)
 
 	game.set("credits", 0)
 	game.set("supplies", 0)
@@ -123,6 +276,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("enemy_buildings").append({"kind": "airfield", "pos": game.get("enemy_base"), "hp": 450, "build_progress": 1.0})
 	game.get("enemy_buildings").append({"kind": "factory", "pos": game.get("enemy_base") + Vector2(-100, 0), "hp": 500, "build_progress": 1.0})
 	game.get("enemy_buildings").append({"kind": "shipyard", "pos": Vector2(game.get("enemy_base").x - 120.0, 590.0), "hp": 500, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "power_plant", "pos": game.get("enemy_base") + Vector2(-220.0, 160.0), "hp": 400, "build_progress": 1.0})
 	game.set("enemy_credits", 10000)
 	game.set("enemy_supplies", 100)
 	var counter_cases := [
@@ -153,7 +307,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.set("enemy_credits", 10000)
 		game.set("enemy_supplies", 100)
 		game.get("enemy_buildings").clear()
-		var completed_kinds := ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]
+		var completed_kinds := ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air", "power_plant", "power_plant"]
 		for structure_index in range(completed_kinds.size()):
 			var structure_pos: Vector2 = game.get("enemy_base") + Vector2(-float(structure_index) * 24.0, 110.0)
 			if completed_kinds[structure_index] == "shipyard":
@@ -177,7 +331,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("enemy_credits", 10000)
 	game.set("enemy_supplies", 100)
 	game.get("enemy_buildings").clear()
-	for structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]:
+	for structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air", "power_plant", "power_plant"]:
 		var doctrine_building_pos: Vector2 = game.get("enemy_base") + Vector2(-140.0, 120.0 + float(game.get("enemy_buildings").size()) * 28.0)
 		if structure_kind == "shipyard":
 			doctrine_building_pos = Vector2(game.get("enemy_base").x - 120.0, 590.0)
@@ -256,7 +410,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("enemy_base_hp", 1000)
 	game.set("player_base_hp", 1000)
 	game.get("enemy_buildings").clear()
-	for ai_structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]:
+	for ai_structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air", "power_plant", "power_plant"]:
 		game.get("enemy_buildings").append({
 			"kind": ai_structure_kind,
 			"pos": game.get("enemy_base") + Vector2(-100.0, float(game.get("enemy_buildings").size()) * 65.0 - 220.0),
@@ -289,8 +443,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		["الجيش العربي", 34, 1.20, 205, 12.0, 42],
 		["وطن", 38, 1.10, 230, 11.0, 50]
 	]
-	_expect(game.get("FACTIONS").size() == 4, "The game should expose exactly four player-facing factions")
-	_expect(not game.get("FACTIONS").has("GLA"), "Legacy GLA naming must not appear in player-facing faction selection")
+	_expect(expected_factions.size() == 4, "The game should expose exactly four player-facing factions")
+	_expect(not expected_factions.has("GLA"), "Legacy GLA naming must not appear in player-facing faction selection")
 	for faction_case in faction_cases:
 		var army_name: String = faction_case[0]
 		var helicopter_profile: Dictionary = {"kind": "helicopter", "faction": army_name}
@@ -373,7 +527,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").clear()
 	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
-	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(290.0, 300.0), "attack_cd": 0.0})
+	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(510.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
 	_expect(int(game.get("units")[1]["hp"]) == 126, "Enemy artillery splash should damage nearby player armor")

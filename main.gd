@@ -2,6 +2,13 @@ extends Node2D
 
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
+const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "البحرية"]
+const COMMAND_ACTIONS := [
+	[0, 1, 2, 3, 4, 5],
+	[6, 7, 8, 9, 21, 22],
+	[10, 11, 12, 13, 14, 15],
+	[16, 17, 18, 19, 20, 12]
+]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
@@ -27,10 +34,14 @@ const MISSILE_DEFENSE_COST := 700
 const MISSILE_COST := 650
 const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
 const FACTION_BALANCE := {
-	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40},
-	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44},
-	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42},
-	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50}
+	# China fields efficient armor and submarines, trading some air/artillery cost.
+	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
+	# American forces retain the baseline combined-arms economy.
+	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
+	# Arab forces emphasize affordable infantry and field artillery.
+	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
+	# Watan fields elite equipment with a deliberate economy and reinforcement premium.
+	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
 }
 const ECONOMY_BALANCE := {
 	"building_costs": {
@@ -91,6 +102,8 @@ var air_alert_active := false
 var ground_alert_active := false
 var missile_alert_active := false
 var enemy_strategy := "balanced"
+var next_building_production_id := 1
+var command_tab := 0
 
 func _ready() -> void:
 	randomize()
@@ -278,13 +291,7 @@ func _process(delta: float) -> void:
 		_update_submarine_detection()
 		_update_missiles(delta)
 		_update_combat_alerts()
-		if enemy_base_hp <= 0:
-			battle_result = "انتصرت! دمرت قاعدة العدو"
-			queue_redraw()
-			return
-		if player_base_hp <= 0:
-			battle_result = "هُزمت! سقطت قاعدتك"
-			queue_redraw()
+		if _resolve_battle_result():
 			return
 		enemy_income_timer += delta
 		if enemy_income_timer >= 1.0:
@@ -305,8 +312,9 @@ func _process(delta: float) -> void:
 					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"), 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb34d"), 0.22, 13.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.8
-		for building in enemy_buildings:
-			if float(building.get("build_progress", 1.0)) < 1.0:
+		for defense_index in range(enemy_buildings.size()):
+			var building: Dictionary = enemy_buildings[defense_index]
+			if not _is_enemy_building_powered(defense_index):
 				continue
 			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
@@ -472,11 +480,11 @@ func _process(delta: float) -> void:
 								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
 							continue
 					var artillery_fire_target: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
-					var artillery_destination: Vector2 = artillery_fire_target
-					if artillery_target >= 0 and not artillery_guard:
-						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, i)
+					var artillery_destination: Vector2 = _enemy_artillery_support_position(artillery_fire_target, enemy_base, _enemy_artillery_formation_rank(i))
+					if artillery_guard:
+						artillery_destination = unit.get("defense_anchor", enemy_base)
 					var artillery_distance: float = unit.pos.distance_to(artillery_fire_target)
-					if artillery_distance <= 330.0:
+					if _enemy_artillery_in_firing_band(artillery_distance):
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
 							_add_visual_effect("explosion", artillery_fire_target, artillery_fire_target, Color("#ff9855"), 0.65, 58.0)
@@ -486,26 +494,19 @@ func _process(delta: float) -> void:
 								player_base_hp = maxi(0, player_base_hp - 30)
 							unit.attack_cd = 2.4
 					else:
+						# Avoid point-blank brawling; reposition behind the assault line or toward maximum range.
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
 				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
+				var objective_index := _enemy_best_supply_objective(unit.pos)
 				var nearest_objective_distance := INF
-				var best_objective_priority := INF
 				var objective_destination: Vector2 = base_pos
-				for point in supply_points:
-					if point.owner != "enemy":
-						var objective_distance: float = unit.pos.distance_to(point.pos)
-						var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
-						# Recapturing a player-held point is more urgent than taking an unclaimed one.
-						var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
-						var objective_priority: float = objective_distance / (income_weight * ownership_weight)
-						if objective_priority < best_objective_priority:
-							best_objective_priority = objective_priority
-							nearest_objective_distance = objective_distance
-							objective_destination = point.pos
+				if objective_index >= 0:
+					objective_destination = supply_points[objective_index].pos
+					nearest_objective_distance = unit.pos.distance_to(objective_destination)
 				# Defenders react only to player forces threatening the enemy base or its buildings.
 				var is_defender := bool(unit.get("defense_guard", false))
 				var defender_target := -1
@@ -531,7 +532,7 @@ func _process(delta: float) -> void:
 								closest_threat_distance = threat_distance
 								defender_target = candidate_index
 				# Guards leave their patrol point only when an asset is threatened.
-				var engage_player := enemy_landing_support_target >= 0 or (player_target >= 0 and (enemy_strategy != "balanced" or nearest_objective_distance == INF or player_distance <= nearest_objective_distance + 80.0))
+				var engage_player := _enemy_should_engage_player(player_target >= 0, player_distance, nearest_objective_distance, enemy_strategy, enemy_landing_support_target >= 0)
 				if is_defender:
 					# A guard's assignment is strict: it may engage only a ground unit that threatens its live base or a live building.
 					# Landing-assault support must not override this asset-protection rule.
@@ -549,11 +550,11 @@ func _process(delta: float) -> void:
 					# Base guards must close directly on an intruder; assault-lane offsets
 					# can otherwise keep a nearby threat just outside their firing radius.
 					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, i)
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), units[player_target].pos, enemy_base, _enemy_assault_formation_rank(i))
 				elif nearest_objective_distance < INF:
 					destination = objective_destination
 					if unit.kind == "tank" or unit.kind == "infantry":
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, i)
+						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, _enemy_assault_formation_rank(i))
 				var distance_to_target: float = unit.pos.distance_to(destination)
 				if engage_player and distance_to_target <= 150.0:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -764,8 +765,24 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(target) > 8.0:
 						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 		_cleanup_destroyed_units()
+		_resolve_battle_result()
 		_update_unit_facing(delta)
 		queue_redraw()
+
+
+func _resolve_battle_result() -> bool:
+	# Resolve base destruction after combat as well as before simulation.
+	# This prevents a one-frame delay after the final attack lands.
+	if battle_result != "":
+		return true
+	if enemy_base_hp <= 0:
+		battle_result = "انتصرت! دمرت قاعدة العدو"
+	elif player_base_hp <= 0:
+		battle_result = "هُزمت! سقطت قاعدتك"
+	else:
+		return false
+	queue_redraw()
+	return true
 
 
 func _cleanup_destroyed_units() -> void:
@@ -1077,6 +1094,18 @@ func _landing_assault_support_target(from_pos: Vector2, team: String) -> int:
 	return best_target
 
 
+func _enemy_assault_formation_rank(unit_index: int) -> int:
+	# Formation slots count only preceding living enemy tanks and infantry; player units and support units must not distort assault lanes.
+	var rank := 0
+	for index in range(mini(unit_index, units.size())):
+		var candidate: Dictionary = units[index]
+		if candidate.team != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) in ["tank", "infantry"]:
+			rank += 1
+	return rank
+
+
 func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
 	# Armor leads the advance; infantry follows in a staggered lane while artillery keeps its own standoff range.
 	var attack_direction: Vector2 = target_pos - assault_origin
@@ -1095,6 +1124,20 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 	elif unit_kind == "infantry":
 		role_offset = -attack_direction * 22.0
 	return target_pos + role_offset + lateral_direction * lane_side * lane_offset
+
+
+func _enemy_artillery_formation_rank(unit_index: int) -> int:
+	# Artillery lanes are independent from tank/infantry indices and ignore dead or unrelated units.
+	var rank := 0
+	for index in range(mini(unit_index, units.size())):
+		var candidate: Dictionary = units[index]
+		if candidate.team == "enemy" and int(candidate.get("hp", 0)) > 0 and String(candidate.get("kind", "")) == "artillery":
+			rank += 1
+	return rank
+
+
+func _enemy_artillery_in_firing_band(distance: float) -> bool:
+	return distance >= 185.0 and distance <= 330.0
 
 
 func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
@@ -1727,11 +1770,18 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(bar_rect, Color("#26383d"), true)
 		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
-	for i in labels.size():
-		var r = _button_rect(i, size)
+	for tab_index in range(COMMAND_TAB_LABELS.size()):
+		var tab_rect := _command_tab_rect(tab_index, size)
+		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
+		draw_rect(tab_rect, Color("#f4d77a") if tab_index == command_tab else Color("#58717b"), false, 1.5)
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), COMMAND_TAB_LABELS[tab_index], HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, 15, Color.WHITE)
+	var visible_actions: Array = _command_action_ids()
+	for slot in range(visible_actions.size()):
+		var action_id := int(visible_actions[slot])
+		var r := _button_rect(slot, size)
 		draw_rect(r, Color("#263d50"), true)
 		draw_rect(r, Color("#8fa8b8"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
 	var pause_button := _pause_rect(size)
 	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
@@ -1741,28 +1791,60 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
 
+func _command_action_ids() -> Array:
+	return COMMAND_ACTIONS[clampi(command_tab, 0, COMMAND_ACTIONS.size() - 1)]
+
+
+func _command_tab_rect(index: int, size: Vector2) -> Rect2:
+	var tab_width := (size.x - 44.0) / float(COMMAND_TAB_LABELS.size())
+	return Rect2(Vector2(8.0 + float(index) * (tab_width + 4.0), size.y - 166.0), Vector2(tab_width, 32.0))
+
+
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	var column = index % 4
-	var row := int(index / 4)
-	var button_width := (size.x - 40.0) / 4.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 358.0 + row * 58.0), Vector2(button_width, 52.0))
+	var column := index % 3
+	var row := int(index / 3)
+	var button_width := (size.x - 40.0) / 3.0
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
-	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 38, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 22, Color.WHITE)
+	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
+	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
+	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
+	draw_rect(panel, Color("#52666c"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.019), 16, 22), Color.WHITE)
 	for i in FACTIONS.size():
-		var r = _faction_rect(i, size)
+		var r := _faction_rect(i, size)
 		draw_rect(r, Color("#28445a") if i != 3 else Color("#73552d"), true)
-		draw_rect(r, Color("#b7c6d1"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 42), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color.WHITE)
+		draw_rect(r, Color("#b7c6d1"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.59), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
 
 func _faction_rect(i: int, size: Vector2) -> Rect2:
-	var w = size.x * 0.21
-	return Rect2(Vector2(size.x * 0.28 + i * (w + 12), size.y * 0.48), Vector2(w, 72))
+	var panel_left := size.x * 0.06
+	var panel_width := size.x * 0.88
+	var inner_margin := minf(12.0, size.x * 0.03)
+	var gap_x := clampf(size.x * 0.018, 8.0, 16.0)
+	var gap_y := clampf(size.y * 0.018, 8.0, 14.0)
+	var button_width := (panel_width - inner_margin * 2.0 - gap_x) * 0.5
+	var button_height := clampf(size.y * 0.12, 62.0, 88.0)
+	var column := i % 2
+	var row := int(i / 2)
+	var button_x := panel_left + inner_margin + float(column) * (button_width + gap_x)
+	var button_y := size.y * 0.44 + float(row) * (button_height + gap_y)
+	return Rect2(Vector2(button_x, button_y), Vector2(button_width, button_height))
 
 func _input(event: InputEvent) -> void:
 	if use_3d_view:
+		# The result overlay is drawn by the 2D command layer above the 3D
+		# battlefield, so keep its restart button interactive in 3D mode.
+		if battle_result != "":
+			if event is InputEventScreenTouch:
+				_handle_pointer(event.position, event.pressed)
+				get_viewport().set_input_as_handled()
+			elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				_handle_pointer(event.position, event.pressed)
+				get_viewport().set_input_as_handled()
+			return
 		var released := false
 		var pointer_position := Vector2.ZERO
 		if event is InputEventScreenTouch and not event.pressed:
@@ -1797,12 +1879,15 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	dragging = false
 	if battle_result != "":
 		if _restart_rect(size).has_point(pos):
+			_set_3d_view_enabled(false)
 			game_started = false
 			paused = false
 			battle_result = ""
 			faction = ""
+			command_tab = 0
 			units.clear()
 			buildings.clear()
+			production_orders.clear()
 			enemy_buildings.clear()
 			selected.clear()
 			selected_enemy_building = -1
@@ -1839,6 +1924,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		for i in FACTIONS.size():
 			if _faction_rect(i, size).has_point(pos):
 				faction = FACTIONS[i]
+				command_tab = 0
 				map_type = MAP_TYPES[randi_range(0, MAP_TYPES.size() - 1)]
 				battle_result = ""
 				credits = STARTING_CREDITS
@@ -1871,8 +1957,15 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 23:
-		if _button_rect(i, size).has_point(pos):
+	for tab_index in range(COMMAND_TAB_LABELS.size()):
+		if _command_tab_rect(tab_index, size).has_point(pos):
+			command_tab = tab_index
+			queue_redraw()
+			return
+	var command_actions: Array = _command_action_ids()
+	for button_slot in range(command_actions.size()):
+		var i := int(command_actions[button_slot])
+		if _button_rect(button_slot, size).has_point(pos):
 			if i == 0:
 				_enqueue_unit("infantry")
 			elif i == 1:
@@ -2063,6 +2156,24 @@ func _update_supply_control(delta: float) -> void:
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
 
 
+func _enemy_best_supply_objective(unit_pos: Vector2) -> int:
+	# Enemy ground forces prioritize recapturing player-held income, then neutral objectives.
+	var best_point := -1
+	var best_priority := INF
+	for point_index in range(supply_points.size()):
+		var point: Dictionary = supply_points[point_index]
+		if String(point.get("owner", "neutral")) == "enemy":
+			continue
+		var distance: float = unit_pos.distance_to(point.pos)
+		var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
+		var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
+		var priority: float = distance / (income_weight * ownership_weight)
+		if priority < best_priority:
+			best_priority = priority
+			best_point = point_index
+	return best_point
+
+
 func _enemy_supply_reinforcement_point(unit_index: int) -> int:
 	if unit_index < 0 or unit_index >= units.size():
 		return -1
@@ -2196,6 +2307,10 @@ func _building_cost(kind: String) -> int:
 func _unit_cost(kind: String, army: String) -> int:
 	if kind == "helicopter":
 		return _helicopter_cost(army)
+	var profile := _faction_profile(army)
+	var faction_costs: Dictionary = profile.get("unit_costs", {})
+	if faction_costs.has(kind):
+		return int(faction_costs[kind])
 	var costs: Dictionary = ECONOMY_BALANCE["unit_costs"]
 	return int(costs.get(kind, TANK_COST))
 
@@ -2251,6 +2366,8 @@ func _update_building_capture(delta: float) -> void:
 				var captured = building.duplicate(true)
 				captured.erase("capture_progress")
 				captured["captured"] = true
+				captured["production_id"] = next_building_production_id
+				next_building_production_id += 1
 				buildings.append(captured)
 				enemy_buildings.remove_at(i)
 				for assault_unit in units:
@@ -2344,7 +2461,12 @@ func _missile_cooldown(army: String) -> float:
 
 
 func _launch_player_missile() -> void:
-	if not _has_building("missile_silo"):
+	var has_silo := false
+	for building in buildings:
+		if building.kind == "missile_silo":
+			has_silo = true
+			break
+	if not has_silo:
 		notice = "ابنِ منصة صواريخ أولاً"
 		notice_time = 2.5
 		return
@@ -2355,11 +2477,11 @@ func _launch_player_missile() -> void:
 		return
 	var silo_index := -1
 	for i in buildings.size():
-		if buildings[i].kind == "missile_silo" and float(buildings[i].get("attack_cd", 0.0)) <= 0.0:
+		if buildings[i].kind == "missile_silo" and _is_player_building_powered(i) and float(buildings[i].get("attack_cd", 0.0)) <= 0.0:
 			silo_index = i
 			break
 	if silo_index < 0:
-		notice = "منصة الصواريخ تعيد التلقيم — انتظر قليلاً"
+		notice = "منصة الصواريخ تحتاج إلى طاقة أو تعيد التلقيم"
 		notice_time = 2.0
 		return
 	var target_pos: Vector2 = enemy_base
@@ -2381,7 +2503,7 @@ func _launch_enemy_missile() -> void:
 		return
 	var silo_index := -1
 	for i in enemy_buildings.size():
-		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
+		if enemy_buildings[i].kind == "missile_silo" and _is_enemy_building_powered(i) and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
 			silo_index = i
 			break
 	if silo_index < 0:
@@ -2392,22 +2514,32 @@ func _launch_enemy_missile() -> void:
 	missiles.append({"pos": enemy_buildings[silo_index].pos + Vector2(0, -24), "target": base_pos, "target_kind": "base", "team": "enemy", "damage": _missile_damage(enemy_faction), "life": 8.0})
 
 func _update_missiles(delta: float) -> void:
-	for building in buildings:
-		if building.kind == "missile_silo" or building.kind == "missile_defense":
+	for building_index in range(buildings.size()):
+		var building: Dictionary = buildings[building_index]
+		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_player_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
-	for building in enemy_buildings:
-		if building.kind == "missile_silo" or building.kind == "missile_defense":
+	for building_index in range(enemy_buildings.size()):
+		var building: Dictionary = enemy_buildings[building_index]
+		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_enemy_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
-	enemy_missile_timer += delta
-	if enemy_missile_timer >= 24.0:
-		enemy_missile_timer = 0.0
-		_launch_enemy_missile()
+	# Enemy missile readiness advances only while at least one silo has grid power.
+	if _enemy_has_powered_building("missile_silo"):
+		enemy_missile_timer += delta
+		if enemy_missile_timer >= 24.0:
+			enemy_missile_timer = 0.0
+			_launch_enemy_missile()
 	for i in range(missiles.size() - 1, -1, -1):
 		var missile: Dictionary = missiles[i]
 		var hostile_buildings: Array[Dictionary] = buildings if missile.team == "enemy" else enemy_buildings
 		var intercepted := false
-		for defense in hostile_buildings:
+		for defense_index in range(hostile_buildings.size()):
+			var defense: Dictionary = hostile_buildings[defense_index]
 			if defense.kind != "missile_defense" or float(defense.get("attack_cd", 0.0)) > 0.0:
+				continue
+			# Player missile defenses must have grid power; enemy power is modeled separately.
+			if missile.team == "enemy" and not _is_player_building_powered(defense_index):
+				continue
+			if missile.team == "player" and not _is_enemy_building_powered(defense_index):
 				continue
 			if defense.pos.distance_to(missile.pos) <= 190.0:
 				defense.attack_cd = MISSILE_DEFENSE_INTERCEPT_COOLDOWN
@@ -2537,6 +2669,79 @@ func _enemy_has_building(kind: String) -> bool:
 			return true
 	return false
 
+
+func _enemy_has_any_building(kind: String) -> bool:
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == kind and int(building.get("hp", 1)) > 0:
+			return true
+	return false
+
+
+func _enemy_has_building_under_construction(kind: String) -> bool:
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == kind and int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) < 1.0:
+			return true
+	return false
+
+
+func _enemy_power_capacity() -> int:
+	var capacity := BASE_POWER_OUTPUT
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0 and int(building.get("hp", 1)) > 0:
+			capacity += POWER_PLANT_OUTPUT
+	return capacity
+
+
+func _enemy_power_demand() -> int:
+	var demand := 0
+	for building in enemy_buildings:
+		if int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+			demand += _power_demand(String(building.get("kind", "")))
+	return demand
+
+
+func _is_enemy_building_powered(building_index: int) -> bool:
+	if building_index < 0 or building_index >= enemy_buildings.size():
+		return false
+	var target: Dictionary = enemy_buildings[building_index]
+	if int(target.get("hp", 1)) <= 0 or float(target.get("build_progress", 1.0)) < 1.0:
+		return false
+	var target_demand := _power_demand(String(target.get("kind", "")))
+	if target_demand <= 0:
+		return true
+	var allocated := 0
+	var target_priority := _power_priority(String(target.get("kind", "")))
+	for i in range(enemy_buildings.size()):
+		if i == building_index:
+			continue
+		var other: Dictionary = enemy_buildings[i]
+		if int(other.get("hp", 1)) <= 0 or float(other.get("build_progress", 1.0)) < 1.0:
+			continue
+		var other_priority := _power_priority(String(other.get("kind", "")))
+		if other_priority < target_priority or (other_priority == target_priority and i < building_index):
+			allocated += _power_demand(String(other.get("kind", "")))
+	return _enemy_power_capacity() >= allocated + target_demand
+
+
+func _enemy_has_powered_building(kind: String) -> bool:
+	for i in range(enemy_buildings.size()):
+		if String(enemy_buildings[i].get("kind", "")) == kind and _is_enemy_building_powered(i):
+			return true
+	return false
+
+
+func _enemy_defense_guard_role_penalty(unit_kind: String) -> int:
+	match unit_kind:
+		"infantry":
+			return 0
+		"tank":
+			return 45000
+		"artillery":
+			return 250000
+		_:
+			return 500000
+
+
 func _update_enemy_defense_assignments() -> void:
 	# Keep a compact reserve: one base guard, then guards for the most valuable forward assets.
 	var eligible_indices: Array[int] = []
@@ -2578,11 +2783,14 @@ func _update_enemy_defense_assignments() -> void:
 				assigned_buildings.append(best_building_index)
 				guard_asset_pos = enemy_buildings[best_building_index].pos
 		var best_index := -1
-		var best_distance := INF
+		var best_guard_score := INF
 		for candidate_index in eligible_indices:
-			var distance: float = units[candidate_index].pos.distance_squared_to(guard_asset_pos)
-			if distance < best_distance:
-				best_distance = distance
+			var guard_candidate: Dictionary = units[candidate_index]
+			var distance_score: float = guard_candidate.pos.distance_squared_to(guard_asset_pos)
+			# Preserve assault power: infantry fill guard posts first, tanks remain a strong second choice, artillery is the last resort.
+			var guard_score: float = distance_score + float(_enemy_defense_guard_role_penalty(String(guard_candidate.get("kind", ""))))
+			if guard_score < best_guard_score:
+				best_guard_score = guard_score
 				best_index = candidate_index
 		if best_index < 0:
 			break
@@ -2684,6 +2892,13 @@ func _enemy_ai_turn() -> void:
 		if String(incoming_missile.get("team", "")) == "player":
 			player_missile_threat = true
 			break
+	# Expand enemy generation before adding more powered infrastructure.
+	if build_pos.x >= 0.0 and _enemy_power_demand() >= _enemy_power_capacity() and not _enemy_has_building_under_construction("power_plant") and enemy_credits >= _building_cost("power_plant"):
+		enemy_credits -= _building_cost("power_plant")
+		_enemy_add_building("power_plant", build_pos, 400)
+		notice = "العدو يعزز شبكة الطاقة بمحطة جديدة"
+		notice_time = 2.0
+		return
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= _building_cost("barracks"):
 		enemy_credits -= _building_cost("barracks")
@@ -2779,15 +2994,7 @@ func _enemy_ai_turn() -> void:
 			player_heavy_ground_threat += 1
 		elif unit.kind == "infantry":
 			player_infantry_threat += 1
-	var next_strategy := "balanced"
-	if player_air_threat >= 2 and player_air_threat >= player_heavy_ground_threat:
-		next_strategy = "air_control"
-	elif player_naval_threat >= 2:
-		next_strategy = "naval_control"
-	elif player_heavy_ground_threat >= 3:
-		next_strategy = "armor_breaker"
-	elif player_infantry_threat >= 5:
-		next_strategy = "area_denial"
+	var next_strategy := _enemy_choose_strategy(player_air_threat, player_naval_threat, player_heavy_ground_threat, player_infantry_threat)
 	if next_strategy != enemy_strategy:
 		enemy_strategy = next_strategy
 		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
@@ -2803,48 +3010,74 @@ func _enemy_ai_turn() -> void:
 		return
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
-	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
-		return
-	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
-		enemy_credits -= _unit_cost("carrier", _enemy_faction())
-		enemy_supplies -= _unit_supply_cost("carrier")
-		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
-		enemy_credits -= _unit_cost("submarine", _enemy_faction())
-		enemy_supplies -= _unit_supply_cost("submarine")
-		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
-		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+	# Once an escort destroyer is available, launch the amphibious assault before
+	# filling additional naval-counter slots; otherwise naval doctrine starves its landing force.
+	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("landing_craft")
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
+		return
+	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
+		return
+	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("carrier", _enemy_faction())
+		enemy_supplies -= _unit_supply_cost("carrier")
+		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
+	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
+		enemy_credits -= _unit_cost("submarine", _enemy_faction())
+		enemy_supplies -= _unit_supply_cost("submarine")
+		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
+		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
+	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
 		enemy_credits -= _unit_cost("destroyer", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("destroyer")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": _enemy_faction(), "hp": 260, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
+
+	elif _enemy_has_powered_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= _unit_cost("fighter", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("fighter")
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= _unit_supply_cost("helicopter") and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
+	elif _enemy_has_powered_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= _unit_supply_cost("helicopter") and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= _helicopter_cost(_enemy_faction())
 		enemy_supplies -= _unit_supply_cost("helicopter")
 		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
+	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
 		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("artillery")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("tank") and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
+	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("tank") and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
 		enemy_credits -= _unit_cost("tank", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("tank")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
+	elif _enemy_has_powered_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
+
+func _enemy_should_engage_player(has_player_target: bool, player_distance: float, objective_distance: float, strategy: String, landing_support_active: bool) -> bool:
+	# Landing support and non-balanced doctrines may engage immediately; balanced forces weigh nearby supply objectives.
+	if landing_support_active:
+		return true
+	if not has_player_target:
+		return false
+	return strategy != "balanced" or objective_distance == INF or player_distance <= objective_distance + 80.0
+
+
+func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_threat: int, infantry_threat: int) -> String:
+	# Prioritize the strongest immediate threat; retain a balanced doctrine below response thresholds.
+	if air_threat >= 2 and air_threat >= heavy_ground_threat:
+		return "air_control"
+	if naval_threat >= 2:
+		return "naval_control"
+	if heavy_ground_threat >= 3:
+		return "armor_breaker"
+	if infantry_threat >= 5:
+		return "area_denial"
+	return "balanced"
+
 
 func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int, destroyer_count: int) -> bool:
 	var kind := ""
@@ -2853,25 +3086,25 @@ func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_
 	var unit_hp := 0
 	match strategy:
 		"naval_control":
-			if destroyer_count < 3 and _enemy_has_building("shipyard"):
+			if destroyer_count < 3 and _enemy_has_powered_building("shipyard"):
 				kind = "destroyer"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 260
 		"air_control":
-			if fighter_count < 4 and _enemy_has_building("airfield"):
+			if fighter_count < 4 and _enemy_has_powered_building("airfield"):
 				kind = "fighter"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 120
 		"armor_breaker":
-			if helicopter_count < 3 and _enemy_has_building("airfield"):
+			if helicopter_count < 3 and _enemy_has_powered_building("airfield"):
 				kind = "helicopter"
 				cost = _helicopter_cost(_enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 180
 		"area_denial":
-			if artillery_count < 3 and _enemy_has_building("factory"):
+			if artillery_count < 3 and _enemy_has_powered_building("factory"):
 				kind = "artillery"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
@@ -3040,7 +3273,8 @@ func _place_building(pos: Vector2) -> void:
 		"factory", "airfield": construction_duration = 10.0
 		"missile_silo", "shipyard": construction_duration = 13.0
 		"missile_defense": construction_duration = 9.0
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
+	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "production_id": next_building_production_id})
+	next_building_production_id += 1
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
 	var building_labels := {"power_plant": "محطة الطاقة", "shipyard": "حوض السفن", "missile_silo": "منصة الصواريخ", "missile_defense": "الدفاع الصاروخي", "barracks": "الثكنة", "factory": "المصنع", "airfield": "المطار", "anti_air": "الدفاع المضاد للطائرات", "turret": "برج الدفاع"}
@@ -3073,22 +3307,22 @@ func _power_priority(kind: String) -> int:
 func _player_power_capacity() -> int:
 	var capacity := BASE_POWER_OUTPUT
 	for building in buildings:
-		if building.kind == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
+		if int(building.get("hp", 1)) > 0 and String(building.get("kind", "")) == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
 			capacity += POWER_PLANT_OUTPUT
 	return capacity
 
 func _player_power_demand() -> int:
 	var demand := 0
 	for building in buildings:
-		if float(building.get("build_progress", 1.0)) >= 1.0:
-			demand += _power_demand(String(building.kind))
+		if int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+			demand += _power_demand(String(building.get("kind", "")))
 	return demand
 
 func _is_player_building_powered(building_index: int) -> bool:
 	if building_index < 0 or building_index >= buildings.size():
 		return false
 	var target: Dictionary = buildings[building_index]
-	if float(target.get("build_progress", 1.0)) < 1.0:
+	if int(target.get("hp", 1)) <= 0 or float(target.get("build_progress", 1.0)) < 1.0:
 		return false
 	var target_demand := _power_demand(String(target.kind))
 	if target_demand <= 0:
@@ -3099,7 +3333,7 @@ func _is_player_building_powered(building_index: int) -> bool:
 		if i == building_index:
 			continue
 		var other: Dictionary = buildings[i]
-		if float(other.get("build_progress", 1.0)) < 1.0:
+		if int(other.get("hp", 1)) <= 0 or float(other.get("build_progress", 1.0)) < 1.0:
 			continue
 		var other_priority := _power_priority(String(other.kind))
 		if other_priority < target_priority or (other_priority == target_priority and i < building_index):
@@ -3148,9 +3382,14 @@ func _production_duration(kind: String) -> float:
 func _enqueue_unit(kind: String) -> void:
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
+	var producer_id := -1
 	for i in range(buildings.size()):
 		if buildings[i].kind == producer_kind and _is_player_building_powered(i):
+			if not buildings[i].has("production_id"):
+				buildings[i]["production_id"] = next_building_production_id
+				next_building_production_id += 1
 			producer_pos = buildings[i].pos
+			producer_id = int(buildings[i].production_id)
 			break
 	if producer_kind == "" or producer_pos.x < -9000.0:
 		notice = "لا يوجد مبنى إنتاج مكتمل لهذه الوحدة"
@@ -3173,7 +3412,7 @@ func _enqueue_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	production_orders.append({"producer_pos": producer_pos, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
+	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "producer_id": producer_id, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
 	queue_redraw()
@@ -3186,11 +3425,33 @@ func _update_production_queues(delta: float) -> void:
 		if active_producers.has(producer_pos):
 			continue
 		active_producers.append(producer_pos)
+		var producer_exists := false
 		var producer_ready := false
+		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
+		var expected_producer_id := int(order.get("producer_id", -1))
 		for producer_index in range(buildings.size()):
-			if buildings[producer_index].pos.distance_to(producer_pos) < 2.0 and _is_player_building_powered(producer_index):
-				producer_ready = true
+			var candidate: Dictionary = buildings[producer_index]
+			var matches_producer := false
+			if expected_producer_id >= 0:
+				matches_producer = int(candidate.get("production_id", -2)) == expected_producer_id
+			else:
+				# Compatibility for production orders created before producer IDs existed.
+				matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate.pos.distance_to(producer_pos) < 2.0
+			if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
+				producer_exists = true
+				producer_ready = _is_player_building_powered(producer_index)
 				break
+		if not producer_exists:
+			# A destroyed production building must not leave a paid order stuck forever.
+			var cancelled_kind := String(order.get("kind", ""))
+			var refund := int(floor(float(_unit_cost(cancelled_kind, faction)) * 0.75))
+			credits = mini(MAX_CREDITS, credits + refund)
+			supplies = mini(99, supplies + _unit_supply_cost(cancelled_kind))
+			production_orders.remove_at(i)
+			notice = "دُمّر مبنى الإنتاج — أُلغي الطلب وأُعيد 75٪ من الموارد"
+			notice_time = 2.5
+			queue_redraw()
+			return
 		if not producer_ready:
 			continue
 		order.remaining = maxf(0.0, float(order.remaining) - delta)

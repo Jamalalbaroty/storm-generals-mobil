@@ -213,6 +213,64 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Group formations must face the movement direction and occupy distinct slots.
+	var formation_forward := Vector3(1.0, 0.0, 0.0)
+	var formation_slots: Array[Vector3] = []
+	for formation_index in range(4):
+		formation_slots.append(bridge.call("_group_formation_offset", formation_index, 4, formation_forward, 2.6))
+	if formation_slots[0].distance_to(formation_slots[1]) < 1.0 or formation_slots[0].distance_to(formation_slots[2]) < 1.0 or formation_slots[0].x >= formation_slots[2].x:
+		push_error("Group formation slots overlap or are not oriented along the movement direction")
+		quit(1)
+		return
+	if absf(formation_slots[0].z + formation_slots[1].z) > 0.01 or absf(formation_slots[2].z + formation_slots[3].z) > 0.01:
+		push_error("Group formation lateral rows are not centered around the destination")
+		quit(1)
+		return
+
+	# Formation spacing must account for the largest footprint in mixed groups.
+	var infantry_formation_unit := Node3D.new()
+	infantry_formation_unit.set_meta("unit_type", "infantry")
+	var tank_formation_unit := Node3D.new()
+	tank_formation_unit.set_meta("unit_type", "tank")
+	var naval_formation_unit := Node3D.new()
+	naval_formation_unit.set_meta("unit_type", "destroyer")
+	var infantry_formation_group: Array[Node3D] = [infantry_formation_unit]
+	var armour_formation_group: Array[Node3D] = [infantry_formation_unit, tank_formation_unit]
+	var naval_formation_group: Array[Node3D] = [tank_formation_unit, naval_formation_unit]
+	if absf(float(bridge.call("_group_formation_spacing", infantry_formation_group)) - 2.4) > 0.01:
+		push_error("Infantry formation spacing is not compact enough for foot soldiers")
+		quit(1)
+		return
+	if absf(float(bridge.call("_group_formation_spacing", armour_formation_group)) - 3.8) > 0.01:
+		push_error("Mixed infantry and armor formation did not use the tank footprint")
+		quit(1)
+		return
+	if absf(float(bridge.call("_group_formation_spacing", naval_formation_group)) - 10.5) > 0.01:
+		push_error("Mixed naval formation did not reserve enough room for long vessels")
+		quit(1)
+		return
+	infantry_formation_unit.free()
+	tank_formation_unit.free()
+	naval_formation_unit.free()
+
+	# If one selected unit disappears, surviving selected units must remain selected.
+	# Keep the enemy target in the logical array to verify it is not cleared accidentally.
+	bridge.set("attack_target", enemy_fighter)
+	bridge.set("has_selected_destination", true)
+	bridge.order_marker.visible = true
+	var partially_removed_units: Array[Dictionary] = [multi_units[1], multi_units[2]]
+	game.set("units", partially_removed_units)
+	game.call("_sync_3d_gameplay_bridge")
+	var selection_after_partial_removal: Array = bridge.get("selected_live_units")
+	if selection_after_partial_removal.size() != 1 or selection_after_partial_removal[0] != second_player or bridge.get("selected_tank") != second_player:
+		push_error("Removing one unit from a group discarded the surviving unit's selection")
+		quit(1)
+		return
+	if bridge.get("attack_target") != enemy_fighter or not bool(bridge.get("has_selected_destination")) or not bridge.order_marker.visible:
+		push_error("Removing one selected unit incorrectly cleared a still-valid enemy target or group destination")
+		quit(1)
+		return
+
 	# Naval counter-production must launch destroyers from the coastal shipyard.
 	var naval_test_units: Array[Dictionary] = []
 	game.set("units", naval_test_units)
@@ -256,7 +314,9 @@ func _initialize() -> void:
 		{"pos": Vector2(900.0, 420.0), "kind": "airfield", "hp": 450, "build_progress": 1.0},
 		{"pos": Vector2(900.0, 480.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0},
 		{"pos": Vector2(780.0, 650.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0}
+		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0},
+		{"pos": Vector2(740.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(760.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
 	]
 	game.set("enemy_buildings", complete_ai_buildings)
 	game.set("enemy_credits", 100000)
@@ -571,8 +631,9 @@ func _initialize() -> void:
 	var faction_signatures: Array[String] = []
 	for army in faction_names:
 		var army_profile: Dictionary = game.call("_faction_profile", army)
-		if army_profile.size() != 7:
-			push_error("Faction balance profile is incomplete for " + army)
+		var army_unit_costs: Dictionary = army_profile.get("unit_costs", {})
+		if army_profile.size() != 8 or army_unit_costs.is_empty():
+			push_error("Faction balance profile is missing combat stats or its unit-cost table for " + army)
 			quit(1)
 			return
 		var army_helicopter: Dictionary = {"kind": "helicopter", "faction": army}
@@ -604,12 +665,14 @@ func _initialize() -> void:
 			push_error("Building economy helper returned an incorrect cost for " + String(building_kind))
 			quit(1)
 			return
-	var expected_unit_costs: Dictionary = {
-		"infantry": 100, "tank": 300, "builder": 600, "artillery": 450,
-		"fighter": 500, "destroyer": 900, "carrier": 1600,
-		"submarine": 1100, "landing_craft": 800
+	var expected_unit_costs_by_faction: Dictionary = {
+		"الصيني": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800},
+		"الأمريكي": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800},
+		"الجيش العربي": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800},
+		"وطن": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}
 	}
 	for army in faction_names:
+		var expected_unit_costs: Dictionary = expected_unit_costs_by_faction[army]
 		for unit_kind in expected_unit_costs:
 			if int(game.call("_unit_cost", String(unit_kind), army)) != int(expected_unit_costs[unit_kind]):
 				push_error("Unit economy helper returned an incorrect cost for " + String(unit_kind) + " in " + army)
@@ -1066,6 +1129,12 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Start this identity-family check from a clean bridge so its stable IDs are deterministic.
+	var empty_game_units: Array[Dictionary] = []
+	game.set("units", empty_game_units)
+	game.call("_sync_3d_gameplay_bridge")
+	bridge.set("next_game_unit_sync_id", 1)
+
 	# Every production unit family must receive a stable live 3D proxy, not only tanks.
 	var all_unit_families: Array[Dictionary] = [
 		{"pos": Vector2(180.0, 180.0), "team": "player", "kind": "infantry", "faction": "الجيش العربي", "hp": 55.0, "max_hp": 60.0},
@@ -1093,6 +1162,17 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+	# Removing a selected live unit must also clear selection and stale attack targets.
+	var selected_before_cleanup := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
+	if selected_before_cleanup == null:
+		push_error("Could not locate a friendly live unit for stale-selection cleanup validation")
+		quit(1)
+		return
+	var selected_units_for_cleanup: Array[Node3D] = [selected_before_cleanup]
+	bridge.call("_set_live_selection", selected_units_for_cleanup)
+	bridge.set("attack_target", selected_before_cleanup)
+	bridge.set("has_selected_destination", true)
+	bridge.order_marker.visible = true
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
@@ -1104,8 +1184,12 @@ func _initialize() -> void:
 		push_error("Live bridge stale cleanup counts: units=%d buildings=%d" % [bridge.game_unit_nodes.size(), bridge.game_building_nodes.size()])
 		quit(1)
 		return
+	if not (bridge.get("selected_live_units") as Array).is_empty() or is_instance_valid(bridge.get("selected_tank")) or is_instance_valid(bridge.get("attack_target")) or bool(bridge.get("has_selected_destination")) or bridge.selection_ring.visible or bridge.order_marker.visible:
+		push_error("Removing a selected live unit left stale selection, attack target, destination, or UI markers")
+		quit(1)
+		return
 
-	print("Live 2D-to-3D gameplay bridge: hidden-by-default state, two-team unit/building sync, health/progress updates, stable identity and stale cleanup passed")
+	print("Live 2D-to-3D gameplay bridge: hidden-by-default state, two-team unit/building sync, health/progress updates, stable identity, stale selection cleanup and stale node cleanup passed")
 	game.queue_free()
 	# Let deferred node destruction and the audio server finish releasing
 	# playback instances before checking for ObjectDB leaks at process exit.

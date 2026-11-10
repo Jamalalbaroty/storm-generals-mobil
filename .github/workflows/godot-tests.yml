@@ -1,0 +1,143 @@
+name: Godot Regression Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Keep only the newest queued PR validation; rapid commits must not create a CI backlog.
+concurrency:
+  # Isolate each PR/branch so unrelated validation runs never cancel one another.
+  group: storm-generals-regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Godot 4.4 headless regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.4
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot project can import and load
+        run: timeout 180s godot --headless --editor --path . --quit
+
+      - name: Run economy, AI, artillery, and production regressions
+        run: timeout 240s godot --headless --path . --script tests/production_queue_regression_test.gd
+
+      - name: Run gameplay economy and enemy recovery smoke test
+        run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
+
+      - name: Run live 2D-to-3D gameplay bridge smoke test
+        run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
+
+  android-candidate:
+    name: Export playable Android debug APK
+    needs: regression
+    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout the exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify preinstalled Godot Android toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          godot --version
+          java -version
+          ANDROID_HOME="${ANDROID_HOME:-/usr/lib/android-sdk}"
+          JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+          test -x "$JAVA_HOME/bin/java"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/cmdline-tools/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
+          test -d "$ANDROID_HOME/platforms"
+          test -d "$ANDROID_HOME/build-tools"
+          test -f /root/debug.keystore
+          # export_presets.cfg pins the debug keystore path to /tmp/debug.keystore.
+          install -D -m 600 /root/debug.keystore /tmp/debug.keystore
+          test -f /tmp/debug.keystore
+          test -f /root/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk
+          test -f /root/.local/share/godot/export_templates/4.4.1.stable/android_release.apk
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+
+      - name: Configure Godot Android export settings
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot" "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          if [ "$HOME/.local/share/godot/export_templates/4.4.1.stable" != "/root/.local/share/godot/export_templates/4.4.1.stable" ]; then
+            cp -a /root/.local/share/godot/export_templates/4.4.1.stable/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          fi
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          export/android/force_system_user = false
+          EOF
+
+      - name: Import project and smoke-test game startup
+        shell: bash
+        run: |
+          set -euxo pipefail
+          timeout 180s godot --headless --editor --path . --quit
+          timeout 60s godot --headless --path . --quit-after 120 2>&1 | tee /tmp/game-smoke.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/game-smoke.log; then
+            echo "Android candidate startup smoke test failed"
+            exit 1
+          fi
+
+      - name: Export and verify Android debug APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk
+          apk="build/StormGenerals-debug.apk"
+          test -s "$apk"
+          unzip -t "$apk"
+          unzip -Z1 "$apk" | grep -Fx 'AndroidManifest.xml'
+          unzip -Z1 "$apk" | grep -Fx 'classes.dex'
+          unzip -Z1 "$apk" | grep -Fx 'assets/project.binary'
+          unzip -Z1 "$apk" | grep -E '^lib/arm64-v8a/.*\.so$'
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$apk"
+          "$BUILD_TOOLS/aapt" dump badging "$apk" | tee /tmp/apk-badging.txt
+          grep -F "package: name='com.stormgenerals.mobile'" /tmp/apk-badging.txt
+          grep -F "'arm64-v8a'" /tmp/apk-badging.txt
+          sha256sum "$apk" | tee build/StormGenerals-debug.apk.sha256
+
+      - name: Upload playable Android candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: StormGenerals-Android-APK
+          path: |
+            build/StormGenerals-debug.apk
+            build/StormGenerals-debug.apk.sha256
+          if-no-files-found: error
