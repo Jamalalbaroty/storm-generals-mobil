@@ -14,8 +14,7 @@ const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
-	[23, 24]
-]
+	[23, 24, 25, 26, 27]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
@@ -56,7 +55,8 @@ const ECONOMY_BALANCE := {
 	"building_costs": {
 		"barracks": BARRACKS_COST, "factory": FACTORY_COST, "turret": TURRET_COST,
 		"airfield": AIRFIELD_COST, "anti_air": AA_COST, "missile_silo": MISSILE_SILO_COST,
-		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700, "power_plant": 450, "bunker": 520, "supply_depot": 550
+		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700, "power_plant": 450, "bunker": 520, "supply_depot": 550,
+		"wall": 90, "wall_corner": 120, "wall_gate": 150
 	},
 	"unit_costs": {
 		"infantry": INFANTRY_COST, "tank": TANK_COST, "builder": 600, "artillery": ARTILLERY_COST,
@@ -2521,7 +2521,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150"]
 	if _has_selected_player_building():
 		labels[10] = "إصلاح المنشأة"
 		labels[11] = "بيع المنشأة"
@@ -2902,6 +2902,18 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				build_mode = "bunker"
 				notice = "اختر موقعاً مناسباً لبناء مخبأ دفاعي — يوفر نيراناً وحماية للقوات القريبة"
 				notice_time = 3.5
+			elif i == 25:
+				build_mode = "wall"
+				notice = "اختر موضعاً لبناء مقطع جدار دفاعي مستقيم"
+				notice_time = 3.0
+			elif i == 26:
+				build_mode = "wall_corner"
+				notice = "اختر موضعاً لبناء زاوية تحصين"
+				notice_time = 3.0
+			elif i == 27:
+				build_mode = "wall_gate"
+				notice = "اختر موضعاً لإنشاء بوابة القاعدة"
+				notice_time = 3.0
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -3305,6 +3317,9 @@ func _building_max_hp(building: Dictionary) -> int:
 	match String(building.get("kind", "")):
 		"missile_silo": base_hp = 500
 		"missile_defense": base_hp = 450
+		"wall": base_hp = 280
+		"wall_corner": base_hp = 360
+		"wall_gate": base_hp = 220
 	return int(round(float(base_hp) * (1.0 + float(maxi(1, int(building.get("level", 1))) - 1) * 0.20)))
 
 
@@ -3954,6 +3969,12 @@ func _enemy_building_max_hp(building: Dictionary) -> int:
 			return 380
 		"turret":
 			return 350
+		"wall":
+			return 280
+		"wall_corner":
+			return 360
+		"wall_gate":
+			return 220
 		_:
 			return 400
 
@@ -4645,13 +4666,17 @@ func _place_building(pos: Vector2) -> void:
 		notice_time = 2.5
 		return
 	var cost = _building_cost(build_mode)
-	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or pos.distance_to(base_pos) > 390.0 or pos.distance_to(base_pos) < 85.0)):
+	var is_wall_piece := build_mode in ["wall", "wall_corner", "wall_gate"]
+	var wall_distance := pos.distance_to(base_pos)
+	if (build_mode == "shipyard" and (pos.y < get_viewport_rect().size.y * 0.72 or pos.x > get_viewport_rect().size.x * 0.48 or wall_distance > 390.0)) or (build_mode != "shipyard" and (pos.x > get_viewport_rect().size.x * 0.48 or wall_distance > (420.0 if is_wall_piece else 390.0) or wall_distance < (60.0 if is_wall_piece else 85.0))):
 		notice = "اختر موقعاً مناسباً قرب قاعدتك"
 		notice_time = 2.0
 		return
 	for building in buildings:
-		if building.pos.distance_to(pos) < 75.0:
-			notice = "الموقع مشغول، اختر مكاناً آخر"
+		var existing_is_wall := String(building.get("kind", "")) in ["wall", "wall_corner", "wall_gate"]
+		var required_spacing := 34.0 if is_wall_piece and existing_is_wall else (52.0 if is_wall_piece or existing_is_wall else 75.0)
+		if building.pos.distance_to(pos) < required_spacing:
+			notice = "الموقع مشغول أو قريب من قطعة تحصين أخرى"
 			notice_time = 2.0
 			return
 	if credits < cost:
@@ -4667,7 +4692,9 @@ func _place_building(pos: Vector2) -> void:
 		"missile_silo", "shipyard": construction_duration = 13.0
 		"missile_defense", "bunker": construction_duration = 9.0
 		"supply_depot": construction_duration = 10.0
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 650 if build_mode == "bunker" else (500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400)), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "supply_timer": 0.0, "production_id": next_building_production_id})
+		"wall", "wall_corner", "wall_gate": construction_duration = 3.5
+	var new_building := {"pos": pos, "kind": build_mode, "hp": _building_max_hp({"kind": build_mode, "level": 1}), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "supply_timer": 0.0, "production_id": next_building_production_id}
+	buildings.append(new_building)
 	next_building_production_id += 1
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
