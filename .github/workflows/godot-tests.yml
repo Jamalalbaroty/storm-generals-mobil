@@ -1,0 +1,40 @@
+name: Godot Regression Tests
+
+on:
+  push:
+    branches:
+      - main
+      - fix/3d-selection-stale-unit-cleanup
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: godot-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Godot 4.4 headless regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Godot 4.4
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot project can import and load
+        run: godot --headless --editor --path . --quit
+
+      - name: Run economy, AI, artillery, and production regressions
+        run: godot --headless --path . --script tests/production_queue_regression_test.gd
+
+      - name: Run live 2D-to-3D gameplay bridge smoke test
+        run: godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
