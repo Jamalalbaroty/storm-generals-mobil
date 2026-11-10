@@ -55,7 +55,9 @@ func _initialize() -> void:
 		push_error("Tactical group paths did not render a visible line surface")
 		quit(1)
 		return
-	if path_mesh.surface_get_array_len(0) != 4:
+	var path_arrays: Array = path_mesh.surface_get_arrays(0)
+	var path_vertices: PackedVector3Array = path_arrays[Mesh.ARRAY_VERTEX]
+	if path_vertices.size() != 4:
 		push_error("Tactical group path did not render one separate segment per selected unit")
 		quit(1)
 		return
