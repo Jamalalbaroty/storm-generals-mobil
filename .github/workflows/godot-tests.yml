@@ -11,7 +11,7 @@ on:
 
 # Keep only the newest queued PR validation; rapid commits must not create a CI backlog.
 concurrency:
-  group: storm-generals-regression-${{ github.event.pull_request.number || github.ref }}
+  group: storm-generals-regression
   cancel-in-progress: true
 
 jobs:
