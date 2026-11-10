@@ -2,6 +2,13 @@ extends Node2D
 
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
+const CAMPAIGN_MISSIONS := [
+	{"name": "شرارة العاصفة", "map": "الساحل الصحراوي", "brief": "أنشئ قاعدة متينة ودمر مركز قيادة العدو", "reward": 250},
+	{"name": "خطوط الإمداد", "map": "ساحل الغابات", "brief": "سيطر على الموارد وامنع العدو من تثبيت مواقعه", "reward": 350},
+	{"name": "قبضة الجبال", "map": "الساحل الجبلي", "brief": "استخدم الدروع والمدفعية لفتح الطريق نحو القاعدة", "reward": 450},
+	{"name": "حصار الميناء", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية والبحرية لتدمير دفاعات العدو", "reward": 550},
+	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750}
+]
 const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "البحرية"]
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
@@ -82,6 +89,8 @@ var enemy_credits := 1200
 var enemy_income_timer := 0.0
 var enemy_buildings: Array[Dictionary] = []
 var game_started := false
+var campaign_briefing := false
+var campaign_mission_index := 0
 var paused := false
 var dragging := false
 var active_touch_index := -1
@@ -114,7 +123,8 @@ var commander_profile: Dictionary = {
 	"air_kills": 0,
 	"armor_kills": 0,
 	"naval_kills": 0,
-	"earned_medals": []
+	"earned_medals": [],
+	"campaign_progress": {}
 }
 var commander_profile_saved_result := ""
 
@@ -716,6 +726,14 @@ func _record_battle_result() -> void:
 	commander_profile["battles_played"] = int(commander_profile.get("battles_played", 0)) + 1
 	if enemy_base_hp <= 0:
 		commander_profile["victories"] = int(commander_profile.get("victories", 0)) + 1
+		if campaign_briefing or faction != "":
+			var progress: Dictionary = commander_profile.get("campaign_progress", {})
+			var current_progress := int(progress.get(faction, 0))
+			if current_progress == campaign_mission_index and current_progress < CAMPAIGN_MISSIONS.size():
+				progress[faction] = current_progress + 1
+				commander_profile["campaign_progress"] = progress
+				notice = "تم فتح المهمة التالية في حملة %s" % faction
+				notice_time = 4.0
 	else:
 		commander_profile["defeats"] = int(commander_profile.get("defeats", 0)) + 1
 	_save_commander_profile()
@@ -1870,17 +1888,62 @@ func _button_rect(index: int, size: Vector2) -> Rect2:
 	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
+	if campaign_briefing:
+		_draw_campaign_briefing(size)
+		return
 	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
 	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
 	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
 	draw_rect(panel, Color("#52666c"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.019), 16, 22), Color.WHITE)
+	var progress: Dictionary = commander_profile.get("campaign_progress", {})
 	for i in FACTIONS.size():
 		var r := _faction_rect(i, size)
 		draw_rect(r, Color("#28445a") if i != 3 else Color("#73552d"), true)
 		draw_rect(r, Color("#b7c6d1"), false, 2.0)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.59), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
+		var completed := int(progress.get(FACTIONS[i], 0))
+		var progress_label := "الحملة مكتملة" if completed >= CAMPAIGN_MISSIONS.size() else "المهمة %d / %d" % [completed + 1, CAMPAIGN_MISSIONS.size()]
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.45), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.76), progress_label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 11, Color("#f4d77a"))
+
+
+func _campaign_start_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x * 0.55, size.y * 0.64), Vector2(size.x * 0.34, 52))
+
+
+func _campaign_back_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x * 0.11, size.y * 0.64), Vector2(size.x * 0.34, 52))
+
+
+func _draw_campaign_briefing(size: Vector2) -> void:
+	var progress: Dictionary = commander_profile.get("campaign_progress", {})
+	var completed := int(progress.get(faction, 0))
+	var mission_number := mini(completed, CAMPAIGN_MISSIONS.size() - 1)
+	var mission: Dictionary = CAMPAIGN_MISSIONS[mission_number]
+	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.66)
+	draw_rect(panel, Color(0.03, 0.06, 0.07, 0.97), true)
+	draw_rect(panel, Color("#b18b45"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.30), "قيادة حملة: %s" % faction, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 23, Color("#f4d77a"))
+	if completed >= CAMPAIGN_MISSIONS.size():
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.40), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color("#a8e6b0"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.48), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color.WHITE)
+	else:
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.39), "العملية %d من %d: %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.47), "المسرح: %s  |  مكافأة الإنجاز: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 14, Color("#c4dce8"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.55), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color("#d8e6c2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.60), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
+	for i in CAMPAIGN_MISSIONS.size():
+		var dot_x := size.x * 0.32 + float(i) * size.x * 0.09
+		draw_circle(Vector2(dot_x, size.y * 0.59), 5.0, Color("#a8e6b0") if i < completed else Color("#657477"))
+	var start_rect := _campaign_start_rect(size)
+	var back_rect := _campaign_back_rect(size)
+	draw_rect(start_rect, Color("#73552d"), true)
+	draw_rect(start_rect, Color("#f4d77a"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, start_rect.position + Vector2(0, 32), "ابدأ العملية", HORIZONTAL_ALIGNMENT_CENTER, start_rect.size.x, 18, Color.WHITE)
+	draw_rect(back_rect, Color("#28445a"), true)
+	draw_rect(back_rect, Color("#b7c6d1"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, back_rect.position + Vector2(0, 32), "عودة", HORIZONTAL_ALIGNMENT_CENTER, back_rect.size.x, 18, Color.WHITE)
 
 func _faction_rect(i: int, size: Vector2) -> Rect2:
 	var panel_left := size.x * 0.06
@@ -1946,6 +2009,46 @@ func _input(event: InputEvent) -> void:
 		drag_end = event.position
 		queue_redraw()
 
+func _begin_campaign_battle(size: Vector2) -> void:
+	var progress: Dictionary = commander_profile.get("campaign_progress", {})
+	campaign_mission_index = clampi(int(progress.get(faction, 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
+	var mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
+	command_tab = 0
+	map_type = String(mission.map)
+	battle_result = ""
+	commander_profile_saved_result = ""
+	credits = STARTING_CREDITS
+	supplies = 5
+	enemy_supplies = 5
+	_initialize_supply_points(size)
+	income_timer = 0.0
+	units.clear()
+	missiles.clear()
+	enemy_missile_timer = 0.0
+	buildings.clear()
+	production_orders.clear()
+	enemy_buildings.clear()
+	selected.clear()
+	selected_enemy_building = -1
+	selected_player_building = -1
+	dragging = false
+	visual_effects.clear()
+	environment_particles.clear()
+	build_mode = ""
+	enemy_credits = STARTING_CREDITS
+	enemy_income_timer = 0.0
+	enemy_timer = 0.0
+	player_base_hp = 1000
+	enemy_base_hp = 1000
+	paused = false
+	campaign_briefing = false
+	game_started = true
+	units.append({"pos": base_pos + Vector2(58, 0), "team": "player", "kind": "builder", "faction": faction, "hp": 220, "attack_cd": 0.0})
+	notice = "بدأت العملية %d: %s — مركبة البناء جاهزة" % [campaign_mission_index + 1, String(mission.name)]
+	notice_time = 3.0
+	queue_redraw()
+
+
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	var size = get_viewport_rect().size
 	if pressed:
@@ -2001,42 +2104,24 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	if paused:
 		return
 	if not game_started:
-		for i in FACTIONS.size():
-			if _faction_rect(i, size).has_point(pos):
-				faction = FACTIONS[i]
-				command_tab = 0
-				map_type = MAP_TYPES[randi_range(0, MAP_TYPES.size() - 1)]
-				battle_result = ""
-				credits = STARTING_CREDITS
-				supplies = 5
-				enemy_supplies = 5
-				_initialize_supply_points(size)
-				income_timer = 0.0
-				units.clear()
-				missiles.clear()
-				enemy_missile_timer = 0.0
-				buildings.clear()
-				production_orders.clear()
-				enemy_buildings.clear()
-				selected.clear()
-				selected_enemy_building = -1
-				selected_player_building = -1
-				dragging = false
-				visual_effects.clear()
-				environment_particles.clear()
-				build_mode = ""
-				enemy_credits = STARTING_CREDITS
-				enemy_income_timer = 0.0
-				enemy_timer = 0.0
-				player_base_hp = 1000
-				enemy_base_hp = 1000
-				paused = false
-				game_started = true
-				units.append({"pos": base_pos + Vector2(58, 0), "team": "player", "kind": "builder", "faction": faction, "hp": 220, "attack_cd": 0.0})
-				notice = "بدأت المعركة — مركبة البناء جاهزة. حددها وابدأ إنشاء قاعدتك"
-				notice_time = 3.0
+		if campaign_briefing:
+			if _campaign_back_rect(size).has_point(pos):
+				campaign_briefing = false
+				faction = ""
 				queue_redraw()
 				return
+			if _campaign_start_rect(size).has_point(pos):
+				_begin_campaign_battle(size)
+				return
+		else:
+			for i in FACTIONS.size():
+				if _faction_rect(i, size).has_point(pos):
+					faction = FACTIONS[i]
+					var progress: Dictionary = commander_profile.get("campaign_progress", {})
+					campaign_mission_index = clampi(int(progress.get(faction, 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
+					campaign_briefing = true
+					queue_redraw()
+					return
 		return
 	for tab_index in range(COMMAND_TAB_LABELS.size()):
 		if _command_tab_rect(tab_index, size).has_point(pos):
