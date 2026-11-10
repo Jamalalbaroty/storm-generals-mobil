@@ -27,11 +27,15 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    container:
-      image: barichello/godot-ci:4.4.1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install Godot 4.4
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: false
       - name: Import project resources
         run: godot --headless --path . --editor --quit --verbose
       - name: Smoke test active game scene
