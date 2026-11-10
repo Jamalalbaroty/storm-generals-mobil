@@ -730,6 +730,12 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
 			unit.set_meta("source_faction", faction_id)
+		if kind in ["fighter", "helicopter"]:
+			var was_landed := bool(unit.get_meta("gameplay_aircraft_landed", false))
+			var is_landed := bool(record.get("airfield_landed", false))
+			if was_landed and not is_landed:
+				unit.set_meta("gameplay_aircraft_takeoff", true)
+			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
 	for existing_key in game_unit_nodes.keys():
@@ -777,7 +783,8 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind == "helicopter" else 1.15)
 			unit.set_meta("gameplay_hover_phase", hover_phase)
 			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind == "helicopter" else 0.035)
-			var altitude_target := base_altitude + climb_target + hover_amount
+			var landed_at_airfield := bool(unit.get_meta("gameplay_aircraft_landed", false))
+			var altitude_target := 0.45 if landed_at_airfield else (base_altitude + climb_target + hover_amount)
 			var takeoff_active := bool(unit.get_meta("gameplay_aircraft_takeoff", false))
 			var altitude_blend := clampf(delta * (2.0 if takeoff_active else 3.2), 0.0, 1.0)
 			unit.global_position.y = lerpf(unit.global_position.y, altitude_target, altitude_blend)
