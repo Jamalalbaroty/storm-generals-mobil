@@ -5028,14 +5028,15 @@ func _update_production_queues(delta: float) -> void:
 				notice_time = 2.0
 				continue
 			var completed_kind := String(order.kind)
+			var completed_producer_id := int(order.get("producer_id", -1))
 			production_orders.remove_at(i)
-			_spawn_unit(completed_kind, true)
+			_spawn_unit(completed_kind, true, completed_producer_id)
 			if notice.begins_with("تم إنتاج"):
 				notice = "اكتمل إنتاج الوحدة — أُضيفت إلى ساحة المعركة"
 			queue_redraw()
 			return
 
-func _spawn_unit(kind: String, already_paid: bool = false) -> void:
+func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1) -> void:
 	if not NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
 		notice = "الوحدات البحرية مؤجلة عن النسخة الحالية"
 		notice_time = 2.5
@@ -5078,6 +5079,12 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 		credits -= cost
 		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
+	# Ground units leave the exact producer that completed this order.
+	if producer_id >= 0:
+		for producer in buildings:
+			if int(producer.get("production_id", -2)) == producer_id and String(producer.get("kind", "")) == _production_building_for(kind):
+				unit_spawn = producer.pos + Vector2(65.0, randf_range(-35.0, 35.0))
+				break
 	var aircraft_launch := false
 	var aircraft_airfield_id := -1
 	var aircraft_launch_slot := 0
@@ -5085,7 +5092,8 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 		# Stagger aircraft along the runway so consecutive production never stacks proxies.
 		for airfield_index in range(buildings.size()):
 			var airfield: Dictionary = buildings[airfield_index]
-			if String(airfield.get("kind", "")) == "airfield" and float(airfield.get("build_progress", 1.0)) >= 1.0 and int(airfield.get("hp", 0)) > 0 and _is_player_building_powered(airfield_index):
+			var matches_producer := producer_id < 0 or int(airfield.get("production_id", -2)) == producer_id
+			if matches_producer and String(airfield.get("kind", "")) == "airfield" and float(airfield.get("build_progress", 1.0)) >= 1.0 and int(airfield.get("hp", 0)) > 0 and _is_player_building_powered(airfield_index):
 				aircraft_airfield_id = int(airfield.get("production_id", -1))
 				for existing_aircraft in units:
 					if String(existing_aircraft.get("team", "")) == "player" and String(existing_aircraft.get("kind", "")) in ["fighter", "helicopter"] and int(existing_aircraft.get("airfield_launch_id", -2)) == aircraft_airfield_id:
