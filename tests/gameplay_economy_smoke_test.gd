@@ -1176,6 +1176,25 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Player armor should recapture the port through the live match loop")
 	_expect(int(game.get("enemy_credits")) - enemy_income_before_recapture <= 7, "Enemy should stop receiving port income after player recapture")
 
+	# Live enemy behavior: balanced forces should move toward valuable supply when combat is distant, then engage an immediate nearby threat.
+	game.get("units").clear()
+	game.get("supply_points").clear()
+	game.get("supply_points").append({"pos": Vector2(500.0, 360.0), "owner": "player", "kind": "port", "payout": 0.0, "supply_payout": 0.0})
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 150, "pos": Vector2(800.0, 360.0), "attack_cd": 0.0})
+	game.get("units").append({"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(100.0, 360.0), "attack_cd": 10.0})
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_timer", 999.0)
+	var enemy_start_x: float = game.get("units")[0]["pos"].x
+	for objective_frame in range(20):
+		game.call("_process", 0.1)
+	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
+	var nearby_player_index := game.get("units").size()
+	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": game.get("units")[0]["pos"] + Vector2(35.0, 0.0), "attack_cd": 10.0})
+	var nearby_player_hp: int = int(game.get("units")[nearby_player_index]["hp"])
+	for combat_frame in range(12):
+		game.call("_process", 0.1)
+	_expect(int(game.get("units")[nearby_player_index]["hp"]) < nearby_player_hp, "Enemy armor should switch from supply advance to engaging an immediate nearby player threat")
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
