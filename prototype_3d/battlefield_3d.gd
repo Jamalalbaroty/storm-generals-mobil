@@ -63,6 +63,7 @@ var combat_impact_audio: AudioStreamWAV
 var engine_audio_player: AudioStreamPlayer3D
 var previous_ground_positions: Dictionary = {}
 var ground_dust_timers: Dictionary = {}
+var ground_dust_nodes: Array[Node3D] = []
 var tank_wheels: Dictionary = {}
 var tank_barrels: Dictionary = {}
 var wheel_last_positions: Dictionary = {}
@@ -184,7 +185,10 @@ func _setup_engine_audio() -> void:
 
 func _update_ground_vehicle_effects(delta: float) -> void:
 	for unit in showcase_tanks:
-		if not is_instance_valid(unit) or str(unit.get_meta("unit_type", "tank")) != "tank":
+		if not is_instance_valid(unit):
+			continue
+		var unit_type := String(unit.get_meta("unit_type", "tank"))
+		if unit_type not in ["tank", "artillery"]:
 			continue
 		var previous: Vector3 = previous_ground_positions.get(unit, unit.global_position)
 		var movement := unit.global_position.distance_to(previous)
@@ -192,34 +196,51 @@ func _update_ground_vehicle_effects(delta: float) -> void:
 		var cooldown := maxf(0.0, float(ground_dust_timers.get(unit, 0.0)) - delta)
 		if movement > 0.015 and cooldown <= 0.0:
 			var rear := unit.global_transform.basis.z
-			_spawn_track_dust(unit.global_position + rear * 1.45 + Vector3.LEFT * 0.82)
-			_spawn_track_dust(unit.global_position + rear * 1.45 + Vector3.RIGHT * 0.82)
-			cooldown = 0.16
+			var track_spacing := 0.82 if unit_type == "tank" else 0.68
+			var trail_offset := 1.45 if unit_type == "tank" else 1.15
+			_spawn_track_dust(unit.global_position + rear * trail_offset + Vector3.LEFT * track_spacing)
+			_spawn_track_dust(unit.global_position + rear * trail_offset + Vector3.RIGHT * track_spacing)
+			cooldown = 0.20 if bool(unit.get_meta("source_gameplay_unit", false)) else 0.16
 		ground_dust_timers[unit] = cooldown
 	for unit in previous_ground_positions.keys():
 		if not is_instance_valid(unit):
 			previous_ground_positions.erase(unit)
 			ground_dust_timers.erase(unit)
+	for dust_variant in ground_dust_nodes.duplicate():
+		if not is_instance_valid(dust_variant):
+			ground_dust_nodes.erase(dust_variant)
 
 func _spawn_track_dust(at: Vector3) -> void:
+	# A strict cap keeps movement trails inexpensive with many live RTS vehicles.
+	while ground_dust_nodes.size() >= 32:
+		var oldest := ground_dust_nodes.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
 	var puff := MeshInstance3D.new()
 	var puff_mesh := SphereMesh.new()
 	puff_mesh.radius = 0.24
 	puff_mesh.height = 0.20
 	puff.mesh = puff_mesh
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.48, 0.43, 0.32, 0.34)
+	material.albedo_color = Color(0.48, 0.43, 0.32, 0.30)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	puff.material_override = material
 	puff.position = at + Vector3.UP * 0.12
-	puff.scale = Vector3(0.35, 0.28, 0.35)
+	puff.scale = Vector3(0.35, 0.24, 0.35)
 	add_child(puff)
+	ground_dust_nodes.append(puff)
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(puff, "scale", Vector3(1.65, 0.72, 1.65), 0.72)
-	tween.tween_property(material, "albedo_color:a", 0.0, 0.72)
-	tween.chain().tween_callback(puff.queue_free)
+	tween.tween_property(puff, "scale", Vector3(1.45, 0.58, 1.45), 0.62)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.62)
+	tween.chain().tween_callback(_remove_track_dust.bind(puff))
+
+
+func _remove_track_dust(puff: Node3D) -> void:
+	ground_dust_nodes.erase(puff)
+	if is_instance_valid(puff):
+		puff.queue_free()
 
 func _update_engine_audio() -> void:
 	if not is_instance_valid(engine_audio_player):
