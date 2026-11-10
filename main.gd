@@ -808,90 +808,90 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("target")
 				continue
-				if unit.has("attack_building"):
-					var building_target = int(unit.attack_building)
-					if building_target < 0 or building_target >= enemy_buildings.size():
-						unit.erase("attack_building")
-						continue
-					var target_building: Dictionary = enemy_buildings[building_target]
-					var building_distance: float = unit.pos.distance_to(target_building.pos)
-					var building_range := 350.0 if unit.kind == "artillery" else 75.0
-					if building_distance <= building_range:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							var building_damage = _unit_damage_with_veterancy(unit, 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8))
-							var building_hp_before := int(target_building.get("hp", 400))
-							target_building.hp = maxi(0, building_hp_before - building_damage)
-							_award_unit_experience(unit, building_hp_before - int(target_building.hp))
-							_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
-							unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
-							if target_building.hp <= 0:
-								_remove_destroyed_buildings("enemy")
-					else:
-						unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
+			if unit.has("attack_building"):
+				var building_target = int(unit.attack_building)
+				if building_target < 0 or building_target >= enemy_buildings.size():
+					unit.erase("attack_building")
 					continue
-				if unit.get("attack_base", false):
-					var base_distance: float = unit.pos.distance_to(enemy_base)
-					var base_range := 360.0 if unit.kind == "artillery" else 155.0
-					if base_distance <= base_range:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							var base_damage := _unit_damage_with_veterancy(unit, 45 if unit.kind == "artillery" else (20 if unit.kind == "tank" else 10))
-							var base_hp_before := enemy_base_hp
-							enemy_base_hp = maxi(0, enemy_base_hp - base_damage)
-							_award_unit_experience(unit, base_hp_before - enemy_base_hp)
-							unit.attack_cd = 2.4 if unit.kind == "artillery" else (0.75 if unit.kind == "tank" else 1.0)
-					else:
-						unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
-					continue
-				var enemy_target := int(unit.get("attack_target", -1))
-				if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
-					if unit.has("attack_focus_pos"):
-						enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
-					if enemy_target < 0:
-						enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
-					if enemy_target >= 0:
-						unit.attack_target = enemy_target
+				var target_building: Dictionary = enemy_buildings[building_target]
+				var building_distance: float = unit.pos.distance_to(target_building.pos)
+				var building_range := 350.0 if unit.kind == "artillery" else 75.0
+				if building_distance <= building_range:
+					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+					if unit.attack_cd <= 0.0:
+						var building_damage = _unit_damage_with_veterancy(unit, 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8))
+						var building_hp_before := int(target_building.get("hp", 400))
+						target_building.hp = maxi(0, building_hp_before - building_damage)
+						_award_unit_experience(unit, building_hp_before - int(target_building.hp))
+						_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
+						unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
+						if target_building.hp <= 0:
+							_remove_destroyed_buildings("enemy")
+				else:
+					unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
+				continue
+			if unit.get("attack_base", false):
+				var base_distance: float = unit.pos.distance_to(enemy_base)
+				var base_range := 360.0 if unit.kind == "artillery" else 155.0
+				if base_distance <= base_range:
+					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+					if unit.attack_cd <= 0.0:
+						var base_damage := _unit_damage_with_veterancy(unit, 45 if unit.kind == "artillery" else (20 if unit.kind == "tank" else 10))
+						var base_hp_before := enemy_base_hp
+						enemy_base_hp = maxi(0, enemy_base_hp - base_damage)
+						_award_unit_experience(unit, base_hp_before - enemy_base_hp)
+						unit.attack_cd = 2.4 if unit.kind == "artillery" else (0.75 if unit.kind == "tank" else 1.0)
+				else:
+					unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+				continue
+			var enemy_target := int(unit.get("attack_target", -1))
+			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
+				if unit.has("attack_focus_pos"):
+					enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
+				if enemy_target < 0:
+					enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
 				if enemy_target >= 0:
-					unit.attack_focus_pos = units[enemy_target].pos
-					var enemy: Dictionary = units[enemy_target]
-					var distance: float = unit.pos.distance_to(enemy.pos)
-					var attack_range := 360.0 if unit.kind == "artillery" else 160.0
-					if distance <= attack_range:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							if unit.kind == "artillery":
-								# Telegraph the impact zone and show the muzzle blast before the shell arc.
-								_add_visual_effect("targeting", enemy.pos, enemy.pos, Color("#ffcc70"), 0.46, 76.0)
-								_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
-								_add_visual_effect("shell", unit.pos, enemy.pos, Color("#ffb45e"), 0.42, 66.0)
-								_apply_artillery_blast(enemy.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
-								unit.attack_cd = 2.4
+					unit.attack_target = enemy_target
+			if enemy_target >= 0:
+				unit.attack_focus_pos = units[enemy_target].pos
+				var enemy: Dictionary = units[enemy_target]
+				var distance: float = unit.pos.distance_to(enemy.pos)
+				var attack_range := 360.0 if unit.kind == "artillery" else 160.0
+				if distance <= attack_range:
+					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
+					if unit.attack_cd <= 0.0:
+						if unit.kind == "artillery":
+							# Telegraph the impact zone and show the muzzle blast before the shell arc.
+							_add_visual_effect("targeting", enemy.pos, enemy.pos, Color("#ffcc70"), 0.46, 76.0)
+							_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
+							_add_visual_effect("shell", unit.pos, enemy.pos, Color("#ffb45e"), 0.42, 66.0)
+							_apply_artillery_blast(enemy.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
+							unit.attack_cd = 2.4
+						else:
+							var enemy_hp_before := int(enemy.hp)
+							var shot_damage := _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)
+							if unit.kind == "tank":
+								shot_damage = _player_armor_penetration_damage(enemy, shot_damage, unit.pos)
+							enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, shot_damage))
+							_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
+							_register_unit_kill(unit, enemy, enemy_hp_before)
+							if unit.kind == "tank":
+								var tank_muzzle := unit.pos + Vector2(1.0, 0.0) + Vector2(27.0, 0.0).rotated(_unit_turret_angle(unit))
+								unit["gun_recoil"] = 7.0
+								_add_visual_effect("muzzle", tank_muzzle, tank_muzzle, Color("#ffd58d"), 0.16, 13.0)
+								_add_visual_effect("tank_round", tank_muzzle, enemy.pos, Color("#ffe0a0"), 0.18, 0.0)
 							else:
-								var enemy_hp_before := int(enemy.hp)
-								var shot_damage := _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)
-								if unit.kind == "tank":
-									shot_damage = _player_armor_penetration_damage(enemy, shot_damage, unit.pos)
-								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, shot_damage))
-								_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
-								_register_unit_kill(unit, enemy, enemy_hp_before)
-								if unit.kind == "tank":
-									var tank_muzzle := unit.pos + Vector2(1.0, 0.0) + Vector2(27.0, 0.0).rotated(_unit_turret_angle(unit))
-									unit["gun_recoil"] = 7.0
-									_add_visual_effect("muzzle", tank_muzzle, tank_muzzle, Color("#ffd58d"), 0.16, 13.0)
-									_add_visual_effect("tank_round", tank_muzzle, enemy.pos, Color("#ffe0a0"), 0.18, 0.0)
-								else:
-									_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
-								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
-								if unit.kind == "tank" and String(enemy.get("kind", "")) in ["tank", "artillery"]:
-									_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
-								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
-					else:
-						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
-				elif unit.has("target"):
-					var target: Vector2 = unit.target
-					if unit.pos.distance_to(target) > 8.0:
-						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
+							_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
+							if unit.kind == "tank" and String(enemy.get("kind", "")) in ["tank", "artillery"]:
+								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
+							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+				else:
+					unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+			elif unit.has("target"):
+				var target: Vector2 = unit.target
+				if unit.pos.distance_to(target) > 8.0:
+					unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 		_cleanup_destroyed_units()
 		_resolve_battle_result()
 		_update_unit_facing(delta)
