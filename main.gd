@@ -613,9 +613,13 @@ func _process(delta: float) -> void:
 							unit.pos = landing_spot
 							unit["airfield_landed"] = true
 							if float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
+								# Release the aircraft for a fresh sortie after completing field service.
+								unit["airfield_sortie_ready"] = true
+								unit["airfield_sortie_launch"] = true
 								unit.erase("airfield_returning")
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
+								unit.erase("airfield_recovery_slot")
 					continue
 				if unit.kind == "tank" or unit.kind == "artillery":
 					var landing_support_target = _landing_assault_support_target(unit.pos, "player")
