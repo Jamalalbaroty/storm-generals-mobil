@@ -382,6 +382,20 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[1]["hp"]) == 122, "Destroyer should deal its specialist 78 damage to a detected enemy submarine")
 	_expect(int(game.get("units")[0]["hp"]) == 138, "Submarine should return its 62-damage strike against an enemy destroyer")
 
+	# Mirror the destroyer/submarine duel from the enemy AI side.
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "destroyer", "team": "enemy", "faction": "الصيني",
+		"hp": 200, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "submarine", "team": "player", "faction": "وطن",
+		"hp": 200, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[1]["hp"]) == 122, "Enemy destroyer should retain its 78-damage anti-submarine counter")
+	_expect(int(game.get("units")[0]["hp"]) == 138, "Player submarine should retaliate for its 62-damage specialist strike")
+
 	# Sonar detection must respect destroyer range and remain hidden outside it.
 	game.get("units").clear()
 	var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
