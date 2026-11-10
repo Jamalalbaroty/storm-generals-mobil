@@ -170,6 +170,15 @@ func _initialize() -> void:
 		push_error("Mobile group selection did not retain both live player units")
 		quit(1)
 		return
+	if battlefield.get("group_selection_rings").size() != 1:
+		push_error("Group selection did not create a visible marker for every additional selected unit")
+		quit(1)
+		return
+	var extra_selection_ring = battlefield.get("group_selection_rings")[0]
+	if not is_instance_valid(extra_selection_ring) or not extra_selection_ring.visible:
+		push_error("Additional group selection marker was not visible")
+		quit(1)
+		return
 	var move_screen := camera_for_pick.unproject_position(Vector3(0.0, 0.0, 15.0))
 	if battlefield.call("_screen_to_ground", move_screen) == null:
 		push_error("Mobile move-command test point did not intersect the battlefield")

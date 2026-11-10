@@ -28,6 +28,7 @@ var selection_gesture_dragging := false
 var selected_destination := Vector3.ZERO
 var has_selected_destination := false
 var selection_ring: MeshInstance3D
+var group_selection_rings: Array[MeshInstance3D] = []
 var order_marker: MeshInstance3D
 var touch_start_positions: Dictionary = {}
 var touch_moved: Dictionary = {}
@@ -2195,7 +2196,35 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	attack_target = null
 	has_selected_destination = false
 	selection_ring.visible = is_instance_valid(selected_tank)
+	_refresh_group_selection_rings()
 	order_marker.visible = false
+
+
+func _refresh_group_selection_rings() -> void:
+	for ring in group_selection_rings:
+		if is_instance_valid(ring):
+			ring.queue_free()
+	group_selection_rings.clear()
+	if selected_live_units.size() <= 1:
+		return
+	for index in range(1, selected_live_units.size()):
+		var unit := selected_live_units[index]
+		if not _is_live_player_unit(unit):
+			continue
+		var ring := selection_ring.duplicate() as MeshInstance3D
+		ring.name = "GroupSelectionRing_%d" % index
+		ring.visible = true
+		add_child(ring)
+		group_selection_rings.append(ring)
+
+
+func _selection_ring_scale_for_unit(unit: Node3D) -> float:
+	var unit_type := str(unit.get_meta("unit_type", "tank"))
+	if unit_type == "infantry":
+		return 0.62
+	if unit_type == "helicopter" or unit_type == "fighter":
+		return 1.18
+	return 1.0
 
 func _select_live_units_in_screen_rect(start: Vector2, finish: Vector2) -> void:
 	var bounds := Rect2(start, finish - start).abs()
@@ -2225,6 +2254,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			return
 		selected_tank = tapped_tank
 		selected_live_units.clear()
+		_refresh_group_selection_rings()
 		attack_target = null
 		has_selected_destination = false
 		selection_ring.visible = true
@@ -2424,11 +2454,24 @@ func _update_showcase_orders(delta: float) -> void:
 		selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
 	if not is_instance_valid(selected_tank):
 		selection_ring.visible = false
+		for ring in group_selection_rings:
+			if is_instance_valid(ring):
+				ring.visible = false
 		return
+	if group_selection_rings.size() != maxi(0, selected_live_units.size() - 1):
+		_refresh_group_selection_rings()
+	selection_ring.visible = true
 	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
-	var ring_type := str(selected_tank.get_meta("unit_type", "tank"))
-	var ring_scale := 0.62 if ring_type == "infantry" else (1.18 if ring_type == "helicopter" or ring_type == "fighter" else 1.0)
-	selection_ring.scale = Vector3.ONE * ring_scale
+	selection_ring.scale = Vector3.ONE * _selection_ring_scale_for_unit(selected_tank)
+	for index in range(group_selection_rings.size()):
+		var ring := group_selection_rings[index]
+		var unit_index := index + 1
+		if not is_instance_valid(ring) or unit_index >= selected_live_units.size():
+			continue
+		var unit := selected_live_units[unit_index]
+		ring.visible = true
+		ring.global_position = unit.global_position + Vector3.UP * 0.08
+		ring.scale = Vector3.ONE * _selection_ring_scale_for_unit(unit)
 	# Live RTS units are moved by the authoritative 2D simulation; never move their 3D proxies locally.
 	if _is_live_player_unit(selected_tank) or str(selected_tank.get_meta("source_team", "")) == "enemy":
 		return
