@@ -1786,6 +1786,16 @@ func _faction_rect(i: int, size: Vector2) -> Rect2:
 
 func _input(event: InputEvent) -> void:
 	if use_3d_view:
+		# The result overlay is drawn by the 2D command layer above the 3D
+		# battlefield, so keep its restart button interactive in 3D mode.
+		if battle_result != "":
+			if event is InputEventScreenTouch:
+				_handle_pointer(event.position, event.pressed)
+				get_viewport().set_input_as_handled()
+			elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				_handle_pointer(event.position, event.pressed)
+				get_viewport().set_input_as_handled()
+			return
 		var released := false
 		var pointer_position := Vector2.ZERO
 		if event is InputEventScreenTouch and not event.pressed:
