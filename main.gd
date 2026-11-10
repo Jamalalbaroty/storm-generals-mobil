@@ -3,11 +3,11 @@ extends Node2D
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
-	{"name": "شرارة العاصفة", "map": "الساحل الصحراوي", "brief": "أنشئ قاعدة متينة ودمر مركز قيادة العدو", "reward": 250},
-	{"name": "خطوط الإمداد", "map": "ساحل الغابات", "brief": "سيطر على الموارد وامنع العدو من تثبيت مواقعه", "reward": 350},
-	{"name": "قبضة الجبال", "map": "الساحل الجبلي", "brief": "استخدم الدروع والمدفعية لفتح الطريق نحو القاعدة", "reward": 450},
-	{"name": "حصار الميناء", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية والبحرية لتدمير دفاعات العدو", "reward": 550},
-	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750}
+	{"name": "شرارة العاصفة", "map": "الساحل الصحراوي", "brief": "أنشئ قاعدة متينة ودمر مركز قيادة العدو", "reward": 250, "secondary": "حافظ على سلامة قاعدتك بأكثر من 50٪", "bonus": 100},
+	{"name": "خطوط الإمداد", "map": "ساحل الغابات", "brief": "سيطر على الموارد وامنع العدو من تثبيت مواقعه", "reward": 350, "secondary": "سيطر على نقطتي إمداد على الأقل", "bonus": 150},
+	{"name": "قبضة الجبال", "map": "الساحل الجبلي", "brief": "استخدم الدروع والمدفعية لفتح الطريق نحو القاعدة", "reward": 450, "secondary": "أنشئ أربع منشآت مكتملة على الأقل", "bonus": 175},
+	{"name": "حصار الميناء", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية والبحرية لتدمير دفاعات العدو", "reward": 550, "secondary": "امتلك وحدة جوية ووحدة بحرية حية على الأقل", "bonus": 200},
+	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750, "secondary": "أنه المعركة مع بقاء 60٪ من صحة قاعدتك", "bonus": 300}
 ]
 const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "البحرية"]
 const COMMAND_ACTIONS := [
@@ -720,6 +720,38 @@ func _save_commander_profile() -> void:
 		push_warning("Could not save commander profile: %s" % error_string(save_error))
 
 
+func _campaign_secondary_objective_met() -> bool:
+	match campaign_mission_index:
+		0:
+			return player_base_hp >= 500
+		1:
+			var controlled_points := 0
+			for point in supply_points:
+				if String(point.get("owner", "")) == "player":
+					controlled_points += 1
+			return controlled_points >= 2
+		2:
+			var completed_buildings := 0
+			for building in buildings:
+				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+					completed_buildings += 1
+			return completed_buildings >= 4
+		3:
+			var has_air := false
+			var has_naval := false
+			for unit in units:
+				if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+					continue
+				if String(unit.get("kind", "")) in ["fighter", "helicopter"]:
+					has_air = true
+				if _is_naval_kind(String(unit.get("kind", ""))):
+					has_naval = true
+			return has_air and has_naval
+		4:
+			return player_base_hp >= 600
+	return false
+
+
 func _record_battle_result() -> void:
 	if battle_result == "" or commander_profile_saved_result == battle_result:
 		return
@@ -734,8 +766,13 @@ func _record_battle_result() -> void:
 				progress[faction] = current_progress + 1
 				commander_profile["campaign_progress"] = progress
 				var completed_mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
-				commander_profile["campaign_funds"] = int(commander_profile.get("campaign_funds", 0)) + int(completed_mission.reward)
-				notice = "تم فتح المهمة التالية ومكافأة %d رصيد" % int(completed_mission.reward)
+				var total_reward := int(completed_mission.reward)
+				if _campaign_secondary_objective_met():
+					total_reward += int(completed_mission.get("bonus", 0))
+					notice = "إنجاز ثانوي مكتمل! مكافأة إضافية — إجمالي المكافأة %d" % total_reward
+				else:
+					notice = "تم فتح المهمة التالية ومكافأة %d رصيد" % total_reward
+				commander_profile["campaign_funds"] = int(commander_profile.get("campaign_funds", 0)) + total_reward
 				notice_time = 4.0
 	else:
 		commander_profile["defeats"] = int(commander_profile.get("defeats", 0)) + 1
@@ -1934,8 +1971,9 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 	else:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.39), "العملية %d من %d: %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color.WHITE)
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.47), "المسرح: %s  |  مكافأة الإنجاز: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 14, Color("#c4dce8"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.55), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color("#d8e6c2"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.60), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.53), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color("#d8e6c2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.58), "الهدف الإضافي: %s — مكافأة %d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.63), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
 	for i in CAMPAIGN_MISSIONS.size():
 		var dot_x := size.x * 0.32 + float(i) * size.x * 0.09
 		draw_circle(Vector2(dot_x, size.y * 0.59), 5.0, Color("#a8e6b0") if i < completed else Color("#657477"))
