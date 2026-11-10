@@ -197,6 +197,29 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Replacing a producer with a different building at the same coordinates must cancel the old queue.
+	game.credits = 0
+	game.supplies = 0
+	game.buildings.clear()
+	game.buildings.append({
+		"pos": Vector2(300.0, 300.0),
+		"kind": "barracks",
+		"hp": 400,
+		"build_progress": 1.0
+	})
+	game.production_orders = [{
+		"producer_pos": Vector2(300.0, 300.0),
+		"producer_kind": "factory",
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}]
+	game._update_production_queues(0.1)
+	if not game.production_orders.is_empty() or game.credits != 225 or game.supplies != 1:
+		push_error("A replacement building at the old producer position must not inherit its production order")
+		quit(1)
+		return
+
 	# An existing but unfinished producer must pause, not cancel, its order.
 	game.credits = 0
 	game.supplies = 0
