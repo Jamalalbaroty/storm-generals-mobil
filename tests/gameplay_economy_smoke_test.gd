@@ -263,6 +263,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[1]["hp"]) == 80, "Player tank should deal its real 20-point direct hit through the combat loop")
 
 	game.queue_free()
+	# Allow queued nodes and generated combat effects to leave the tree cleanly.
+	for frame in range(4):
+		await process_frame
 	if failure_count > 0:
 		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
 		quit(1)
