@@ -1093,6 +1093,15 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+	# Removing a selected live unit must also clear selection and stale attack targets.
+	var selected_before_cleanup := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
+	if selected_before_cleanup == null:
+		push_error("Could not locate a friendly live unit for stale-selection cleanup validation")
+		quit(1)
+		return
+	bridge.call("_set_live_selection", [selected_before_cleanup])
+	bridge.set("attack_target", selected_before_cleanup)
+	bridge.set("has_selected_destination", true)
 	var empty_units: Array[Dictionary] = []
 	var empty_buildings: Array[Dictionary] = []
 	var empty_enemy_buildings: Array[Dictionary] = []
@@ -1104,8 +1113,12 @@ func _initialize() -> void:
 		push_error("Live bridge stale cleanup counts: units=%d buildings=%d" % [bridge.game_unit_nodes.size(), bridge.game_building_nodes.size()])
 		quit(1)
 		return
+	if not (bridge.get("selected_live_units") as Array).is_empty() or is_instance_valid(bridge.get("selected_tank")) or is_instance_valid(bridge.get("attack_target")) or bool(bridge.get("has_selected_destination")) or bridge.selection_ring.visible or bridge.order_marker.visible:
+		push_error("Removing a selected live unit left stale selection, attack target, destination, or UI markers")
+		quit(1)
+		return
 
-	print("Live 2D-to-3D gameplay bridge: hidden-by-default state, two-team unit/building sync, health/progress updates, stable identity and stale cleanup passed")
+	print("Live 2D-to-3D gameplay bridge: hidden-by-default state, two-team unit/building sync, health/progress updates, stable identity, stale selection cleanup and stale node cleanup passed")
 	game.queue_free()
 	# Let deferred node destruction and the audio server finish releasing
 	# playback instances before checking for ObjectDB leaks at process exit.
