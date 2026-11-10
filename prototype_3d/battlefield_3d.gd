@@ -744,7 +744,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				if selected_live_units.is_empty() and not is_instance_valid(selected_tank):
 					has_selected_destination = false
 					order_marker.visible = false
-				_spawn_light_unit_wreck(stale_unit)
+				# A stale proxy may have despawned or been removed for non-combat reasons.
+				# Only the authoritative death callback creates a wreck.
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
 	return synced_count
@@ -980,6 +981,27 @@ func _spawn_light_building_debris(world_pos: Vector3, kind: String) -> void:
 	var cleanup := create_tween()
 	cleanup.tween_interval(24.0)
 	cleanup.tween_callback(_remove_light_building_debris.bind(rubble))
+
+
+func spawn_game_unit_destruction_effect(source_pos: Vector2, map_rect: Rect2, kind: String) -> void:
+	# Called only by the authoritative combat cleanup when a gameplay unit reaches zero HP.
+	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
+		return
+	var is_aircraft := kind == "fighter" or kind == "helicopter"
+	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, 0.08)
+	var wreck_source := Node3D.new()
+	wreck_source.global_position = world_pos
+	wreck_source.set_meta("gameplay_unit_kind", kind)
+	wreck_source.set_meta("unit_type", kind)
+	add_child(wreck_source)
+	_spawn_light_unit_wreck(wreck_source)
+	wreck_source.queue_free()
+	_spawn_impact_flash(world_pos, true)
+	if is_aircraft:
+		# Aircraft wrecks settle to the ground instead of remaining at flight altitude.
+		var wreck_variant = gameplay_debris_nodes.back() if not gameplay_debris_nodes.is_empty() else null
+		if is_instance_valid(wreck_variant):
+			(wreck_variant as Node3D).global_position.y = 0.08
 
 
 func _spawn_light_unit_wreck(unit: Node3D) -> void:
