@@ -3337,6 +3337,12 @@ func _enemy_ai_turn() -> void:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75.0, randf_range(-65.0, 65.0)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": enemy_base, "attack_cd": 0.0})
 		return
+	# Restore a minimum armored reserve before spending on optional naval expansion.
+	if _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("tank") and enemy_tanks < 2:
+		enemy_credits -= _unit_cost("tank", _enemy_faction())
+		enemy_supplies -= _unit_supply_cost("tank")
+		units.append({"pos": enemy_base + Vector2(-75.0, randf_range(-75.0, 75.0)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
+		return
 	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("carrier")
