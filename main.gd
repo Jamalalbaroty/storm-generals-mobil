@@ -304,8 +304,9 @@ func _process(delta: float) -> void:
 					_add_visual_effect("tracer", building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"), 0.16, 0.0)
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb34d"), 0.22, 13.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.8
-		for building in enemy_buildings:
-			if float(building.get("build_progress", 1.0)) < 1.0:
+		for defense_index in range(enemy_buildings.size()):
+			var building: Dictionary = enemy_buildings[defense_index]
+			if not _is_enemy_building_powered(defense_index):
 				continue
 			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
