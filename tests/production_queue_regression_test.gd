@@ -14,12 +14,13 @@ func _run() -> void:
 	game.credits = 0
 	game.supplies = 0
 	game.buildings.clear()
-	game.production_orders = [{
+	game.production_orders.clear()
+	game.production_orders.append({
 		"producer_pos": Vector2(300.0, 300.0),
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
-	}]
+	})
 
 	game._update_production_queues(0.1)
 
