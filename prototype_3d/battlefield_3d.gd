@@ -1184,7 +1184,7 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				_create_showcase_health_bar(building)
 				var building_health_bar := building.get_node_or_null("HealthBar") as Node3D
 				if is_instance_valid(building_health_bar):
-					building_health_bar.position.y = 6.2 if kind == "command" else 4.2
+					building_health_bar.position.y = 6.2 if kind == "command" else (3.0 if kind in ["wall", "wall_corner", "wall_gate"] else 4.2)
 			update_game_building_level(building, int(record.get("level", 1)))
 			synced_count += 1
 	for existing_key in game_building_nodes.keys():
