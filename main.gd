@@ -670,11 +670,16 @@ func _cleanup_destroyed_units() -> void:
 		if int(candidate.get("hp", 0)) > 0:
 			old_to_new[old_index] = survivors.size()
 			survivors.append(candidate)
-		elif String(candidate.get("kind", "")) == "tank" and not bool(candidate.get("wreck_effect_spawned", false)):
-			# A destroyed tank leaves a brief blast, smoke and debris at its last position.
-			candidate["wreck_effect_spawned"] = true
-			_add_visual_effect("explosion", candidate.pos, candidate.pos, Color("#d58a4c"), 0.62, 34.0)
-			_spawn_environment_particle(candidate.pos + Vector2(-5.0, -8.0), Vector2(-5.0, -18.0), 13.0, 1.8, Color("#45433f"), "smoke")
+		else:
+			# Death presentation is emitted here, while the authoritative record and its position still exist.
+			if not bool(candidate.get("wreck_effect_spawned", false)):
+				candidate["wreck_effect_spawned"] = true
+				var destroyed_kind := String(candidate.get("kind", "tank"))
+				_add_visual_effect("explosion", candidate.pos, candidate.pos, Color("#d58a4c"), 0.62, 34.0)
+				_spawn_environment_particle(candidate.pos + Vector2(-5.0, -8.0), Vector2(-5.0, -18.0), 13.0, 1.8, Color("#45433f"), "smoke")
+				if is_instance_valid(battlefield_3d) and battlefield_3d.has_method("spawn_game_unit_destruction_effect"):
+					var map_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+					battlefield_3d.call("spawn_game_unit_destruction_effect", candidate.pos, map_rect, destroyed_kind)
 	units = survivors
 	var remapped_selection: Array[int] = []
 	for old_index in selected:
