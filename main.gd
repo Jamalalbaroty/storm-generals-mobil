@@ -1574,6 +1574,10 @@ func _unit_facing_angle(unit: Dictionary) -> float:
 	return float(unit.get("facing", _unit_weapon_angle(unit)))
 
 
+func _unit_turret_angle(unit: Dictionary) -> float:
+	return float(unit.get("turret_facing", _unit_weapon_angle(unit)))
+
+
 func _update_unit_facing(delta: float) -> void:
 	for unit in units:
 		var current_pos: Vector2 = unit.pos
@@ -1583,6 +1587,10 @@ func _update_unit_facing(delta: float) -> void:
 			var desired_angle = movement.angle()
 			var current_angle := float(unit.get("facing", desired_angle))
 			unit.facing = lerp_angle(current_angle, desired_angle, clampf(delta * 9.0, 0.0, 1.0))
+		if String(unit.get("team", "")) == "player" and String(unit.get("kind", "")) == "tank":
+			var desired_turret_angle := _unit_weapon_angle(unit)
+			var current_turret_angle := float(unit.get("turret_facing", desired_turret_angle))
+			unit.turret_facing = lerp_angle(current_turret_angle, desired_turret_angle, clampf(delta * 5.5, 0.0, 1.0))
 		unit.visual_previous_pos = current_pos
 
 
@@ -1697,7 +1705,7 @@ func _draw() -> void:
 				draw_circle(_unit_rotated_point(u.pos, Vector2(-12 + wheel * 8, 11), facing), 3.2, Color("#69736f"))
 				draw_circle(_unit_rotated_point(u.pos, Vector2(-12 + wheel * 8, -11), facing), 3.2, Color("#69736f"))
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(19, 16), facing), Color("#3d4a45"))
-			var tank_aim := _unit_weapon_angle(u)
+			var tank_aim := _unit_turret_angle(u)
 			var turret_center := _unit_rotated_point(u.pos, Vector2(1, 0), facing)
 			draw_circle(turret_center, 7, Color("#7f927f"))
 			draw_line(_unit_rotated_point(turret_center, Vector2(3, 0), tank_aim), _unit_rotated_point(turret_center, Vector2(28, 0), tank_aim), Color("#252c2c"), 5)
@@ -4222,7 +4230,7 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
-	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": []}
+	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
 		spawned_unit["landing_state"] = "outbound"
