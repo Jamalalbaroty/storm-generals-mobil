@@ -275,6 +275,51 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Power priority: defensive structures take precedence over production buildings.
+	game.buildings.clear()
+	game.production_orders.clear()
+	game.buildings.append({"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0})
+	game.buildings.append({"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0})
+	game.buildings.append({"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0})
+	game.buildings.append({"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0, "production_id": 77})
+	if game._player_power_capacity() != 8 or game._player_power_demand() != 10:
+		push_error("Power capacity and demand totals should include completed buildings only")
+		quit(1)
+		return
+	if game._is_player_building_powered(3):
+		push_error("Production factory should lose power when higher-priority defenses consume the grid")
+		quit(1)
+		return
+	game.production_orders = [{
+		"producer_pos": Vector2(400.0, 100.0),
+		"producer_kind": "factory",
+		"producer_id": 77,
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}]
+	game._update_production_queues(1.0)
+	if not is_equal_approx(float(game.production_orders[0].remaining), 3.0):
+		push_error("Production must pause while its factory is unpowered")
+		quit(1)
+		return
+	# A completed power plant restores production; an unfinished plant must not add capacity.
+	game.buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 0.5})
+	if game._player_power_capacity() != 8:
+		push_error("An unfinished power plant must not contribute grid capacity")
+		quit(1)
+		return
+	game.buildings[4]["build_progress"] = 1.0
+	if game._player_power_capacity() != 22 or not game._is_player_building_powered(3):
+		push_error("Completing a power plant should restore power to production")
+		quit(1)
+		return
+	game._update_production_queues(1.0)
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.0):
+		push_error("Production should resume after grid power is restored")
+		quit(1)
+		return
+
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
