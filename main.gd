@@ -2328,7 +2328,12 @@ func _update_building_construction(delta: float) -> void:
 			continue
 		var builder_near := false
 		for worker in units:
-			if worker.team == "player" and worker.kind == "builder" and int(worker.get("hp", 0)) > 0 and worker.pos.distance_to(building.pos) <= 48.0:
+			if worker.team != "player" or worker.kind != "builder" or int(worker.get("hp", 0)) <= 0:
+				continue
+			var assigned_target: Vector2 = worker.get("build_target", Vector2(-9999, -9999))
+			if assigned_target.distance_to(building.pos) >= 4.0:
+				continue
+			if worker.pos.distance_to(building.pos) <= 48.0:
 				builder_near = true
 				break
 		if not builder_near:
