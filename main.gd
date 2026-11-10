@@ -282,13 +282,7 @@ func _process(delta: float) -> void:
 		_update_submarine_detection()
 		_update_missiles(delta)
 		_update_combat_alerts()
-		if enemy_base_hp <= 0:
-			battle_result = "انتصرت! دمرت قاعدة العدو"
-			queue_redraw()
-			return
-		if player_base_hp <= 0:
-			battle_result = "هُزمت! سقطت قاعدتك"
-			queue_redraw()
+		if _resolve_battle_result():
 			return
 		enemy_income_timer += delta
 		if enemy_income_timer >= 1.0:
@@ -761,8 +755,24 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(target) > 8.0:
 						unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
 		_cleanup_destroyed_units()
+		_resolve_battle_result()
 		_update_unit_facing(delta)
 		queue_redraw()
+
+
+func _resolve_battle_result() -> bool:
+	# Resolve base destruction after combat as well as before simulation.
+	# This prevents a one-frame delay after the final attack lands.
+	if battle_result != "":
+		return true
+	if enemy_base_hp <= 0:
+		battle_result = "انتصرت! دمرت قاعدة العدو"
+	elif player_base_hp <= 0:
+		battle_result = "هُزمت! سقطت قاعدتك"
+	else:
+		return false
+	queue_redraw()
+	return true
 
 
 func _cleanup_destroyed_units() -> void:
