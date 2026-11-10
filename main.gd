@@ -2990,7 +2990,7 @@ func _update_field_repairs(delta: float) -> void:
 		if nearest_tank_index < 0 or credits <= 0:
 			continue
 		var tank: Dictionary = units[nearest_tank_index]
-		builder["field_repair_work"] = float(builder.get("field_repair_work", 0.0)) + delta * 6.0
+		builder["field_repair_work"] = minf(3.0, float(builder.get("field_repair_work", 0.0)) + delta * 6.0)
 		var repair_points := mini(int(floor(float(builder.field_repair_work))), 150 - int(tank.hp))
 		if repair_points <= 0:
 			continue
