@@ -2306,7 +2306,7 @@ func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spac
 
 
 func _is_live_player_unit(unit: Node3D) -> bool:
-	return is_instance_valid(unit) and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
+	return is_instance_valid(unit) and not unit.is_queued_for_deletion() and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
 
 func _tank_at_screen_position(screen_position: Vector2) -> Node3D:
 	if not is_instance_valid(rts_camera):

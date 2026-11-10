@@ -114,7 +114,13 @@ func _initialize() -> void:
 	# A unit queued for deletion must never remain a tap target during the
 	# frame before Godot actually frees its node.
 	var stale_pick_target := Node3D.new()
+	stale_pick_target.set_meta("source_team", "player")
+	stale_pick_target.set_meta("source_unit_key", "player|stale|tank")
 	battlefield.add_child(stale_pick_target)
+	if not battlefield.call("_is_live_player_unit", stale_pick_target):
+		push_error("A valid live player unit was rejected before deletion")
+		quit(1)
+		return
 	var camera_for_pick := battlefield.get("rts_camera") as Camera3D
 	var offscreen_pick := Vector2(-1000.0, -1000.0)
 	stale_pick_target.global_position = camera_for_pick.project_ray_origin(offscreen_pick) + camera_for_pick.project_ray_normal(offscreen_pick) * 10.0
@@ -122,6 +128,16 @@ func _initialize() -> void:
 	# the visible arena so no other unit can satisfy this pick coordinate.
 	battlefield.showcase_tanks.append(stale_pick_target)
 	stale_pick_target.queue_free()
+	if battlefield.call("_is_live_player_unit", stale_pick_target):
+		push_error("Queued-for-deletion player unit was still considered selectable")
+		quit(1)
+		return
+	var stale_selection: Array[Node3D] = [stale_pick_target]
+	battlefield.call("_set_live_selection", stale_selection)
+	if not battlefield.get("selected_live_units").is_empty() or battlefield.get("selected_tank") != null:
+		push_error("Group selection retained a unit queued for deletion")
+		quit(1)
+		return
 	if battlefield.call("_tank_at_screen_position", offscreen_pick) != null:
 		push_error("Touch selection returned a unit already queued for deletion")
 		quit(1)
