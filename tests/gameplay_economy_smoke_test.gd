@@ -262,6 +262,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[1]["hp"]) == 80, "Player tank should deal its real 20-point direct hit through the combat loop")
 
+	# Stop and release generated audio resources before freeing the test scene.
+	for audio_player in game.get("audio_players"):
+		audio_player.stop()
+	(game.get("audio_players") as Array).clear()
+	(game.get("audio_streams") as Dictionary).clear()
 	game.queue_free()
 	# Allow queued nodes and generated combat effects to leave the tree cleanly.
 	for frame in range(4):
