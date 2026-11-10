@@ -237,7 +237,7 @@ func _run() -> void:
 		push_error("Restart must return to faction selection and clear stale production orders")
 		quit(1)
 		return
-	if game.credits != game.STARTING_CREDITS or game.player_base_hp != 1000 or game.enemy_base_hp != 1000:
+	if game.credits != 1200 or game.player_base_hp != 1000 or game.enemy_base_hp != 1000:
 		push_error("Restart must restore the initial economy and both base health values")
 		quit(1)
 		return
