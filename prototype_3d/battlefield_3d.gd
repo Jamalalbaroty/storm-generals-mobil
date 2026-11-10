@@ -711,6 +711,7 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				building.set_meta("faction_id", _normalize_faction_id(String(team_data.faction)))
 				building.set_meta("source_team", String(team_data.team))
 				update_game_building_progress(building, float(record.get("build_progress", 1.0)))
+			update_game_building_level(building, int(record.get("level", 1)))
 			synced_count += 1
 	for existing_key in game_building_nodes.keys():
 		if not active_keys.has(existing_key):
@@ -720,6 +721,39 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				stale_building.queue_free()
 			game_building_nodes.erase(existing_key)
 	return synced_count
+
+func update_game_building_level(building: Node3D, upgrade_level: int) -> void:
+	if not is_instance_valid(building):
+		return
+	var level := clampi(upgrade_level, 1, 3)
+	building.set_meta("upgrade_level", level)
+	if String(building.get_meta("building_kind", "")) != "bunker":
+		return
+	if level >= 2 and building.get_node_or_null("UpgradeArmorL2") == null:
+		var armor_plate := MeshInstance3D.new()
+		armor_plate.name = "UpgradeArmorL2"
+		var armor_mesh := BoxMesh.new()
+		armor_mesh.size = Vector3(0.28, 0.34, 5.7)
+		armor_plate.mesh = armor_mesh
+		armor_plate.position = Vector3(-2.72, 2.38, 0.0)
+		armor_plate.material_override = _make_armour_material(Color(0.48, 0.52, 0.48))
+		building.add_child(armor_plate)
+		var second_plate := MeshInstance3D.new()
+		second_plate.name = "UpgradeArmorL2Right"
+		second_plate.mesh = armor_mesh.duplicate()
+		second_plate.position = Vector3(2.72, 2.38, 0.0)
+		second_plate.material_override = _make_armour_material(Color(0.48, 0.52, 0.48))
+		building.add_child(second_plate)
+	if level >= 3 and building.get_node_or_null("UpgradeArmorL3") == null:
+		var command_plate := MeshInstance3D.new()
+		command_plate.name = "UpgradeArmorL3"
+		var command_mesh := BoxMesh.new()
+		command_mesh.size = Vector3(5.6, 0.30, 0.32)
+		command_plate.mesh = command_mesh
+		command_plate.position = Vector3(0.0, 2.55, 0.0)
+		command_plate.material_override = _make_armour_material(Color(0.62, 0.56, 0.40))
+		building.add_child(command_plate)
+
 
 func update_game_building_progress(building: Node3D, build_progress: float) -> void:
 	if not is_instance_valid(building):
