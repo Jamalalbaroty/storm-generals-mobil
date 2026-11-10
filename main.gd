@@ -215,8 +215,16 @@ func _sync_3d_gameplay_bridge() -> void:
 		return
 	var map_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
 	battlefield_3d.call("sync_game_units", units, map_rect)
+	# Supply authoritative maximum HP so player upgrades and faction-specific enemy structures render accurately.
+	for building in buildings:
+		if building is Dictionary:
+			building["max_hp"] = _building_max_hp(building)
+	for building in enemy_buildings:
+		if building is Dictionary:
+			building["max_hp"] = _enemy_building_max_hp(building)
 	var enemy_faction_id := _enemy_faction()
 	battlefield_3d.call("sync_game_buildings", buildings, enemy_buildings, map_rect, faction, enemy_faction_id)
+	battlefield_3d.call("sync_game_production_orders", production_orders)
 
 
 func _set_3d_view_enabled(enabled: bool) -> void:
