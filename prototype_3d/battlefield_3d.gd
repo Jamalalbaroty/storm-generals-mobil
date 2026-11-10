@@ -867,6 +867,37 @@ func _update_gameplay_building_damage_visuals(building: Node3D, current_hp: floa
 		smoke.lifetime = 1.7
 
 
+func spawn_game_building_destruction_effect(source_pos: Vector2, map_rect: Rect2, kind: String) -> void:
+	# One-shot destruction burst at the authoritative 2D building position.
+	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
+		return
+	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, 0.35)
+	var blast := MeshInstance3D.new()
+	blast.name = "BuildingDestructionBurst"
+	var blast_mesh := SphereMesh.new()
+	blast_mesh.radius = 1.0
+	blast_mesh.height = 2.0
+	blast_mesh.radial_segments = 12
+	blast_mesh.rings = 8
+	blast.mesh = blast_mesh
+	blast.position = world_pos + Vector3.UP * (0.8 if kind != "command" else 1.5)
+	blast.scale = Vector3.ONE * (1.25 if kind != "command" else 1.8)
+	var blast_material := StandardMaterial3D.new()
+	blast_material.albedo_color = Color(1.0, 0.43, 0.12, 0.92)
+	blast_material.emission_enabled = true
+	blast_material.emission = Color(1.0, 0.25, 0.06)
+	blast_material.emission_energy_multiplier = 2.4
+	blast_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	blast_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	blast.material_override = blast_material
+	add_child(blast)
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(blast, "scale", blast.scale * 3.2, 0.42)
+	tween.tween_property(blast_material, "albedo_color:a", 0.0, 0.42)
+	tween.chain().tween_callback(blast.queue_free)
+
+
 func _gameplay_max_health_for_building(kind: String) -> float:
 	match kind:
 		"bunker":
