@@ -1128,6 +1128,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("game_started", true)
 	game.set("paused", false)
 	game.set("battle_result", "")
+	game.set("player_base_hp", 1000)
+	game.set("enemy_base_hp", 1000)
 	game.set("faction", "الأمريكي")
 	game.set("credits", 100)
 	game.set("supplies", 0)
