@@ -1403,8 +1403,10 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 			preferred_distance = lock_distance
 			preferred_score = score
 			preferred_index = candidate_index
-	# Keep the current focus when a new candidate is only marginally better; switch decisively for a major threat change.
-	if preferred_index >= 0 and preferred_score <= best_score + 45.0:
+	# Keep the current focus while it remains tactically relevant; a wider hysteresis window
+	# prevents the formation from oscillating between nearby targets as units move.
+	# A clearly more dangerous target still overrides the lock immediately.
+	if preferred_index >= 0 and preferred_score <= best_score + 60.0:
 		return preferred_index
 	return best_index
 
