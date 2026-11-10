@@ -2059,6 +2059,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		return
 	if drag_start.distance_to(pos) > 24.0:
 		selected_enemy_building = -1
+		selected_player_building = -1
 		selected.clear()
 		var area := Rect2(drag_start, pos - drag_start).abs()
 		for i in units.size():
