@@ -1139,6 +1139,10 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 					# Ground vehicles and infantry cannot pass through solid defensive structures.
 					var structure_radius := 22.0 if kind in ["bunker", "missile_silo"] else (19.0 if kind == "missile_defense" else 16.0)
 					resolved = _fortification_resolve_circle(resolved, previous, fortification.pos, collision_radius + structure_radius)
+				elif kind in ["command", "barracks", "factory", "power_plant", "supply_depot", "airfield"]:
+					# Main base buildings occupy physical ground space; the airfield gets a wider apron clearance.
+					var structure_radius := 39.0 if kind == "airfield" else (27.0 if kind == "command" else 24.0)
+					resolved = _fortification_resolve_circle(resolved, previous, fortification.pos, collision_radius + structure_radius)
 				previous = resolved
 		unit.pos = resolved
 		units[unit_index] = unit
