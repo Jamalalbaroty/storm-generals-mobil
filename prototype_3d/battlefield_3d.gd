@@ -1460,6 +1460,25 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		bunker_emblem.position = Vector3(0.0, 2.42, -3.18)
 		bunker_emblem.material_override = _make_armour_material(faction_accent)
 		building.add_child(bunker_emblem)
+		# Low-profile perimeter berm and segmented sandbag revetments, Zero Hour-inspired.
+		var bunker_berm := MeshInstance3D.new()
+		bunker_berm.name = "BunkerPerimeterBerm"
+		var berm_mesh := BoxMesh.new()
+		berm_mesh.size = Vector3(9.4, 0.34, 8.2)
+		bunker_berm.mesh = berm_mesh
+		bunker_berm.position = Vector3(0.0, 0.16, 0.0)
+		bunker_berm.material_override = _make_armour_material(Color(0.36, 0.31, 0.23))
+		building.add_child(bunker_berm)
+		for barricade_side in [-1.0, 1.0]:
+			for barricade_index in range(3):
+				var sandbag := MeshInstance3D.new()
+				var sandbag_mesh := BoxMesh.new()
+				sandbag_mesh.size = Vector3(1.45, 0.48, 0.58)
+				sandbag.mesh = sandbag_mesh
+				sandbag.position = Vector3(-1.55 + float(barricade_index) * 1.55, 0.42, barricade_side * 4.05)
+				sandbag.rotation.y = 0.025 * float(barricade_index - 1)
+				sandbag.material_override = _make_armour_material(Color(0.52, 0.43, 0.30) if faction_id == "arab" else Color(0.39, 0.40, 0.35))
+				building.add_child(sandbag)
 	for side in [-1.0, 1.0]:
 		var window := MeshInstance3D.new()
 		var window_mesh := BoxMesh.new()
@@ -1553,6 +1572,16 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			gun_shield.material_override = _make_armour_material(tint.darkened(0.24))
 			gun_shield.position.y -= weapon_pivot.position.y
 			weapon_pivot.add_child(gun_shield)
+			var turret_base_ring := MeshInstance3D.new()
+			turret_base_ring.name = "TurretReinforcedEmplacement"
+			var emplacement_mesh := CylinderMesh.new()
+			emplacement_mesh.top_radius = 1.62
+			emplacement_mesh.bottom_radius = 1.92
+			emplacement_mesh.height = 0.38
+			turret_base_ring.mesh = emplacement_mesh
+			turret_base_ring.position = Vector3(0.0, 2.95, 0.0)
+			turret_base_ring.material_override = _make_armour_material(tint.darkened(0.30))
+			building.add_child(turret_base_ring)
 			if faction_id == "american":
 				var range_finder := MeshInstance3D.new()
 				var finder_mesh := BoxMesh.new()
