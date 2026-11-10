@@ -1508,7 +1508,7 @@ func _draw() -> void:
 			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
 		if building_index == selected_enemy_building:
 			draw_arc(building.pos, 39.0, 0.0, TAU, 48, Color("#ffe27a"), 3.0)
-		_draw_building_health(building.pos, int(building.get("hp", 400)))
+		_draw_building_health(building.pos, int(building.get("hp", 400)), _building_max_hp(building))
 		if float(building.get("capture_progress", 0.0)) > 0.0:
 			_draw_capture_progress(building.pos, float(building.capture_progress))
 	for i in units.size():
@@ -1947,6 +1947,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				enemy_buildings.clear()
 				selected.clear()
 				selected_enemy_building = -1
+				selected_player_building = -1
 				dragging = false
 				visual_effects.clear()
 				environment_particles.clear()
