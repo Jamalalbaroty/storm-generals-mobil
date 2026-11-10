@@ -1075,5 +1075,8 @@ func _initialize() -> void:
 
 	print("Live 2D-to-3D gameplay bridge: hidden-by-default state, two-team unit/building sync, health/progress updates, stable identity and stale cleanup passed")
 	game.queue_free()
-	await process_frame
+	# Let deferred node destruction and the audio server finish releasing
+	# playback instances before checking for ObjectDB leaks at process exit.
+	for cleanup_frame in range(4):
+		await process_frame
 	quit(0)
