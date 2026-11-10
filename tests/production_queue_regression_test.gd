@@ -11,6 +11,22 @@ func _run() -> void:
 	await process_frame
 
 	game.faction = "الأمريكي"
+	if game._unit_cost("tank", "الصيني") != 270:
+		push_error("Chinese armor cost profile was not applied")
+		quit(1)
+		return
+	if game._unit_cost("infantry", "الجيش العربي") != 90 or game._unit_cost("artillery", "الجيش العربي") != 430:
+		push_error("Arab infantry/artillery cost profile was not applied")
+		quit(1)
+		return
+	if game._unit_cost("tank", "وطن") <= game._unit_cost("tank", "الأمريكي"):
+		push_error("Watan elite armor must carry a higher production cost")
+		quit(1)
+		return
+	if game._unit_cost("fighter", "وطن") <= game._unit_cost("fighter", "الأمريكي"):
+		push_error("Watan elite aircraft must carry a higher production cost")
+		quit(1)
+		return
 	game.credits = 0
 	game.supplies = 0
 	game.buildings.clear()
