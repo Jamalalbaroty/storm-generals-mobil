@@ -81,6 +81,23 @@ func _ready() -> void:
 	_build_tactical_radar_hud()
 	_setup_engine_audio()
 
+func _exit_tree() -> void:
+	# Stop every generated playback before releasing its stream resources.
+	# The live bridge smoke test exercises combat audio and destroys the scene
+	# immediately afterwards, so relying on natural playback completion leaks
+	# AudioStreamPlayback instances at headless shutdown.
+	for audio_node in find_children("*", "AudioStreamPlayer3D", true, false):
+		var player := audio_node as AudioStreamPlayer3D
+		if player == null:
+			continue
+		player.stop()
+		player.stream = null
+	if is_instance_valid(combat_fire_audio):
+		combat_fire_audio = null
+	if is_instance_valid(combat_impact_audio):
+		combat_impact_audio = null
+	engine_audio_player = null
+
 func _process(delta: float) -> void:
 	turret_scan_clock += delta
 	for i in range(showcase_turrets.size()):
