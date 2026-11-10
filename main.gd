@@ -223,6 +223,24 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("attack_building")
 		notice = "أمر حركة صادر من القيادة ثلاثية الأبعاد"
 		notice_time = 1.6
+	elif order_type == "patrol":
+		if String(source_unit.get("kind", "")) not in ["fighter", "helicopter"]:
+			return
+		var patrol_map_size := get_viewport_rect().size
+		var patrol_world_limit := 42.0 * 0.38
+		var patrol_nx := clampf((world_position.x + patrol_world_limit) / (patrol_world_limit * 2.0), 0.0, 1.0)
+		var patrol_ny := clampf((world_position.z + patrol_world_limit) / (patrol_world_limit * 2.0), 0.0, 1.0)
+		var patrol_destination := Vector2(patrol_nx * patrol_map_size.x, patrol_ny * patrol_map_size.y)
+		_cancel_airfield_recovery(source_unit)
+		source_unit["air_patrol_points"] = [source_unit.pos, patrol_destination]
+		source_unit["air_patrol_index"] = 1
+		source_unit.erase("target")
+		source_unit.erase("attack_target")
+		source_unit.erase("attack_focus_pos")
+		source_unit.erase("attack_building")
+		source_unit.erase("attack_base")
+		notice = "دورية جوية مفعّلة بين نقطتين"
+		notice_time = 1.8
 	elif order_type == "attack":
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
@@ -710,6 +728,15 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
 						continue
+					if unit.has("air_patrol_points") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
+						var patrol_points: Array = unit.get("air_patrol_points", [])
+						if patrol_points.size() >= 2:
+							var patrol_threat_kinds := ["fighter", "helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+						var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
+						if patrol_threat >= 0:
+							unit["attack_target"] = patrol_threat
+							unit["attack_focus_pos"] = units[patrol_threat].pos
+							unit["air_patrol_resume"] = true
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
@@ -741,6 +768,15 @@ func _process(delta: float) -> void:
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN if unit.kind == "fighter" else _helicopter_cooldown(unit)
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+					elif unit.has("air_patrol_points"):
+						var active_patrol_points: Array = unit.get("air_patrol_points", [])
+						if active_patrol_points.size() >= 2:
+							var patrol_index := clampi(int(unit.get("air_patrol_index", 1)), 0, 1)
+							var patrol_waypoint: Vector2 = active_patrol_points[patrol_index]
+							if unit.pos.distance_to(patrol_waypoint) > 12.0:
+								unit.pos += (patrol_waypoint - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+							else:
+								unit["air_patrol_index"] = 0 if patrol_index == 1 else 1
 					elif unit.has("target"):
 						var air_move_target: Vector2 = unit.target
 						if unit.pos.distance_to(air_move_target) > 10.0:
