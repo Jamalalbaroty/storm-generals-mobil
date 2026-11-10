@@ -585,7 +585,13 @@ func _process(delta: float) -> void:
 								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, shot_damage))
 								_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
 								_register_unit_kill(unit, enemy, enemy_hp_before)
-								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
+								if unit.kind == "tank":
+									var tank_muzzle := unit.pos + Vector2(1.0, 0.0) + Vector2(27.0, 0.0).rotated(_unit_turret_angle(unit))
+									unit["gun_recoil"] = 7.0
+									_add_visual_effect("muzzle", tank_muzzle, tank_muzzle, Color("#ffd58d"), 0.16, 13.0)
+									_add_visual_effect("tank_round", tank_muzzle, enemy.pos, Color("#ffe0a0"), 0.18, 0.0)
+								else:
+									_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
 								if unit.kind == "tank" and String(enemy.get("kind", "")) in ["tank", "artillery"]:
 									_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
@@ -1591,6 +1597,7 @@ func _update_unit_facing(delta: float) -> void:
 			var desired_turret_angle := _unit_weapon_angle(unit)
 			var current_turret_angle := float(unit.get("turret_facing", desired_turret_angle))
 			unit.turret_facing = lerp_angle(current_turret_angle, desired_turret_angle, clampf(delta * 5.5, 0.0, 1.0))
+			unit["gun_recoil"] = move_toward(float(unit.get("gun_recoil", 0.0)), 0.0, delta * 34.0)
 		unit.visual_previous_pos = current_pos
 
 
@@ -1707,8 +1714,9 @@ func _draw() -> void:
 			draw_colored_polygon(_rotated_rect_points(u.pos, Vector2(19, 16), facing), Color("#3d4a45"))
 			var tank_aim := _unit_turret_angle(u)
 			var turret_center := _unit_rotated_point(u.pos, Vector2(1, 0), facing)
+			var gun_recoil := float(u.get("gun_recoil", 0.0))
 			draw_circle(turret_center, 7, Color("#7f927f"))
-			draw_line(_unit_rotated_point(turret_center, Vector2(3, 0), tank_aim), _unit_rotated_point(turret_center, Vector2(28, 0), tank_aim), Color("#252c2c"), 5)
+			draw_line(_unit_rotated_point(turret_center, Vector2(3, 0), tank_aim), _unit_rotated_point(turret_center, Vector2(28.0 - gun_recoil, 0), tank_aim), Color("#252c2c"), 5)
 			draw_line(_unit_rotated_point(turret_center, Vector2(-13, -5), tank_aim), _unit_rotated_point(turret_center, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
 			draw_circle(_unit_rotated_point(turret_center, Vector2(-1, -5), tank_aim), 2.5, Color("#d5c99d"))
 		elif u.kind == "artillery":
@@ -1798,6 +1806,13 @@ func _draw() -> void:
 			draw_circle(shell_position + Vector2(2.0, 3.0), 5.0, Color(0.18, 0.16, 0.14, fade * 0.48))
 			draw_circle(shell_position, 3.6, Color(1.0, 0.82, 0.48, fade))
 			draw_circle(shell_position, 1.5, Color(1.0, 0.98, 0.82, fade))
+		elif effect.kind == "tank_round":
+			# Fast, compact tank projectile with a bright core and short exhaust trail.
+			var round_position: Vector2 = effect.start.lerp(effect.finish, progress)
+			var round_direction := (effect.finish - effect.start).normalized()
+			draw_line(round_position - round_direction * 11.0, round_position, Color(1.0, 0.68, 0.32, fade * 0.62), 3.0)
+			draw_circle(round_position, 3.2, Color(1.0, 0.83, 0.48, fade))
+			draw_circle(round_position, 1.4, Color(1.0, 0.98, 0.82, fade))
 		elif effect.kind == "tracer":
 			# Two-pass tracer: a soft colored halo beneath a crisp hot core.
 			var tracer_tint := Color(tint.r, tint.g, tint.b, fade * 0.24)
