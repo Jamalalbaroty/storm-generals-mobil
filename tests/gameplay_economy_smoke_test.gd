@@ -122,9 +122,24 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_handle_pointer", barracks_site, false)
 	_expect(game.get("buildings").size() == 1 and String(game.get("buildings")[0].get("kind", "")) == "barracks", "Build command should place a barracks at a valid tapped site")
 	if not game.get("buildings").is_empty():
+		# Construction must pause unless a living builder remains within 48 units.
+		game.get("units")[0]["pos"] = barracks_site + Vector2(60.0, 0.0)
+		game.call("_update_building_construction", 2.0)
+		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.0), "Construction should not advance while the builder is outside its work radius")
+		game.get("units")[0]["pos"] = barracks_site + Vector2(30.0, 0.0)
+		game.call("_update_building_construction", 2.0)
+		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "A nearby living builder should advance construction proportionally")
+		game.get("units")[0]["pos"] = barracks_site + Vector2(80.0, 0.0)
+		game.call("_update_building_construction", 2.0)
+		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "Construction should pause when the builder leaves the work radius")
 		game.get("units")[0]["pos"] = barracks_site
-		game.call("_update_building_construction", 8.0)
-		_expect(float(game.get("buildings")[0].get("build_progress", 0.0)) >= 1.0, "Builder should complete the placed barracks")
+		game.get("units")[0]["hp"] = 0
+		game.call("_update_building_construction", 2.0)
+		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "A destroyed builder must not advance construction")
+		game.get("units")[0]["hp"] = 220
+		game.call("_update_building_construction", 6.0)
+		_expect(float(game.get("buildings")[0].get("build_progress", 0.0)) >= 1.0, "A living builder returning to the site should finish the remaining construction")
+		_expect(not game.get("units")[0].has("build_target"), "The builder should be released from its completed construction assignment")
 		var infantry_credits_before: int = int(game.get("credits"))
 		var infantry_supplies_before: int = int(game.get("supplies"))
 		game.call("_enqueue_unit", "infantry")
