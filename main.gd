@@ -106,9 +106,21 @@ var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
 var command_tab := 0
+var commander_profile: Dictionary = {
+	"battles_played": 0,
+	"victories": 0,
+	"defeats": 0,
+	"total_kills": 0,
+	"air_kills": 0,
+	"armor_kills": 0,
+	"naval_kills": 0,
+	"earned_medals": []
+}
+var commander_profile_saved_result := ""
 
 func _ready() -> void:
 	randomize()
+	_load_commander_profile()
 	_setup_battle_audio()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
@@ -573,6 +585,7 @@ func _resolve_battle_result() -> bool:
 		battle_result = "هُزمت! سقطت قاعدتك"
 	else:
 		return false
+	_record_battle_result()
 	queue_redraw()
 	return true
 
@@ -676,6 +689,38 @@ func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	return maxi(1, roundi(float(base_damage) * multiplier))
 
 
+func _load_commander_profile() -> void:
+	var config := ConfigFile.new()
+	var load_error := config.load("user://storm_generals_profile.cfg")
+	if load_error != OK:
+		return
+	var stored: Variant = config.get_value("commander", "profile", {})
+	if stored is Dictionary:
+		for key in commander_profile:
+			if stored.has(key):
+				commander_profile[key] = stored[key]
+
+
+func _save_commander_profile() -> void:
+	var config := ConfigFile.new()
+	config.set_value("commander", "profile", commander_profile)
+	var save_error := config.save("user://storm_generals_profile.cfg")
+	if save_error != OK:
+		push_warning("Could not save commander profile: %s" % error_string(save_error))
+
+
+func _record_battle_result() -> void:
+	if battle_result == "" or commander_profile_saved_result == battle_result:
+		return
+	commander_profile_saved_result = battle_result
+	commander_profile["battles_played"] = int(commander_profile.get("battles_played", 0)) + 1
+	if enemy_base_hp <= 0:
+		commander_profile["victories"] = int(commander_profile.get("victories", 0)) + 1
+	else:
+		commander_profile["defeats"] = int(commander_profile.get("defeats", 0)) + 1
+	_save_commander_profile()
+
+
 func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_before: int) -> void:
 	if String(attacker.get("team", "")) != "player" or target_hp_before <= 0 or int(target.get("hp", 0)) > 0:
 		return
@@ -707,8 +752,21 @@ func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_bef
 	if earned != "":
 		medals.append(earned)
 		attacker["combat_medals"] = medals
+		var career_medals: Array = commander_profile.get("earned_medals", [])
+		if not career_medals.has(earned):
+			career_medals.append(earned)
+			commander_profile["earned_medals"] = career_medals
 		notice = "وسام جديد: %s" % earned
 		notice_time = 3.0
+	var profile_kinds := {
+		"total_kills": 1,
+		"air_kills": 1 if target_kind in ["fighter", "helicopter"] else 0,
+		"armor_kills": 1 if target_kind in ["tank", "artillery"] else 0,
+		"naval_kills": 1 if _is_naval_kind(target_kind) else 0
+	}
+	for profile_key in profile_kinds:
+		commander_profile[profile_key] = int(commander_profile.get(profile_key, 0)) + int(profile_kinds[profile_key])
+	_save_commander_profile()
 
 
 func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
