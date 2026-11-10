@@ -282,6 +282,15 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(replacement_index >= 0, "Enemy AI should restore its barracks before optional structures")
 	_expect(float(rebuilt[replacement_index].get("build_progress", 1.0)) == 0.0, "Enemy replacement barracks should begin under construction")
 	_expect(not game.call("_enemy_has_building", "barracks"), "Enemy production must not use a barracks before construction completes")
+	# A second AI decision while the replacement is still under construction
+	# must not purchase and place another copy of the same structure.
+	game.call("_enemy_ai_turn")
+	var barracks_in_progress_count := 0
+	for structure in game.get("enemy_buildings"):
+		if String(structure.get("kind", "")) == "barracks" and int(structure.get("hp", 0)) > 0:
+			barracks_in_progress_count += 1
+	_expect(barracks_in_progress_count == 1, "Enemy AI must not queue duplicate barracks while one is under construction")
+	_expect(not game.call("_enemy_has_building", "barracks"), "Enemy barracks must remain unavailable until the single replacement finishes")
 	game.call("_update_enemy_building_construction", 3.5)
 	_expect(is_equal_approx(float(game.get("enemy_buildings")[replacement_index]["build_progress"]), 0.5), "Enemy construction should advance proportionally to elapsed time")
 	_expect(not game.call("_enemy_has_building", "barracks"), "Enemy barracks must remain unavailable while construction is incomplete")

@@ -3007,50 +3007,50 @@ func _enemy_ai_turn() -> void:
 		notice_time = 2.0
 		return
 	# A full base must not freeze the enemy's production and combat decisions.
-	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= _building_cost("barracks"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("barracks") and enemy_credits >= _building_cost("barracks"):
 		enemy_credits -= _building_cost("barracks")
 		_enemy_add_building("barracks", build_pos, 400)
 		notice = "العدو أنشأ ثكنة عسكرية"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("factory") and enemy_credits >= _building_cost("factory"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("factory") and enemy_credits >= _building_cost("factory"):
 		enemy_credits -= _building_cost("factory")
 		_enemy_add_building("factory", build_pos, 500)
 		notice = "العدو أنشأ مصنع دبابات"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("turret") and enemy_credits >= _building_cost("turret"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("turret") and enemy_credits >= _building_cost("turret"):
 		enemy_credits -= _building_cost("turret")
 		_enemy_add_building("turret", build_pos, 350)
 		notice = "العدو نشر برجاً دفاعياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("airfield") and enemy_credits >= _building_cost("airfield"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("airfield") and enemy_credits >= _building_cost("airfield"):
 		enemy_credits -= _building_cost("airfield")
 		_enemy_add_building("airfield", build_pos, 450)
 		notice = "العدو أنشأ مطاراً حربياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("missile_silo") and enemy_credits >= _building_cost("missile_silo"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("missile_silo") and enemy_credits >= _building_cost("missile_silo"):
 		enemy_credits -= _building_cost("missile_silo")
 		_enemy_add_building("missile_silo", build_pos, 500, 8.0)
 		notice = "العدو أنشأ منصة صواريخ"
 		notice_time = 2.0
 		return
-	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_building("missile_defense") and enemy_credits >= _building_cost("missile_defense"):
+	if player_missile_threat and build_pos.x >= 0.0 and not _enemy_has_any_building("missile_defense") and enemy_credits >= _building_cost("missile_defense"):
 		enemy_credits -= _building_cost("missile_defense")
 		_enemy_add_building("missile_defense", build_pos, 450)
 		notice = "العدو نشر دفاعاً صاروخياً"
 		notice_time = 2.0
 		return
-	if not _enemy_has_building("shipyard") and enemy_credits >= _building_cost("shipyard"):
+	if not _enemy_has_any_building("shipyard") and enemy_credits >= _building_cost("shipyard"):
 		enemy_credits -= _building_cost("shipyard")
 		var naval_site := Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		_enemy_add_building("shipyard", naval_site, 500)
 		notice = "العدو أنشأ حوض سفن ساحلياً"
 		notice_time = 2.0
 		return
-	if build_pos.x >= 0.0 and not _enemy_has_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
+	if build_pos.x >= 0.0 and not _enemy_has_any_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
 		enemy_credits -= _building_cost("anti_air")
 		_enemy_add_building("anti_air", build_pos, 380)
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
