@@ -2956,6 +2956,9 @@ func _on_patrol_order_button_toggled(enabled: bool) -> void:
 	if enabled and is_instance_valid(attack_move_order_button):
 		attack_move_order_button.button_pressed = false
 		attack_move_order_mode = false
+	if enabled and is_instance_valid(escort_order_button):
+		escort_order_button.button_pressed = false
+		escort_order_mode = false
 	if is_instance_valid(patrol_order_button):
 		patrol_order_button.text = "انقر لتحديد مسار الدورية" if enabled else "تعيين دورية جوية"
 
@@ -2968,6 +2971,9 @@ func _on_attack_move_order_button_toggled(enabled: bool) -> void:
 	if enabled and is_instance_valid(patrol_order_button):
 		patrol_order_button.button_pressed = false
 		patrol_order_mode = false
+	if enabled and is_instance_valid(escort_order_button):
+		escort_order_button.button_pressed = false
+		escort_order_mode = false
 	if is_instance_valid(attack_move_order_button):
 		attack_move_order_button.text = "انقر لتحديد هدف التقدم" if enabled else "هجوم أثناء التقدم"
 
@@ -2981,6 +2987,9 @@ func _on_guard_order_button_toggled(enabled: bool) -> void:
 		if is_instance_valid(patrol_order_button):
 			patrol_order_button.button_pressed = false
 			patrol_order_mode = false
+		if is_instance_valid(escort_order_button):
+			escort_order_button.button_pressed = false
+			escort_order_mode = false
 	if is_instance_valid(guard_order_button):
 		guard_order_button.text = "انقر لتحديد موقع الحراسة" if enabled else "حراسة الموقع"
 
@@ -3111,10 +3120,6 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 			order_marker.visible = false
 			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
 				attack_move_order_button.button_pressed = false
-			if guard_order_mode and is_instance_valid(guard_order_button):
-				guard_order_button.button_pressed = false
-			if escort_order_mode and is_instance_valid(escort_order_button):
-				escort_order_button.button_pressed = false
 			if guard_order_mode and is_instance_valid(guard_order_button):
 				guard_order_button.button_pressed = false
 			if escort_order_mode and is_instance_valid(escort_order_button):
