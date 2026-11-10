@@ -477,7 +477,7 @@ func _process(delta: float) -> void:
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							_add_visual_effect("tracer", unit.pos, heli_destination, Color("#ffb56e"), 0.2, 0.0)
+							_add_visual_effect("air_missile", unit.pos, heli_destination, Color("#ffb56e"), 0.24, 0.0)
 							_add_visual_effect("explosion", heli_destination, heli_destination, Color("#ff9b55"), 0.55, 46.0)
 							if heli_target >= 0:
 								var heli_damage = 58 if units[heli_target].kind == "submarine" else _helicopter_damage(unit)
@@ -518,7 +518,7 @@ func _process(delta: float) -> void:
 						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 							if unit.attack_cd <= 0.0:
-								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#ff9b72"), 0.18, 0.0)
+								_add_visual_effect("air_missile", unit.pos, air_enemy.pos, Color("#ff9b72"), 0.22, 0.0)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.42, 24.0)
 								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
