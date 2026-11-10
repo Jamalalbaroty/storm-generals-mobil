@@ -197,6 +197,28 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.call("_naval_damage", {"kind": "submarine", "faction": "وطن"}, -1) == 62, "Submarines should retain their 62-damage role")
 	_expect(game.call("_naval_damage", {"kind": "carrier", "faction": "وطن"}, -1) == 24, "Carriers should retain their 24-damage role")
 
+	# Validate terrain cover modifiers for infantry and ensure destroyed-unit cleanup
+	# preserves index-based selections and attack orders during long battles.
+	game.set("map_type", "ساحل الغابات")
+	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 72, "Forest cover should reduce infantry damage by 28%")
+	game.set("map_type", "الساحل الجبلي")
+	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 80, "Mountain cover should reduce infantry damage by 20%")
+	game.set("map_type", "المدينة الساحلية")
+	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 76, "Urban cover should reduce infantry damage by 24%")
+	game.set("map_type", "الساحل الصحراوي")
+	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 100, "Desert terrain should not grant infantry cover")
+	_expect(game.call("_terrain_adjusted_damage", {"kind": "tank"}, 100) == 100, "Infantry terrain cover must not reduce tank damage")
+
+	game.get("units").clear()
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(100.0, 100.0), "attack_target": 2})
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 0, "pos": Vector2(120.0, 100.0)})
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(140.0, 100.0)})
+	game.set("selected", [0, 1])
+	game.call("_cleanup_destroyed_units")
+	_expect(game.get("units").size() == 2, "Destroyed units should be removed from the active unit array")
+	_expect(int(game.get("units")[0].get("attack_target", -1)) == 1, "Surviving attack orders should remap to the target's new unit index")
+	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Selection indices should be remapped and destroyed selections discarded")
+
 	game.queue_free()
 	if failure_count > 0:
 		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
