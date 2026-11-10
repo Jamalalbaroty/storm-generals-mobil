@@ -2914,6 +2914,9 @@ func _build_order_indicators() -> void:
 
 func _on_patrol_order_button_toggled(enabled: bool) -> void:
 	patrol_order_mode = enabled
+	if enabled and is_instance_valid(attack_move_order_button):
+		attack_move_order_button.button_pressed = false
+		attack_move_order_mode = false
 	if is_instance_valid(patrol_order_button):
 		patrol_order_button.text = "انقر لتحديد مسار الدورية" if enabled else "تعيين دورية جوية"
 
