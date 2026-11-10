@@ -102,6 +102,19 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Formation ranks must ignore player/support units and dead enemy units.
+	game.units = [
+		{"team": "player", "kind": "tank", "hp": 150},
+		{"team": "enemy", "kind": "artillery", "hp": 100},
+		{"team": "enemy", "kind": "tank", "hp": 150},
+		{"team": "enemy", "kind": "infantry", "hp": 60},
+		{"team": "enemy", "kind": "tank", "hp": 0}
+	]
+	if game._enemy_assault_formation_rank(2) != 0 or game._enemy_assault_formation_rank(4) != 2:
+		push_error("Enemy formation rank must count only preceding living enemy tanks and infantry")
+		quit(1)
+		return
+
 	# Enemy counter-production must respect faction pricing, supplies, and doctrine caps.
 	game.units.clear()
 	game.enemy_buildings.clear()
