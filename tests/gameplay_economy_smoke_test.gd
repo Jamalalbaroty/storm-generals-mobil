@@ -78,6 +78,29 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("game_started", false)
 	game.get("units").clear()
 
+	# Verify touch selection, move orders, and direct attack orders through the
+	# same pointer handler used by mobile input.
+	var battle_viewport: Vector2 = game.get_viewport_rect().size
+	var army_start: Vector2 = (game.call("_faction_rect", 0, battle_viewport) as Rect2).get_center()
+	game.call("_handle_pointer", army_start, true)
+	game.call("_handle_pointer", army_start, false)
+	var builder_position: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
+	game.call("_handle_pointer", builder_position, true)
+	game.call("_handle_pointer", builder_position, false)
+	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Touching the starting builder should select it")
+	var move_target := Vector2(450.0, 430.0)
+	game.call("_handle_pointer", move_target, true)
+	game.call("_handle_pointer", move_target, false)
+	_expect(game.get("units").size() > 0 and game.get("units")[0].get("target", Vector2.ZERO).distance_to(move_target) < 0.1, "Tapping open battlefield after selecting a unit should issue a move order")
+	game.get("units").append({"pos": Vector2(650.0, 330.0), "team": "enemy", "kind": "infantry", "hp": 60, "attack_cd": 0.0})
+	var enemy_target: Vector2 = game.get("units")[1]["pos"]
+	game.call("_handle_pointer", enemy_target, true)
+	game.call("_handle_pointer", enemy_target, false)
+	_expect(int(game.get("units")[0].get("attack_target", -1)) == 1, "Tapping a visible enemy while a friendly unit is selected should issue an attack order")
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.set("game_started", false)
+
 	var mobile_viewport := Vector2(1280.0, 720.0)
 	var first_command_button: Rect2 = game.call("_button_rect", 0, mobile_viewport)
 	var last_command_button: Rect2 = game.call("_button_rect", 5, mobile_viewport)
