@@ -127,6 +127,38 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(game.get("units").size() == produced_before + 1, "Counter production should add exactly one unit")
 		_expect(String(game.get("units")[-1]["kind"]) == counter_case[1], "Enemy strategy %s should produce %s" % [counter_case[0], counter_case[1]])
 
+
+	# Exercise the complete adaptive loop: observe player composition, choose a
+	# strategy, and immediately order the matching counter-unit.
+	var adaptive_cases := [
+		["air_control", "fighter", "fighter", 2],
+		["naval_control", "destroyer", "destroyer", 2],
+		["armor_breaker", "helicopter", "tank", 3],
+		["area_denial", "artillery", "infantry", 5]
+	]
+	for adaptive_case in adaptive_cases:
+		game.get("units").clear()
+		game.set("enemy_strategy", "balanced")
+		game.set("enemy_credits", 10000)
+		game.set("enemy_supplies", 100)
+		game.get("enemy_buildings").clear()
+		var completed_kinds := ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]
+		for structure_index in range(completed_kinds.size()):
+			var structure_pos: Vector2 = game.get("enemy_base") + Vector2(-float(structure_index) * 24.0, 110.0)
+			if completed_kinds[structure_index] == "shipyard":
+				structure_pos = Vector2(game.get("enemy_base").x - 120.0, 590.0)
+			game.get("enemy_buildings").append({"kind": completed_kinds[structure_index], "pos": structure_pos, "hp": 500, "build_progress": 1.0})
+		for threat_index in range(int(adaptive_case[3])):
+			game.get("units").append({
+				"pos": Vector2(900.0 + float(threat_index) * 24.0, 360.0),
+				"team": "player",
+				"kind": adaptive_case[2],
+				"hp": 150
+			})
+		game.call("_enemy_ai_turn")
+		_expect(String(game.get("enemy_strategy")) == adaptive_case[0], "Enemy AI should recognize %s player composition" % adaptive_case[0])
+		_expect(not game.get("units").is_empty() and String(game.get("units")[-1].get("kind", "")) == adaptive_case[1], "Enemy AI should answer %s with %s" % [adaptive_case[0], adaptive_case[1]])
+
 	game.queue_free()
 	if failure_count > 0:
 		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
