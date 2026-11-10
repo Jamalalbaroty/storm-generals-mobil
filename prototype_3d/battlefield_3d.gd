@@ -700,6 +700,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
 		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
+		if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
+			altitude = 0.45
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
@@ -717,6 +719,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("source_faction", faction_id)
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("gameplay_visual_target", world_pos)
+			if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
+				unit.set_meta("gameplay_aircraft_takeoff", true)
 			_sync_gameplay_unit_orientation(unit, record)
 			game_unit_nodes[key] = unit
 		else:
@@ -774,7 +778,11 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			unit.set_meta("gameplay_hover_phase", hover_phase)
 			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind == "helicopter" else 0.035)
 			var altitude_target := base_altitude + climb_target + hover_amount
-			unit.global_position.y = lerpf(unit.global_position.y, altitude_target, clampf(delta * 3.2, 0.0, 1.0))
+			var takeoff_active := bool(unit.get_meta("gameplay_aircraft_takeoff", false))
+			var altitude_blend := clampf(delta * (2.0 if takeoff_active else 3.2), 0.0, 1.0)
+			unit.global_position.y = lerpf(unit.global_position.y, altitude_target, altitude_blend)
+			if takeoff_active and unit.global_position.y >= base_altitude - 0.28:
+				unit.set_meta("gameplay_aircraft_takeoff", false)
 		var body_yaw := float(unit.get_meta("gameplay_body_yaw_target", unit.rotation.y))
 		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, blend)
 		# Aircraft bank gently into turns; ground vehicles always settle level.
