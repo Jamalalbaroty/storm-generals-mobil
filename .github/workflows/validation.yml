@@ -39,3 +39,5 @@ jobs:
         run: godot --headless --path . --script res://prototype_3d/smoke_test.gd
       - name: Smoke test live 2D-to-3D gameplay bridge
         run: godot --headless --path . --script res://prototype_3d/live_bridge_smoke_test.gd
+      - name: Smoke test gameplay economy and AI recovery
+        run: godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd
