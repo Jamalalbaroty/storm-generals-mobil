@@ -2635,6 +2635,106 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		pack.material_override = _make_armour_material(faction_color.darkened(0.30))
 		soldier.add_child(pack)
 
+		# Zero Hour-style infantry readability: individual body armour, boots,
+		# shoulder protection and faction-specific field kit.
+		var vest := MeshInstance3D.new()
+		vest.name = "CombatVest"
+		var vest_mesh := BoxMesh.new()
+		vest_mesh.size = Vector3(0.43, 0.48, 0.28)
+		vest.mesh = vest_mesh
+		vest.position = Vector3(0.0, 0.91, -0.015)
+		vest.material_override = _make_armour_material(faction_color.darkened(0.12))
+		soldier.add_child(vest)
+
+		for shoulder_side in [-1.0, 1.0]:
+			var shoulder := MeshInstance3D.new()
+			var shoulder_mesh := SphereMesh.new()
+			shoulder_mesh.radius = 0.14
+			shoulder_mesh.height = 0.22
+			shoulder.mesh = shoulder_mesh
+			shoulder.position = Vector3(shoulder_side * 0.25, 1.12, 0.0)
+			shoulder.material_override = _make_armour_material(faction_color.darkened(0.18))
+			soldier.add_child(shoulder)
+
+		for boot_side in [-1.0, 1.0]:
+			var boot := MeshInstance3D.new()
+			var boot_mesh := BoxMesh.new()
+			boot_mesh.size = Vector3(0.19, 0.14, 0.30)
+			boot.mesh = boot_mesh
+			boot.position = Vector3(boot_side * 0.13, 0.055, -0.055)
+			boot.material_override = _make_armour_material(Color(0.09, 0.10, 0.09))
+			soldier.add_child(boot)
+
+		for pouch_index in range(3):
+			var pouch := MeshInstance3D.new()
+			var pouch_mesh := BoxMesh.new()
+			pouch_mesh.size = Vector3(0.105, 0.16, 0.09)
+			pouch.mesh = pouch_mesh
+			pouch.position = Vector3(-0.14 + float(pouch_index) * 0.14, 0.84, -0.17)
+			pouch.material_override = _make_armour_material(Color(0.24, 0.22, 0.16))
+			soldier.add_child(pouch)
+
+		if faction_id == "american":
+			# Modern helmet-mounted sight and compact radio antenna.
+			var helmet_mount := MeshInstance3D.new()
+			var mount_mesh := BoxMesh.new()
+			mount_mesh.size = Vector3(0.20, 0.10, 0.16)
+			helmet_mount.mesh = mount_mesh
+			helmet_mount.position = Vector3(0.0, 1.69, -0.17)
+			helmet_mount.material_override = _make_armour_material(Color(0.08, 0.10, 0.09))
+			soldier.add_child(helmet_mount)
+		elif faction_id == "chinese":
+			# Distinct helmet brow and compact chest radio panel.
+			var helmet_brow := MeshInstance3D.new()
+			var brow_mesh := BoxMesh.new()
+			brow_mesh.size = Vector3(0.38, 0.07, 0.16)
+			helmet_brow.mesh = brow_mesh
+			helmet_brow.position = Vector3(0.0, 1.59, -0.13)
+			helmet_brow.material_override = _make_armour_material(faction_color.darkened(0.28))
+			soldier.add_child(helmet_brow)
+			var radio_panel := MeshInstance3D.new()
+			var radio_mesh := BoxMesh.new()
+			radio_mesh.size = Vector3(0.17, 0.20, 0.08)
+			radio_panel.mesh = radio_mesh
+			radio_panel.position = Vector3(0.20, 0.96, 0.0)
+			radio_panel.material_override = _make_armour_material(Color(0.12, 0.13, 0.12))
+			soldier.add_child(radio_panel)
+		elif faction_id == "arab":
+			# Desert field scarf and extra utility roll on the backpack.
+			var scarf := MeshInstance3D.new()
+			var scarf_mesh := BoxMesh.new()
+			scarf_mesh.size = Vector3(0.43, 0.13, 0.30)
+			scarf.mesh = scarf_mesh
+			scarf.position = Vector3(0.0, 1.34, 0.04)
+			scarf.material_override = _make_armour_material(Color(0.48, 0.39, 0.25))
+			soldier.add_child(scarf)
+			var bedroll := MeshInstance3D.new()
+			var roll_mesh := CylinderMesh.new()
+			roll_mesh.top_radius = 0.10
+			roll_mesh.bottom_radius = 0.10
+			roll_mesh.height = 0.42
+			bedroll.mesh = roll_mesh
+			bedroll.rotation_degrees.z = 90.0
+			bedroll.position = Vector3(0.0, 1.08, 0.39)
+			bedroll.material_override = _make_armour_material(Color(0.35, 0.29, 0.19))
+			soldier.add_child(bedroll)
+		elif faction_id == "watan":
+			# Elite composite helmet visor and reinforced chest plate.
+			var visor := MeshInstance3D.new()
+			var visor_mesh := BoxMesh.new()
+			visor_mesh.size = Vector3(0.34, 0.10, 0.12)
+			visor.mesh = visor_mesh
+			visor.position = Vector3(0.0, 1.54, -0.16)
+			visor.material_override = _make_armour_material(_get_faction_accent_color(faction_id))
+			soldier.add_child(visor)
+			var chest_plate := MeshInstance3D.new()
+			var plate_mesh := BoxMesh.new()
+			plate_mesh.size = Vector3(0.34, 0.30, 0.08)
+			chest_plate.mesh = plate_mesh
+			chest_plate.position = Vector3(0.0, 0.94, -0.18)
+			chest_plate.material_override = _make_armour_material(faction_color.lightened(0.10))
+			soldier.add_child(chest_plate)
+
 	# A separate aim pivot turns the squad weapon without rotating the whole formation.
 	var aim_pivot := Node3D.new()
 	aim_pivot.position = Vector3(0.0, 1.15, 0.0)
