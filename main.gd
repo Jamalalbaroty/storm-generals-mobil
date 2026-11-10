@@ -3269,7 +3269,7 @@ func _enqueue_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	production_orders.append({"producer_pos": producer_pos, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
+	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
 	queue_redraw()
@@ -3284,8 +3284,9 @@ func _update_production_queues(delta: float) -> void:
 		active_producers.append(producer_pos)
 		var producer_exists := false
 		var producer_ready := false
+		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
 		for producer_index in range(buildings.size()):
-			if buildings[producer_index].pos.distance_to(producer_pos) < 2.0:
+			if String(buildings[producer_index].get("kind", "")) == expected_producer_kind and buildings[producer_index].pos.distance_to(producer_pos) < 2.0:
 				producer_exists = true
 				producer_ready = _is_player_building_powered(producer_index)
 				break
