@@ -788,6 +788,69 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			game_building_nodes.erase(existing_key)
 	return synced_count
 
+func _ensure_building_production_bar(building: Node3D) -> Dictionary:
+	var root := building.get_node_or_null("ProductionStatus") as Node3D
+	if not is_instance_valid(root):
+		root = Node3D.new()
+		root.name = "ProductionStatus"
+		root.position = Vector3(0.0, 4.65, 0.0)
+		building.add_child(root)
+		var background := MeshInstance3D.new()
+		background.name = "Background"
+		var background_mesh := BoxMesh.new()
+		background_mesh.size = Vector3(2.8, 0.16, 0.12)
+		background.mesh = background_mesh
+		background.material_override = _make_armour_material(Color(0.055, 0.065, 0.06))
+		root.add_child(background)
+		var fill := MeshInstance3D.new()
+		fill.name = "Fill"
+		var fill_mesh := BoxMesh.new()
+		fill_mesh.size = Vector3(2.62, 0.10, 0.15)
+		fill.mesh = fill_mesh
+		fill.position.z = -0.09
+		fill.material_override = _make_armour_material(Color(0.24, 0.72, 0.96))
+		root.add_child(fill)
+	return {"root": root, "fill": root.get_node("Fill")}
+
+
+func sync_game_production_orders(orders: Array) -> void:
+	# Only the first queued order for each producer advances in the RTS simulation.
+	var active_producers: Dictionary = {}
+	for order_value in orders:
+		if not order_value is Dictionary:
+			continue
+		var order: Dictionary = order_value
+		var producer_id := int(order.get("producer_id", -1))
+		var producer_kind := String(order.get("producer_kind", ""))
+		if producer_id < 0 or producer_kind.is_empty():
+			continue
+		var producer_key := "player|%s|%s" % [producer_kind, str(producer_id)]
+		if active_producers.has(producer_key):
+			continue
+		active_producers[producer_key] = order
+	for building_key in game_building_nodes.keys():
+		if not String(building_key).begins_with("player|"):
+			continue
+		var building_variant = game_building_nodes[building_key]
+		if not is_instance_valid(building_variant):
+			continue
+		var building := building_variant as Node3D
+		var status := building.get_node_or_null("ProductionStatus") as Node3D
+		if not is_instance_valid(status):
+			continue
+		status.visible = active_producers.has(String(building_key))
+		if not status.visible:
+			continue
+		var active_order: Dictionary = active_producers[String(building_key)]
+		var duration := maxf(0.01, float(active_order.get("duration", 1.0)))
+		var remaining := clampf(float(active_order.get("remaining", duration)), 0.0, duration)
+		var progress := clampf(1.0 - remaining / duration, 0.0, 1.0)
+		var fill := status.get_node_or_null("Fill") as MeshInstance3D
+		if is_instance_valid(fill):
+			fill.scale.x = maxf(progress, 0.001)
+			fill.position.x = -1.31 * (1.0 - progress)
+
+
 func update_game_building_level(building: Node3D, upgrade_level: int) -> void:
 	if not is_instance_valid(building):
 		return
