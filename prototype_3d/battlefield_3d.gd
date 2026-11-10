@@ -2497,6 +2497,16 @@ func _select_live_units_in_screen_rect(start: Vector2, finish: Vector2) -> void:
 
 func _handle_world_tap(screen_position: Vector2) -> void:
 	var tapped_tank := _tank_at_screen_position(screen_position)
+	if tapped_tank == null and not selected_live_units.is_empty():
+		var tapped_building := _building_at_screen_position(screen_position)
+		if is_instance_valid(tapped_building) and str(tapped_building.get_meta("source_team", "")) == "enemy":
+			for friendly in selected_live_units:
+				if is_instance_valid(friendly):
+					gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "attack", Vector3.ZERO, str(tapped_building.get_meta("source_key", "")))
+			attack_target = null
+			has_selected_destination = false
+			order_marker.visible = false
+			return
 	if tapped_tank != null:
 		if _is_live_player_unit(tapped_tank):
 			var single_selection: Array[Node3D] = [tapped_tank]
@@ -2664,6 +2674,28 @@ func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spac
 
 func _is_live_player_unit(unit: Node3D) -> bool:
 	return is_instance_valid(unit) and not unit.is_queued_for_deletion() and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
+
+func _building_at_screen_position(screen_position: Vector2) -> Node3D:
+	if not is_instance_valid(rts_camera):
+		return null
+	var nearest: Node3D = null
+	var nearest_distance := 82.0
+	for building_key in game_building_nodes.keys():
+		var building_variant = game_building_nodes[building_key]
+		if not is_instance_valid(building_variant):
+			continue
+		var building := building_variant as Node3D
+		if str(building.get_meta("source_team", "")) != "enemy" or float(building.get_meta("health", 1.0)) <= 0.0:
+			continue
+		if rts_camera.is_position_behind(building.global_position):
+			continue
+		var screen_pos := rts_camera.unproject_position(building.global_position + Vector3.UP * 1.8)
+		var distance := screen_pos.distance_to(screen_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = building
+	return nearest
+
 
 func _tank_at_screen_position(screen_position: Vector2) -> Node3D:
 	if not is_instance_valid(rts_camera):
