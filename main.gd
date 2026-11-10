@@ -637,6 +637,11 @@ func _cleanup_destroyed_units() -> void:
 		if int(candidate.get("hp", 0)) > 0:
 			old_to_new[old_index] = survivors.size()
 			survivors.append(candidate)
+		elif String(candidate.get("kind", "")) == "tank" and not bool(candidate.get("wreck_effect_spawned", false)):
+			# A destroyed tank leaves a brief blast, smoke and debris at its last position.
+			candidate["wreck_effect_spawned"] = true
+			_add_visual_effect("explosion", candidate.pos, candidate.pos, Color("#d58a4c"), 0.62, 34.0)
+			_spawn_environment_particle(candidate.pos + Vector2(-5.0, -8.0), Vector2(-5.0, -18.0), 13.0, 1.8, Color("#45433f"), "smoke")
 	units = survivors
 	var remapped_selection: Array[int] = []
 	for old_index in selected:
@@ -698,6 +703,16 @@ func _update_environment_particles(delta: float) -> void:
 					var offset = Vector2(randf_range(-7.0, 7.0), randf_range(-5.0, 5.0))
 					_spawn_environment_particle(unit.pos + offset, Vector2(randf_range(-10.0, -2.0), randf_range(-8.0, -2.0)), 5.5 if is_tank else 3.5, 0.58 if is_tank else 0.42, Color("#bba98b") if map_type == "الساحل الصحراوي" else Color("#85877c"), "dust")
 				unit["environment_cd"] = 0.12 if is_tank else 0.2
+			if String(unit.kind) == "tank":
+				var tank_hp_ratio := float(unit.get("hp", 0)) / 150.0
+				unit["damage_smoke_cd"] = maxf(0.0, float(unit.get("damage_smoke_cd", 0.0)) - delta)
+				if tank_hp_ratio <= 0.60 and float(unit.damage_smoke_cd) <= 0.0:
+					var smoke_origin := unit.pos + Vector2(-7.0, -10.0).rotated(_unit_facing_angle(unit))
+					var heavy_damage := tank_hp_ratio <= 0.25
+					_spawn_environment_particle(smoke_origin, Vector2(randf_range(-5.0, 5.0), -randf_range(12.0, 21.0)), 7.0 if not heavy_damage else 10.0, 0.95 if not heavy_damage else 1.25, Color("#77736b") if not heavy_damage else Color("#45413c"), "smoke")
+					if heavy_damage:
+						_spawn_environment_particle(smoke_origin + Vector2(4.0, 3.0), Vector2(randf_range(-8.0, 8.0), -randf_range(3.0, 10.0)), 4.0, 0.42, Color("#e58b3d"), "spark")
+					unit["damage_smoke_cd"] = 0.42 if not heavy_damage else 0.24
 	while environment_particles.size() > 110:
 		environment_particles.pop_front()
 
@@ -1715,6 +1730,13 @@ func _draw() -> void:
 			var tank_aim := _unit_turret_angle(u)
 			var turret_center := _unit_rotated_point(u.pos, Vector2(1, 0), facing)
 			var gun_recoil := float(u.get("gun_recoil", 0.0))
+			var tank_hp_ratio := clampf(float(u.get("hp", 150)) / 150.0, 0.0, 1.0)
+			if tank_hp_ratio <= 0.60:
+				var scorch_color := Color(0.12, 0.13, 0.12, 0.72)
+				draw_circle(_unit_rotated_point(u.pos, Vector2(-10, -5), facing), 4.0, scorch_color)
+				draw_circle(_unit_rotated_point(u.pos, Vector2(9, 6), facing), 3.0, scorch_color)
+			if tank_hp_ratio <= 0.25:
+				draw_circle(_unit_rotated_point(u.pos, Vector2(-5, -10), facing), 5.0, Color("#55483a"))
 			draw_circle(turret_center, 7, Color("#7f927f"))
 			draw_line(_unit_rotated_point(turret_center, Vector2(3, 0), tank_aim), _unit_rotated_point(turret_center, Vector2(28.0 - gun_recoil, 0), tank_aim), Color("#252c2c"), 5)
 			draw_line(_unit_rotated_point(turret_center, Vector2(-13, -5), tank_aim), _unit_rotated_point(turret_center, Vector2(13, -5), tank_aim), Color("#d5c99d"), 2)
