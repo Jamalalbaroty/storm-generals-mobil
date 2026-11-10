@@ -129,7 +129,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		var infantry_supplies_before: int = int(game.get("supplies"))
 		game.call("_enqueue_unit", "infantry")
 		_expect(game.get("production_orders").size() == 1, "Completed barracks should accept an infantry production order")
-		_expect(int(game.get("credits")) < infantry_credits_before and int(game.get("supplies")) < infantry_supplies_before, "Infantry queue should reserve credits and supplies")
+		_expect(int(game.get("credits")) < infantry_credits_before, "Infantry queue should reserve credits")
+		_expect(int(game.get("supplies")) == infantry_supplies_before and int(game.call("_unit_supply_cost", "infantry")) == 0, "Infantry should not consume supplies under the faction economy rules")
 		game.call("_update_production_queues", 3.0)
 		var produced_infantry := 0
 		for loop_unit in game.get("units"):
