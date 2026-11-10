@@ -7,6 +7,9 @@ func _initialize() -> void:
 
 
 func _run_gameplay_economy_smoke_test() -> void:
+	_expect(int(ProjectSettings.get_setting("display/window/handheld/orientation", -1)) == 0, "Mobile game should use landscape orientation")
+	_expect(int(ProjectSettings.get_setting("display/window/size/viewport_width", 0)) > int(ProjectSettings.get_setting("display/window/size/viewport_height", 0)), "Mobile viewport should remain wider than it is tall")
+
 	var game: Node = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
