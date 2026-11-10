@@ -914,8 +914,51 @@ func sync_gameplay_effects(effect_records: Array, map_rect: Rect2) -> int:
 	return synced
 
 
+func _ensure_wall_damage_visuals(building: Node3D, health_ratio: float) -> void:
+	# Cosmetic-only damage stages; gameplay HP and collision remain authoritative in main.gd.
+	var damage_root := building.get_node_or_null("WallDamageVisuals") as Node3D
+	if not is_instance_valid(damage_root):
+		damage_root = Node3D.new()
+		damage_root.name = "WallDamageVisuals"
+		building.add_child(damage_root)
+		var dark_material := StandardMaterial3D.new()
+		dark_material.albedo_color = Color(0.105, 0.11, 0.105)
+		dark_material.roughness = 1.0
+		var stage_one := Node3D.new()
+		stage_one.name = "StageOne"
+		damage_root.add_child(stage_one)
+		for index in range(2):
+			var crack := MeshInstance3D.new()
+			var crack_mesh := BoxMesh.new()
+			crack_mesh.size = Vector3(0.16, 0.82, 0.12)
+			crack.mesh = crack_mesh
+			crack.position = Vector3(-1.0 + float(index) * 2.0, 1.12, -0.39)
+			crack.rotation.z = -0.28 if index == 0 else 0.24
+			crack.material_override = dark_material
+			stage_one.add_child(crack)
+		var stage_two := Node3D.new()
+		stage_two.name = "StageTwo"
+		damage_root.add_child(stage_two)
+		for index in range(3):
+			var fragment := MeshInstance3D.new()
+			var fragment_mesh := BoxMesh.new()
+			fragment_mesh.size = Vector3(0.52, 0.24, 0.48)
+			fragment.mesh = fragment_mesh
+			fragment.position = Vector3(-1.35 + float(index) * 1.35, 0.2, 0.12)
+			fragment.rotation = Vector3(0.18 * float(index + 1), 0.22 * float(index), 0.16 - 0.12 * float(index))
+			fragment.material_override = dark_material
+			stage_two.add_child(fragment)
+	var first_stage := damage_root.get_node_or_null("StageOne") as Node3D
+	var second_stage := damage_root.get_node_or_null("StageTwo") as Node3D
+	if is_instance_valid(first_stage):
+		first_stage.visible = health_ratio <= 0.55
+	if is_instance_valid(second_stage):
+		second_stage.visible = health_ratio <= 0.25
+
 func _update_gameplay_building_damage_visuals(building: Node3D, current_hp: float, maximum_hp: float, kind: String) -> void:
 	var health_ratio := clampf(current_hp / maxf(1.0, maximum_hp), 0.0, 1.0)
+	if kind in ["wall", "wall_corner", "wall_gate"]:
+		_ensure_wall_damage_visuals(building, health_ratio)
 	var smoke_variant = building.get_node_or_null("DamageSmoke")
 	if health_ratio > 0.55:
 		if is_instance_valid(smoke_variant):
