@@ -267,12 +267,12 @@ func _run_gameplay_economy_smoke_test() -> void:
 
 	# Enemy strategic logistics should favor valuable player-held objectives and dispatch only one guard per threatened point.
 	game.get("supply_points").clear()
-	game.get("supply_points").append({"pos": Vector2(200.0, 300.0), "owner": "neutral", "kind": "supply"})
-	game.get("supply_points").append({"pos": Vector2(600.0, 300.0), "owner": "player", "kind": "supply"})
-	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "player", "kind": "port"})
+	game.get("supply_points").append({"pos": Vector2(200.0, 300.0), "owner": "neutral", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
+	game.get("supply_points").append({"pos": Vector2(600.0, 300.0), "owner": "player", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
+	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "player", "kind": "port", "payout": 0.0, "supply_payout": 0.0})
 	_expect(int(game.call("_enemy_best_supply_objective", Vector2(550.0, 300.0))) == 2, "Enemy strategy should prioritize the nearby player-held port over a regular supply point")
 	game.get("supply_points").clear()
-	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "enemy", "kind": "supply"})
+	game.get("supply_points").append({"pos": Vector2(500.0, 300.0), "owner": "enemy", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(400.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
 	game.get("units").append({"pos": Vector2(650.0, 300.0), "team": "enemy", "kind": "infantry", "hp": 60})
