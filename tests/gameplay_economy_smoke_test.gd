@@ -41,6 +41,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var rebuilt: Array = game.get("enemy_buildings")
 	_expect(not rebuilt.is_empty(), "Enemy AI should rebuild a missing production structure when it has resources")
 	_expect(String(rebuilt[0]["kind"]) == "barracks", "Enemy AI should restore its barracks before optional structures")
+	_expect(float(rebuilt[0].get("build_progress", 1.0)) == 0.0, "Enemy replacement barracks should begin under construction")
+	_expect(not game.call("_enemy_has_building", "barracks"), "Enemy production must not use a barracks before construction completes")
+	game.call("_update_enemy_building_construction", 3.5)
+	_expect(is_equal_approx(float(game.get("enemy_buildings")[0]["build_progress"]), 0.5), "Enemy construction should advance proportionally to elapsed time")
+	_expect(not game.call("_enemy_has_building", "barracks"), "Enemy barracks must remain unavailable while construction is incomplete")
+	game.call("_update_enemy_building_construction", 3.5)
+	_expect(game.call("_enemy_has_building", "barracks"), "Enemy barracks should become available after its construction timer completes")
 
 	print("Gameplay economy smoke test passed: port capture, income, contest lockout, and enemy barracks recovery.")
 	game.queue_free()
