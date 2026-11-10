@@ -496,20 +496,12 @@ func _process(delta: float) -> void:
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
+				var objective_index := _enemy_best_supply_objective(unit.pos)
 				var nearest_objective_distance := INF
-				var best_objective_priority := INF
 				var objective_destination: Vector2 = base_pos
-				for point in supply_points:
-					if point.owner != "enemy":
-						var objective_distance: float = unit.pos.distance_to(point.pos)
-						var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
-						# Recapturing a player-held point is more urgent than taking an unclaimed one.
-						var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
-						var objective_priority: float = objective_distance / (income_weight * ownership_weight)
-						if objective_priority < best_objective_priority:
-							best_objective_priority = objective_priority
-							nearest_objective_distance = objective_distance
-							objective_destination = point.pos
+				if objective_index >= 0:
+					objective_destination = supply_points[objective_index].pos
+					nearest_objective_distance = unit.pos.distance_to(objective_destination)
 				# Defenders react only to player forces threatening the enemy base or its buildings.
 				var is_defender := bool(unit.get("defense_guard", false))
 				var defender_target := -1
@@ -2065,6 +2057,24 @@ func _update_supply_control(delta: float) -> void:
 			if supply_points[i].supply_payout >= supply_interval:
 				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / supply_interval))
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
+
+
+func _enemy_best_supply_objective(unit_pos: Vector2) -> int:
+	# Enemy ground forces prioritize recapturing player-held income, then neutral objectives.
+	var best_point := -1
+	var best_priority := INF
+	for point_index in range(supply_points.size()):
+		var point: Dictionary = supply_points[point_index]
+		if String(point.get("owner", "neutral")) == "enemy":
+			continue
+		var distance: float = unit_pos.distance_to(point.pos)
+		var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
+		var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
+		var priority: float = distance / (income_weight * ownership_weight)
+		if priority < best_priority:
+			best_priority = priority
+			best_point = point_index
+	return best_point
 
 
 func _enemy_supply_reinforcement_point(unit_index: int) -> int:
