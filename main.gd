@@ -1732,7 +1732,8 @@ func _draw_hud(size: Vector2) -> void:
 			var unit_rank := int(selected_unit.get("veterancy", 0))
 			total_xp += unit_xp
 			total_kills += int(selected_unit.get("combat_kills", 0))
-			total_medals += (selected_unit.get("combat_medals", []) as Array).size()
+			var unit_medals: Array = selected_unit.get("combat_medals", [])
+			total_medals += unit_medals.size()
 			highest_rank = maxi(highest_rank, unit_rank)
 			if unit_rank >= 2:
 				elite_count += 1
