@@ -1920,7 +1920,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 
 func _update_infantry_animation(delta: float) -> void:
 	infantry_gait_clock += delta
-	var moving_squad: Node3D = selected_tank if has_selected_destination else null
+	var moving_squad: Node3D = selected_tank if has_selected_destination and is_instance_valid(selected_tank) else null
 	for soldier_variant in infantry_leg_pairs.keys():
 		if not is_instance_valid(soldier_variant):
 			infantry_leg_pairs.erase(soldier_variant)
