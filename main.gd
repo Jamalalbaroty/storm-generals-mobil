@@ -4942,14 +4942,23 @@ func _enqueue_unit(kind: String) -> void:
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
 	var producer_id := -1
+	var shortest_queue := 2147483647
 	for i in range(buildings.size()):
-		if buildings[i].kind == producer_kind and _is_player_building_powered(i):
-			if not buildings[i].has("production_id"):
-				buildings[i]["production_id"] = next_building_production_id
-				next_building_production_id += 1
+		if String(buildings[i].get("kind", "")) != producer_kind or not _is_player_building_powered(i):
+			continue
+		if not buildings[i].has("production_id"):
+			buildings[i]["production_id"] = next_building_production_id
+			next_building_production_id += 1
+		var candidate_id := int(buildings[i].production_id)
+		var candidate_queue_size := 0
+		for queued_order in production_orders:
+			if int(queued_order.get("producer_id", -1)) == candidate_id:
+				candidate_queue_size += 1
+		# Spread new orders across equivalent buildings instead of overloading the first one.
+		if candidate_queue_size < shortest_queue:
+			shortest_queue = candidate_queue_size
 			producer_pos = buildings[i].pos
-			producer_id = int(buildings[i].production_id)
-			break
+			producer_id = candidate_id
 	if producer_kind == "" or producer_pos.x < -9000.0:
 		notice = "لا يوجد مبنى إنتاج مكتمل لهذه الوحدة"
 		notice_time = 2.5
