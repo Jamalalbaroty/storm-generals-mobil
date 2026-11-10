@@ -213,6 +213,20 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Group formations must face the movement direction and occupy distinct slots.
+	var formation_forward := Vector3(1.0, 0.0, 0.0)
+	var formation_slots: Array[Vector3] = []
+	for formation_index in range(4):
+		formation_slots.append(bridge.call("_group_formation_offset", formation_index, 4, formation_forward, 2.6))
+	if formation_slots[0].distance_to(formation_slots[1]) < 1.0 or formation_slots[0].distance_to(formation_slots[2]) < 1.0 or formation_slots[0].x >= formation_slots[2].x:
+		push_error("Group formation slots overlap or are not oriented along the movement direction")
+		quit(1)
+		return
+	if absf(formation_slots[0].z + formation_slots[1].z) > 0.01 or absf(formation_slots[2].z + formation_slots[3].z) > 0.01:
+		push_error("Group formation lateral rows are not centered around the destination")
+		quit(1)
+		return
+
 	# If one selected unit disappears, surviving selected units must remain selected.
 	# Keep the enemy target in the logical array to verify it is not cleared accidentally.
 	bridge.set("attack_target", enemy_fighter)
