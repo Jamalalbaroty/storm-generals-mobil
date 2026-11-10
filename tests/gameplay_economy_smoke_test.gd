@@ -1150,6 +1150,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for supply_frame in range(80):
 		game.call("_process", 0.1)
 	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Live match loop should capture a neutral port for uncontested player infantry")
+	print("LIVE_SUPPLY_PLAYER credits=", game.get("credits"), " supplies=", game.get("supplies"), " payout=", game.get("supply_points")[0].get("payout"), " supply_payout=", game.get("supply_points")[0].get("supply_payout"), " owner=", game.get("supply_points")[0].get("owner"))
 	_expect(int(game.get("credits")) >= 204, "Live match loop should combine passive income and port payouts after the capture frame")
 	_expect(int(game.get("supplies")) >= 1, "Live match loop should deliver the port's six-second supply payout")
 	var player_income_before_contest := int(game.get("credits"))
@@ -1169,6 +1170,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for recapture_frame in range(11):
 		game.call("_process", 0.1)
 	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Player armor should recapture the port through the live match loop")
+	print("LIVE_SUPPLY_RECAPTURE enemy_credits=", game.get("enemy_credits"), " enemy_income_timer=", game.get("enemy_income_timer"), " payout=", game.get("supply_points")[0].get("payout"), " owner=", game.get("supply_points")[0].get("owner"))
 	_expect(int(game.get("enemy_credits")) - enemy_income_before_capture <= 7, "Enemy should stop receiving port income after player recapture")
 
 	# Stop and release generated audio resources before freeing the test scene.
