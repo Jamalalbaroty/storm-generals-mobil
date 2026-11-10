@@ -2346,7 +2346,8 @@ func _initialize_supply_points(size: Vector2) -> void:
 	supply_points = [
 		{"pos": Vector2(size.x * 0.34, size.y * 0.28), "owner": "player", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
 		{"pos": Vector2(size.x * 0.66, size.y * 0.72), "owner": "enemy", "payout": 0.0, "supply_payout": 0.0, "kind": "supply"},
-		{"pos": Vector2(size.x * 0.50, size.y * 0.695), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "port"}
+		{"pos": Vector2(size.x * 0.50, size.y * 0.695), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "port"},
+		{"pos": Vector2(size.x * 0.50, size.y * 0.52), "owner": "neutral", "payout": 0.0, "supply_payout": 0.0, "kind": "bridge"}
 	]
 
 func _update_supply_control(delta: float) -> void:
@@ -2366,20 +2367,24 @@ func _update_supply_control(delta: float) -> void:
 				supply_points[i].owner = "player"
 				supply_points[i].payout = 0.0
 				supply_points[i].supply_payout = 0.0
-				notice = "سيطر جيشك على الميناء الاستراتيجي!" if supply_points[i].get("kind", "supply") == "port" else "سيطر جيشك على نقطة إمداد!"
+				var captured_kind := String(supply_points[i].get("kind", "supply"))
+				notice = "سيطر جيشك على الميناء الاستراتيجي!" if captured_kind == "port" else ("أمّنت قواتك الجسر العسكري!" if captured_kind == "bridge" else "سيطر جيشك على نقطة إمداد!")
 				notice_time = 2.5
 		elif enemy_near and not player_near:
 			if supply_points[i].owner != "enemy":
 				supply_points[i].owner = "enemy"
 				supply_points[i].payout = 0.0
 				supply_points[i].supply_payout = 0.0
-				notice = "العدو استولى على الميناء الاستراتيجي!" if supply_points[i].get("kind", "supply") == "port" else "العدو استولى على نقطة إمداد!"
+				var captured_kind := String(supply_points[i].get("kind", "supply"))
+				notice = "العدو استولى على الميناء الاستراتيجي!" if captured_kind == "port" else ("العدو سيطر على الجسر العسكري!" if captured_kind == "bridge" else "العدو استولى على نقطة إمداد!")
 				notice_time = 2.5
 		if player_near and enemy_near:
 			continue
-		var is_port := String(supply_points[i].get("kind", "supply")) == "port"
-		var gold_rate := 8 if is_port else 4
-		var supply_interval := 6.0 if is_port else 8.0
+		var point_kind := String(supply_points[i].get("kind", "supply"))
+		var is_port := point_kind == "port"
+		var is_bridge := point_kind == "bridge"
+		var gold_rate := 8 if is_port else (6 if is_bridge else 4)
+		var supply_interval := 6.0 if is_port else (7.0 if is_bridge else 8.0)
 		if supply_points[i].owner == "player":
 			supply_points[i].payout += delta
 			supply_points[i].supply_payout += delta
@@ -2591,9 +2596,23 @@ func _draw_supply_points() -> void:
 	for point in supply_points:
 		var p: Vector2 = point.pos
 		var owner: String = point.owner
-		var is_port := String(point.get("kind", "supply")) == "port"
+		var point_kind := String(point.get("kind", "supply"))
+		var is_port := point_kind == "port"
+		var is_bridge := point_kind == "bridge"
 		var tint := Color("#438bd2") if owner == "player" else (Color("#d65349") if owner == "enemy" else Color("#e0c16e"))
-		if is_port:
+		if is_bridge:
+			draw_circle(p, 47, Color(tint, 0.12))
+			draw_arc(p, 47, 0.0, TAU, 56, tint, 4.0)
+			# A stone road bridge with two piers and visible deck markings.
+			draw_rect(Rect2(p + Vector2(-48, -15), Vector2(96, 30)), Color("#716c5c"))
+			draw_rect(Rect2(p + Vector2(-44, -11), Vector2(88, 22)), Color("#c0b18c"))
+			for bridge_mark in range(5):
+				draw_rect(Rect2(p + Vector2(-34 + bridge_mark * 17, -2), Vector2(9, 4)), Color("#766f5c"))
+			for pier_x in [-34.0, 34.0]:
+				draw_rect(Rect2(p + Vector2(pier_x, 15), Vector2(9, 12)), Color("#5d594d"))
+			var bridge_label := "جسر محايد" if owner == "neutral" else ("جسرك العسكري" if owner == "player" else "جسر العدو")
+			draw_string(ThemeDB.fallback_font, p + Vector2(-65, 66), bridge_label, HORIZONTAL_ALIGNMENT_CENTER, 130, 15, Color.WHITE)
+		elif is_port:
 			draw_circle(p, 43, Color(tint, 0.14))
 			draw_arc(p, 43, 0.0, TAU, 56, tint, 4.0)
 			# Pier, mooring posts and a small harbor office
