@@ -519,6 +519,7 @@ func _process(delta: float) -> void:
 				var bunker_range := 185.0 + float(bunker_level - 1) * 30.0
 				var target := _nearest_enemy_ground_unit(building.pos, bunker_range) if is_bunker else _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
 				if target >= 0 and building.attack_cd <= 0.0:
+					building["defense_target_pos"] = units[target].pos
 					var defense_damage := 22 + (bunker_level - 1) * 5 if is_bunker else (34 if building.kind == "anti_air" else 18)
 					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], defense_damage))
 					var defense_color := Color("#c8b58a") if is_bunker else (Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffd27a"))
@@ -535,6 +536,7 @@ func _process(delta: float) -> void:
 				var target := _nearest_player_unit(building.pos, building.kind == "anti_air")
 				var max_range := 320.0 if building.kind == "anti_air" else 230.0
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
+					building["defense_target_pos"] = units[target].pos
 					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], 34 if building.kind == "anti_air" else 16))
 					var enemy_defense_effect_kind := "air_missile" if building.kind == "anti_air" else "tracer"
 					_add_visual_effect(enemy_defense_effect_kind, building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.22 if building.kind == "anti_air" else 0.16, 0.0)
