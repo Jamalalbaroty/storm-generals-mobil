@@ -265,6 +265,29 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Base destruction resolves deterministically and immediately.
+	game.battle_result = ""
+	game.enemy_base_hp = 0
+	game.player_base_hp = 0
+	if not game._resolve_battle_result() or game.battle_result != "انتصرت! دمرت قاعدة العدو":
+		push_error("Simultaneous base destruction must preserve the established player-victory precedence")
+		quit(1)
+		return
+	game.battle_result = ""
+	game.enemy_base_hp = 1000
+	game.player_base_hp = 0
+	if not game._resolve_battle_result() or game.battle_result != "هُزمت! سقطت قاعدتك":
+		push_error("Player base destruction must resolve the defeat state")
+		quit(1)
+		return
+	game.battle_result = ""
+	game.enemy_base_hp = 1000
+	game.player_base_hp = 1000
+	if game._resolve_battle_result():
+		push_error("Battle result must remain unset while both bases are alive")
+		quit(1)
+		return
+
 	# A finished match must freeze all economic and AI simulation until restart.
 	game.game_started = true
 	game.paused = false
