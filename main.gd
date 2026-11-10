@@ -314,6 +314,9 @@ func _process(delta: float) -> void:
 	for effect_index in range(visual_effects.size() - 1, -1, -1):
 		visual_effects[effect_index].life = float(visual_effects[effect_index].life) - delta
 		if visual_effects[effect_index].life <= 0.0:
+			var expired_effect: Dictionary = visual_effects[effect_index]
+			if String(expired_effect.get("kind", "")) == "shell":
+				_add_visual_effect("explosion", expired_effect.finish, expired_effect.finish, Color("#ffb45e"), 0.72, float(expired_effect.get("radius", 66.0)))
 			visual_effects.remove_at(effect_index)
 	_update_environment_particles(delta)
 	if game_started:
@@ -568,7 +571,7 @@ func _process(delta: float) -> void:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
 							if unit.kind == "artillery":
-								_add_visual_effect("explosion", enemy.pos, enemy.pos, Color("#ffb45e"), 0.72, 66.0)
+								_add_visual_effect("shell", unit.pos, enemy.pos, Color("#ffb45e"), 0.42, 66.0)
 								_apply_artillery_blast(enemy.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
 								unit.attack_cd = 2.4
 							else:
@@ -1745,7 +1748,17 @@ func _draw() -> void:
 		var fade: float = 1.0 - progress
 		var tint: Color = effect.color
 		tint.a = fade
-		if effect.kind == "tracer":
+		if effect.kind == "shell":
+			# A compact ballistic arc makes heavy artillery fire readable at a glance.
+			var shell_position: Vector2 = effect.start.lerp(effect.finish, progress)
+			var arc_height := sin(progress * PI) * minf(54.0, effect.start.distance_to(effect.finish) * 0.16)
+			shell_position.y -= arc_height
+			var trail_position := shell_position.lerp(effect.start, 0.16)
+			draw_line(trail_position, shell_position, Color(1.0, 0.66, 0.32, fade * 0.72), 3.0)
+			draw_circle(shell_position + Vector2(2.0, 3.0), 5.0, Color(0.18, 0.16, 0.14, fade * 0.48))
+			draw_circle(shell_position, 3.6, Color(1.0, 0.82, 0.48, fade))
+			draw_circle(shell_position, 1.5, Color(1.0, 0.98, 0.82, fade))
+		elif effect.kind == "tracer":
 			# Two-pass tracer: a soft colored halo beneath a crisp hot core.
 			var tracer_tint := Color(tint.r, tint.g, tint.b, fade * 0.24)
 			draw_line(effect.start, effect.finish, tracer_tint, 7.0)
