@@ -2946,44 +2946,44 @@ func _enemy_ai_turn() -> void:
 		return
 	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
 		return
-	if _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
+	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("carrier")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
+	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("submarine", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("submarine")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("landing_craft")
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": landing_dock, "team": "enemy", "kind": "landing_craft", "faction": _enemy_faction(), "hp": 220, "attack_cd": 0.0, "home_pos": landing_dock, "landing_state": "outbound", "passengers": 3, "landing_timer": 0.0})
-	elif _enemy_has_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
+	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
 		enemy_credits -= _unit_cost("destroyer", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("destroyer")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "destroyer", "faction": _enemy_faction(), "hp": 260, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
+	elif _enemy_has_powered_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= _unit_cost("fighter", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("fighter")
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= _unit_supply_cost("helicopter") and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
+	elif _enemy_has_powered_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= _unit_supply_cost("helicopter") and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= _helicopter_cost(_enemy_faction())
 		enemy_supplies -= _unit_supply_cost("helicopter")
 		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
+	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
 		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("artillery")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("tank") and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
+	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("tank", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("tank") and enemy_tanks < (5 if player_heavy_ground_threat >= 4 else 4):
 		enemy_credits -= _unit_cost("tank", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("tank")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
+	elif _enemy_has_powered_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 8:
 		enemy_credits -= _unit_cost("infantry", _enemy_faction())
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": base_pos, "attack_cd": 0.0})
 
