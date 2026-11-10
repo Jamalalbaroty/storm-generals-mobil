@@ -193,7 +193,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		return
 	var source_unit: Dictionary = units[source_index]
 	if order_type == "move" or order_type == "attack_move":
-		if order_type == "attack_move" and not String(source_unit.get("kind", "")) in ["tank", "artillery", "infantry"]:
+		if order_type == "attack_move" and not (String(source_unit.get("kind", "")) in ["tank", "artillery", "infantry"]):
 			return
 		var map_size := get_viewport_rect().size
 		var world_limit := 42.0 * 0.38
