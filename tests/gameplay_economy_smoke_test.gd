@@ -11,6 +11,17 @@ func _run_gameplay_economy_smoke_test() -> void:
 	root.add_child(game)
 	await process_frame
 
+	# Gameplay assertions do not depend on audio output. Disable the generated
+	# audio pool in headless CI so AudioServer playback handles cannot outlive
+	# the test SceneTree during shutdown.
+	for audio_player in game.get("audio_players"):
+		audio_player.stop()
+		audio_player.stream = null
+		game.remove_child(audio_player)
+		audio_player.free()
+	(game.get("audio_players") as Array).clear()
+	(game.get("audio_streams") as Dictionary).clear()
+
 	game.set("credits", 0)
 	game.set("supplies", 0)
 	game.call("_initialize_supply_points", Vector2(1280.0, 720.0))
