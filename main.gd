@@ -3328,6 +3328,11 @@ func _enemy_ai_turn() -> void:
 		return
 	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
 		return
+	# Secure a minimum infantry screen before optional naval expansion; this keeps the AI base from becoming undefended.
+	if _enemy_has_powered_building("barracks") and enemy_credits >= _unit_cost("infantry", _enemy_faction()) and enemy_infantry < 2:
+		enemy_credits -= _unit_cost("infantry", _enemy_faction())
+		units.append({"pos": enemy_base + Vector2(-75.0, randf_range(-65.0, 65.0)), "team": "enemy", "kind": "infantry", "faction": _enemy_faction(), "hp": 60, "target": enemy_base, "attack_cd": 0.0})
+		return
 	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("carrier")
@@ -3353,7 +3358,7 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= _unit_supply_cost("helicopter")
 		var rival_faction := _enemy_faction()
 		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
-	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < (3 if player_heavy_ground_threat >= 4 or player_infantry_threat >= 6 else 2):
+	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < min(3, max(1, int(ceil(float(enemy_tanks) / 2.0)))):
 		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("artillery")
 		units.append({"pos": enemy_base + Vector2(-75, randf_range(-75, 75)), "team": "enemy", "kind": "artillery", "faction": _enemy_faction(), "hp": 100, "target": base_pos, "attack_cd": 0.0})
