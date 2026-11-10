@@ -631,8 +631,9 @@ func _initialize() -> void:
 	var faction_signatures: Array[String] = []
 	for army in faction_names:
 		var army_profile: Dictionary = game.call("_faction_profile", army)
-		if army_profile.size() != 7:
-			push_error("Faction balance profile is incomplete for " + army)
+		var army_unit_costs: Dictionary = army_profile.get("unit_costs", {})
+		if army_profile.size() != 8 or army_unit_costs.is_empty():
+			push_error("Faction balance profile is missing combat stats or its unit-cost table for " + army)
 			quit(1)
 			return
 		var army_helicopter: Dictionary = {"kind": "helicopter", "faction": army}
