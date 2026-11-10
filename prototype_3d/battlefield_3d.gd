@@ -658,10 +658,17 @@ func _gameplay_max_health_for_kind(kind: String) -> float:
 
 
 func _sync_gameplay_unit_orientation(unit: Node3D, record: Dictionary) -> void:
-	# Convert the authoritative 2D headings to 3D yaw targets. The render loop
-	# interpolates toward them so body and turret turns remain visually smooth.
+	# Convert authoritative 2D headings to smooth 3D body/turret rotations.
 	if record.has("facing"):
-		unit.set_meta("gameplay_body_yaw_target", -float(record.get("facing", 0.0)) + PI * 0.5)
+		var source_facing := float(record.get("facing", 0.0))
+		var previous_facing := float(unit.get_meta("gameplay_source_facing", source_facing))
+		var turn_delta := wrapf(source_facing - previous_facing, -PI, PI)
+		var kind := String(record.get("kind", "tank"))
+		var is_aircraft := kind in ["fighter", "helicopter"]
+		var bank_target := clampf(-turn_delta * 1.8, -0.34, 0.34) if is_aircraft else 0.0
+		unit.set_meta("gameplay_flight_bank_target", bank_target)
+		unit.set_meta("gameplay_source_facing", source_facing)
+		unit.set_meta("gameplay_body_yaw_target", -source_facing + PI * 0.5)
 	if record.has("turret_facing"):
 		var desired_world_yaw := -float(record.get("turret_facing", record.get("facing", 0.0))) + PI * 0.5
 		unit.set_meta("gameplay_turret_yaw_target", desired_world_yaw)
@@ -756,6 +763,9 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			unit.global_position = unit.global_position.lerp(target_variant, blend)
 		var body_yaw := float(unit.get_meta("gameplay_body_yaw_target", unit.rotation.y))
 		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, blend)
+		# Aircraft bank gently into turns; ground vehicles always settle level.
+		var bank_target := float(unit.get_meta("gameplay_flight_bank_target", 0.0))
+		unit.rotation.z = lerpf(unit.rotation.z, bank_target, clampf(delta * 5.5, 0.0, 1.0))
 		var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
 		if is_instance_valid(turret_pivot) and unit.has_meta("gameplay_turret_yaw_target"):
 			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
