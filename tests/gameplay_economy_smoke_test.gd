@@ -565,7 +565,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("game_started", true)
 	game.set("paused", false)
 	game.set("battle_result", "")
-	game.set("enemy_timer", 999.0)
+	# Keep the AI turn from reassigning this wounded test tank as a base guard before retreat is exercised.
+	game.set("enemy_timer", 0.0)
 	game.set("enemy_missile_timer", 999.0)
 	game.set("enemy_income_timer", 999.0)
 	game.get("units").clear()
