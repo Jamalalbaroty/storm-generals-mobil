@@ -1382,6 +1382,18 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 				threat_priority = 65.0
 			"infantry":
 				threat_priority = 15.0
+		# Let the selected doctrine influence target choice as well as production.
+		# Anti-armor doctrine hunts tanks; area-denial doctrine suppresses artillery
+		# and infantry concentrations before they can threaten the base.
+		match enemy_strategy:
+			"armor_breaker":
+				if String(candidate.kind) == "tank":
+					threat_priority += 42.0
+			"area_denial":
+				if String(candidate.kind) == "artillery":
+					threat_priority += 32.0
+				elif String(candidate.kind) == "infantry":
+					threat_priority += 22.0
 		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 - threat_priority
 		if score < best_score:
 			best_score = score
