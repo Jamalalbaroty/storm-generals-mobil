@@ -81,7 +81,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Verify touch selection, move orders, and direct attack orders through the
 	# same pointer handler used by mobile input.
 	var battle_viewport: Vector2 = game.get_viewport_rect().size
-	var army_start: Vector2 = (game.call("_faction_rect", 0, battle_viewport) as Rect2).get_center()
+	var army_start_rect: Rect2 = game.call("_faction_rect", 0, battle_viewport)
+	var army_start: Vector2 = army_start_rect.get_center()
 	game.call("_handle_pointer", army_start, true)
 	game.call("_handle_pointer", army_start, false)
 	var builder_position: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
