@@ -251,6 +251,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		notice = "دورية جوية مفعّلة بين نقطتين"
 		notice_time = 1.8
 	elif order_type == "attack":
+		source_unit.erase("attack_move_active")
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
 			return
