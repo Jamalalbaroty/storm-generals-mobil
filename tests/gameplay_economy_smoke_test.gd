@@ -332,6 +332,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("enemy_buildings").append({"kind": "barracks", "pos": Vector2(102.0, 100.0), "hp": 400, "build_progress": 0.5})
 	var retreat_origin := Vector2(100.0, 100.0)
 	_expect(game.call("_enemy_retreat_destination", retreat_origin) == retreat_factory_pos, "Retreat routing should ignore incomplete buildings and choose the nearest completed asset")
+	game.get("enemy_buildings").append({"kind": "barracks", "pos": Vector2(100.0, 360.0), "hp": 400, "build_progress": 1.0})
+	game.get("units").clear()
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(120.0, 100.0)})
+	_expect(game.call("_enemy_retreat_destination", retreat_origin) == Vector2(100.0, 360.0), "Retreat routing should prefer a farther completed asset when the nearest one is exposed to player fire")
+	game.get("units").clear()
 	var wounded_tank: Dictionary = {"kind": "tank", "hp": 20, "pos": retreat_origin}
 	var is_retreating: bool = game.call("_update_enemy_retreat", wounded_tank, 1.0)
 	_expect(is_retreating and bool(wounded_tank.get("retreating", false)), "A critically damaged tank should enter retreat mode")
