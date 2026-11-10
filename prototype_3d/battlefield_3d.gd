@@ -2257,13 +2257,12 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				forward = forward.normalized()
 			var formation_spacing := _group_formation_spacing(valid_units)
 			var formation_offsets: Array[Vector3] = []
-			for index in range(valid_units.size()):
-				formation_offsets.append(_group_formation_offset(index, valid_units.size(), forward, formation_spacing))
+			for friendly in valid_units:
+				formation_offsets.append(_group_formation_offset_for_unit(friendly, valid_units, forward, formation_spacing))
 			var formation_destination := _fit_group_formation_to_arena(selected_destination, formation_offsets)
 			for index in range(valid_units.size()):
 				var friendly := valid_units[index]
-				var role_offset := _group_formation_offset_for_unit(friendly, valid_units, forward, formation_spacing)
-				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + role_offset, "")
+				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", formation_destination + formation_offsets[index], "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
