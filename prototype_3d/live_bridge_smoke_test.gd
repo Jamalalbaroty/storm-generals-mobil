@@ -480,6 +480,19 @@ func _initialize() -> void:
 		return
 
 	# Destroyed enemy structures must not attract attackers or trigger obsolete base-defense responses.
+	# Reset all simulation timers and transient combat state so this regression test is independent
+	# of the long sequence of AI, missile and combat tests that precedes it.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_credits", 0)
+	game.set("enemy_missile_timer", 0.0)
+	game.set("missiles", [])
+	game.set("buildings", [])
+	game.set("supply_points", [])
 	game.set("enemy_base", Vector2(500.0, 360.0))
 	game.set("units", [
 		{"pos": Vector2(450.0, 360.0), "team": "player", "kind": "tank", "hp": 150},
@@ -493,9 +506,6 @@ func _initialize() -> void:
 		push_error("Enemy ground assault target changed after adding a destroyed factory: baseline=" + str(target_without_destroyed_assets) + ", with_destroyed_asset=" + str(target_with_destroyed_assets))
 		quit(1)
 		return
-	game.set("game_started", true)
-	game.set("paused", false)
-	game.set("enemy_strategy", "balanced")
 	game.set("units", [
 		{"pos": Vector2(900.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0, "defense_guard": true, "defense_anchor": Vector2(900.0, 360.0)},
 		{"pos": Vector2(920.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
