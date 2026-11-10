@@ -115,16 +115,18 @@ func _initialize() -> void:
 	# frame before Godot actually frees its node.
 	var stale_pick_target := Node3D.new()
 	battlefield.add_child(stale_pick_target)
-	# Isolate the queued node and query a harmless screen point: the picker
-	# must discard the node before attempting any screen-space projection.
-	battlefield.showcase_tanks.clear()
+	var camera_for_pick := battlefield.get("rts_camera") as Camera3D
+	var offscreen_pick := Vector2(-1000.0, -1000.0)
+	stale_pick_target.global_position = camera_for_pick.project_ray_origin(offscreen_pick) + camera_for_pick.project_ray_normal(offscreen_pick) * 10.0
+	# Keep the live showcase arrays aligned; place the stale node well outside
+	# the visible arena so no other unit can satisfy this pick coordinate.
 	battlefield.showcase_tanks.append(stale_pick_target)
 	stale_pick_target.queue_free()
-	if battlefield.call("_tank_at_screen_position", Vector2.ZERO) != null:
+	if battlefield.call("_tank_at_screen_position", offscreen_pick) != null:
 		push_error("Touch selection returned a unit already queued for deletion")
 		quit(1)
 		return
-	battlefield.showcase_tanks.clear()
+	battlefield.showcase_tanks.erase(stale_pick_target)
 
 	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
 	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
