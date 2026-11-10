@@ -2621,6 +2621,9 @@ func _draw_supply_points() -> void:
 		var is_port := point_kind == "port"
 		var is_bridge := point_kind == "bridge"
 		var tint := Color("#438bd2") if owner == "player" else (Color("#d65349") if owner == "enemy" else Color("#e0c16e"))
+		if owner != "neutral":
+			# The outer ring marks the radius where friendly garrison cover is active.
+			draw_arc(p, 72.0, 0.0, TAU, 64, Color(tint, 0.30), 2.0)
 		if is_bridge:
 			draw_circle(p, 47, Color(tint, 0.12))
 			draw_arc(p, 47, 0.0, TAU, 56, tint, 4.0)
