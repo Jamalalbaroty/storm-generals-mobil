@@ -14,6 +14,7 @@ func _has_faction_insignia_color(unit: Node, badge_path: NodePath, expected: Col
 
 
 func _initialize() -> void:
+	print("3D smoke checkpoint: initialize")
 	var packed := load("res://prototype_3d/battlefield_3d.tscn") as PackedScene
 	if packed == null:
 		push_error("Could not load the 3D battlefield scene")
@@ -23,6 +24,7 @@ func _initialize() -> void:
 	var battlefield := packed.instantiate()
 	root.add_child(battlefield)
 	await process_frame
+	print("3D smoke checkpoint: battlefield instantiated")
 
 	if not battlefield is Node3D:
 		push_error("The 3D battlefield root is not Node3D")
@@ -30,6 +32,7 @@ func _initialize() -> void:
 		return
 
 	# Verify individual tactical paths for a selected group and clear them when its order ends.
+	print("3D smoke checkpoint: tactical group path test")
 	var path_test_unit := Node3D.new()
 	path_test_unit.set_meta("unit_type", "tank")
 	path_test_unit.set_meta("source_team", "player")
@@ -45,6 +48,7 @@ func _initialize() -> void:
 	battlefield.set("selected_destination", Vector3(4.0, 0.0, 2.0))
 	battlefield.set("has_selected_destination", true)
 	battlefield.call("_update_order_path_visual")
+	print("3D smoke checkpoint: tactical path mesh generated")
 	var path_visual := battlefield.get("order_path_instance") as MeshInstance3D
 	var path_mesh := battlefield.get("order_path_mesh") as ImmediateMesh
 	if path_visual == null or path_mesh == null or not path_visual.visible or path_mesh.get_surface_count() != 1:
@@ -65,6 +69,7 @@ func _initialize() -> void:
 	battlefield.call("_set_live_selection", empty_path_group)
 	path_test_unit.queue_free()
 	path_test_infantry.queue_free()
+	print("3D smoke checkpoint: tactical path test passed")
 
 	var sun_light := battlefield.get("sun_light") as DirectionalLight3D
 	if sun_light == null:
