@@ -278,6 +278,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(is_equal_approx(float(game.get("supply_points")[2]["payout"]), 0.0), "Ownership transfer should reset the previous owner's fractional credit timer")
 	_expect(is_equal_approx(float(game.get("supply_points")[2]["supply_payout"]), 0.0), "Ownership transfer should reset the previous owner's fractional supply timer")
 	live_units = game.get("units")
+	live_units[1]["hp"] = 0
 	live_units.append({"pos": port_position, "team": "player", "kind": "tank", "hp": 150})
 	game.set("units", live_units)
 	game.call("_update_supply_control", 1.0)
