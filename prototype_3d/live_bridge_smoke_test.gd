@@ -15,27 +15,29 @@ func _initialize() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	var bridge := game.get("battlefield_3d") as Node3D
-	if bridge == null or bridge.get_parent() != game:
-		push_error("Active match did not create its dedicated 3D gameplay bridge")
+	var bridge: Node3D = game.get("battlefield_3d") as Node3D
+	if bridge != null or game.has_node("Gameplay3DBridge"):
+		push_error("The 3D prototype should not be instantiated during a normal 2D match startup")
 		quit(1)
 		return
-	if not bridge.is_connected("gameplay_order_issued", Callable(game, "_on_3d_gameplay_order_issued")):
-		push_error("3D command signal is not connected to the live RTS command layer")
-		quit(1)
-		return
-	if bridge.visible:
-		push_error("3D gameplay bridge must remain hidden until the 3D view is explicitly enabled")
-		quit(1)
-		return
-	if bridge.process_mode != Node.PROCESS_MODE_DISABLED:
-		push_error("Hidden 3D bridge must disable processing to preserve mobile resources")
+	game.call("_set_3d_view_enabled", false)
+	if game.get("battlefield_3d") != null:
+		push_error("Disabling 3D view must not instantiate the hidden battlefield")
 		quit(1)
 		return
 
 	game.set("game_started", true)
 	game.set("faction", "الأمريكي")
 	game.call("_set_3d_view_enabled", true)
+	bridge = game.get("battlefield_3d") as Node3D
+	if bridge == null or bridge.get_parent() != game:
+		push_error("Explicit 3D activation did not lazily create its dedicated gameplay bridge")
+		quit(1)
+		return
+	if not bridge.is_connected("gameplay_order_issued", Callable(game, "_on_3d_gameplay_order_issued")):
+		push_error("3D command signal is not connected to the live RTS command layer")
+		quit(1)
+		return
 	if not bridge.visible or not bool(game.get("use_3d_view")):
 		push_error("Explicit 3D view activation did not reveal the live battlefield")
 		quit(1)
