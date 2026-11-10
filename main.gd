@@ -1807,18 +1807,31 @@ func _button_rect(index: int, size: Vector2) -> Rect2:
 	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
-	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 38, Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.32, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.36, 22, Color.WHITE)
+	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
+	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
+	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
+	draw_rect(panel, Color("#52666c"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.019), 16, 22), Color.WHITE)
 	for i in FACTIONS.size():
-		var r = _faction_rect(i, size)
+		var r := _faction_rect(i, size)
 		draw_rect(r, Color("#28445a") if i != 3 else Color("#73552d"), true)
-		draw_rect(r, Color("#b7c6d1"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(0, 42), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 22, Color.WHITE)
+		draw_rect(r, Color("#b7c6d1"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.59), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
 
 func _faction_rect(i: int, size: Vector2) -> Rect2:
-	var w = size.x * 0.21
-	return Rect2(Vector2(size.x * 0.28 + i * (w + 12), size.y * 0.48), Vector2(w, 72))
+	var panel_left := size.x * 0.06
+	var panel_width := size.x * 0.88
+	var inner_margin := minf(12.0, size.x * 0.03)
+	var gap_x := clampf(size.x * 0.018, 8.0, 16.0)
+	var gap_y := clampf(size.y * 0.018, 8.0, 14.0)
+	var button_width := (panel_width - inner_margin * 2.0 - gap_x) * 0.5
+	var button_height := clampf(size.y * 0.12, 62.0, 88.0)
+	var column := i % 2
+	var row := int(i / 2)
+	var button_x := panel_left + inner_margin + float(column) * (button_width + gap_x)
+	var button_y := size.y * 0.44 + float(row) * (button_height + gap_y)
+	return Rect2(Vector2(button_x, button_y), Vector2(button_width, button_height))
 
 func _input(event: InputEvent) -> void:
 	if use_3d_view:
