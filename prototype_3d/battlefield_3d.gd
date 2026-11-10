@@ -835,10 +835,14 @@ func sync_game_production_orders(orders: Array) -> void:
 		if not is_instance_valid(building_variant):
 			continue
 		var building := building_variant as Node3D
+		var has_active_order := active_producers.has(String(building_key))
 		var status := building.get_node_or_null("ProductionStatus") as Node3D
+		if has_active_order and not is_instance_valid(status):
+			var status_parts := _ensure_building_production_bar(building)
+			status = status_parts.root as Node3D
 		if not is_instance_valid(status):
 			continue
-		status.visible = active_producers.has(String(building_key))
+		status.visible = has_active_order
 		if not status.visible:
 			continue
 		var active_order: Dictionary = active_producers[String(building_key)]
