@@ -744,7 +744,6 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			else:
 				unit.set_meta("gameplay_aircraft_sortie_launch_seen", false)
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
-			unit.set_meta("gameplay_aircraft_fuel", float(record.get("aircraft_fuel", 100.0)))
 			unit.set_meta("gameplay_aircraft_ammo", int(record.get("aircraft_ammo", 8 if kind == "fighter" else 12)))
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
@@ -2931,9 +2930,8 @@ func _update_selection_count_label() -> void:
 			continue
 		var selected_kind := str(selected_unit.get_meta("unit_type", ""))
 		if selected_kind in ["fighter", "helicopter"]:
-			var fuel_percent := roundi(float(selected_unit.get_meta("gameplay_aircraft_fuel", 100.0)))
 			var ammunition := int(selected_unit.get_meta("gameplay_aircraft_ammo", 8 if selected_kind == "fighter" else 12))
-			aircraft_status = " | FUEL %d%%  AMMO %d" % [fuel_percent, ammunition]
+			aircraft_status = " | AMMO %d" % ammunition
 			break
 	selection_count_label.text = "UNITS: %d%s" % [count, aircraft_status]
 	selection_count_label.visible = count > 0
