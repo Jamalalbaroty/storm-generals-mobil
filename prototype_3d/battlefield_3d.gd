@@ -601,6 +601,29 @@ func _normalize_faction_id(faction_value: String) -> String:
 			return faction_value.to_lower()
 
 
+func _gameplay_max_health_for_kind(kind: String) -> float:
+	# Match the live 2D unit roster so 3D health bars show real damage from spawn.
+	match kind:
+		"tank":
+			return 150.0
+		"builder":
+			return 220.0
+		"helicopter":
+			return 180.0
+		"fighter":
+			return 120.0
+		"destroyer":
+			return 260.0
+		"carrier":
+			return 520.0
+		"submarine":
+			return 210.0
+		"landing_craft":
+			return 220.0
+		_:
+			return 100.0
+
+
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return 0
@@ -628,7 +651,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
-		var maximum_health := maxf(1.0, float(record.get("max_hp", maxf(100.0, current_health))))
+		var maximum_health := maxf(1.0, float(record.get("max_hp", _gameplay_max_health_for_kind(kind))))
 		var unit: Node3D = null
 		var existing_unit_variant = game_unit_nodes.get(key)
 		if is_instance_valid(existing_unit_variant):
