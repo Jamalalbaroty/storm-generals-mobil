@@ -328,6 +328,7 @@ func _process(delta: float) -> void:
 			income_timer = fmod(income_timer, 1.0)
 		_update_supply_control(delta)
 		_update_building_construction(delta)
+		_update_field_repairs(delta)
 		_update_production_queues(delta)
 		_update_enemy_building_construction(delta)
 		_update_building_capture(delta)
@@ -1835,6 +1836,10 @@ func _draw() -> void:
 			draw_line(round_position - round_direction * 11.0, round_position, Color(1.0, 0.68, 0.32, fade * 0.62), 3.0)
 			draw_circle(round_position, 3.2, Color(1.0, 0.83, 0.48, fade))
 			draw_circle(round_position, 1.4, Color(1.0, 0.98, 0.82, fade))
+		elif effect.kind == "repair":
+			var repair_pulse := 0.55 + sin(progress * TAU) * 0.25
+			draw_line(effect.start, effect.finish, Color(0.42, 0.95, 0.62, fade * repair_pulse), 3.0)
+			draw_circle(effect.finish, 5.0 + progress * 4.0, Color(0.58, 1.0, 0.70, fade * 0.72))
 		elif effect.kind == "tracer":
 			# Two-pass tracer: a soft colored halo beneath a crisp hot core.
 			var tracer_tint := Color(tint.r, tint.g, tint.b, fade * 0.24)
@@ -2961,6 +2966,48 @@ func _update_building_construction(delta: float) -> void:
 						worker.erase("build_target")
 			notice = "اكتمل إنشاء المبنى — أصبح جاهزاً للعمل"
 			notice_time = 2.5
+
+
+func _update_field_repairs(delta: float) -> void:
+	# Idle player builders can restore nearby damaged tanks without interrupting construction orders.
+	for builder in units:
+		if String(builder.get("team", "")) != "player" or String(builder.get("kind", "")) != "builder" or int(builder.get("hp", 0)) <= 0:
+			continue
+		if builder.has("build_target") or builder.has("target"):
+			continue
+		var nearest_tank_index := -1
+		var nearest_distance := 68.0
+		for tank_index in range(units.size()):
+			var candidate: Dictionary = units[tank_index]
+			if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "tank" or int(candidate.get("hp", 0)) <= 0:
+				continue
+			if int(candidate.get("hp", 0)) >= 150:
+				continue
+			var distance := builder.pos.distance_to(candidate.pos)
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_tank_index = tank_index
+		if nearest_tank_index < 0 or credits <= 0:
+			continue
+		var tank: Dictionary = units[nearest_tank_index]
+		builder["field_repair_work"] = float(builder.get("field_repair_work", 0.0)) + delta * 6.0
+		var repair_points := mini(int(floor(float(builder.field_repair_work))), 150 - int(tank.hp))
+		if repair_points <= 0:
+			continue
+		var repair_cost_buffer := float(builder.get("field_repair_cost_buffer", 0.0)) + float(repair_points) * 0.5
+		var whole_cost := int(floor(repair_cost_buffer))
+		if whole_cost > credits:
+			continue
+		builder["field_repair_work"] = float(builder.field_repair_work) - float(repair_points)
+		builder["field_repair_cost_buffer"] = repair_cost_buffer - float(whole_cost)
+		credits -= whole_cost
+		tank["hp"] = mini(150, int(tank.hp) + repair_points)
+		builder["field_repair_fx_cd"] = maxf(0.0, float(builder.get("field_repair_fx_cd", 0.0)) - delta)
+		if float(builder.field_repair_fx_cd) <= 0.0:
+			_add_visual_effect("repair", builder.pos, tank.pos, Color("#8ce6a0"), 0.32, 0.0)
+			builder["field_repair_fx_cd"] = 0.75
+		if int(tank.hp) >= 150:
+			tank.erase("field_repair_glow")
 
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
