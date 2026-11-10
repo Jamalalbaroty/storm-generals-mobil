@@ -2527,18 +2527,39 @@ func _update_order_path_visual() -> void:
 	if not has_selected_destination or not is_instance_valid(selected_tank):
 		order_path_instance.visible = false
 		return
-	var start_point := selected_tank.global_position + Vector3.UP * 0.16
-	var end_point := selected_destination + Vector3.UP * 0.16
-	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
-	if unit_type == "helicopter":
-		start_point.y += 5.2
-		end_point.y += 5.2
-	elif unit_type == "fighter":
-		start_point.y += 6.4
-		end_point.y += 6.4
+	var path_units: Array[Node3D] = []
+	for unit in selected_live_units:
+		if is_instance_valid(unit):
+			path_units.append(unit)
+	if path_units.is_empty():
+		path_units.append(selected_tank)
+	var average_position := Vector3.ZERO
+	for unit in path_units:
+		average_position += unit.global_position
+	average_position /= float(path_units.size())
+	var forward := selected_destination - average_position
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		forward = Vector3.FORWARD
+	var spacing := _group_formation_spacing(path_units)
+	var offsets: Array[Vector3] = []
+	for unit in path_units:
+		offsets.append(_group_formation_offset_for_unit(unit, path_units, forward, spacing))
+	var formation_destination := _fit_group_formation_to_arena(selected_destination, offsets)
 	order_path_mesh.surface_begin(Mesh.PRIMITIVE_LINES, order_path_material)
-	order_path_mesh.surface_add_vertex(order_path_instance.to_local(start_point))
-	order_path_mesh.surface_add_vertex(order_path_instance.to_local(end_point))
+	for index in range(path_units.size()):
+		var unit := path_units[index]
+		var start_point := unit.global_position + Vector3.UP * 0.16
+		var end_point := formation_destination + offsets[index] + Vector3.UP * 0.16
+		var unit_type := str(unit.get_meta("unit_type", "tank"))
+		if unit_type == "helicopter":
+			start_point.y += 5.2
+			end_point.y += 5.2
+		elif unit_type == "fighter":
+			start_point.y += 6.4
+			end_point.y += 6.4
+		order_path_mesh.surface_add_vertex(order_path_instance.to_local(start_point))
+		order_path_mesh.surface_add_vertex(order_path_instance.to_local(end_point))
 	order_path_mesh.surface_end()
 	order_path_instance.visible = true
 
