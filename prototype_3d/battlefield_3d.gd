@@ -2095,19 +2095,46 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		clampf(ground_point.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
 	)
 	if not selected_live_units.is_empty():
-		var count := selected_live_units.size()
-		var columns := int(ceil(sqrt(float(count))))
-		for index in range(count):
-			var friendly := selected_live_units[index]
-			if not is_instance_valid(friendly):
-				continue
-			var row := int(index / columns)
-			var column := index % columns
-			var offset := Vector3((float(column) - float(columns - 1) * 0.5) * 2.6, 0.0, (float(row) - float(columns - 1) * 0.5) * 2.6)
-			gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", selected_destination + offset, "")
+		var valid_units: Array[Node3D] = []
+		var formation_center := Vector3.ZERO
+		for friendly in selected_live_units:
+			if is_instance_valid(friendly):
+				valid_units.append(friendly)
+				formation_center += friendly.global_position
+		if not valid_units.is_empty():
+			formation_center /= float(valid_units.size())
+			var forward := selected_destination - formation_center
+			forward.y = 0.0
+			if forward.length_squared() < 0.01:
+				forward = Vector3.FORWARD
+			else:
+				forward = forward.normalized()
+			for index in range(valid_units.size()):
+				var friendly := valid_units[index]
+				var offset := _group_formation_offset(index, valid_units.size(), forward, 2.6)
+				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", selected_destination + offset, "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
+
+
+func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spacing: float = 2.6) -> Vector3:
+	# Orient the grid toward the movement direction so the formation advances as a coherent line.
+	var count := maxi(1, unit_count)
+	var safe_index := clampi(index, 0, count - 1)
+	var columns := int(ceil(sqrt(float(count))))
+	var rows := int(ceil(float(count) / float(columns)))
+	var row := int(safe_index / columns)
+	var column := safe_index % columns
+	var direction := Vector3(forward.x, 0.0, forward.z)
+	if direction.length_squared() < 0.0001:
+		direction = Vector3.FORWARD
+	else:
+		direction = direction.normalized()
+	var right := Vector3(direction.z, 0.0, -direction.x)
+	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
+	var depth := (float(row) - float(rows - 1) * 0.5) * spacing
+	return right * lateral + direction * depth
 
 
 func _is_live_player_unit(unit: Node3D) -> bool:
