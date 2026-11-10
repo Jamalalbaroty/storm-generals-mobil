@@ -710,6 +710,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				if selected_live_units.is_empty() and not is_instance_valid(selected_tank):
 					has_selected_destination = false
 					order_marker.visible = false
+				_spawn_light_unit_wreck(stale_unit)
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
 	return synced_count
@@ -927,6 +928,50 @@ func _spawn_light_building_debris(world_pos: Vector3, kind: String) -> void:
 	var cleanup := create_tween()
 	cleanup.tween_interval(24.0)
 	cleanup.tween_callback(_remove_light_building_debris.bind(rubble))
+
+
+func _spawn_light_unit_wreck(unit: Node3D) -> void:
+	# Small static visual wrecks only; the 2D simulation owns unit removal and combat.
+	if not is_instance_valid(unit):
+		return
+	var unit_kind := String(unit.get_meta("unit_kind", unit.get_meta("source_kind", "tank")))
+	var wreck := Node3D.new()
+	wreck.name = "LightUnitWreck"
+	wreck.global_position = unit.global_position
+	wreck.rotation.y = unit.rotation.y
+	add_child(wreck)
+	var wreck_mesh := BoxMesh.new()
+	var wreck_chunk := MeshInstance3D.new()
+	wreck_chunk.mesh = wreck_mesh
+	match unit_kind:
+		"fighter", "helicopter":
+			wreck_mesh.size = Vector3(1.0, 0.12, 0.62)
+			wreck.position.y += 0.08
+		"destroyer", "carrier", "submarine", "landing_craft":
+			wreck_mesh.size = Vector3(1.35, 0.16, 0.62)
+		"infantry", "builder":
+			wreck_mesh.size = Vector3(0.22, 0.12, 0.22)
+		_:
+			wreck_mesh.size = Vector3(0.82, 0.22, 0.62)
+	var wreck_material := StandardMaterial3D.new()
+	wreck_material.albedo_color = Color(0.19, 0.20, 0.19)
+	wreck_material.roughness = 1.0
+	wreck_chunk.material_override = wreck_material
+	wreck.add_child(wreck_chunk)
+	gameplay_debris_nodes.append(wreck)
+	while gameplay_debris_nodes.size() > 12:
+		var oldest := gameplay_debris_nodes.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
+	var cleanup := create_tween()
+	cleanup.tween_interval(18.0)
+	cleanup.tween_callback(_remove_light_unit_wreck.bind(wreck))
+
+
+func _remove_light_unit_wreck(wreck: Node3D) -> void:
+	gameplay_debris_nodes.erase(wreck)
+	if is_instance_valid(wreck):
+		wreck.queue_free()
 
 
 func _remove_light_building_debris(rubble: Node3D) -> void:
