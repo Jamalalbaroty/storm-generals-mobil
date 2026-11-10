@@ -110,6 +110,21 @@ func _initialize() -> void:
 	battlefield.set("camera_height", camera_height_before)
 	battlefield.call("_update_camera_pose")
 
+	# A unit queued for deletion must never remain a tap target during the
+	# frame before Godot actually frees its node.
+	var stale_pick_target := Node3D.new()
+	battlefield.add_child(stale_pick_target)
+	stale_pick_target.position = Vector3.ZERO
+	battlefield.showcase_tanks.append(stale_pick_target)
+	stale_pick_target.queue_free()
+	var camera_for_pick := battlefield.get("rts_camera") as Camera3D
+	var stale_pick_position := camera_for_pick.unproject_position(stale_pick_target.global_position + Vector3.UP)
+	if battlefield.call("_tank_at_screen_position", stale_pick_position) != null:
+		push_error("Touch selection returned a unit already queued for deletion")
+		quit(1)
+		return
+	battlefield.showcase_tanks.erase(stale_pick_target)
+
 	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
 	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
 	if rock_scatter == null or scrub_scatter == null:
