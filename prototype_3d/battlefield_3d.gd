@@ -2185,10 +2185,20 @@ func _build_order_indicators() -> void:
 	selection_count_label.name = "SelectionCountLabel"
 	selection_count_label.position = Vector2(22.0, 22.0)
 	selection_count_label.add_theme_font_size_override("font_size", 22)
-	selection_count_label.add_theme_color_override("font_color", Color(0.92, 0.96, 0.88))
-	selection_count_label.add_theme_color_override("font_shadow_color", Color(0.02, 0.04, 0.03, 0.92))
+	selection_count_label.add_theme_color_override("font_color", Color(0.48, 0.94, 0.58))
+	selection_count_label.add_theme_color_override("font_shadow_color", Color(0.01, 0.025, 0.015, 0.96))
 	selection_count_label.add_theme_constant_override("shadow_offset_x", 2)
 	selection_count_label.add_theme_constant_override("shadow_offset_y", 2)
+	var selection_hud_panel := StyleBoxFlat.new()
+	selection_hud_panel.bg_color = Color(0.025, 0.075, 0.045, 0.88)
+	selection_hud_panel.border_color = Color(0.22, 0.62, 0.34, 0.92)
+	selection_hud_panel.set_border_width_all(2)
+	selection_hud_panel.set_corner_radius_all(7)
+	selection_hud_panel.content_margin_left = 12.0
+	selection_hud_panel.content_margin_right = 12.0
+	selection_hud_panel.content_margin_top = 6.0
+	selection_hud_panel.content_margin_bottom = 6.0
+	selection_count_label.add_theme_stylebox_override("normal", selection_hud_panel)
 	selection_count_label.visible = false
 	hud_layer.add_child(selection_count_label)
 
