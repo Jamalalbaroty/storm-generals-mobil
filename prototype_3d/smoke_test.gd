@@ -55,6 +55,22 @@ func _initialize() -> void:
 				quit(1)
 				return
 
+	var faction_ids := ["american", "chinese", "arab", "watan"]
+	var faction_colors := [
+		Color(0.20, 0.48, 0.82),
+		Color(0.82, 0.20, 0.16),
+		Color(0.20, 0.58, 0.32),
+		Color(0.88, 0.68, 0.22)
+	]
+	for faction_index in range(faction_ids.size()):
+		var faction_building := battlefield.call("spawn_game_building", "command", Vector3(-72.0 + float(faction_index) * 12.0, 0.0, 28.0), faction_ids[faction_index], Color(0.32, 0.38, 0.30)) as Node3D
+		var faction_stripe := faction_building.get_node_or_null("FactionStripe") as MeshInstance3D if faction_building != null else null
+		var stripe_material := faction_stripe.material_override as StandardMaterial3D if faction_stripe != null else null
+		if stripe_material == null or stripe_material.albedo_color.distance_to(faction_colors[faction_index]) > 0.001:
+			push_error("Faction building identity color is incorrect for: " + faction_ids[faction_index])
+			quit(1)
+			return
+
 	var building_kinds := ["command", "barracks", "factory", "airfield", "power_plant", "turret", "anti_air", "missile_silo", "missile_defense", "shipyard"]
 	for building_index in range(building_kinds.size()):
 		var kind: String = building_kinds[building_index]
