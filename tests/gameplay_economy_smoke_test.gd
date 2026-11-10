@@ -213,7 +213,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Exercise the real splash-damage path: terrain cover applies to infantry only,
 	# damage stays on the intended team/radius, and lethal hits clamp at zero HP.
 	game.get("units").clear()
-	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
+	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0), "attack_cd": 10.0})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(310.0, 300.0)})
 	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(305.0, 300.0)})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(500.0, 300.0)})
@@ -250,7 +250,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("supply_points").clear()
 	game.get("units").clear()
 	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
-	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0)})
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
 	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(290.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
