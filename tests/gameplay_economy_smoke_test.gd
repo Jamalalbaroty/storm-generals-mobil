@@ -78,6 +78,37 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("game_started", false)
 	game.get("units").clear()
 
+	# A second finger must not take ownership of an active touch or change its
+	# drag/release target. This protects command taps from accidental multitouch.
+	var multitouch_first_target: Vector2 = game.call("_faction_rect", 0, active_viewport).get_center()
+	var multitouch_second_target: Vector2 = game.call("_faction_rect", 3, active_viewport).get_center()
+	var primary_touch := InputEventScreenTouch.new()
+	primary_touch.index = 0
+	primary_touch.pressed = true
+	primary_touch.position = multitouch_first_target
+	game._input(primary_touch)
+	_expect(int(game.get("active_touch_index")) == 0 and bool(game.get("dragging")), "The first finger should own the active pointer")
+	var secondary_touch := InputEventScreenTouch.new()
+	secondary_touch.index = 1
+	secondary_touch.pressed = true
+	secondary_touch.position = multitouch_second_target
+	game._input(secondary_touch)
+	var secondary_drag := InputEventScreenDrag.new()
+	secondary_drag.index = 1
+	secondary_drag.position = multitouch_second_target
+	game._input(secondary_drag)
+	_expect(int(game.get("active_touch_index")) == 0, "A second finger must not replace the primary touch")
+	_expect(game.get("drag_end") == multitouch_first_target, "A second-finger drag must not move the primary selection pointer")
+	secondary_touch.pressed = false
+	game._input(secondary_touch)
+	_expect(int(game.get("active_touch_index")) == 0 and not bool(game.get("game_started")), "A second-finger release must not complete the primary tap")
+	primary_touch.pressed = false
+	game._input(primary_touch)
+	_expect(int(game.get("active_touch_index")) == -1, "The primary touch should release pointer ownership")
+	_expect(bool(game.get("game_started")) and String(game.get("faction")) == "الأمريكي", "The original finger should complete its intended army-card tap")
+	game.set("game_started", false)
+	game.get("units").clear()
+
 	# Verify touch selection, move orders, and direct attack orders through the
 	# same pointer handler used by mobile input.
 	var battle_viewport: Vector2 = game.get_viewport_rect().size

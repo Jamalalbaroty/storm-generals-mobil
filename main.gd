@@ -84,6 +84,7 @@ var enemy_buildings: Array[Dictionary] = []
 var game_started := false
 var paused := false
 var dragging := false
+var active_touch_index := -1
 var drag_start := Vector2.ZERO
 var drag_end := Vector2.ZERO
 var base_pos := Vector2(180, 330)
@@ -1913,35 +1914,51 @@ func _faction_rect(i: int, size: Vector2) -> Rect2:
 	return Rect2(Vector2(button_x, button_y), Vector2(button_width, button_height))
 
 func _input(event: InputEvent) -> void:
-	if use_3d_view:
-		# The result overlay is drawn by the 2D command layer above the 3D
-		# battlefield, so keep its restart button interactive in 3D mode.
-		if battle_result != "":
-			if event is InputEventScreenTouch:
+	# Track one finger for the full press/drag/release cycle. Secondary fingers
+	# must not steal a selection or accidentally activate a different command.
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if active_touch_index != -1:
+				return
+			active_touch_index = event.index
+		elif event.index != active_touch_index:
+			return
+		if use_3d_view:
+			# The result overlay is drawn by the 2D command layer above the 3D
+			# battlefield, so keep its restart button interactive in 3D mode.
+			if battle_result != "":
 				_handle_pointer(event.position, event.pressed)
 				get_viewport().set_input_as_handled()
-			elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			elif not event.pressed and _three_d_view_toggle_rect(get_viewport_rect().size).has_point(event.position):
+				_set_3d_view_enabled(false)
+		else:
+			_handle_pointer(event.position, event.pressed)
+			get_viewport().set_input_as_handled()
+		if not event.pressed:
+			active_touch_index = -1
+		return
+	if event is InputEventScreenDrag:
+		if active_touch_index == -1 or event.index != active_touch_index:
+			return
+		if not use_3d_view:
+			drag_end = event.position
+			queue_redraw()
+		return
+	# Ignore emulated mouse events while a finger owns the pointer.
+	if active_touch_index != -1:
+		return
+	if use_3d_view:
+		if battle_result != "":
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 				_handle_pointer(event.position, event.pressed)
 				get_viewport().set_input_as_handled()
 			return
-		var released := false
-		var pointer_position := Vector2.ZERO
-		if event is InputEventScreenTouch and not event.pressed:
-			released = true
-			pointer_position = event.position
-		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-			released = true
-			pointer_position = event.position
-		if released and _three_d_view_toggle_rect(get_viewport_rect().size).has_point(pointer_position):
-			_set_3d_view_enabled(false)
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			if _three_d_view_toggle_rect(get_viewport_rect().size).has_point(event.position):
+				_set_3d_view_enabled(false)
 		return
-	if event is InputEventScreenTouch:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_handle_pointer(event.position, event.pressed)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_pointer(event.position, event.pressed)
-	elif event is InputEventScreenDrag:
-		drag_end = event.position
-		queue_redraw()
 	elif event is InputEventMouseMotion and dragging:
 		drag_end = event.position
 		queue_redraw()
