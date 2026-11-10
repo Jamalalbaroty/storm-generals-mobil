@@ -986,7 +986,8 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 	# Small static visual wrecks only; the 2D simulation owns unit removal and combat.
 	if not is_instance_valid(unit):
 		return
-	var unit_kind := String(unit.get_meta("unit_kind", unit.get_meta("source_kind", "tank")))
+	# Prefer the authoritative gameplay kind; placeholder nodes may only expose unit_type.
+	var unit_kind := String(unit.get_meta("gameplay_unit_kind", unit.get_meta("unit_type", unit.get_meta("source_kind", "tank"))))
 	var wreck := Node3D.new()
 	wreck.name = "LightUnitWreck"
 	wreck.global_position = unit.global_position
@@ -996,8 +997,11 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 	var wreck_chunk := MeshInstance3D.new()
 	wreck_chunk.mesh = wreck_mesh
 	match unit_kind:
-		"fighter", "helicopter":
-			wreck_mesh.size = Vector3(1.0, 0.12, 0.62)
+		"fighter":
+			wreck_mesh.size = Vector3(1.05, 0.12, 0.68)
+			wreck.position.y += 0.08
+		"helicopter":
+			wreck_mesh.size = Vector3(0.78, 0.16, 0.58)
 			wreck.position.y += 0.08
 		"destroyer", "carrier", "submarine", "landing_craft":
 			wreck_mesh.size = Vector3(1.35, 0.16, 0.62)
@@ -1010,6 +1014,17 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 	wreck_material.roughness = 1.0
 	wreck_chunk.material_override = wreck_material
 	wreck.add_child(wreck_chunk)
+	if unit_kind == "fighter" or unit_kind == "helicopter":
+		# A second low-poly fragment makes aircraft losses readable without physics.
+		var fragment := MeshInstance3D.new()
+		var fragment_mesh := BoxMesh.new()
+		fragment_mesh.size = Vector3(0.42, 0.09, 0.18) if unit_kind == "fighter" else Vector3(0.52, 0.08, 0.12)
+		fragment.mesh = fragment_mesh
+		fragment.position = Vector3(0.28, 0.10, -0.20)
+		fragment.rotation.y = 0.48
+		fragment.rotation.z = -0.16
+		fragment.material_override = wreck_material
+		wreck.add_child(fragment)
 	gameplay_debris_nodes.append(wreck)
 	while gameplay_debris_nodes.size() > 12:
 		var oldest := gameplay_debris_nodes.pop_front()
