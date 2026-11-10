@@ -490,26 +490,34 @@ func _initialize() -> void:
 	game.set("enemy_income_timer", 0.0)
 	game.set("enemy_credits", 0)
 	game.set("enemy_missile_timer", 0.0)
-	game.set("missiles", [])
-	game.set("buildings", [])
-	game.set("supply_points", [])
-	game.set("enemy_base", Vector2(500.0, 360.0))
-	game.set("units", [
+	var guard_test_missiles: Array[Dictionary] = []
+	var guard_test_buildings: Array[Dictionary] = []
+	var guard_test_supply_points: Array[Dictionary] = []
+	var guard_test_enemy_buildings: Array[Dictionary] = []
+	var guard_test_units: Array[Dictionary] = [
 		{"pos": Vector2(450.0, 360.0), "team": "player", "kind": "tank", "hp": 150},
 		{"pos": Vector2(900.0, 360.0), "team": "player", "kind": "infantry", "hp": 100}
-	])
-	game.set("enemy_buildings", [])
+	]
+	game.set("missiles", guard_test_missiles)
+	game.set("buildings", guard_test_buildings)
+	game.set("supply_points", guard_test_supply_points)
+	game.set("enemy_base", Vector2(500.0, 360.0))
+	game.set("units", guard_test_units)
+	game.set("enemy_buildings", guard_test_enemy_buildings)
+	game.set("battlefield_sync_timer", 0.0)
 	var target_without_destroyed_assets := int(game.call("_select_enemy_ground_assault_target"))
-	game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 0}])
+	guard_test_enemy_buildings.append({"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 0})
+	game.set("enemy_buildings", guard_test_enemy_buildings)
 	var target_with_destroyed_assets := int(game.call("_select_enemy_ground_assault_target"))
 	if target_with_destroyed_assets != target_without_destroyed_assets:
 		push_error("Enemy ground assault target changed after adding a destroyed factory: baseline=" + str(target_without_destroyed_assets) + ", with_destroyed_asset=" + str(target_with_destroyed_assets))
 		quit(1)
 		return
-	game.set("units", [
+	var guard_combat_units: Array[Dictionary] = [
 		{"pos": Vector2(900.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 0.0, "defense_guard": true, "defense_anchor": Vector2(900.0, 360.0)},
 		{"pos": Vector2(920.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
-	])
+	]
+	game.set("units", guard_combat_units)
 	print("GUARD_DEBUG before base=", game.get("enemy_base"), " base_hp=", game.get("enemy_base_hp"), " units=", game.get("units"))
 	game.call("_process", 0.1)
 	var obsolete_asset_guard: Array[Dictionary] = game.get("units")
