@@ -608,6 +608,90 @@ func _process(delta: float) -> void:
 						unit.erase("landing_support_active")
 						unit.erase("attack_target")
 						unit.erase("attack_focus_pos")
+				# Player aircraft use dedicated air-combat movement and weapons.
+				# This branch handles explicit player orders only; enemy doctrine is untouched.
+				if unit.kind in ["fighter", "helicopter"]:
+					if unit.has("attack_building"):
+						var air_building_index := int(unit.attack_building)
+						if air_building_index < 0 or air_building_index >= enemy_buildings.size() or int(enemy_buildings[air_building_index].get("hp", 0)) <= 0:
+							unit.erase("attack_building")
+							continue
+						var air_building: Dictionary = enemy_buildings[air_building_index]
+						var air_building_distance: float = unit.pos.distance_to(air_building.pos)
+						var air_building_range := 245.0 if unit.kind == "fighter" else 225.0
+						if air_building_distance <= air_building_range:
+							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
+							if unit.attack_cd <= 0.0:
+								var air_building_damage := 26 if unit.kind == "fighter" else _helicopter_damage(unit)
+								var air_building_hp_before := int(air_building.hp)
+								air_building.hp = maxi(0, air_building_hp_before - air_building_damage)
+								_award_unit_experience(unit, air_building_hp_before - int(air_building.hp))
+								_add_visual_effect("air_missile", unit.pos, air_building.pos, Color("#ffd18a"), 0.24, 0.0)
+								_add_visual_effect("explosion", air_building.pos, air_building.pos, Color("#ffad62"), 0.42, 32.0)
+								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN if unit.kind == "fighter" else _helicopter_cooldown(unit)
+								if air_building.hp <= 0:
+									_remove_destroyed_buildings("enemy")
+						else:
+							unit.pos += (air_building.pos - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+						continue
+					if bool(unit.get("attack_base", false)):
+						var air_base_distance: float = unit.pos.distance_to(enemy_base)
+						if air_base_distance <= 250.0:
+							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
+							if unit.attack_cd <= 0.0:
+								var air_base_damage := 24 if unit.kind == "fighter" else _helicopter_damage(unit)
+								enemy_base_hp = maxi(0, enemy_base_hp - air_base_damage)
+								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN if unit.kind == "fighter" else _helicopter_cooldown(unit)
+								_add_visual_effect("air_missile", unit.pos, enemy_base, Color("#ffd18a"), 0.24, 0.0)
+								_add_visual_effect("explosion", enemy_base, enemy_base, Color("#ffad62"), 0.42, 34.0)
+						else:
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+						continue
+					var air_enemy_target := int(unit.get("attack_target", -1))
+					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
+						if unit.has("attack_focus_pos"):
+							var air_preferred_kinds := ["fighter", "helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+							air_enemy_target = _nearest_unit_by_priority(unit.attack_focus_pos, 320.0, "enemy", air_preferred_kinds)
+						if air_enemy_target >= 0:
+							unit.attack_target = air_enemy_target
+						else:
+							unit.erase("attack_target")
+							unit.erase("attack_focus_pos")
+					if air_enemy_target >= 0:
+						var air_enemy: Dictionary = units[air_enemy_target]
+						unit.attack_focus_pos = air_enemy.pos
+						var air_enemy_distance: float = unit.pos.distance_to(air_enemy.pos)
+						var air_attack_range := FIGHTER_ATTACK_RANGE if unit.kind == "fighter" else 235.0
+						if air_enemy_distance <= air_attack_range:
+							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
+							if unit.attack_cd <= 0.0:
+								var air_damage := FIGHTER_DAMAGE if unit.kind == "fighter" else _helicopter_damage(unit)
+								_add_visual_effect("air_missile", unit.pos, air_enemy.pos, Color("#ffd18a"), 0.22, 0.0)
+								if unit.kind == "helicopter":
+									_apply_splash_damage(air_enemy.pos, 38.0, air_damage, "enemy")
+								else:
+									var air_hp_before := int(air_enemy.hp)
+									air_enemy.hp = maxi(0, air_hp_before - air_damage)
+									_award_unit_experience(unit, air_hp_before - int(air_enemy.hp))
+									_register_unit_kill(unit, air_enemy, air_hp_before)
+								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.38, 25.0)
+								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN if unit.kind == "fighter" else _helicopter_cooldown(unit)
+						else:
+							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+					elif unit.has("target"):
+						var air_move_target: Vector2 = unit.target
+						if unit.pos.distance_to(air_move_target) > 10.0:
+							unit.pos += (air_move_target - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+						else:
+							unit.erase("target")
+					continue
+				if unit.has("target"):
+					var idle_air_target: Vector2 = unit.target
+					if unit.pos.distance_to(idle_air_target) > 10.0:
+						unit.pos += (idle_air_target - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+					else:
+						unit.erase("target")
+				continue
 				if unit.has("attack_building"):
 					var building_target = int(unit.attack_building)
 					if building_target < 0 or building_target >= enemy_buildings.size():
