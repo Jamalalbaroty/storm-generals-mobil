@@ -227,6 +227,32 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Formation spacing must account for the largest footprint in mixed groups.
+	var infantry_formation_unit := Node3D.new()
+	infantry_formation_unit.set_meta("unit_type", "infantry")
+	var tank_formation_unit := Node3D.new()
+	tank_formation_unit.set_meta("unit_type", "tank")
+	var naval_formation_unit := Node3D.new()
+	naval_formation_unit.set_meta("unit_type", "destroyer")
+	var infantry_formation_group: Array[Node3D] = [infantry_formation_unit]
+	var armour_formation_group: Array[Node3D] = [infantry_formation_unit, tank_formation_unit]
+	var naval_formation_group: Array[Node3D] = [tank_formation_unit, naval_formation_unit]
+	if absf(float(bridge.call("_group_formation_spacing", infantry_formation_group)) - 2.4) > 0.01:
+		push_error("Infantry formation spacing is not compact enough for foot soldiers")
+		quit(1)
+		return
+	if absf(float(bridge.call("_group_formation_spacing", armour_formation_group)) - 3.8) > 0.01:
+		push_error("Mixed infantry and armor formation did not use the tank footprint")
+		quit(1)
+		return
+	if absf(float(bridge.call("_group_formation_spacing", naval_formation_group)) - 10.5) > 0.01:
+		push_error("Mixed naval formation did not reserve enough room for long vessels")
+		quit(1)
+		return
+	infantry_formation_unit.free()
+	tank_formation_unit.free()
+	naval_formation_unit.free()
+
 	# If one selected unit disappears, surviving selected units must remain selected.
 	# Keep the enemy target in the logical array to verify it is not cleared accidentally.
 	bridge.set("attack_target", enemy_fighter)
