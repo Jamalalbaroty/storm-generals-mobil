@@ -524,6 +524,22 @@ func _run() -> void:
 		push_error("Enemy AI should construct a power plant when current demand exceeds capacity")
 		quit(1)
 		return
+	game.enemy_buildings = []
+	for i in range(6):
+		game.enemy_buildings.append({"pos": Vector2(100.0 + i * 80.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0})
+	for i in range(3):
+		game.enemy_buildings.append({"pos": Vector2(100.0 + i * 80.0, 220.0), "kind": "factory", "hp": 500, "build_progress": 1.0})
+	game.enemy_buildings.append({"pos": Vector2(500.0, 320.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game.enemy_credits = 1200
+	game._enemy_ai_turn()
+	var completed_enemy_power_plants := 0
+	for building in game.enemy_buildings:
+		if String(building.get("kind", "")) == "power_plant":
+			completed_enemy_power_plants += 1
+	if completed_enemy_power_plants != 2:
+		push_error("Enemy AI should add a second power plant when one plant cannot cover demand")
+		quit(1)
+		return
 
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
@@ -656,5 +672,5 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("PASS: faction costs, enemy strategy, production recovery, grid power, and missile defense")
+	print("PASS: faction costs, enemy strategy, player/enemy power grids, production recovery, and missile defense")
 	quit(0)
