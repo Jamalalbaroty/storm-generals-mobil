@@ -543,6 +543,9 @@ func _process(delta: float) -> void:
 					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
 					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
 		var enemy_ground_focus := _select_enemy_ground_assault_target()
+		var wall_collision_origins: Array[Vector2] = []
+		for movement_snapshot in units:
+			wall_collision_origins.append(movement_snapshot.pos)
 		for i in units.size():
 			var unit = units[i]
 			if unit.get("hp", 0) <= 0:
@@ -1069,10 +1072,59 @@ func _process(delta: float) -> void:
 				var target: Vector2 = unit.target
 				if unit.pos.distance_to(target) > 8.0:
 					unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+		_resolve_fortification_collisions(wall_collision_origins)
 		_cleanup_destroyed_units()
 		_resolve_battle_result()
 		_update_unit_facing(delta)
 		queue_redraw()
+
+
+func _fortification_resolve_segment(position: Vector2, previous: Vector2, segment_start: Vector2, segment_end: Vector2, radius: float) -> Vector2:
+	var segment := segment_end - segment_start
+	var segment_length_sq := segment.length_squared()
+	if segment_length_sq <= 0.001:
+		return position
+	var projection := clampf((position - segment_start).dot(segment) / segment_length_sq, 0.0, 1.0)
+	var closest := segment_start + segment * projection
+	var offset := position - closest
+	var distance := offset.length()
+	if distance >= radius:
+		return position
+	var normal := offset.normalized()
+	if distance <= 0.001:
+		normal = (previous - closest).normalized()
+		if normal.length_squared() <= 0.001:
+			normal = Vector2.UP
+	return closest + normal * radius
+
+
+func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> void:
+	var snapshot_count := mini(units.size(), previous_positions.size())
+	for unit_index in range(snapshot_count):
+		var unit: Dictionary = units[unit_index]
+		if int(unit.get("hp", 0)) <= 0 or String(unit.get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
+			continue
+		var previous: Vector2 = previous_positions[unit_index]
+		var resolved: Vector2 = unit.pos
+		var collision_radius := 13.0 if String(unit.get("kind", "")) in ["tank", "artillery"] else 10.0
+		for hostile_side in [buildings, enemy_buildings]:
+			for fortification in hostile_side:
+				var kind := String(fortification.get("kind", ""))
+				if kind not in ["wall", "wall_corner", "wall_gate"] or int(fortification.get("hp", 0)) <= 0:
+					continue
+				if kind == "wall":
+					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(-31.0, 0.0), fortification.pos + Vector2(31.0, 0.0), collision_radius + 7.0)
+				elif kind == "wall_corner":
+					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(-31.0, 0.0), fortification.pos + Vector2(10.0, 0.0), collision_radius + 7.0)
+					resolved = _fortification_resolve_segment(resolved, previous, fortification.pos + Vector2(10.0, 0.0), fortification.pos + Vector2(10.0, 40.0), collision_radius + 7.0)
+				else:
+					# The gate keeps a clear central passage; only its two guard pillars block ground traffic.
+					for gate_side in [-1.0, 1.0]:
+						var pillar_center := fortification.pos + Vector2(gate_side * 28.0, 0.0)
+						resolved = _fortification_resolve_segment(resolved, previous, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), collision_radius + 6.0)
+				previous = resolved
+		unit.pos = resolved
+		units[unit_index] = unit
 
 
 func _resolve_battle_result() -> bool:
