@@ -579,11 +579,16 @@ func _process(delta: float) -> void:
 								unit.attack_cd = 2.4
 							else:
 								var enemy_hp_before := int(enemy.hp)
-								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)))
+								var shot_damage := _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)
+								if unit.kind == "tank":
+									shot_damage = _player_armor_penetration_damage(enemy, shot_damage)
+								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, shot_damage))
 								_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
 								_register_unit_kill(unit, enemy, enemy_hp_before)
 								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
+								if unit.kind == "tank" and String(enemy.get("kind", "")) in ["tank", "artillery"]:
+									_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
 								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
 					else:
 						unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
@@ -705,6 +710,13 @@ func _draw_environment_particles() -> void:
 			draw_circle(center + Vector2(-radius * 0.28, -radius * 0.22), radius * 0.72, Color(tint.r, tint.g, tint.b, fade * 0.52))
 		else:
 			draw_circle(center, radius, Color(tint.r, tint.g, tint.b, fade * 0.62))
+
+func _player_armor_penetration_damage(target: Dictionary, base_damage: int) -> int:
+	# Player tank shells gain a measured bonus against armored battlefield units.
+	var target_kind := String(target.get("kind", ""))
+	var penetration_multiplier := 1.35 if target_kind == "tank" else (1.15 if target_kind == "artillery" else 1.0)
+	return maxi(1, roundi(float(base_damage) * penetration_multiplier))
+
 
 func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	var rank := int(unit.get("veterancy", 0))
