@@ -260,6 +260,10 @@ func _run() -> void:
 		push_error("3D view must route the result-screen restart tap into the 2D match reset")
 		quit(1)
 		return
+	if game.use_3d_view or game.battlefield_3d.visible:
+		push_error("Restart must disable the 3D battlefield before returning to faction selection")
+		quit(1)
+		return
 
 	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
 	quit(0)
