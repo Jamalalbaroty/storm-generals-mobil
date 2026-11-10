@@ -842,27 +842,48 @@ func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
 
 
 func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
-	# Infantry use natural cover in forest, mountain and dense urban theaters.
+	# Infantry benefit from natural cover in forests, mountains and dense urban theaters.
+	# Units stationed near a friendly objective also gain a tactical garrison defense bonus.
 	var kind := String(target.get("kind", ""))
+	var team := String(target.get("team", ""))
+	var damage_multiplier := 1.0
 	if kind == "infantry":
 		if map_type == "ساحل الغابات":
-			return maxi(1, roundi(raw_damage * 0.72))
-		if map_type == "الساحل الجبلي":
-			return maxi(1, roundi(raw_damage * 0.80))
-		if map_type == "المدينة الساحلية":
-			return maxi(1, roundi(raw_damage * 0.76))
-	return raw_damage
+			damage_multiplier *= 0.72
+		elif map_type == "الساحل الجبلي":
+			damage_multiplier *= 0.80
+		elif map_type == "المدينة الساحلية":
+			damage_multiplier *= 0.76
+	for point in supply_points:
+		if String(point.get("owner", "neutral")) != team or team == "":
+			continue
+		var point_pos: Vector2 = point.get("pos", Vector2.ZERO)
+		if target.get("pos", Vector2.ZERO).distance_to(point_pos) > 72.0:
+			continue
+		var point_kind := String(point.get("kind", "supply"))
+		var garrison_multiplier := 0.90
+		if point_kind == "bridge":
+			garrison_multiplier = 0.82
+		elif point_kind == "port":
+			garrison_multiplier = 0.88
+		if kind == "infantry":
+			garrison_multiplier = minf(garrison_multiplier, 0.84)
+		elif kind == "tank":
+			garrison_multiplier = minf(garrison_multiplier, 0.90)
+		damage_multiplier *= garrison_multiplier
+		break
+	return maxi(1, roundi(float(raw_damage) * damage_multiplier))
 
 func _terrain_effect_label() -> String:
 	match map_type:
 		"ساحل الغابات":
-			return "غطاء الغابات: حماية المشاة 28%"
+			return "غطاء الغابات: حماية المشاة 28% — الحاميات تحمي النقاط"
 		"الساحل الجبلي":
-			return "المرتفعات: حماية المشاة 20%"
+			return "المرتفعات: حماية المشاة 20% — الحاميات تحمي النقاط"
 		"المدينة الساحلية":
-			return "المباني: حماية المشاة 24%"
+			return "المباني: حماية المشاة 24% — الحاميات تحمي النقاط"
 		_:
-			return "الصحراء: لا يوجد غطاء طبيعي"
+			return "الصحراء: الحاميات تمنح حماية قرب نقاط السيطرة"
 
 func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String, attacker: Dictionary = {}) -> void:
 	for unit in units:
