@@ -3354,16 +3354,28 @@ func _enemy_should_engage_player(has_player_target: bool, player_distance: float
 
 
 func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_threat: int, infantry_threat: int) -> String:
-	# Prioritize the strongest immediate threat; retain a balanced doctrine below response thresholds.
-	if air_threat >= 2 and air_threat >= heavy_ground_threat:
-		return "air_control"
-	if naval_threat >= 2:
-		return "naval_control"
-	if heavy_ground_threat >= 3:
-		return "armor_breaker"
-	if infantry_threat >= 5:
-		return "area_denial"
-	return "balanced"
+	# Score threats by battlefield impact instead of reacting to raw counts alone.
+	# A small hysteresis margin prevents doctrine flicker when unit counts fluctuate.
+	var threat_scores := {
+		"air_control": float(air_threat) * 3.0,
+		"naval_control": float(naval_threat) * 3.2,
+		"armor_breaker": float(heavy_ground_threat) * 2.5,
+		"area_denial": float(infantry_threat) * 1.1
+	}
+	var next_strategy := "balanced"
+	var strongest_score := 5.0
+	for strategy_name in threat_scores:
+		var score := float(threat_scores[strategy_name])
+		if score > strongest_score:
+			strongest_score = score
+			next_strategy = String(strategy_name)
+	# Keep the current doctrine if it is still relevant and nearly as strong
+	# as the new leader; switch immediately only for a clearly stronger threat.
+	if enemy_strategy != "balanced" and threat_scores.has(enemy_strategy):
+		var current_score := float(threat_scores[enemy_strategy])
+		if current_score >= 5.0 and current_score >= strongest_score - 1.5:
+			return enemy_strategy
+	return next_strategy
 
 
 func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_count: int, artillery_count: int, destroyer_count: int) -> bool:
