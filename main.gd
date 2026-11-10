@@ -3186,11 +3186,24 @@ func _update_production_queues(delta: float) -> void:
 		if active_producers.has(producer_pos):
 			continue
 		active_producers.append(producer_pos)
+		var producer_exists := false
 		var producer_ready := false
 		for producer_index in range(buildings.size()):
-			if buildings[producer_index].pos.distance_to(producer_pos) < 2.0 and _is_player_building_powered(producer_index):
-				producer_ready = true
+			if buildings[producer_index].pos.distance_to(producer_pos) < 2.0:
+				producer_exists = true
+				producer_ready = _is_player_building_powered(producer_index)
 				break
+		if not producer_exists:
+			# A destroyed production building must not leave a paid order stuck forever.
+			var cancelled_kind := String(order.get("kind", ""))
+			var refund := int(floor(float(_unit_cost(cancelled_kind, faction)) * 0.75))
+			credits = mini(MAX_CREDITS, credits + refund)
+			supplies = mini(99, supplies + _unit_supply_cost(cancelled_kind))
+			production_orders.remove_at(i)
+			notice = "دُمّر مبنى الإنتاج — أُلغي الطلب وأُعيد 75٪ من الموارد"
+			notice_time = 2.5
+			queue_redraw()
+			return
 		if not producer_ready:
 			continue
 		order.remaining = maxf(0.0, float(order.remaining) - delta)
