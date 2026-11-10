@@ -213,6 +213,24 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# If one selected unit disappears, surviving selected units must remain selected.
+	# Keep the enemy target in the logical array to verify it is not cleared accidentally.
+	bridge.set("attack_target", enemy_fighter)
+	bridge.set("has_selected_destination", true)
+	bridge.order_marker.visible = true
+	var partially_removed_units: Array[Dictionary] = [multi_units[1], multi_units[2]]
+	game.set("units", partially_removed_units)
+	game.call("_sync_3d_gameplay_bridge")
+	var selection_after_partial_removal: Array = bridge.get("selected_live_units")
+	if selection_after_partial_removal.size() != 1 or selection_after_partial_removal[0] != second_player or bridge.get("selected_tank") != second_player:
+		push_error("Removing one unit from a group discarded the surviving unit's selection")
+		quit(1)
+		return
+	if bridge.get("attack_target") != enemy_fighter or not bool(bridge.get("has_selected_destination")) or not bridge.order_marker.visible:
+		push_error("Removing one selected unit incorrectly cleared a still-valid enemy target or group destination")
+		quit(1)
+		return
+
 	# Naval counter-production must launch destroyers from the coastal shipyard.
 	var naval_test_units: Array[Dictionary] = []
 	game.set("units", naval_test_units)
