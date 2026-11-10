@@ -1,34 +1,22 @@
 name: Build Android APK
 
-# Build a fresh playable debug APK automatically after the complete Godot
-# regression suite passes on the active development branch. Manual dispatch
-# remains available for deliberate device-test rebuilds.
+# Android packaging is available on manual dispatch for deliberate device-test builds.
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Godot Regression Tests
-    types:
-      - completed
-    branches:
-      - fix/3d-selection-stale-unit-cleanup
 
 concurrency:
-  group: storm-generals-android-candidate
+  group: storm-generals-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   export-android:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
       image: barichello/godot-ci:4.4.1
     steps:
-      - name: Checkout tested commit
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Install build utilities
         run: |
           set -eux
