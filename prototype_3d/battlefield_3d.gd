@@ -69,6 +69,7 @@ var wheel_last_positions: Dictionary = {}
 var game_building_nodes: Dictionary = {}
 var game_unit_nodes: Dictionary = {}
 var gameplay_effect_nodes: Dictionary = {}
+var gameplay_debris_nodes: Array[Node3D] = []
 var next_game_unit_sync_id := 1
 var naval_propellers: Array[Node3D] = []
 var naval_animation_clock := 0.0
@@ -896,6 +897,42 @@ func spawn_game_building_destruction_effect(source_pos: Vector2, map_rect: Rect2
 	tween.tween_property(blast, "scale", blast.scale * 3.2, 0.42)
 	tween.tween_property(blast_material, "albedo_color:a", 0.0, 0.42)
 	tween.chain().tween_callback(blast.queue_free)
+	_spawn_light_building_debris(world_pos, kind)
+
+
+func _spawn_light_building_debris(world_pos: Vector3, kind: String) -> void:
+	# Small, static low-poly rubble; no rigid bodies, particles, or collision shapes.
+	var rubble := Node3D.new()
+	rubble.name = "LightBuildingDebris"
+	rubble.position = world_pos
+	add_child(rubble)
+	var chunk_count := 2 if kind in ["command", "factory", "shipyard"] else 1
+	for index in range(chunk_count):
+		var chunk := MeshInstance3D.new()
+		var chunk_mesh := BoxMesh.new()
+		chunk_mesh.size = Vector3(0.9 + 0.18 * index, 0.32 + 0.08 * index, 0.72)
+		chunk.mesh = chunk_mesh
+		chunk.position = Vector3(-0.42 + 0.84 * index, 0.16, 0.18 - 0.36 * index)
+		chunk.rotation = Vector3(0.08 * index, 0.55 * index, 0.12 - 0.24 * index)
+		var rubble_material := StandardMaterial3D.new()
+		rubble_material.albedo_color = Color(0.22, 0.23, 0.21) if index == 0 else Color(0.32, 0.29, 0.25)
+		rubble_material.roughness = 1.0
+		chunk.material_override = rubble_material
+		rubble.add_child(chunk)
+	gameplay_debris_nodes.append(rubble)
+	while gameplay_debris_nodes.size() > 10:
+		var oldest := gameplay_debris_nodes.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
+	var cleanup := create_tween()
+	cleanup.tween_interval(24.0)
+	cleanup.tween_callback(_remove_light_building_debris.bind(rubble))
+
+
+func _remove_light_building_debris(rubble: Node3D) -> void:
+	gameplay_debris_nodes.erase(rubble)
+	if is_instance_valid(rubble):
+		rubble.queue_free()
 
 
 func _gameplay_max_health_for_building(kind: String) -> float:
