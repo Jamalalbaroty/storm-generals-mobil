@@ -9,6 +9,7 @@ const MIN_CAMERA_HEIGHT := 14.0
 const MAX_CAMERA_HEIGHT := 48.0
 
 var rts_camera: Camera3D
+var sun_light: DirectionalLight3D
 var camera_focus := Vector3.ZERO
 var camera_height := 28.0
 var touch_points: Dictionary = {}
@@ -1072,11 +1073,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			_pan_camera(motion.relative)
 
 func _build_lighting() -> void:
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-48.0, -32.0, 0.0)
-	sun.light_energy = 1.25
-	sun.shadow_enabled = true
-	add_child(sun)
+	sun_light = DirectionalLight3D.new()
+	sun_light.rotation_degrees = Vector3(-48.0, -32.0, 0.0)
+	sun_light.light_energy = 1.25
+	sun_light.shadow_enabled = true
+	add_child(sun_light)
+	_apply_mobile_quality_profile(OS.has_feature("mobile"))
+
+
+func _apply_mobile_quality_profile(mobile_device: bool) -> void:
+	# Real-time directional shadows are one of the costliest parts of this
+	# prototype on mobile GPUs. Keep desktop presentation intact, but prefer
+	# stable frame time on phones and tablets.
+	if is_instance_valid(sun_light):
+		sun_light.shadow_enabled = not mobile_device
 
 func _build_showcase_units() -> void:
 	_add_placeholder_tank(Vector3(-7.0, 0.0, 1.0), Color(0.28, 0.34, 0.22), "american")
