@@ -411,6 +411,45 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[1]["hp"]) == 480, "Chinese enemy destroyer should use its own 40-point naval profile, not the player's Watan 50")
 	_expect(int(game.get("units")[0]["hp"]) == 236, "Player carrier should retain its 24-point role-specific naval strike")
 
+	# Run a sustained live battle to verify destroyed-unit cleanup and target/selection remapping.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_credits", 0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("credits", 0)
+	game.set("income_timer", 0.0)
+	game.set("player_base_hp", 1000)
+	game.set("enemy_base_hp", 1000)
+	game.get("supply_points").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("missiles").clear()
+	game.get("production_orders").clear()
+	game.get("visual_effects").clear()
+	game.get("environment_particles").clear()
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "tank", "team": "player", "hp": 150,
+		"pos": Vector2(500.0, 300.0), "attack_target": 1, "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "infantry", "team": "enemy", "hp": 60,
+		"pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+	})
+	game.get("selected").clear()
+	game.get("selected").append(0)
+	game.get("selected").append(1)
+	for battle_frame in range(180):
+		game.call("_process", 0.1)
+	_expect(game.get("units").size() == 1, "A sustained 18-second battle should remove the destroyed enemy unit without retaining stale entries")
+	_expect(String(game.get("units")[0].get("team", "")) == "player" and int(game.get("units")[0].get("hp", 0)) > 0, "The surviving player tank should remain valid after the long battle")
+	_expect(not game.get("units")[0].has("attack_target"), "The surviving tank must not retain an attack index for a destroyed enemy")
+	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Long-battle cleanup should preserve the surviving selection and discard destroyed selections")
+	for active_unit in game.get("units"):
+		_expect(int(active_unit.get("hp", 0)) > 0, "No destroyed unit may remain in the active array after a long battle")
+
 	# Sonar detection must respect destroyer range and remain hidden outside it.
 	game.get("units").clear()
 	var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
