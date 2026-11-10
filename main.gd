@@ -1096,11 +1096,14 @@ func _landing_assault_support_target(from_pos: Vector2, team: String) -> int:
 
 
 func _enemy_assault_formation_rank(unit_index: int) -> int:
-	# Formation slots count only preceding living enemy tanks and infantry; player units and support units must not distort assault lanes.
+	# Only active assault-line units occupy attack lanes. Base guards and landing-support
+	# units have separate orders and must never push the attacking formation out of position.
 	var rank := 0
 	for index in range(mini(unit_index, units.size())):
 		var candidate: Dictionary = units[index]
 		if candidate.team != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if bool(candidate.get("defense_guard", false)) or bool(candidate.get("landing_support_active", false)):
 			continue
 		if String(candidate.get("kind", "")) in ["tank", "infantry"]:
 			rank += 1
@@ -1128,11 +1131,16 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 
 
 func _enemy_artillery_formation_rank(unit_index: int) -> int:
-	# Artillery lanes are independent from tank/infantry indices and ignore dead or unrelated units.
+	# Only active offensive artillery reserves a fire-support lane; guarded batteries
+	# and landing-support attachments use independent positions.
 	var rank := 0
 	for index in range(mini(unit_index, units.size())):
 		var candidate: Dictionary = units[index]
-		if candidate.team == "enemy" and int(candidate.get("hp", 0)) > 0 and String(candidate.get("kind", "")) == "artillery":
+		if candidate.team != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if bool(candidate.get("defense_guard", false)) or bool(candidate.get("landing_support_active", false)):
+			continue
+		if String(candidate.get("kind", "")) == "artillery":
 			rank += 1
 	return rank
 
