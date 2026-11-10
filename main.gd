@@ -569,7 +569,7 @@ func _process(delta: float) -> void:
 						if unit.attack_cd <= 0.0:
 							if unit.kind == "artillery":
 								_add_visual_effect("explosion", enemy.pos, enemy.pos, Color("#ffb45e"), 0.72, 66.0)
-								_apply_splash_damage(enemy.pos, 58.0, _unit_damage_with_veterancy(unit, 45), "enemy", unit)
+								_apply_artillery_blast(enemy.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
 								unit.attack_cd = 2.4
 							else:
 								var enemy_hp_before := int(enemy.hp)
@@ -908,6 +908,24 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 			if not attacker.is_empty():
 				_award_unit_experience(attacker, hp_before - int(unit.hp))
 				_register_unit_kill(attacker, unit, hp_before)
+
+func _apply_artillery_blast(center: Vector2, radius: float, base_damage: int, target_team: String, attacker: Dictionary) -> void:
+	# Heavy shells retain meaningful impact at the center while reducing damage toward the blast edge.
+	for index in range(units.size()):
+		var target: Dictionary = units[index]
+		if String(target.get("team", "")) != target_team or int(target.get("hp", 0)) <= 0:
+			continue
+		if String(target.get("kind", "")) not in ["infantry", "tank", "artillery", "builder"]:
+			continue
+		var distance := target.pos.distance_to(center)
+		if distance > radius:
+			continue
+		var falloff := 1.0 - 0.65 * clampf(distance / maxf(1.0, radius), 0.0, 1.0)
+		var shell_damage := maxi(1, roundi(float(base_damage) * falloff))
+		var hp_before := int(target.hp)
+		target.hp = maxi(0, hp_before - _terrain_adjusted_damage(target, shell_damage))
+		_award_unit_experience(attacker, hp_before - int(target.hp))
+		_register_unit_kill(attacker, target, hp_before)
 
 func _faction_profile(army: String) -> Dictionary:
 	var profile: Dictionary = FACTION_BALANCE.get(army, FACTION_BALANCE["الصيني"])
