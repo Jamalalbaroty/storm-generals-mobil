@@ -41,3 +41,82 @@ jobs:
 
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
+
+  android-candidate:
+    name: Export playable Android debug APK
+    needs: regression
+    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout the exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install Android export templates, SDK, and debug signing key
+        shell: bash
+        run: |
+          set -eux
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y curl unzip
+          elif command -v apk >/dev/null 2>&1; then
+            apk add --no-cache curl unzip
+          else
+            echo "No supported package manager found"
+            exit 1
+          fi
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          mkdir -p "$TEMPLATE_DIR" build
+          TEMPLATE_URL="https://downloads.godotengine.org/?flavor=stable&platform=templates&slug=export_templates.tpz&version=4.4.1"
+          MIRROR_URL="https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"
+          if ! curl -fL --connect-timeout 20 --max-time 600 --retry 5 --retry-all-errors --retry-delay 2 -C - -o /tmp/godot-templates.tpz "$TEMPLATE_URL"; then
+            echo "Official template download failed; trying the Godot release mirror"
+            curl -fL --connect-timeout 20 --max-time 600 --retry 5 --retry-all-errors --retry-delay 2 -C - -o /tmp/godot-templates.tpz "$MIRROR_URL"
+          fi
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+          JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          ANDROID_HOME="${ANDROID_HOME:-/usr/lib/android-sdk}"
+          ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/cmdline-tools/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-33" "platforms;android-35" "build-tools;33.0.2" "build-tools;35.0.0"
+          keytool -genkeypair -noprompt -keystore /tmp/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/debug_keystore = "/tmp/debug.keystore"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          godot --headless --path . --editor --quit --verbose
+          godot --headless --path . --quit-after 3 --verbose > /tmp/android-smoke.log 2>&1
+          cat /tmp/android-smoke.log
+          if grep -E "SCRIPT ERROR:|Parse Error:|Failed to load script" /tmp/android-smoke.log; then
+            echo "Android export startup smoke test failed"
+            exit 1
+          fi
+          godot --headless --path . --export-debug "Android" build/StormGenerals-debug.apk --verbose
+          test -s build/StormGenerals-debug.apk
+          sha256sum build/StormGenerals-debug.apk | tee build/StormGenerals-debug.apk.sha256
+
+      - name: Upload playable Android candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: StormGenerals-Android-APK
+          path: |
+            build/StormGenerals-debug.apk
+            build/StormGenerals-debug.apk.sha256
+          if-no-files-found: error
