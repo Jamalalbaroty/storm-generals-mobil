@@ -2617,6 +2617,60 @@ func _enemy_has_building(kind: String) -> bool:
 			return true
 	return false
 
+
+func _enemy_has_any_building(kind: String) -> bool:
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == kind and int(building.get("hp", 1)) > 0:
+			return true
+	return false
+
+
+func _enemy_power_capacity() -> int:
+	var capacity := BASE_POWER_OUTPUT
+	for building in enemy_buildings:
+		if String(building.get("kind", "")) == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0 and int(building.get("hp", 1)) > 0:
+			capacity += POWER_PLANT_OUTPUT
+	return capacity
+
+
+func _enemy_power_demand() -> int:
+	var demand := 0
+	for building in enemy_buildings:
+		if int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+			demand += _power_demand(String(building.get("kind", "")))
+	return demand
+
+
+func _is_enemy_building_powered(building_index: int) -> bool:
+	if building_index < 0 or building_index >= enemy_buildings.size():
+		return false
+	var target: Dictionary = enemy_buildings[building_index]
+	if int(target.get("hp", 1)) <= 0 or float(target.get("build_progress", 1.0)) < 1.0:
+		return false
+	var target_demand := _power_demand(String(target.get("kind", "")))
+	if target_demand <= 0:
+		return true
+	var allocated := 0
+	var target_priority := _power_priority(String(target.get("kind", "")))
+	for i in range(enemy_buildings.size()):
+		if i == building_index:
+			continue
+		var other: Dictionary = enemy_buildings[i]
+		if int(other.get("hp", 1)) <= 0 or float(other.get("build_progress", 1.0)) < 1.0:
+			continue
+		var other_priority := _power_priority(String(other.get("kind", "")))
+		if other_priority < target_priority or (other_priority == target_priority and i < building_index):
+			allocated += _power_demand(String(other.get("kind", "")))
+	return _enemy_power_capacity() >= allocated + target_demand
+
+
+func _enemy_has_powered_building(kind: String) -> bool:
+	for i in range(enemy_buildings.size()):
+		if String(enemy_buildings[i].get("kind", "")) == kind and _is_enemy_building_powered(i):
+			return true
+	return false
+
+
 func _enemy_defense_guard_role_penalty(unit_kind: String) -> int:
 	match unit_kind:
 		"infantry":
