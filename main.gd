@@ -1871,6 +1871,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			paused = false
 			battle_result = ""
 			faction = ""
+			command_tab = 0
 			units.clear()
 			buildings.clear()
 			production_orders.clear()
@@ -1910,6 +1911,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		for i in FACTIONS.size():
 			if _faction_rect(i, size).has_point(pos):
 				faction = FACTIONS[i]
+				command_tab = 0
 				map_type = MAP_TYPES[randi_range(0, MAP_TYPES.size() - 1)]
 				battle_result = ""
 				credits = STARTING_CREDITS
