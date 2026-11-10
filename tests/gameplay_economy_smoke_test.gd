@@ -237,6 +237,32 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[0].get("attack_target", -1)) == 1, "Surviving attack orders should remap to the target's new unit index")
 	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Selection indices should be remapped and destroyed selections discarded")
 
+	# Exercise real time-stepped combat through the game's _process loop.
+	# Enemy artillery should damage nearby player ground units with splash,
+	# while respecting team ownership; a player tank should fire its assigned target.
+	game.set("map_type", "الساحل الصحراوي")
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_buildings", [])
+	game.set("buildings", [])
+	game.get("supply_points").clear()
+	game.get("units").clear()
+	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0)})
+	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(290.0, 300.0), "attack_cd": 0.0})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
+	_expect(int(game.get("units")[1]["hp"]) == 126, "Enemy artillery splash should damage nearby player armor")
+	_expect(int(game.get("units")[2]["hp"]) == 180, "Enemy artillery splash must not damage its own team")
+
+	game.get("units").clear()
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(400.0, 300.0), "attack_target": 1, "attack_cd": 0.0})
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(420.0, 300.0), "attack_cd": 10.0})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[1]["hp"]) == 80, "Player tank should deal its real 20-point direct hit through the combat loop")
+
 	game.queue_free()
 	if failure_count > 0:
 		push_error("Gameplay smoke test failed with %d assertion(s)." % failure_count)
