@@ -930,6 +930,16 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(landed_marines == 3, "Landing craft should deploy its complete three-marine assault squad")
 	_expect(String(game.get("units")[0].get("landing_state", "")) == "returning", "Landing craft should return to its home dock after unloading")
 
+	# Ground assault target selection should distribute attackers by local threat and distance.
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	game.set("enemy_base", Vector2(900.0, 400.0))
+	game.get("units").append({"pos": Vector2(180.0, 260.0), "team": "player", "kind": "tank", "hp": 150})
+	game.get("units").append({"pos": Vector2(820.0, 260.0), "team": "player", "kind": "artillery", "hp": 100})
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(200.0, 260.0))) == 0, "Left assault group should select its nearby ground threat")
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(800.0, 260.0))) == 1, "Right assault group should select its own nearby ground threat")
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 260.0))) >= 0, "Ground assault target selection should remain valid for units between threats")
+
 	# Formation slots must be isolated from defensive guards and landing-support attachments.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(760.0, 320.0), "team": "enemy", "kind": "tank", "hp": 150})
