@@ -205,6 +205,10 @@ func _set_3d_view_enabled(enabled: bool) -> void:
 	if is_instance_valid(battlefield_3d):
 		battlefield_3d.process_mode = Node.PROCESS_MODE_INHERIT if enabled else Node.PROCESS_MODE_DISABLED
 		battlefield_3d.visible = enabled
+		# CanvasLayer HUDs do not reliably inherit a hidden Node3D parent's visibility.
+		# Toggle the tactical radar explicitly so it never covers the 2D command deck.
+		if battlefield_3d.has_method("set_tactical_radar_visible"):
+			battlefield_3d.call("set_tactical_radar_visible", enabled)
 	if enabled:
 		# Rebuild the visual snapshot on activation; hidden 3D proxies do not need per-frame sync.
 		_sync_3d_gameplay_bridge()
