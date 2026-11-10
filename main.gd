@@ -103,6 +103,7 @@ var player_base_hp := 1000
 var enemy_base_hp := 1000
 var battle_result := ""
 var visual_effects: Array[Dictionary] = []
+var next_visual_effect_id := 1
 var environment_particles: Array[Dictionary] = []
 var missiles: Array[Dictionary] = []
 var enemy_missile_timer := 0.0
@@ -243,6 +244,7 @@ func _sync_3d_gameplay_bridge() -> void:
 	var enemy_faction_id := _enemy_faction()
 	battlefield_3d.call("sync_game_buildings", buildings, enemy_buildings, map_rect, faction, enemy_faction_id)
 	battlefield_3d.call("sync_game_production_orders", production_orders)
+	battlefield_3d.call("sync_gameplay_effects", visual_effects, map_rect)
 
 
 func _set_3d_view_enabled(enabled: bool) -> void:
@@ -692,6 +694,7 @@ func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Col
 	elif kind == "tracer":
 		_play_battle_sound("weapon")
 	visual_effects.append({
+		"id": next_visual_effect_id,
 		"kind": kind,
 		"start": start,
 		"finish": finish,
@@ -700,6 +703,7 @@ func _add_visual_effect(kind: String, start: Vector2, finish: Vector2, tint: Col
 		"duration": duration,
 		"radius": radius
 	})
+	next_visual_effect_id += 1
 	if kind == "explosion":
 		_spawn_environment_particle(finish + Vector2(-5.0, -10.0), Vector2(-8.0, -24.0), 10.0, 1.25, Color("#66645f"), "smoke")
 		_spawn_environment_particle(finish + Vector2(7.0, -5.0), Vector2(5.0, -19.0), 8.0, 0.95, Color("#817a6d"), "smoke")
