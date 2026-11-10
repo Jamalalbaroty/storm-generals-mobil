@@ -206,7 +206,7 @@ func _initialize() -> void:
 	var role_positions: Array[Vector3] = []
 	for role_unit in role_units:
 		role_positions.append(battlefield.call("_group_formation_offset_for_unit", role_unit, role_units, Vector3.FORWARD, 4.0))
-	if not (role_positions[0].z < role_positions[1].z and role_positions[1].z < role_positions[2].z and role_positions[2].z < role_positions[3].z):
+	if not (role_positions[0].dot(Vector3.FORWARD) < role_positions[1].dot(Vector3.FORWARD) and role_positions[1].dot(Vector3.FORWARD) < role_positions[2].dot(Vector3.FORWARD) and role_positions[2].dot(Vector3.FORWARD) < role_positions[3].dot(Vector3.FORWARD)):
 		push_error("Mixed formation did not arrange artillery, infantry, armor, and aircraft by tactical role")
 		quit(1)
 		return
