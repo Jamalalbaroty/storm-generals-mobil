@@ -2109,13 +2109,35 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				forward = Vector3.FORWARD
 			else:
 				forward = forward.normalized()
+			var formation_spacing := _group_formation_spacing(valid_units)
 			for index in range(valid_units.size()):
 				var friendly := valid_units[index]
-				var offset := _group_formation_offset(index, valid_units.size(), forward, 2.6)
+				var offset := _group_formation_offset(index, valid_units.size(), forward, formation_spacing)
 				gameplay_order_issued.emit(str(friendly.get_meta("source_unit_key", "")), "move", selected_destination + offset, "")
 	has_selected_destination = true
 	order_marker.position = selected_destination + Vector3.UP * 0.04
 	order_marker.visible = true
+
+
+func _group_formation_spacing(units: Array[Node3D]) -> float:
+	# Use the largest footprint in a mixed group so long hulls and heavy vehicles
+	# do not overlap even when they share a formation with smaller units.
+	var spacing := 2.4
+	for unit in units:
+		if not is_instance_valid(unit):
+			continue
+		var unit_type := str(unit.get_meta("unit_type", "tank"))
+		var unit_spacing := 3.8
+		if unit_type == "infantry" or unit_type == "builder" or unit_type == "marine":
+			unit_spacing = 2.4
+		elif unit_type == "artillery":
+			unit_spacing = 4.8
+		elif unit_type == "helicopter" or unit_type == "fighter":
+			unit_spacing = 5.0
+		elif unit_type in ["destroyer", "carrier", "submarine", "landing_craft"]:
+			unit_spacing = 10.5
+		spacing = maxf(spacing, unit_spacing)
+	return spacing
 
 
 func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spacing: float = 2.6) -> Vector3:
