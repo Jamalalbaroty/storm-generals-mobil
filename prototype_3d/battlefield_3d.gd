@@ -74,6 +74,7 @@ func _ready() -> void:
 	combat_impact_audio = _make_combat_audio(true)
 	_build_environment()
 	_build_terrain()
+	_build_terrain_details()
 	_build_battlefield_features()
 	_build_camera()
 	_build_lighting()
@@ -316,6 +317,65 @@ func _build_terrain() -> void:
 		marker.material_override = marker_material
 		marker.position = Vector3(-ARENA_SIZE * 0.5 + i * 5.25, -0.04, 0.0)
 		add_child(marker)
+
+
+func _build_terrain_details() -> void:
+	# Deterministic low-poly scatter adds scale and texture without spawning
+	# dozens of independent scene nodes on mobile devices.
+	var rock_positions: Array[Vector3] = [
+		Vector3(-16.0, 0.12, -8.0), Vector3(-11.5, 0.12, -15.0),
+		Vector3(-7.0, 0.12, -11.0), Vector3(-4.5, 0.12, -16.0),
+		Vector3(5.0, 0.12, -13.0), Vector3(10.5, 0.12, -9.0),
+		Vector3(14.0, 0.12, -5.0), Vector3(-15.0, 0.12, 7.0),
+		Vector3(-10.0, 0.12, 13.0), Vector3(-5.0, 0.12, 8.0),
+		Vector3(5.0, 0.12, 9.0), Vector3(9.0, 0.12, 15.0),
+		Vector3(14.0, 0.12, 8.0), Vector3(16.0, 0.12, -15.0)
+	]
+	var scrub_positions: Array[Vector3] = [
+		Vector3(-17.0, 0.08, -15.0), Vector3(-13.0, 0.08, -5.5),
+		Vector3(-8.0, 0.08, -18.0), Vector3(-5.5, 0.08, -7.0),
+		Vector3(7.0, 0.08, -18.0), Vector3(12.0, 0.08, -14.0),
+		Vector3(17.0, 0.08, -10.0), Vector3(-17.0, 0.08, 12.0),
+		Vector3(-12.0, 0.08, 17.0), Vector3(-7.0, 0.08, 14.0),
+		Vector3(6.0, 0.08, 16.0), Vector3(11.0, 0.08, 11.0),
+		Vector3(17.0, 0.08, 13.0), Vector3(15.0, 0.08, 3.5)
+	]
+	var rock_mesh := SphereMesh.new()
+	rock_mesh.radius = 0.42
+	rock_mesh.height = 0.58
+	rock_mesh.radial_segments = 6
+	rock_mesh.rings = 3
+	var rock_material := StandardMaterial3D.new()
+	rock_material.albedo_color = Color(0.35, 0.33, 0.27)
+	rock_material.roughness = 1.0
+	_add_terrain_scatter("TerrainRockScatter", rock_positions, rock_mesh, rock_material, Vector3(1.0, 0.72, 0.9))
+	var scrub_mesh := SphereMesh.new()
+	scrub_mesh.radius = 0.48
+	scrub_mesh.height = 0.52
+	scrub_mesh.radial_segments = 5
+	scrub_mesh.rings = 2
+	var scrub_material := StandardMaterial3D.new()
+	scrub_material.albedo_color = Color(0.30, 0.34, 0.22)
+	scrub_material.roughness = 1.0
+	_add_terrain_scatter("TerrainScrubScatter", scrub_positions, scrub_mesh, scrub_material, Vector3(1.15, 0.42, 0.9))
+
+
+func _add_terrain_scatter(scatter_name: String, positions: Array[Vector3], mesh: Mesh, material: Material, base_scale: Vector3) -> void:
+	var scatter := MultiMeshInstance3D.new()
+	scatter.name = scatter_name
+	var instances := MultiMesh.new()
+	instances.transform_format = MultiMesh.TRANSFORM_3D
+	instances.mesh = mesh
+	instances.instance_count = positions.size()
+	for i in range(positions.size()):
+		var variation := 0.78 + float((i * 7) % 5) * 0.09
+		var rotation := deg_to_rad(float((i * 37) % 360))
+		var instance_scale := base_scale * variation
+		var basis := Basis.from_euler(Vector3(0.0, rotation, 0.0)).scaled(instance_scale)
+		instances.set_instance_transform(i, Transform3D(basis, positions[i]))
+	scatter.multimesh = instances
+	scatter.material_override = material
+	add_child(scatter)
 
 
 func _build_battlefield_features() -> void:
