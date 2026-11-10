@@ -469,6 +469,7 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 
 	var hull := MeshInstance3D.new()
 	hull.name = "Hull"
+	var faction_badge_parent: Node3D = vessel
 	if kind == "submarine":
 		var hull_mesh := CapsuleMesh.new()
 		hull_mesh.radius = 0.72
@@ -492,6 +493,7 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 		sail.position = Vector3(0.0, 0.78, 0.15)
 		sail.material_override = _make_armour_material(tint)
 		vessel.add_child(sail)
+		faction_badge_parent = sail
 		for side in [-1.0, 1.0]:
 			var fin := MeshInstance3D.new()
 			var fin_mesh := BoxMesh.new()
@@ -558,6 +560,16 @@ func _add_placeholder_naval_vessel(kind: String, at: Vector3, tint: Color, facti
 			turret.position = Vector3(0.0, 1.0, turret_z)
 			turret.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
 			vessel.add_child(turret)
+
+	if kind == "submarine":
+		_add_faction_insignia(faction_badge_parent, faction_id, Vector3(0.0, 0.68, 0.15), Vector3(0.42, 0.10, 0.34))
+	else:
+		var badge_position := Vector3(-0.78, 0.70, -1.7)
+		if kind == "carrier":
+			badge_position = Vector3(-1.35, 0.98, -0.2)
+		elif kind == "landing_craft":
+			badge_position = Vector3(0.95, 0.72, -1.6)
+		_add_faction_insignia(vessel, faction_id, badge_position, Vector3(0.48, 0.08, 0.38))
 
 	if kind != "submarine":
 		_add_naval_propeller(vessel, "PropellerLeft", -0.72)
@@ -1206,6 +1218,7 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 	hull.rotation_degrees.x = 90.0
 	hull.material_override = _make_armour_material(tint)
 	helicopter.add_child(hull)
+	_add_faction_insignia(helicopter, faction_id, Vector3(0.0, 0.58, 0.25), Vector3(0.48, 0.07, 0.32))
 
 	var cockpit := MeshInstance3D.new()
 	var cockpit_mesh := SphereMesh.new()
@@ -1302,6 +1315,10 @@ func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> v
 	wings.position.z = 0.15
 	wings.material_override = _make_armour_material(tint.darkened(0.12))
 	fighter.add_child(wings)
+	var left_faction_insignia := _add_faction_insignia(fighter, faction_id, Vector3(-1.65, 0.12, 0.15), Vector3(0.52, 0.07, 0.36))
+	left_faction_insignia.name = "FactionInsignia_Left"
+	var right_faction_insignia := _add_faction_insignia(fighter, faction_id, Vector3(1.65, 0.12, 0.15), Vector3(0.52, 0.07, 0.36))
+	right_faction_insignia.name = "FactionInsignia_Right"
 
 	var tail_wing := MeshInstance3D.new()
 	var tail_wing_mesh := BoxMesh.new()
