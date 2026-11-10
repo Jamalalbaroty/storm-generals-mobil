@@ -1322,6 +1322,45 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		apron.material_override = apron_material
 		building.add_child(apron)
 
+		# Compact runway extension with center markings and low-intensity edge lights.
+		var runway := MeshInstance3D.new()
+		runway.name = "AirfieldRunway"
+		var runway_mesh := PlaneMesh.new()
+		runway_mesh.size = Vector2(6.2, 18.0)
+		runway.mesh = runway_mesh
+		runway.position = Vector3(0.0, 0.035, 11.0)
+		var runway_material := _make_armour_material(Color(0.095, 0.105, 0.10))
+		runway_material.roughness = 1.0
+		runway.material_override = runway_material
+		building.add_child(runway)
+
+		for mark_index in range(5):
+			var center_mark := MeshInstance3D.new()
+			center_mark.name = "RunwayCenterMark" + str(mark_index)
+			var mark_mesh := BoxMesh.new()
+			mark_mesh.size = Vector3(0.12, 0.025, 1.25)
+			center_mark.mesh = mark_mesh
+			center_mark.position = Vector3(0.0, 0.065, 4.2 + float(mark_index) * 2.7)
+			center_mark.material_override = _make_armour_material(Color(0.72, 0.72, 0.63))
+			building.add_child(center_mark)
+
+		for side in [-1.0, 1.0]:
+			for light_index in range(6):
+				var runway_light := MeshInstance3D.new()
+				runway_light.name = "RunwayEdgeLight"
+				var light_mesh := SphereMesh.new()
+				light_mesh.radius = 0.075
+				light_mesh.height = 0.15
+				runway_light.mesh = light_mesh
+				runway_light.position = Vector3(side * 2.85, 0.12, 3.0 + float(light_index) * 2.8)
+				var light_material := StandardMaterial3D.new()
+				light_material.albedo_color = Color(0.40, 0.78, 0.92)
+				light_material.emission_enabled = true
+				light_material.emission = Color(0.22, 0.58, 0.82)
+				light_material.emission_energy_multiplier = 0.55
+				runway_light.material_override = light_material
+				building.add_child(runway_light)
+
 	var body_size := Vector3(6.2, 3.0, 5.2)
 	if kind == "shipyard":
 		body_size = Vector3(8.0, 2.2, 6.5)
