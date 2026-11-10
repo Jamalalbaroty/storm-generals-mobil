@@ -980,6 +980,34 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"pos": Vector2(880.0, 440.0), "team": "enemy", "kind": "artillery", "hp": 100})
 	_expect(int(game.call("_enemy_artillery_formation_rank", 6)) == 1, "Defensive artillery must not distort offensive artillery spacing")
 
+	# Run a coordinated ground assault through the real frame update, not only helper calls.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 999.0)
+	game.set("enemy_missile_timer", 999.0)
+	game.set("enemy_income_timer", 999.0)
+	game.set("enemy_base", Vector2(100.0, 300.0))
+	game.get("enemy_buildings").clear()
+	game.get("supply_points").clear()
+	game.get("units").clear()
+	game.get("units").append({"pos": Vector2(360.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150, "attack_cd": 10.0})
+	game.get("units").append({"pos": Vector2(350.0, 330.0), "team": "enemy", "kind": "infantry", "hp": 60, "attack_cd": 10.0})
+	game.get("units").append({"pos": Vector2(280.0, 260.0), "team": "enemy", "kind": "artillery", "hp": 100, "attack_cd": 10.0})
+	game.get("units").append({"pos": Vector2(520.0, 300.0), "team": "player", "kind": "tank", "hp": 150, "attack_cd": 10.0})
+	var artillery_initial_position: Vector2 = game.get("units")[2].pos
+	game.call("_process", 1.0)
+	var coordinated_tank: Dictionary = game.get("units")[0]
+	var coordinated_infantry: Dictionary = game.get("units")[1]
+	var coordinated_artillery: Dictionary = game.get("units")[2]
+	var coordinated_target: Vector2 = game.get("units")[3].pos
+	_expect(coordinated_tank.pos.x > 360.0, "Live ground assault should advance its tank toward the selected frontline threat")
+	_expect(coordinated_infantry.pos.x < coordinated_tank.pos.x, "Live infantry should remain behind its advancing armor as a support screen")
+	_expect(coordinated_artillery.pos.distance_to(coordinated_target) >= 185.0 and coordinated_artillery.pos.distance_to(coordinated_target) <= 330.0, "Live assault artillery should preserve its protected firing envelope")
+	_expect(coordinated_artillery.pos.distance_to(artillery_initial_position) < 0.1, "Artillery already inside its firing envelope should not rush into the frontline")
+	for assault_index in range(3):
+		_expect(coordinated_tank.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)).distance_to(coordinated_target) < 0.1 if assault_index == 0 else game.get("units")[assault_index].get("assault_target_pos", Vector2(-1000000.0, -1000000.0)).distance_to(coordinated_target) < 0.1, "Every live assault role should retain the same valid local threat focus")
+
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
 	game.set("credits", 2000)
