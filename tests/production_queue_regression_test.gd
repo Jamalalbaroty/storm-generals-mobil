@@ -115,6 +115,29 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Artillery uses its own live-unit lanes and maintains a safe 185-330 unit firing band.
+	game.units = [
+		{"team": "player", "kind": "tank", "hp": 150},
+		{"team": "enemy", "kind": "tank", "hp": 150},
+		{"team": "enemy", "kind": "artillery", "hp": 100},
+		{"team": "enemy", "kind": "artillery", "hp": 100},
+		{"team": "enemy", "kind": "artillery", "hp": 0}
+	]
+	if game._enemy_artillery_formation_rank(2) != 0 or game._enemy_artillery_formation_rank(4) != 2:
+		push_error("Artillery formation rank must count only preceding living enemy artillery")
+		quit(1)
+		return
+	if game._enemy_artillery_in_firing_band(184.9) or not game._enemy_artillery_in_firing_band(185.0) or not game._enemy_artillery_in_firing_band(330.0) or game._enemy_artillery_in_firing_band(330.1):
+		push_error("Enemy artillery firing band must remain between 185 and 330 units")
+		quit(1)
+		return
+	var artillery_slot_a: Vector2 = game._enemy_artillery_support_position(Vector2(500.0, 0.0), Vector2.ZERO, 0)
+	var artillery_slot_b: Vector2 = game._enemy_artillery_support_position(Vector2(500.0, 0.0), Vector2.ZERO, 1)
+	if artillery_slot_a.distance_to(artillery_slot_b) < 70.0 or artillery_slot_a.distance_to(Vector2(500.0, 0.0)) < 185.0:
+		push_error("Artillery support positions must stay separated and behind the assault target")
+		quit(1)
+		return
+
 	# Enemy counter-production must respect faction pricing, supplies, and doctrine caps.
 	game.units.clear()
 	game.enemy_buildings.clear()
