@@ -124,7 +124,8 @@ var commander_profile: Dictionary = {
 	"armor_kills": 0,
 	"naval_kills": 0,
 	"earned_medals": [],
-	"campaign_progress": {}
+	"campaign_progress": {},
+	"campaign_funds": 0
 }
 var commander_profile_saved_result := ""
 
@@ -732,7 +733,9 @@ func _record_battle_result() -> void:
 			if current_progress == campaign_mission_index and current_progress < CAMPAIGN_MISSIONS.size():
 				progress[faction] = current_progress + 1
 				commander_profile["campaign_progress"] = progress
-				notice = "تم فتح المهمة التالية في حملة %s" % faction
+				var completed_mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
+				commander_profile["campaign_funds"] = int(commander_profile.get("campaign_funds", 0)) + int(completed_mission.reward)
+				notice = "تم فتح المهمة التالية ومكافأة %d رصيد" % int(completed_mission.reward)
 				notice_time = 4.0
 	else:
 		commander_profile["defeats"] = int(commander_profile.get("defeats", 0)) + 1
@@ -2017,7 +2020,11 @@ func _begin_campaign_battle(size: Vector2) -> void:
 	map_type = String(mission.map)
 	battle_result = ""
 	commander_profile_saved_result = ""
-	credits = STARTING_CREDITS
+	var campaign_bonus := int(commander_profile.get("campaign_funds", 0))
+	credits = STARTING_CREDITS + campaign_bonus
+	if campaign_bonus > 0:
+		commander_profile["campaign_funds"] = 0
+		_save_commander_profile()
 	supplies = 5
 	enemy_supplies = 5
 	_initialize_supply_points(size)
