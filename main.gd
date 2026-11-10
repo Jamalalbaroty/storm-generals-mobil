@@ -1500,6 +1500,7 @@ func _draw() -> void:
 		_draw_3d_view_hud(size)
 		return
 	_draw_terrain(size)
+	_draw_spring_sun(size)
 	# Layered coastline, beach and navigable sea lane
 	draw_rect(Rect2(0, size.y * 0.675, size.x, size.y * 0.065), Color("#b6a078"))
 	draw_rect(Rect2(0, size.y * 0.72, size.x, size.y * 0.28), Color("#1d435d"))
@@ -1973,7 +1974,8 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.47), "المسرح: %s  |  مكافأة الإنجاز: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 14, Color("#c4dce8"))
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.53), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color("#d8e6c2"))
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.58), "الهدف الإضافي: %s — مكافأة %d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.63), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.63), "الطقس: مشمس ربيعي صافٍ دائماً", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#bce5f2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.68), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
 	for i in CAMPAIGN_MISSIONS.size():
 		var dot_x := size.x * 0.32 + float(i) * size.x * 0.09
 		draw_circle(Vector2(dot_x, size.y * 0.59), 5.0, Color("#a8e6b0") if i < completed else Color("#657477"))
@@ -2458,6 +2460,20 @@ func _enemy_supply_reinforcement_point(unit_index: int) -> int:
 			best_distance = distance_to_point
 			best_point = point_index
 	return best_point
+
+func _draw_spring_sun(size: Vector2) -> void:
+	# The battlefield climate is intentionally fixed: clear, sunny spring daylight.
+	var center := Vector2(size.x - 38.0, 42.0)
+	draw_circle(center, 27.0, Color(1.0, 0.86, 0.48, 0.10))
+	draw_circle(center, 20.0, Color(1.0, 0.88, 0.52, 0.18))
+	for ray_index in range(12):
+		var angle := TAU * float(ray_index) / 12.0
+		var ray_start := center + Vector2(cos(angle), sin(angle)) * 23.0
+		var ray_end := center + Vector2(cos(angle), sin(angle)) * 29.0
+		draw_line(ray_start, ray_end, Color("#f5d77e", 0.62), 2.0)
+	draw_circle(center, 15.0, Color("#f5d77e"))
+	draw_circle(center + Vector2(-4.0, -4.0), 5.0, Color("#ffe9a6", 0.72))
+
 
 func _draw_terrain(size: Vector2) -> void:
 	var ground = Color("#9a835d")
