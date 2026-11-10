@@ -590,8 +590,16 @@ func _process(delta: float) -> void:
 					continue
 				# Damaged player aircraft automatically recover at a powered, completed airfield.
 				if unit.kind in ["fighter", "helicopter"]:
-					var aircraft_max_hp := _unit_repair_max_hp(unit)
-					if not bool(unit.get("airfield_returning", false)) and not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30:
+					var aircraft_fuel := float(unit.get("aircraft_fuel", 100.0))
+					var aircraft_ammo := int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12))
+					if not bool(unit.get("airfield_returning", false)) and not bool(unit.get("airfield_landed", false)):
+						aircraft_fuel = maxf(0.0, aircraft_fuel - delta * (0.075 if unit.kind == "fighter" else 0.065))
+						unit["aircraft_fuel"] = aircraft_fuel
+					var aircraft_has_orders := unit.has("target") or unit.has("attack_target") or unit.has("attack_building") or bool(unit.get("attack_base", false))
+					var aircraft_needs_rearm := aircraft_ammo <= 0
+					var aircraft_needs_refuel := aircraft_fuel <= 20.0
+					var aircraft_needs_repair := aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
+					if not bool(unit.get("airfield_returning", false)) and (aircraft_needs_rearm or (not aircraft_has_orders and (aircraft_needs_refuel or aircraft_needs_repair))):
 						var nearest_airfield := -1
 						var nearest_airfield_distance := INF
 						for airfield_index in range(buildings.size()):
@@ -641,7 +649,9 @@ func _process(delta: float) -> void:
 							unit.pos = landing_spot
 							unit["airfield_landed"] = true
 							if float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
-								# Release the aircraft for a fresh sortie after completing field service.
+								# Refuel and rearm only after the aircraft completes its airfield service.
+								unit["aircraft_fuel"] = 100.0
+								unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
 								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
@@ -709,6 +719,7 @@ func _process(delta: float) -> void:
 						if air_building_distance <= air_building_range:
 							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
 							if unit.attack_cd <= 0.0:
+								unit["aircraft_ammo"] = maxi(0, int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) - 1)
 								var air_building_damage := 26 if unit.kind == "fighter" else _helicopter_damage(unit)
 								var air_building_hp_before := int(air_building.hp)
 								air_building.hp = maxi(0, air_building_hp_before - air_building_damage)
@@ -726,6 +737,7 @@ func _process(delta: float) -> void:
 						if air_base_distance <= 250.0:
 							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
 							if unit.attack_cd <= 0.0:
+								unit["aircraft_ammo"] = maxi(0, int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) - 1)
 								var air_base_damage := 24 if unit.kind == "fighter" else _helicopter_damage(unit)
 								enemy_base_hp = maxi(0, enemy_base_hp - air_base_damage)
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN if unit.kind == "fighter" else _helicopter_cooldown(unit)
@@ -761,6 +773,7 @@ func _process(delta: float) -> void:
 						if air_enemy_distance <= air_attack_range:
 							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
 							if unit.attack_cd <= 0.0:
+								unit["aircraft_ammo"] = maxi(0, int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) - 1)
 								var air_damage := FIGHTER_DAMAGE if unit.kind == "fighter" else _helicopter_damage(unit)
 								_add_visual_effect("air_missile", unit.pos, air_enemy.pos, Color("#ffd18a"), 0.22, 0.0)
 								if unit.kind == "helicopter":
@@ -4754,6 +4767,9 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
+	if kind in ["fighter", "helicopter"]:
+		spawned_unit["aircraft_fuel"] = 100.0
+		spawned_unit["aircraft_ammo"] = 8 if kind == "fighter" else 12
 	if aircraft_launch:
 		spawned_unit["airfield_launch"] = true
 		spawned_unit["airfield_launch_id"] = aircraft_airfield_id
