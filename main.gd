@@ -5045,6 +5045,53 @@ func _update_production_queues(delta: float) -> void:
 			queue_redraw()
 			return
 
+func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, producer_id: int) -> bool:
+	var unit_radius := 13.0 if unit_kind in ["tank", "artillery"] else 10.0
+	for building_side in [buildings, enemy_buildings]:
+		for structure in building_side:
+			if int(structure.get("hp", 0)) <= 0:
+				continue
+			var structure_kind := String(structure.get("kind", ""))
+			var resolved := candidate
+			if structure_kind == "wall":
+				resolved = _fortification_resolve_segment(candidate, candidate, structure.pos + Vector2(-31.0, 0.0), structure.pos + Vector2(31.0, 0.0), unit_radius + 7.0)
+			elif structure_kind == "wall_corner":
+				resolved = _fortification_resolve_segment(candidate, candidate, structure.pos + Vector2(-31.0, 0.0), structure.pos + Vector2(10.0, 0.0), unit_radius + 7.0)
+				if resolved.distance_to(candidate) <= 0.1:
+					resolved = _fortification_resolve_segment(candidate, candidate, structure.pos + Vector2(10.0, 0.0), structure.pos + Vector2(10.0, 40.0), unit_radius + 7.0)
+			elif structure_kind == "wall_gate":
+				for gate_side in [-1.0, 1.0]:
+					var pillar_center := structure.pos + Vector2(gate_side * 28.0, 0.0)
+					resolved = _fortification_resolve_segment(resolved, candidate, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), unit_radius + 6.0)
+			elif structure_kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
+				var defense_radius := 22.0 if structure_kind in ["bunker", "missile_silo"] else (19.0 if structure_kind == "missile_defense" else 16.0)
+				resolved = _fortification_resolve_circle(candidate, candidate, structure.pos, unit_radius + defense_radius)
+			elif structure_kind in ["command", "barracks", "factory", "power_plant", "supply_depot", "airfield"]:
+				var building_radius := 39.0 if structure_kind == "airfield" else (27.0 if structure_kind == "command" else 24.0)
+				resolved = _fortification_resolve_circle(candidate, candidate, structure.pos, unit_radius + building_radius)
+			if resolved.distance_to(candidate) > 0.1:
+				return false
+	for existing in units:
+		if int(existing.get("hp", 0)) <= 0 or String(existing.get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
+			continue
+		var existing_radius := 13.0 if String(existing.get("kind", "")) in ["tank", "artillery"] else 9.0
+		if candidate.distance_to(existing.pos) < unit_radius + existing_radius:
+			return false
+	return true
+
+
+func _find_clear_ground_spawn(origin: Vector2, unit_kind: String, producer_id: int) -> Vector2:
+	var unit_radius := 13.0 if unit_kind in ["tank", "artillery"] else 10.0
+	var search_radii := [58.0, 76.0, 94.0, 112.0]
+	for radius_value in search_radii:
+		for direction_index in range(16):
+			var angle := TAU * float(direction_index) / 16.0
+			var candidate := origin + Vector2(cos(angle), sin(angle)) * (float(radius_value) + unit_radius * 0.15)
+			if _is_ground_spawn_position_clear(candidate, unit_kind, producer_id):
+				return candidate
+	return origin + Vector2(65.0, 0.0)
+
+
 func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1) -> void:
 	if not NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
 		notice = "الوحدات البحرية مؤجلة عن النسخة الحالية"
@@ -5088,11 +5135,11 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 		credits -= cost
 		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
-	# Ground units leave the exact producer that completed this order.
-	if producer_id >= 0:
+	# Search around the exact producer for a free exit lane, respecting walls, buildings, and units.
+	if kind not in ["fighter", "helicopter"] and producer_id >= 0:
 		for producer in buildings:
 			if int(producer.get("production_id", -2)) == producer_id and String(producer.get("kind", "")) == _production_building_for(kind):
-				unit_spawn = producer.pos + Vector2(65.0, randf_range(-35.0, 35.0))
+				unit_spawn = _find_clear_ground_spawn(producer.pos, kind, producer_id)
 				break
 	var aircraft_launch := false
 	var aircraft_airfield_id := -1
