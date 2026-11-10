@@ -2456,7 +2456,7 @@ func _launch_enemy_missile() -> void:
 		return
 	var silo_index := -1
 	for i in enemy_buildings.size():
-		if enemy_buildings[i].kind == "missile_silo" and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
+		if enemy_buildings[i].kind == "missile_silo" and _is_enemy_building_powered(i) and float(enemy_buildings[i].get("attack_cd", 0.0)) <= 0.0:
 			silo_index = i
 			break
 	if silo_index < 0:
@@ -2471,8 +2471,9 @@ func _update_missiles(delta: float) -> void:
 		var building: Dictionary = buildings[building_index]
 		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_player_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
-	for building in enemy_buildings:
-		if building.kind == "missile_silo" or building.kind == "missile_defense":
+	for building_index in range(enemy_buildings.size()):
+		var building: Dictionary = enemy_buildings[building_index]
+		if (building.kind == "missile_silo" or building.kind == "missile_defense") and _is_enemy_building_powered(building_index):
 			building.attack_cd = maxf(0.0, float(building.get("attack_cd", 0.0)) - delta)
 	enemy_missile_timer += delta
 	if enemy_missile_timer >= 24.0:
@@ -2488,6 +2489,8 @@ func _update_missiles(delta: float) -> void:
 				continue
 			# Player missile defenses must have grid power; enemy power is modeled separately.
 			if missile.team == "enemy" and not _is_player_building_powered(defense_index):
+				continue
+			if missile.team == "player" and not _is_enemy_building_powered(defense_index):
 				continue
 			if defense.pos.distance_to(missile.pos) <= 190.0:
 				defense.attack_cd = MISSILE_DEFENSE_INTERCEPT_COOLDOWN
@@ -2833,6 +2836,13 @@ func _enemy_ai_turn() -> void:
 		if String(incoming_missile.get("team", "")) == "player":
 			player_missile_threat = true
 			break
+	# Expand enemy generation before adding more powered infrastructure.
+	if build_pos.x >= 0.0 and _enemy_power_demand() >= _enemy_power_capacity() and not _enemy_has_any_building("power_plant") and enemy_credits >= _building_cost("power_plant"):
+		enemy_credits -= _building_cost("power_plant")
+		_enemy_add_building("power_plant", build_pos, 400)
+		notice = "العدو يعزز شبكة الطاقة بمحطة جديدة"
+		notice_time = 2.0
+		return
 	# A full base must not freeze the enemy's production and combat decisions.
 	if build_pos.x >= 0.0 and not _enemy_has_building("barracks") and enemy_credits >= _building_cost("barracks"):
 		enemy_credits -= _building_cost("barracks")
@@ -3016,25 +3026,25 @@ func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_
 	var unit_hp := 0
 	match strategy:
 		"naval_control":
-			if destroyer_count < 3 and _enemy_has_building("shipyard"):
+			if destroyer_count < 3 and _enemy_has_powered_building("shipyard"):
 				kind = "destroyer"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 260
 		"air_control":
-			if fighter_count < 4 and _enemy_has_building("airfield"):
+			if fighter_count < 4 and _enemy_has_powered_building("airfield"):
 				kind = "fighter"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 120
 		"armor_breaker":
-			if helicopter_count < 3 and _enemy_has_building("airfield"):
+			if helicopter_count < 3 and _enemy_has_powered_building("airfield"):
 				kind = "helicopter"
 				cost = _helicopter_cost(_enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
 				unit_hp = 180
 		"area_denial":
-			if artillery_count < 3 and _enemy_has_building("factory"):
+			if artillery_count < 3 and _enemy_has_powered_building("factory"):
 				kind = "artillery"
 				cost = _unit_cost(kind, _enemy_faction())
 				supply_cost = _unit_supply_cost(kind)
