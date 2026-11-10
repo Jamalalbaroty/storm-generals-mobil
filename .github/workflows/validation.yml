@@ -50,8 +50,15 @@ jobs:
       - name: Smoke test isolated 3D battlefield
         shell: bash
         run: |
+          set +e
           godot --headless --path . --script res://prototype_3d/smoke_test.gd > /tmp/3d-smoke.log 2>&1
+          smoke_status=$?
+          set -e
           cat /tmp/3d-smoke.log
+          if [ "$smoke_status" -ne 0 ]; then
+            echo "3D battlefield smoke test exited with status $smoke_status"
+            exit "$smoke_status"
+          fi
           if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/3d-smoke.log; then
             echo "3D battlefield smoke test reported engine or script errors"
             exit 1
