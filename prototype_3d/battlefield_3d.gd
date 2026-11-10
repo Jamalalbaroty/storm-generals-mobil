@@ -631,17 +631,13 @@ func _gameplay_max_health_for_kind(kind: String) -> float:
 
 
 func _sync_gameplay_unit_orientation(unit: Node3D, record: Dictionary) -> void:
-	# The 2D RTS stores angles in screen-space radians. Convert them to the
-	# battlefield's forward (-Z) convention without inventing missing angles.
+	# Convert the authoritative 2D headings to 3D yaw targets. The render loop
+	# interpolates toward them so body and turret turns remain visually smooth.
 	if record.has("facing"):
-		unit.rotation.y = -float(record.get("facing", 0.0)) + PI * 0.5
-	if not record.has("turret_facing"):
-		return
-	var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
-	if not is_instance_valid(turret_pivot):
-		return
-	var desired_world_yaw := -float(record.get("turret_facing", record.get("facing", 0.0))) + PI * 0.5
-	turret_pivot.rotation.y = wrapf(desired_world_yaw - unit.rotation.y, -PI, PI)
+		unit.set_meta("gameplay_body_yaw_target", -float(record.get("facing", 0.0)) + PI * 0.5)
+	if record.has("turret_facing"):
+		var desired_world_yaw := -float(record.get("turret_facing", record.get("facing", 0.0))) + PI * 0.5
+		unit.set_meta("gameplay_turret_yaw_target", desired_world_yaw)
 
 
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
@@ -684,6 +680,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("source_team", team)
 			unit.set_meta("source_faction", faction_id)
 			unit.set_meta("max_health", maximum_health)
+			unit.set_meta("gameplay_visual_target", world_pos)
+			_sync_gameplay_unit_orientation(unit, record)
 			game_unit_nodes[key] = unit
 		else:
 			# Keep simulation coordinates authoritative while smoothing the 3D proxy between sync ticks.
@@ -726,6 +724,13 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		var target_variant = unit.get_meta("gameplay_visual_target", unit.global_position)
 		if target_variant is Vector3:
 			unit.global_position = unit.global_position.lerp(target_variant, blend)
+		var body_yaw := float(unit.get_meta("gameplay_body_yaw_target", unit.rotation.y))
+		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, blend)
+		var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
+		if is_instance_valid(turret_pivot) and unit.has_meta("gameplay_turret_yaw_target"):
+			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
+			var turret_local_yaw := wrapf(turret_world_yaw - unit.rotation.y, -PI, PI)
+			turret_pivot.rotation.y = lerp_angle(turret_pivot.rotation.y, turret_local_yaw, blend)
 
 
 func _gameplay_max_health_for_building(kind: String) -> float:
