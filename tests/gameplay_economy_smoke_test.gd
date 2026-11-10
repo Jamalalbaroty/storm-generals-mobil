@@ -215,6 +215,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 			game.call("_handle_pointer", factory_sell_touch, true)
 			game.call("_handle_pointer", factory_sell_touch, false)
 			_expect(int(game.get("selected_player_building")) == 1, "Tapping the factory should select it for sale")
+			game.set("credits", 1000)
 			var sale_credits_before := int(game.get("credits"))
 			var sell_button: Vector2 = game.call("_button_rect", 1, build_loop_viewport).get_center()
 			game.call("_handle_pointer", sell_button, true)
