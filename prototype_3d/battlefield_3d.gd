@@ -1704,6 +1704,9 @@ func _build_tactical_radar_hud() -> void:
 	add_child(layer)
 	var panel := PanelContainer.new()
 	panel.name = "RadarPanel"
+	# CanvasLayer controls can remain visible when their Node3D parent is hidden.
+	# Start hidden and let the active 3D-view toggle control this overlay explicitly.
+	panel.visible = false
 	panel.anchor_left = 1.0
 	panel.anchor_top = 1.0
 	panel.anchor_right = 1.0
@@ -1793,6 +1796,12 @@ func _build_tactical_radar_hud() -> void:
 	column.add_child(ground_status)
 	radar_ground_label = ground_status
 	radar_hud = panel
+
+
+func set_tactical_radar_visible(enabled: bool) -> void:
+	if is_instance_valid(radar_hud):
+		radar_hud.visible = enabled
+
 
 func _update_radar_hud(delta: float) -> void:
 	if not is_instance_valid(radar_plot):
