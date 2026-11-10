@@ -1652,8 +1652,15 @@ func _draw() -> void:
 	if not game_started:
 		_draw_faction_picker(size)
 	elif battle_result != "":
-		draw_rect(Rect2(size.x * 0.2, size.y * 0.34, size.x * 0.6, size.y * 0.25), Color(0.02, 0.03, 0.04, 0.94))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.25, size.y * 0.47), battle_result, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.5, 30, Color("#f4d77a"))
+		draw_rect(Rect2(size.x * 0.14, size.y * 0.30, size.x * 0.72, size.y * 0.40), Color(0.02, 0.03, 0.04, 0.96))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.19, size.y * 0.40), battle_result, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.62, 27, Color("#f4d77a"))
+		var career_medals: Array = commander_profile.get("earned_medals", [])
+		var career_summary := "المعارك: %d  |  انتصارات: %d  |  هزائم: %d" % [int(commander_profile.get("battles_played", 0)), int(commander_profile.get("victories", 0)), int(commander_profile.get("defeats", 0))]
+		var kill_summary := "إجمالي القتلى: %d  |  الجو: %d  |  الدروع: %d  |  البحر: %d" % [int(commander_profile.get("total_kills", 0)), int(commander_profile.get("air_kills", 0)), int(commander_profile.get("armor_kills", 0)), int(commander_profile.get("naval_kills", 0))]
+		var medal_summary := "الأوسمة الدائمة: " + ("، ".join(career_medals) if not career_medals.is_empty() else "لم تحصل على أوسمة بعد")
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.47), career_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 14, Color("#d8e6c2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.51), kill_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 13, Color("#c4dce8"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.18, size.y * 0.55), medal_summary, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.64, 12, Color("#f4d77a"))
 		var restart := _restart_rect(size)
 		draw_rect(restart, Color("#73552d"), true)
 		draw_rect(restart, Color("#f4d77a"), false, 2)
@@ -1681,7 +1688,7 @@ func _pause_rect(size: Vector2) -> Rect2:
 
 
 func _restart_rect(size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x * 0.4, size.y * 0.53), Vector2(size.x * 0.2, 48))
+	return Rect2(Vector2(size.x * 0.4, size.y * 0.60), Vector2(size.x * 0.2, 48))
 
 func _draw_base_health(p: Vector2, hp: int) -> void:
 	var ratio = clampf(float(hp) / 1000.0, 0.0, 1.0)
