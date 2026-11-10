@@ -3261,12 +3261,12 @@ func _group_formation_spacing(units: Array[Node3D]) -> float:
 func _group_formation_role(unit: Node3D) -> int:
 	var unit_type := str(unit.get_meta("unit_type", "tank")) if is_instance_valid(unit) else "tank"
 	if unit_type == "artillery":
-		return 0 # Fire-support line stays behind the main force.
+		return 0 # Artillery remains in the rear fire-support line.
 	if unit_type in ["infantry", "builder", "marine"]:
-		return 1 # Foot soldiers and builders occupy the center line.
+		return 1 # Infantry occupies the flanking lanes around the armor.
 	if unit_type in ["helicopter", "fighter"]:
-		return 3 # Aircraft take the forward air-support lane.
-	return 2 # Armor and other direct-combat units form the front line.
+		return 3 # Aircraft provide forward air support above the ground formation.
+	return 2 # Tanks and other direct-combat vehicles form the front line.
 
 
 func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forward: Vector3, spacing: float) -> Vector3:
@@ -3284,11 +3284,12 @@ func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forwar
 	var preceding_rows := 0
 	var total_rows := 0
 	for role_index_value in range(role_counts.size()):
-		var role_rows := int(ceil(float(role_counts[role_index_value]) / 3.0)) if role_counts[role_index_value] > 0 else 0
+		var role_columns := 2 if role_index_value == 1 else 3
+		var role_rows := int(ceil(float(role_counts[role_index_value]) / float(role_columns))) if role_counts[role_index_value] > 0 else 0
 		total_rows += role_rows
 		if role_index_value < role:
 			preceding_rows += role_rows
-	var columns := mini(3, role_counts[role])
+	var columns := 2 if role == 1 else mini(3, role_counts[role])
 	var row := int(role_index / columns)
 	var column := role_index % columns
 	var lane_row := preceding_rows + row
@@ -3298,7 +3299,13 @@ func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forwar
 	else:
 		direction = direction.normalized()
 	var right := Vector3(direction.z, 0.0, -direction.x)
-	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
+	var lateral := 0.0
+	if role == 1:
+		# Infantry spread along both outer flanks instead of blocking the tank lane.
+		var flank := -1.0 if column == 0 else 1.0
+		lateral = flank * (spacing * 1.25 + float(row) * spacing * 0.55)
+	else:
+		lateral = (float(column) - float(columns - 1) * 0.5) * spacing
 	var depth := (float(lane_row) - (float(total_rows) - 1.0) * 0.5) * spacing
 	return right * lateral + direction * depth
 
