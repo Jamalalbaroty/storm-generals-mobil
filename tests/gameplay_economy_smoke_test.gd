@@ -397,6 +397,40 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(not game.get("units").is_empty() and String(game.get("units")[-1].get("kind", "")) == adaptive_case[1], "Enemy AI should answer %s with %s" % [adaptive_case[0], adaptive_case[1]])
 
 
+	# A major air threat should trigger urgent anti-air construction before
+	# optional base expansion, and an unfinished defense must count toward the cap.
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_credits", 10000)
+	game.set("enemy_supplies", 100)
+	game.get("enemy_buildings").append({
+		"kind": "anti_air",
+		"pos": game.get("enemy_base") + Vector2(-120.0, 0.0),
+		"hp": 380,
+		"build_progress": 1.0
+	})
+	for air_index in range(3):
+		game.get("units").append({
+			"pos": Vector2(900.0 + float(air_index) * 24.0, 260.0),
+			"team": "player",
+			"kind": "fighter",
+			"hp": 120
+		})
+	game.call("_enemy_ai_turn")
+	var urgent_anti_air_count := 0
+	for defense in game.get("enemy_buildings"):
+		if String(defense.get("kind", "")) == "anti_air" and int(defense.get("hp", 1)) > 0:
+			urgent_anti_air_count += 1
+	_expect(urgent_anti_air_count == 2, "Enemy AI should build its second anti-air defense immediately against a major air threat")
+	_expect(float(game.get("enemy_buildings")[-1].get("build_progress", 1.0)) == 0.0, "Urgent anti-air defense should enter normal construction")
+	game.call("_enemy_ai_turn")
+	urgent_anti_air_count = 0
+	for defense in game.get("enemy_buildings"):
+		if String(defense.get("kind", "")) == "anti_air" and int(defense.get("hp", 1)) > 0:
+			urgent_anti_air_count += 1
+	_expect(urgent_anti_air_count == 2, "Enemy AI must count unfinished anti-air defenses and avoid building a third duplicate")
+
 	# Verify that the enemy changes doctrine as the player's battlefield composition evolves.
 	game.get("units").clear()
 	game.set("enemy_strategy", "balanced")
