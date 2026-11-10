@@ -2582,6 +2582,18 @@ func _enemy_has_building(kind: String) -> bool:
 			return true
 	return false
 
+func _enemy_defense_guard_role_penalty(unit_kind: String) -> int:
+	match unit_kind:
+		"infantry":
+			return 0
+		"tank":
+			return 45000
+		"artillery":
+			return 250000
+		_:
+			return 500000
+
+
 func _update_enemy_defense_assignments() -> void:
 	# Keep a compact reserve: one base guard, then guards for the most valuable forward assets.
 	var eligible_indices: Array[int] = []
@@ -2623,11 +2635,14 @@ func _update_enemy_defense_assignments() -> void:
 				assigned_buildings.append(best_building_index)
 				guard_asset_pos = enemy_buildings[best_building_index].pos
 		var best_index := -1
-		var best_distance := INF
+		var best_guard_score := INF
 		for candidate_index in eligible_indices:
-			var distance: float = units[candidate_index].pos.distance_squared_to(guard_asset_pos)
-			if distance < best_distance:
-				best_distance = distance
+			var guard_candidate: Dictionary = units[candidate_index]
+			var distance_score: float = guard_candidate.pos.distance_squared_to(guard_asset_pos)
+			# Preserve assault power: infantry fill guard posts first, tanks remain a strong second choice, artillery is the last resort.
+			var guard_score: float = distance_score + float(_enemy_defense_guard_role_penalty(String(guard_candidate.get("kind", ""))))
+			if guard_score < best_guard_score:
+				best_guard_score = guard_score
 				best_index = candidate_index
 		if best_index < 0:
 			break
