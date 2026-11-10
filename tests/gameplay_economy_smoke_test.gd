@@ -171,6 +171,52 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(not game.get("units").is_empty() and String(game.get("units")[-1].get("kind", "")) == adaptive_case[1], "Enemy AI should answer %s with %s" % [adaptive_case[0], adaptive_case[1]])
 
 
+	# Verify that the enemy changes doctrine as the player's battlefield composition evolves.
+	game.get("units").clear()
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_credits", 10000)
+	game.set("enemy_supplies", 100)
+	game.get("enemy_buildings").clear()
+	for structure_kind in ["barracks", "factory", "airfield", "shipyard"]:
+		var doctrine_building_pos: Vector2 = game.get("enemy_base") + Vector2(-140.0, 120.0 + float(game.get("enemy_buildings").size()) * 28.0)
+		if structure_kind == "shipyard":
+			doctrine_building_pos = Vector2(game.get("enemy_base").x - 120.0, 590.0)
+		game.get("enemy_buildings").append({"kind": structure_kind, "pos": doctrine_building_pos, "hp": 500, "build_progress": 1.0})
+	for threat_index in range(3):
+		game.get("units").append({"pos": Vector2(900.0 + float(threat_index) * 20.0, 360.0), "team": "player", "kind": "tank", "hp": 150})
+	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "armor_breaker", "Enemy AI should switch to armor breaker when heavy armor dominates the battlefield")
+	game.get("units").append({"pos": Vector2(900.0, 260.0), "team": "player", "kind": "fighter", "hp": 120})
+	game.get("units").append({"pos": Vector2(920.0, 260.0), "team": "player", "kind": "fighter", "hp": 120})
+	game.get("units").append({"pos": Vector2(940.0, 260.0), "team": "player", "kind": "fighter", "hp": 120})
+	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "air_control", "Enemy AI should reprioritize air control when the player's air threat overtakes heavy armor")
+	game.get("units").clear()
+	game.get("units").append({"pos": Vector2(900.0, 360.0), "team": "player", "kind": "destroyer", "hp": 260})
+	game.get("units").append({"pos": Vector2(920.0, 360.0), "team": "player", "kind": "submarine", "hp": 210})
+	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "naval_control", "Enemy AI should switch to naval control when the player fields a naval force")
+	game.get("units").clear()
+	for threat_index in range(5):
+		game.get("units").append({"pos": Vector2(900.0 + float(threat_index) * 18.0, 360.0), "team": "player", "kind": "infantry", "hp": 60})
+	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "area_denial", "Enemy AI should use area denial against massed infantry")
+	game.get("units").clear()
+	game.call("_enemy_ai_turn")
+	_expect(String(game.get("enemy_strategy")) == "balanced", "Enemy AI should return to a balanced doctrine after the specialist threat disappears")
+
+	# Counter production must never spend credits or supplies the enemy does not have.
+	game.get("units").clear()
+	game.set("enemy_credits", 10)
+	game.set("enemy_supplies", 0)
+	var units_before_unaffordable_order: int = game.get("units").size()
+	var credits_before_unaffordable_order: int = int(game.get("enemy_credits"))
+	var supplies_before_unaffordable_order: int = int(game.get("enemy_supplies"))
+	var unaffordable_order: bool = game.call("_enemy_counter_production", "air_control", 0, 0, 0, 0)
+	_expect(not unaffordable_order, "Enemy AI should reject a counter-unit order when resources are insufficient")
+	_expect(game.get("units").size() == units_before_unaffordable_order, "Rejected counter production must not create a free unit")
+	_expect(int(game.get("enemy_credits")) == credits_before_unaffordable_order and int(game.get("enemy_supplies")) == supplies_before_unaffordable_order, "Rejected counter production must preserve the enemy's remaining resources")
+
 	# Guard the four faction profiles and the premium cost of the strongest "Watan" units.
 	var faction_cases := [
 		["الصيني", 30, 1.35, 185, 14.0, 40],
