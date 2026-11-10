@@ -1188,7 +1188,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for objective_frame in range(20):
 		game.call("_process", 0.1)
 	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
-	var nearby_player_index := game.get("units").size()
+	var nearby_player_index: int = game.get("units").size()
 	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": game.get("units")[0]["pos"] + Vector2(35.0, 0.0), "attack_cd": 10.0})
 	var nearby_player_hp: int = int(game.get("units")[nearby_player_index]["hp"])
 	for combat_frame in range(12):
