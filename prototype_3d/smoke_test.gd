@@ -144,6 +144,68 @@ func _initialize() -> void:
 		return
 	battlefield.showcase_tanks.erase(stale_pick_target)
 
+	# Exercise real mobile tap targets and the gameplay-order bridge for a mixed group.
+	var group_tank := battlefield.call("spawn_game_unit", "tank", Vector3(-12.0, 0.0, -2.0), "american", Color(0.28, 0.34, 0.22)) as Node3D
+	var group_infantry := battlefield.call("spawn_game_unit", "infantry", Vector3(-9.0, 0.0, -2.0), "american", Color(0.28, 0.34, 0.22)) as Node3D
+	var group_enemy := battlefield.call("spawn_game_unit", "tank", Vector3(12.0, 0.0, 9.0), "chinese", Color(0.34, 0.37, 0.40)) as Node3D
+	if group_tank == null or group_infantry == null or group_enemy == null:
+		push_error("Could not create mobile group-command interaction fixtures")
+		quit(1)
+		return
+	group_tank.set_meta("source_team", "player")
+	group_tank.set_meta("source_unit_key", "player|mobile-test|tank")
+	group_infantry.set_meta("source_team", "player")
+	group_infantry.set_meta("source_unit_key", "player|mobile-test|infantry")
+	group_enemy.set_meta("source_team", "enemy")
+	group_enemy.set_meta("source_unit_key", "enemy|mobile-test|tank")
+	var issued_orders: Array[Dictionary] = []
+	battlefield.gameplay_order_issued.connect(func(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
+		issued_orders.append({"source": source_key, "type": order_type, "position": world_position, "target": target_key})
+	)
+	var group_selection: Array[Node3D] = [group_tank, group_infantry]
+	battlefield.call("_set_live_selection", group_selection)
+	if battlefield.get("selected_live_units").size() != 2:
+		push_error("Mobile group selection did not retain both live player units")
+		quit(1)
+		return
+	var move_screen := camera_for_pick.unproject_position(Vector3(0.0, 0.0, 15.0))
+	if battlefield.call("_screen_to_ground", move_screen) == null:
+		push_error("Mobile move-command test point did not intersect the battlefield")
+		quit(1)
+		return
+	battlefield.call("_handle_world_tap", move_screen)
+	if issued_orders.size() != 2:
+		push_error("A ground tap did not issue move orders to every selected group member")
+		quit(1)
+		return
+	var move_positions: Array[Vector3] = []
+	for order in issued_orders:
+		if str(order.get("type", "")) != "move" or str(order.get("target", "")) != "":
+			push_error("Ground tap emitted an invalid group movement order")
+			quit(1)
+			return
+		move_positions.append(order.get("position", Vector3.ZERO))
+	if move_positions[0].distance_to(move_positions[1]) < 0.5:
+		push_error("Mixed group movement orders overlapped instead of using formation offsets")
+		quit(1)
+		return
+	var enemy_screen := camera_for_pick.unproject_position(group_enemy.global_position + Vector3.UP)
+	if battlefield.call("_tank_at_screen_position", enemy_screen) != group_enemy:
+		push_error("Enemy tap target was not resolved to the intended hostile unit")
+		quit(1)
+		return
+	battlefield.call("_handle_world_tap", enemy_screen)
+	if issued_orders.size() != 4:
+		push_error("Hostile tap did not issue attack orders to every selected group member")
+		quit(1)
+		return
+	for order_index in range(2, 4):
+		var attack_order: Dictionary = issued_orders[order_index]
+		if str(attack_order.get("type", "")) != "attack" or str(attack_order.get("target", "")) != "enemy|mobile-test|tank":
+			push_error("Hostile tap emitted an invalid group attack order")
+			quit(1)
+			return
+
 	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
 	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
 	if rock_scatter == null or scrub_scatter == null:
