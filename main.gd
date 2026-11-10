@@ -2414,7 +2414,12 @@ func _missile_cooldown(army: String) -> float:
 
 
 func _launch_player_missile() -> void:
-	if not _has_building("missile_silo"):
+	var has_silo := false
+	for building in buildings:
+		if building.kind == "missile_silo":
+			has_silo = true
+			break
+	if not has_silo:
 		notice = "ابنِ منصة صواريخ أولاً"
 		notice_time = 2.5
 		return
@@ -2429,7 +2434,7 @@ func _launch_player_missile() -> void:
 			silo_index = i
 			break
 	if silo_index < 0:
-		notice = "منصة الصواريخ تعيد التلقيم — انتظر قليلاً"
+		notice = "منصة الصواريخ تحتاج إلى طاقة أو تعيد التلقيم"
 		notice_time = 2.0
 		return
 	var target_pos: Vector2 = enemy_base
