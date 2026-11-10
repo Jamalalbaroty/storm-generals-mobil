@@ -1840,7 +1840,27 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(production_rect, Color(0.035, 0.055, 0.065, 0.86), true)
 	draw_rect(production_rect, Color("#425b62"), false, 1.0)
 	if production_orders.is_empty():
-		draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 18), "الإنتاج: لا توجد أوامر قيد التنفيذ", HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#c0cece"))
+		# Building construction is a separate queue from unit production.
+		# Report active construction here instead of claiming the base is idle.
+		var construction_count := 0
+		var first_construction_kind := ""
+		var construction_progress := 0.0
+		for building in buildings:
+			if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) < 1.0:
+				construction_count += 1
+				if first_construction_kind.is_empty():
+					first_construction_kind = String(building.get("kind", "منشأة"))
+					construction_progress = clampf(float(building.get("build_progress", 0.0)), 0.0, 1.0)
+		if construction_count > 0:
+			var construction_labels := {"power_plant": "محطة طاقة", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "turret": "برج دفاع", "anti_air": "مضاد جو", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي"}
+			var construction_name := String(construction_labels.get(first_construction_kind, "منشأة"))
+			var construction_text := "الإنشاء: %s  |  %d منشآت قيد البناء" % [construction_name, construction_count]
+			draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 16), construction_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#e4eee8"))
+			var construction_bar := Rect2(production_rect.position + Vector2(9, 25), Vector2(size.x - 38, 8))
+			draw_rect(construction_bar, Color("#26383d"), true)
+			draw_rect(Rect2(construction_bar.position, Vector2(construction_bar.size.x * construction_progress, construction_bar.size.y)), Color("#d9b66b"), true)
+		else:
+			draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 18), "الإنتاج والإنشاء: لا توجد أوامر قيد التنفيذ", HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#c0cece"))
 	else:
 		var first_order: Dictionary = production_orders[0]
 		var duration := maxf(1.0, float(first_order.get("duration", 1.0)))
