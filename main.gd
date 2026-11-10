@@ -450,7 +450,7 @@ func _process(delta: float) -> void:
 						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind == "artillery":
-					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
+					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos)
 					var artillery_guard := bool(unit.get("defense_guard", false))
 					if artillery_guard:
 						var guard_target := -1
@@ -498,7 +498,7 @@ func _process(delta: float) -> void:
 						# Avoid point-blank brawling; reposition behind the assault line or toward maximum range.
 						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
 					continue
-				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else (enemy_ground_focus if enemy_ground_focus >= 0 else _nearest_player_ground_unit(unit.pos))
+				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos)
 				var player_distance := INF
 				if player_target >= 0:
 					player_distance = unit.pos.distance_to(units[player_target].pos)
@@ -1297,8 +1297,9 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 	return best_index
 
 
-func _select_enemy_ground_assault_target() -> int:
+func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO) -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
+	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
@@ -1320,7 +1321,7 @@ func _select_enemy_ground_assault_target() -> int:
 				threat_priority = 65.0
 			"infantry":
 				threat_priority = 15.0
-		var score: float = asset_distance - threat_priority
+		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 - threat_priority
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
