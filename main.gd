@@ -3144,10 +3144,19 @@ func _update_enemy_retreat(unit: Dictionary, delta: float) -> bool:
 		var retreat_step: float = minf(28.0 * delta, retreat_distance - 48.0)
 		unit.pos += (retreat_destination - unit.pos).normalized() * retreat_step
 	else:
-		unit["hp"] = mini(max_hp, int(ceil(float(current_hp) + 8.0 * delta)))
-		if int(unit["hp"]) >= int(ceil(max_hp * 0.6)):
-			unit.erase("retreating")
-			return false
+		# A damaged unit must actually reach a safe rally point before it can recover.
+		# Do not regenerate while enemy troops are close enough to punish the retreat.
+		var nearest_hostile_distance := INF
+		for hostile in units:
+			if String(hostile.get("team", "")) != "player" or int(hostile.get("hp", 0)) <= 0:
+				continue
+			nearest_hostile_distance = minf(nearest_hostile_distance, retreat_destination.distance_to(hostile.pos))
+		if nearest_hostile_distance >= 150.0:
+			var recovery_rate := 10.0 if String(unit.get("kind", "")) == "tank" else 8.0
+			unit["hp"] = mini(max_hp, int(ceil(float(current_hp) + recovery_rate * delta)))
+			if int(unit["hp"]) >= int(ceil(max_hp * 0.6)):
+				unit.erase("retreating")
+				return false
 	return true
 
 
