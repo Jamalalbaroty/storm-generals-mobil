@@ -421,6 +421,100 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Enemy production and missile systems must obey the same power allocation.
+	game.enemy_buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
+	]
+	if game._enemy_power_capacity() != 8 or game._enemy_power_demand() != 10:
+		push_error("Enemy power capacity and demand should mirror the player's grid rules")
+		quit(1)
+		return
+	if game._is_enemy_building_powered(3) or game._enemy_has_powered_building("factory"):
+		push_error("Enemy factory must lose power when defensive structures consume the grid")
+		quit(1)
+		return
+	var enemy_credits_before_power_test: int = game.enemy_credits
+	var enemy_supplies_before_power_test: int = game.enemy_supplies
+	if game._enemy_counter_production("area_denial", 0, 0, 0, 0):
+		push_error("Enemy counter-production must pause when its factory is unpowered")
+		quit(1)
+		return
+	if game.enemy_credits != enemy_credits_before_power_test or game.enemy_supplies != enemy_supplies_before_power_test:
+		push_error("Unpowered enemy production must not consume credits or supplies")
+		quit(1)
+		return
+	game.enemy_buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 0.5})
+	if game._enemy_power_capacity() != 8:
+		push_error("An unfinished enemy power plant must not contribute capacity")
+		quit(1)
+		return
+	game.enemy_buildings[4]["build_progress"] = 1.0
+	if game._enemy_power_capacity() != 22 or not game._is_enemy_building_powered(3):
+		push_error("Completing an enemy power plant should restore factory power")
+		quit(1)
+		return
+	if not game._enemy_counter_production("area_denial", 0, 0, 0, 0):
+		push_error("Powered enemy factory should resume counter-production")
+		quit(1)
+		return
+
+	# Enemy missile launchers and interception defenses also pause without power.
+	game.enemy_buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 5.0}
+	]
+	game.missiles.clear()
+	game.enemy_credits = 1200
+	game.enemy_supplies = 10
+	game._launch_enemy_missile()
+	if not game.missiles.is_empty() or game.enemy_credits != 1200 or game.enemy_supplies != 10:
+		push_error("An unpowered enemy missile silo must not launch or charge resources")
+		quit(1)
+		return
+	game._update_missiles(1.0)
+	if not is_equal_approx(float(game.enemy_buildings[3].attack_cd), 5.0):
+		push_error("An unpowered enemy missile silo must pause its reload timer")
+		quit(1)
+		return
+	game.enemy_buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "missile_defense", "hp": 450, "build_progress": 1.0, "attack_cd": 0.0}
+	]
+	game.missiles = [{"pos": Vector2(400.0, 100.0), "target": Vector2(800.0, 100.0), "target_kind": "base", "team": "player", "damage": 100, "life": 8.0}]
+	game._update_missiles(0.1)
+	if game.missiles.size() != 1 or game.enemy_buildings[3].attack_cd != 0.0:
+		push_error("An unpowered enemy missile defense must not intercept player missiles")
+		quit(1)
+		return
+	game.enemy_buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game.missiles[0].pos = Vector2(400.0, 100.0)
+	game._update_missiles(0.1)
+	if not game.missiles.is_empty() or not is_equal_approx(float(game.enemy_buildings[3].attack_cd), 0.75):
+		push_error("A powered enemy missile defense must intercept player missiles")
+		quit(1)
+		return
+
+	# Enemy AI should invest in power before expanding beyond its available grid.
+	game.enemy_buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 500, "build_progress": 1.0}
+	]
+	game.enemy_credits = 1200
+	game._enemy_ai_turn()
+	if not game._enemy_has_any_building("power_plant"):
+		push_error("Enemy AI should construct a power plant when current demand exceeds capacity")
+		quit(1)
+		return
+
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
