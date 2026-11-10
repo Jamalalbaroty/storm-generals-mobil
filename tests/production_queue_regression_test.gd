@@ -373,6 +373,54 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Integrated outage: defense keeps priority while factory and missile silo pause.
+	game.buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0, "production_id": 77},
+		{"pos": Vector2(500.0, 100.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0, "attack_cd": 0.0},
+		{"pos": Vector2(600.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
+	]
+	game.production_orders = [{
+		"producer_pos": Vector2(400.0, 100.0),
+		"producer_kind": "factory",
+		"producer_id": 77,
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}]
+	game.missiles.clear()
+	game.credits = 1200
+	game.supplies = 10
+	game._update_production_queues(1.0)
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.0):
+		push_error("A powered factory should advance production while the full grid is available")
+		quit(1)
+		return
+	game.buildings.remove_at(5)
+	game._update_production_queues(1.0)
+	game._launch_player_missile()
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.0) or not game.missiles.is_empty():
+		push_error("After power plant loss, production and missile launch must pause while defenses retain power")
+		quit(1)
+		return
+	if game.credits != 1200 or game.supplies != 10:
+		push_error("A missile launch blocked by a power outage must not consume resources")
+		quit(1)
+		return
+	game.buildings.append({"pos": Vector2(600.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game._update_production_queues(1.0)
+	game._launch_player_missile()
+	if not is_equal_approx(float(game.production_orders[0].remaining), 1.0) or game.missiles.size() != 1:
+		push_error("Restoring power must resume factory production and missile launch together")
+		quit(1)
+		return
+	if game.supplies != 6 or game.credits >= 1200:
+		push_error("A successful post-outage missile launch must consume its normal resources")
+		quit(1)
+		return
+
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
