@@ -1899,6 +1899,67 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 		rocket.material_override = _make_armour_material(Color(0.18, 0.19, 0.17))
 		weapon_pivot.add_child(rocket)
 
+	# Zero Hour-inspired helicopter equipment and faction-specific silhouettes.
+	for side in [-1.0, 1.0]:
+		var sponson := MeshInstance3D.new()
+		var sponson_mesh := BoxMesh.new()
+		sponson_mesh.size = Vector3(0.48, 0.30, 1.18)
+		sponson.mesh = sponson_mesh
+		sponson.position = Vector3(side * 0.82, -0.12, 0.15)
+		sponson.material_override = _make_armour_material(tint.darkened(0.16))
+		helicopter.add_child(sponson)
+		var landing_skid := MeshInstance3D.new()
+		var skid_mesh := BoxMesh.new()
+		skid_mesh.size = Vector3(0.12, 0.12, 2.65)
+		landing_skid.mesh = skid_mesh
+		landing_skid.position = Vector3(side * 0.86, -0.82, 0.18)
+		landing_skid.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
+		helicopter.add_child(landing_skid)
+
+	var sensor := MeshInstance3D.new()
+	var sensor_mesh := SphereMesh.new()
+	sensor_mesh.radius = 0.16
+	sensor_mesh.height = 0.24
+	sensor.mesh = sensor_mesh
+	sensor.position = Vector3(0.0, 0.52, -1.42)
+	sensor.material_override = _make_armour_material(Color(0.12, 0.20, 0.22))
+	helicopter.add_child(sensor)
+
+	if faction_id == "american":
+		var nose_sensor := MeshInstance3D.new()
+		var sensor_ball := SphereMesh.new()
+		sensor_ball.radius = 0.20
+		sensor_ball.height = 0.24
+		nose_sensor.mesh = sensor_ball
+		nose_sensor.position = Vector3(0.0, -0.12, -1.62)
+		nose_sensor.material_override = _make_armour_material(Color(0.08, 0.12, 0.14))
+		helicopter.add_child(nose_sensor)
+	elif faction_id == "chinese":
+		for side in [-1.0, 1.0]:
+			var armour_panel := MeshInstance3D.new()
+			var panel_mesh := BoxMesh.new()
+			panel_mesh.size = Vector3(0.12, 0.46, 0.82)
+			armour_panel.mesh = panel_mesh
+			armour_panel.position = Vector3(side * 0.56, 0.02, 0.18)
+			armour_panel.material_override = _make_armour_material(tint.darkened(0.24))
+			helicopter.add_child(armour_panel)
+	elif faction_id == "arab":
+		var desert_equipment := MeshInstance3D.new()
+		var equipment_mesh := BoxMesh.new()
+		equipment_mesh.size = Vector3(0.54, 0.30, 0.48)
+		desert_equipment.mesh = equipment_mesh
+		desert_equipment.position = Vector3(0.0, 0.48, 1.18)
+		desert_equipment.material_override = _make_armour_material(Color(0.42, 0.34, 0.22))
+		helicopter.add_child(desert_equipment)
+	elif faction_id == "watan":
+		var protected_sensor := MeshInstance3D.new()
+		var protected_mesh := BoxMesh.new()
+		protected_mesh.size = Vector3(0.56, 0.22, 0.48)
+		protected_sensor.mesh = protected_mesh
+		protected_sensor.position = Vector3(0.0, 0.56, -1.20)
+		protected_sensor.material_override = _make_armour_material(_get_faction_accent_color(faction_id))
+		helicopter.add_child(protected_sensor)
+
 func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> void:
 	var fighter := Node3D.new()
 	fighter.position = at
@@ -1977,6 +2038,91 @@ func _add_placeholder_fighter(at: Vector3, tint: Color, faction_id: String) -> v
 	weapon_pivot.position.y = -0.12
 	fighter.add_child(weapon_pivot)
 	showcase_turrets.append(weapon_pivot)
+
+	# Fighter silhouette refinements: intakes, exhausts, pylons and stores.
+	for side in [-1.0, 1.0]:
+		var intake := MeshInstance3D.new()
+		var intake_mesh := BoxMesh.new()
+		intake_mesh.size = Vector3(0.32, 0.34, 0.78)
+		intake.mesh = intake_mesh
+		intake.position = Vector3(side * 0.62, -0.08, 0.72)
+		intake.material_override = _make_armour_material(Color(0.075, 0.085, 0.08))
+		fighter.add_child(intake)
+
+		var exhaust := MeshInstance3D.new()
+		var exhaust_mesh := CylinderMesh.new()
+		exhaust_mesh.top_radius = 0.14
+		exhaust_mesh.bottom_radius = 0.19
+		exhaust_mesh.height = 0.52
+		exhaust.mesh = exhaust_mesh
+		exhaust.rotation_degrees.x = 90.0
+		exhaust.position = Vector3(side * 0.34, 0.0, 2.42)
+		exhaust.material_override = _make_armour_material(Color(0.10, 0.11, 0.10))
+		fighter.add_child(exhaust)
+
+		var pylon := MeshInstance3D.new()
+		var pylon_mesh := BoxMesh.new()
+		pylon_mesh.size = Vector3(0.16, 0.26, 0.86)
+		pylon.mesh = pylon_mesh
+		pylon.position = Vector3(side * 1.48, -0.22, 0.28)
+		pylon.material_override = _make_armour_material(tint.darkened(0.20))
+		fighter.add_child(pylon)
+
+		var store := MeshInstance3D.new()
+		var store_mesh := CylinderMesh.new()
+		store_mesh.top_radius = 0.09
+		store_mesh.bottom_radius = 0.14
+		store_mesh.height = 1.15
+		store.mesh = store_mesh
+		store.rotation_degrees.x = 90.0
+		store.position = Vector3(side * 1.48, -0.38, -0.08)
+		store.material_override = _make_armour_material(Color(0.16, 0.17, 0.15))
+		fighter.add_child(store)
+
+	var dorsal_spine := MeshInstance3D.new()
+	var spine_mesh := BoxMesh.new()
+	spine_mesh.size = Vector3(0.32, 0.16, 1.25)
+	dorsal_spine.mesh = spine_mesh
+	dorsal_spine.position = Vector3(0.0, 0.31, 0.78)
+	dorsal_spine.material_override = _make_armour_material(tint.darkened(0.16))
+	fighter.add_child(dorsal_spine)
+
+	if faction_id == "american":
+		var targeting_pod := MeshInstance3D.new()
+		var pod_mesh := CapsuleMesh.new()
+		pod_mesh.radius = 0.13
+		pod_mesh.height = 0.72
+		targeting_pod.mesh = pod_mesh
+		targeting_pod.rotation_degrees.x = 90.0
+		targeting_pod.position = Vector3(0.0, -0.30, 0.42)
+		targeting_pod.material_override = _make_armour_material(Color(0.10, 0.13, 0.14))
+		fighter.add_child(targeting_pod)
+	elif faction_id == "chinese":
+		for side in [-1.0, 1.0]:
+			var canard := MeshInstance3D.new()
+			var canard_mesh := BoxMesh.new()
+			canard_mesh.size = Vector3(0.95, 0.10, 0.48)
+			canard.mesh = canard_mesh
+			canard.position = Vector3(side * 0.72, 0.02, -1.28)
+			canard.material_override = _make_armour_material(tint.darkened(0.12))
+			fighter.add_child(canard)
+	elif faction_id == "arab":
+		var desert_panel := MeshInstance3D.new()
+		var camo_mesh := BoxMesh.new()
+		camo_mesh.size = Vector3(0.82, 0.10, 1.65)
+		desert_panel.mesh = camo_mesh
+		desert_panel.position = Vector3(0.0, 0.27, 0.48)
+		desert_panel.material_override = _make_armour_material(Color(0.48, 0.39, 0.25))
+		fighter.add_child(desert_panel)
+	elif faction_id == "watan":
+		var command_sensor := MeshInstance3D.new()
+		var command_mesh := SphereMesh.new()
+		command_mesh.radius = 0.20
+		command_mesh.height = 0.24
+		command_sensor.mesh = command_mesh
+		command_sensor.position = Vector3(0.0, 0.42, 0.55)
+		command_sensor.material_override = _make_armour_material(_get_faction_accent_color(faction_id))
+		fighter.add_child(command_sensor)
 
 func _add_naval_propeller(vessel: Node3D, propeller_name: String, side_x: float) -> void:
 	var propeller := Node3D.new()
