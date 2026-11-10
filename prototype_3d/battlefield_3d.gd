@@ -1716,6 +1716,51 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			factory_rail.position = Vector3(rail_side * 2.15, 0.18, 0.15)
 			factory_rail.material_override = _make_armour_material(faction_accent.darkened(0.12))
 			building.add_child(factory_rail)
+	elif kind == "supply_depot":
+		# Resource collection hub: warehouse, unloading apron and readable supply stacks.
+		var depot_warehouse := MeshInstance3D.new()
+		depot_warehouse.name = "SupplyWarehouse"
+		var warehouse_mesh := BoxMesh.new()
+		warehouse_mesh.size = Vector3(4.8, 2.25, 3.65)
+		depot_warehouse.mesh = warehouse_mesh
+		depot_warehouse.position = Vector3(0.0, 1.15, -1.55)
+		depot_warehouse.material_override = _make_armour_material(tint.darkened(0.12))
+		building.add_child(depot_warehouse)
+
+		var unloading_apron := MeshInstance3D.new()
+		var apron_mesh := BoxMesh.new()
+		apron_mesh.size = Vector3(6.8, 0.12, 3.1)
+		unloading_apron.mesh = apron_mesh
+		unloading_apron.position = Vector3(0.0, 0.08, 2.15)
+		unloading_apron.material_override = _make_armour_material(Color(0.25, 0.27, 0.25))
+		building.add_child(unloading_apron)
+
+		for stack_index in range(4):
+			var supply_crate := MeshInstance3D.new()
+			var crate_mesh := BoxMesh.new()
+			crate_mesh.size = Vector3(0.78, 0.62, 0.72)
+			supply_crate.mesh = crate_mesh
+			supply_crate.position = Vector3(-2.05 + float(stack_index % 2) * 1.0, 0.42 + float(stack_index / 2) * 0.66, 2.25 + float(stack_index / 2) * 0.82)
+			supply_crate.material_override = _make_armour_material(faction_accent.darkened(0.12))
+			building.add_child(supply_crate)
+
+		var depot_sign := MeshInstance3D.new()
+		var sign_mesh := BoxMesh.new()
+		sign_mesh.size = Vector3(2.25, 0.32, 0.12)
+		depot_sign.mesh = sign_mesh
+		depot_sign.position = Vector3(0.0, 2.15, -3.42)
+		depot_sign.material_override = _make_armour_material(faction_accent)
+		building.add_child(depot_sign)
+
+		for marker_side in [-1.0, 1.0]:
+			var loading_marker := MeshInstance3D.new()
+			var marker_mesh := BoxMesh.new()
+			marker_mesh.size = Vector3(0.16, 0.035, 1.65)
+			loading_marker.mesh = marker_mesh
+			loading_marker.position = Vector3(marker_side * 2.72, 0.16, 2.12)
+			loading_marker.material_override = _make_armour_material(Color(0.82, 0.72, 0.38))
+			building.add_child(loading_marker)
+
 	elif kind == "airfield":
 		var hangar_shell := MeshInstance3D.new()
 		var hangar_mesh := BoxMesh.new()
