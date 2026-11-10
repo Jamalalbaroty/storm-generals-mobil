@@ -457,9 +457,7 @@ func _process(delta: float) -> void:
 							if unit.attack_cd <= 0.0:
 								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#ff9b72"), 0.18, 0.0)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.42, 24.0)
-								var air_hp_before := int(air_enemy.hp)
-								air_enemy.hp = maxi(0, air_hp_before - _terrain_adjusted_damage(air_enemy, _unit_damage_with_veterancy(unit, FIGHTER_DAMAGE)))
-								_award_unit_experience(unit, air_hp_before - int(air_enemy.hp))air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
+								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
