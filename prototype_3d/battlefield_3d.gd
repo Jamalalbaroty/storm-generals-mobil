@@ -712,6 +712,18 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			game_unit_nodes.erase(existing_key)
 	return synced_count
 
+func _gameplay_max_health_for_building(kind: String) -> float:
+	match kind:
+		"bunker":
+			return 650.0
+		"missile_silo":
+			return 500.0
+		"missile_defense":
+			return 450.0
+		_:
+			return 400.0
+
+
 func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_rect: Rect2, player_faction: String, enemy_faction: String) -> int:
 	# Reconcile logical 2D building records with persistent 3D counterparts.
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
@@ -733,7 +745,9 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			var kind := String(record.get("kind", ""))
 			if kind.is_empty():
 				continue
-			var key := "%s|%s|%.2f|%.2f" % [team_data.team, kind, source_pos.x, source_pos.y]
+			# production_id remains stable when a building is repaired, upgraded, or repositioned.
+			var building_identity := str(record.get("production_id", "%.2f|%.2f" % [source_pos.x, source_pos.y]))
+			var key := "%s|%s|%s" % [team_data.team, kind, building_identity]
 			active_keys[key] = true
 			var normalized_x := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 			var normalized_z := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
@@ -744,6 +758,8 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				building = existing_building_variant as Node3D
 			if not is_instance_valid(building):
 				building = spawn_game_building(kind, world_pos, _normalize_faction_id(String(team_data.faction)), team_data.tint, float(record.get("build_progress", 1.0)))
+				if not is_instance_valid(building):
+					continue
 				building.set_meta("source_key", key)
 				building.set_meta("source_team", String(team_data.team))
 				game_building_nodes[key] = building
@@ -752,6 +768,15 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 				building.set_meta("faction_id", _normalize_faction_id(String(team_data.faction)))
 				building.set_meta("source_team", String(team_data.team))
 				update_game_building_progress(building, float(record.get("build_progress", 1.0)))
+			var current_hp := maxf(0.0, float(record.get("hp", 400.0)))
+			var maximum_hp := maxf(1.0, float(record.get("max_hp", _gameplay_max_health_for_building(kind))))
+			building.set_meta("health", current_hp)
+			building.set_meta("max_health", maximum_hp)
+			if building.get_node_or_null("HealthBar") == null:
+				_create_showcase_health_bar(building)
+				var building_health_bar := building.get_node_or_null("HealthBar") as Node3D
+				if is_instance_valid(building_health_bar):
+					building_health_bar.position.y = 6.2 if kind == "command" else 4.2
 			update_game_building_level(building, int(record.get("level", 1)))
 			synced_count += 1
 	for existing_key in game_building_nodes.keys():
