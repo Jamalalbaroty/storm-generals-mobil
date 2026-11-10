@@ -248,15 +248,19 @@ func _run() -> void:
 	# An existing but unfinished producer must pause, not cancel, its order.
 	game.credits = 0
 	game.supplies = 0
+	game.buildings.clear()
 	game.buildings.append({
 		"pos": Vector2(300.0, 300.0),
 		"kind": "factory",
 		"hp": 400,
 		"build_progress": 0.5,
-		"build_duration": 10.0
+		"build_duration": 10.0,
+		"production_id": 43
 	})
 	game.production_orders.append({
 		"producer_pos": Vector2(300.0, 300.0),
+		"producer_kind": "factory",
+		"producer_id": 43,
 		"kind": "tank",
 		"remaining": 3.0,
 		"duration": 3.0
