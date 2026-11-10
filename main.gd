@@ -1721,6 +1721,7 @@ func _draw_hud(size: Vector2) -> void:
 	if not selected_player_units.is_empty():
 		var total_xp := 0.0
 		var total_kills := 0
+		var total_medals := 0
 		var progress_total := 0.0
 		var highest_rank := 0
 		var elite_count := 0
@@ -1731,6 +1732,7 @@ func _draw_hud(size: Vector2) -> void:
 			var unit_rank := int(selected_unit.get("veterancy", 0))
 			total_xp += unit_xp
 			total_kills += int(selected_unit.get("combat_kills", 0))
+			total_medals += (selected_unit.get("combat_medals", []) as Array).size()
 			highest_rank = maxi(highest_rank, unit_rank)
 			if unit_rank >= 2:
 				elite_count += 1
@@ -1746,7 +1748,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(dossier, Color("#10232b", 0.94), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "%d وحدات محددة" % selected_player_units.size()
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d" % [unit_label, rank_label, average_xp, total_kills], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 12, Color("#f2e8ca"))
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 12, Color("#f2e8ca"))
 		var xp_bar := Rect2(dossier.position + Vector2(8, 26), Vector2(size.x - 36, 9))
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
