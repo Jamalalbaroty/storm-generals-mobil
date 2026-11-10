@@ -422,6 +422,8 @@ func _run() -> void:
 		return
 
 	# Enemy production and missile systems must obey the same power allocation.
+	game.enemy_credits = 2000
+	game.enemy_supplies = 10
 	game.enemy_buildings = [
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
 		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
@@ -471,14 +473,22 @@ func _run() -> void:
 	game.missiles.clear()
 	game.enemy_credits = 1200
 	game.enemy_supplies = 10
+	game.enemy_missile_timer = 23.5
 	game._launch_enemy_missile()
 	if not game.missiles.is_empty() or game.enemy_credits != 1200 or game.enemy_supplies != 10:
 		push_error("An unpowered enemy missile silo must not launch or charge resources")
 		quit(1)
 		return
 	game._update_missiles(1.0)
-	if not is_equal_approx(float(game.enemy_buildings[3].attack_cd), 5.0):
-		push_error("An unpowered enemy missile silo must pause its reload timer")
+	if not is_equal_approx(float(game.enemy_buildings[3].attack_cd), 5.0) or not is_equal_approx(float(game.enemy_missile_timer), 23.5):
+		push_error("An unpowered enemy missile silo must pause both reload and readiness timers")
+		quit(1)
+		return
+	game.enemy_buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game.enemy_buildings[3]["attack_cd"] = 0.0
+	game._update_missiles(0.5)
+	if game.missiles.size() != 1 or game.enemy_missile_timer != 0.0 or game.enemy_supplies != 6:
+		push_error("A powered enemy silo should resume its paused readiness timer and launch normally")
 		quit(1)
 		return
 	game.enemy_buildings = [
