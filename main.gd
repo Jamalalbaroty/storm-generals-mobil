@@ -3112,8 +3112,7 @@ func _update_missiles(delta: float) -> void:
 			# Missile warheads now damage nearby hostile units as well as the primary target.
 			var splash_team := "enemy" if missile.team == "player" else "player"
 			var splash_damage := maxi(25, int(missile.damage * 0.65))
-			_apply_splash_damage(destination, 92.0, splash_damage, splash_team)
-			_apply_building_splash_damage(destination, 92.0, splash_damage, splash_team)
+			_apply_missile_splash_damage(destination, 92.0, splash_damage, splash_team)
 			if missile.team == "player":
 				if missile.target_kind == "base":
 					enemy_base_hp = maxi(0, enemy_base_hp - int(missile.damage))
@@ -3129,6 +3128,29 @@ func _update_missiles(delta: float) -> void:
 		else:
 			missile.pos += direction.normalized() * travel
 			missile.life = float(missile.life) - delta
+
+func _apply_missile_splash_damage(center: Vector2, radius: float, base_damage: int, target_team: String) -> void:
+	# Missile blast pressure falls off with distance; armored vehicles retain a little more protection.
+	for unit in units:
+		if String(unit.get("team", "")) != target_team or int(unit.get("hp", 0)) <= 0:
+			continue
+		var distance: float = unit.pos.distance_to(center)
+		if distance > radius:
+			continue
+		var falloff := 1.0 - 0.58 * clampf(distance / maxf(1.0, radius), 0.0, 1.0)
+		var armor_factor := 0.82 if String(unit.get("kind", "")) in ["tank", "artillery"] else 1.0
+		var applied_damage := maxi(1, roundi(float(base_damage) * falloff * armor_factor))
+		unit.hp = maxi(0, int(unit.hp) - _terrain_adjusted_damage(unit, applied_damage))
+	var target_buildings: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
+	for building in target_buildings:
+		var distance: float = building.pos.distance_to(center)
+		# Keep the direct-hit structure damage separate from surrounding blast damage.
+		if distance <= 36.0 or distance > radius:
+			continue
+		var falloff := 1.0 - 0.68 * clampf(distance / maxf(1.0, radius), 0.0, 1.0)
+		building.hp = maxi(0, int(building.get("hp", 400)) - maxi(1, roundi(float(base_damage) * falloff)))
+	_remove_destroyed_buildings(target_team)
+
 
 func _apply_building_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
 	var targets: Array[Dictionary] = enemy_buildings if target_team == "enemy" else buildings
