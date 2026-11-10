@@ -1204,7 +1204,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var enemy_distance_after_combat: float = enemy_after_combat.distance_to(game.get("units")[nearby_player_index]["pos"])
 	var enemy_damaged_nearby_tank := int(game.get("units")[nearby_player_index]["hp"]) < nearby_player_hp
 	var enemy_closed_on_nearby_tank := enemy_distance_after_combat < enemy_distance_before_combat - 1.0
-	_expect(enemy_damaged_nearby_tank or enemy_closed_on_nearby_tank, "Enemy armor should switch from supply advance to engaging an immediate nearby player threat")
+	_expect(enemy_damaged_nearby_tank or enemy_closed_on_nearby_tank, "Enemy armor should engage nearby threat; strategy=%s enemy_before=%s enemy_after=%s player_pos=%s distance_before=%.2f distance_after=%.2f player_hp=%d" % [String(game.get("enemy_strategy")), str(enemy_before_combat), str(enemy_after_combat), str(game.get("units")[nearby_player_index]["pos"]), enemy_distance_before_combat, enemy_distance_after_combat, int(game.get("units")[nearby_player_index]["hp"])])
 
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
