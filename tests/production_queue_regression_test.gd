@@ -421,6 +421,24 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Destroyed player structures must neither provide nor consume grid power.
+	game.buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 0, "build_progress": 1.0}
+	]
+	if game._player_power_capacity() != 8 or game._player_power_demand() != 10 or game._is_player_building_powered(3):
+		push_error("Destroyed player power plants must not supply capacity or power an overloaded factory")
+		quit(1)
+		return
+	game.buildings[2]["hp"] = 0
+	if game._player_power_demand() != 8 or not game._is_player_building_powered(3) or game._is_player_building_powered(2):
+		push_error("Destroyed player defenses must stop consuming power and must not be reported as powered")
+		quit(1)
+		return
+
 	# Enemy production and missile systems must obey the same power allocation.
 	game.enemy_credits = 2000
 	game.enemy_supplies = 10
