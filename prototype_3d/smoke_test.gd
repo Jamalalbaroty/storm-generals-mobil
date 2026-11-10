@@ -16,6 +16,27 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	var sun_light := battlefield.get("sun_light") as DirectionalLight3D
+	if sun_light == null:
+		push_error("3D battlefield mobile quality profile did not expose its directional light")
+		quit(1)
+		return
+	if sun_light.shadow_enabled == OS.has_feature("mobile"):
+		push_error("3D battlefield did not select the expected default shadow profile for this platform")
+		quit(1)
+		return
+	battlefield.call("_apply_mobile_quality_profile", true)
+	if sun_light.shadow_enabled:
+		push_error("Mobile quality profile must disable expensive real-time directional shadows")
+		quit(1)
+		return
+	battlefield.call("_apply_mobile_quality_profile", false)
+	if not sun_light.shadow_enabled:
+		push_error("Desktop quality profile should retain directional shadows")
+		quit(1)
+		return
+	battlefield.call("_apply_mobile_quality_profile", OS.has_feature("mobile"))
+
 	var building_kinds := ["command", "barracks", "factory", "airfield", "power_plant", "turret", "anti_air", "missile_silo", "missile_defense", "shipyard"]
 	for building_index in range(building_kinds.size()):
 		var kind: String = building_kinds[building_index]
