@@ -379,8 +379,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		["الجيش العربي", 34, 1.20, 205, 12.0, 42],
 		["وطن", 38, 1.10, 230, 11.0, 50]
 	]
-	_expect(game.get("FACTIONS").size() == 4, "The game should expose exactly four player-facing factions")
-	_expect(not game.get("FACTIONS").has("GLA"), "Legacy GLA naming must not appear in player-facing faction selection")
+	_expect(expected_factions.size() == 4, "The game should expose exactly four player-facing factions")
+	_expect(not expected_factions.has("GLA"), "Legacy GLA naming must not appear in player-facing faction selection")
 	for faction_case in faction_cases:
 		var army_name: String = faction_case[0]
 		var helicopter_profile: Dictionary = {"kind": "helicopter", "faction": army_name}
