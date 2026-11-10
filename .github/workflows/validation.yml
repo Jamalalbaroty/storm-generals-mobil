@@ -36,8 +36,29 @@ jobs:
             exit 1
           fi
       - name: Smoke test isolated 3D battlefield
-        run: godot --headless --path . --script res://prototype_3d/smoke_test.gd
+        shell: bash
+        run: |
+          godot --headless --path . --script res://prototype_3d/smoke_test.gd > /tmp/3d-smoke.log 2>&1
+          cat /tmp/3d-smoke.log
+          if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/3d-smoke.log; then
+            echo "3D battlefield smoke test reported engine or script errors"
+            exit 1
+          fi
       - name: Smoke test live 2D-to-3D gameplay bridge
-        run: godot --headless --path . --script res://prototype_3d/live_bridge_smoke_test.gd
+        shell: bash
+        run: |
+          godot --headless --path . --script res://prototype_3d/live_bridge_smoke_test.gd > /tmp/live-bridge-smoke.log 2>&1
+          cat /tmp/live-bridge-smoke.log
+          if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/live-bridge-smoke.log; then
+            echo "Live gameplay bridge smoke test reported engine or script errors"
+            exit 1
+          fi
       - name: Smoke test gameplay economy and AI recovery
-        run: godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd
+        shell: bash
+        run: |
+          godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd > /tmp/gameplay-smoke.log 2>&1
+          cat /tmp/gameplay-smoke.log
+          if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/gameplay-smoke.log; then
+            echo "Gameplay smoke test reported engine or script errors"
+            exit 1
+          fi
