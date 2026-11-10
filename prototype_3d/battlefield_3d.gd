@@ -551,7 +551,10 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
 		var maximum_health := maxf(1.0, float(record.get("max_hp", maxf(100.0, current_health))))
-		var unit := game_unit_nodes.get(key) as Node3D
+		var unit: Node3D = null
+		var existing_unit_variant = game_unit_nodes.get(key)
+		if is_instance_valid(existing_unit_variant):
+			unit = existing_unit_variant as Node3D
 		if not is_instance_valid(unit):
 			unit = spawn_game_unit(kind, world_pos, faction_id, tint, current_health)
 			if not is_instance_valid(unit):
@@ -572,8 +575,9 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		synced_count += 1
 	for existing_key in game_unit_nodes.keys():
 		if not active_keys.has(existing_key):
-			var stale_unit := game_unit_nodes[existing_key] as Node3D
-			if is_instance_valid(stale_unit):
+			var stale_unit_variant = game_unit_nodes[existing_key]
+			if is_instance_valid(stale_unit_variant):
+				var stale_unit := stale_unit_variant as Node3D
 				# Remove destroyed/despawned units from every active selection and target.
 				if selected_live_units.has(stale_unit):
 					selected_live_units.erase(stale_unit)
@@ -615,7 +619,10 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			var normalized_x := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 			var normalized_z := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
 			var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_x), 0.0, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, normalized_z))
-			var building := game_building_nodes.get(key) as Node3D
+			var building: Node3D = null
+			var existing_building_variant = game_building_nodes.get(key)
+			if is_instance_valid(existing_building_variant):
+				building = existing_building_variant as Node3D
 			if not is_instance_valid(building):
 				building = spawn_game_building(kind, world_pos, _normalize_faction_id(String(team_data.faction)), team_data.tint, float(record.get("build_progress", 1.0)))
 				building.set_meta("source_key", key)
@@ -629,8 +636,9 @@ func sync_game_buildings(player_buildings: Array, enemy_buildings: Array, map_re
 			synced_count += 1
 	for existing_key in game_building_nodes.keys():
 		if not active_keys.has(existing_key):
-			var stale_building := game_building_nodes[existing_key] as Node3D
-			if is_instance_valid(stale_building):
+			var stale_building_variant = game_building_nodes[existing_key]
+			if is_instance_valid(stale_building_variant):
+				var stale_building := stale_building_variant as Node3D
 				stale_building.queue_free()
 			game_building_nodes.erase(existing_key)
 	return synced_count
@@ -1265,7 +1273,10 @@ func _add_naval_propeller(vessel: Node3D, propeller_name: String, side_x: float)
 func _update_naval_combat(delta: float) -> void:
 	# Destroyers automatically engage the nearest hostile contact in cannon range.
 	for unit_key in game_unit_nodes.keys():
-		var vessel := game_unit_nodes[unit_key] as Node3D
+		var vessel_variant = game_unit_nodes[unit_key]
+		if not is_instance_valid(vessel_variant):
+			continue
+		var vessel := vessel_variant as Node3D
 		if not is_instance_valid(vessel) or str(vessel.get_meta("unit_type", "")) != "destroyer":
 			continue
 		var team := str(vessel.get_meta("source_team", ""))
@@ -1290,7 +1301,10 @@ func _find_naval_target(vessel: Node3D, team: String, max_range: float) -> Node3
 	var nearest: Node3D
 	var nearest_distance := max_range
 	for candidate_key in game_unit_nodes.keys():
-		var candidate := game_unit_nodes[candidate_key] as Node3D
+		var candidate_variant = game_unit_nodes[candidate_key]
+		if not is_instance_valid(candidate_variant):
+			continue
+		var candidate := candidate_variant as Node3D
 		if not is_instance_valid(candidate) or candidate == vessel:
 			continue
 		if str(candidate.get_meta("source_team", "")) == team:
@@ -1352,7 +1366,10 @@ func _update_carrier_air_operations(delta: float) -> void:
 	carrier_aircraft_clock += delta
 	# Launch a light visual patrol flight from each carrier at a measured interval.
 	for unit_key in game_unit_nodes.keys():
-		var carrier := game_unit_nodes[unit_key] as Node3D
+		var carrier_variant = game_unit_nodes[unit_key]
+		if not is_instance_valid(carrier_variant):
+			continue
+		var carrier := carrier_variant as Node3D
 		if not is_instance_valid(carrier) or str(carrier.get_meta("unit_type", "")) != "carrier":
 			continue
 		var cooldown := maxf(0.0, float(carrier.get_meta("air_ops_cooldown", 0.0)) - delta)
@@ -1363,8 +1380,10 @@ func _update_carrier_air_operations(delta: float) -> void:
 	# Aircraft circle the carrier group briefly, then return to the flight deck.
 	for flight_index in range(carrier_aircraft.size() - 1, -1, -1):
 		var flight: Dictionary = carrier_aircraft[flight_index]
-		var aircraft := flight.get("node") as Node3D
-		var carrier := flight.get("carrier") as Node3D
+		var aircraft_variant = flight.get("node")
+		var carrier_variant = flight.get("carrier")
+		var aircraft: Node3D = aircraft_variant as Node3D if is_instance_valid(aircraft_variant) else null
+		var carrier: Node3D = carrier_variant as Node3D if is_instance_valid(carrier_variant) else null
 		if not is_instance_valid(aircraft) or not is_instance_valid(carrier):
 			if is_instance_valid(aircraft):
 				aircraft.queue_free()
@@ -1770,7 +1789,10 @@ func _update_radar_network(delta: float) -> void:
 			var blip_key := str(radar.get_instance_id()) + ":" + str(unit.get_instance_id())
 			if is_hostile and in_range:
 				active_contacts.append(blip_key)
-				var blip: MeshInstance3D = radar_blips.get(blip_key) as MeshInstance3D
+				var blip: MeshInstance3D = null
+				var existing_blip_variant = radar_blips.get(blip_key)
+				if is_instance_valid(existing_blip_variant):
+					blip = existing_blip_variant as MeshInstance3D
 				if not is_instance_valid(blip):
 					blip = MeshInstance3D.new()
 					var blip_mesh := SphereMesh.new()
@@ -1790,8 +1812,9 @@ func _update_radar_network(delta: float) -> void:
 		for old_key_variant in radar_blips.keys():
 			var old_key := str(old_key_variant)
 			if old_key.begins_with(str(radar.get_instance_id()) + ":") and not active_contacts.has(old_key):
-				var old_blip := radar_blips[old_key] as MeshInstance3D
-				if is_instance_valid(old_blip):
+				var old_blip_variant = radar_blips[old_key]
+				if is_instance_valid(old_blip_variant):
+					var old_blip := old_blip_variant as MeshInstance3D
 					old_blip.queue_free()
 				radar_blips.erase(old_key)
 func _build_showcase_infantry() -> void:
@@ -1899,6 +1922,9 @@ func _update_infantry_animation(delta: float) -> void:
 	infantry_gait_clock += delta
 	var moving_squad: Node3D = selected_tank if has_selected_destination else null
 	for soldier_variant in infantry_leg_pairs.keys():
+		if not is_instance_valid(soldier_variant):
+			infantry_leg_pairs.erase(soldier_variant)
+			continue
 		var soldier := soldier_variant as Node3D
 		if not is_instance_valid(soldier):
 			infantry_leg_pairs.erase(soldier_variant)
@@ -1907,7 +1933,10 @@ func _update_infantry_animation(delta: float) -> void:
 		var is_walking := soldier.get_parent() == moving_squad
 		var phase := infantry_gait_clock * 9.0 + float(soldier.get_instance_id() % 7)
 		for leg_index in range(legs.size()):
-			var leg := legs[leg_index] as Node3D
+			var leg_variant = legs[leg_index]
+			if not is_instance_valid(leg_variant):
+				continue
+			var leg := leg_variant as Node3D
 			if is_instance_valid(leg):
 				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * (0.52 if is_walking else 0.025)
 		if is_walking:
@@ -2269,8 +2298,15 @@ func _create_showcase_health_bar(tank: Node3D) -> void:
 
 func _update_showcase_health_bars() -> void:
 	for tank_variant in showcase_health_bars.keys():
+		if not is_instance_valid(tank_variant):
+			showcase_health_bars.erase(tank_variant)
+			continue
 		var tank := tank_variant as Node3D
-		var fill := showcase_health_bars[tank_variant] as MeshInstance3D
+		var fill_variant = showcase_health_bars[tank_variant]
+		if not is_instance_valid(fill_variant):
+			showcase_health_bars.erase(tank_variant)
+			continue
+		var fill := fill_variant as MeshInstance3D
 		if not is_instance_valid(tank) or not is_instance_valid(fill):
 			showcase_health_bars.erase(tank_variant)
 			continue
@@ -2366,6 +2402,11 @@ func _spawn_muzzle_flash(at: Vector3, scale_factor: float = 1.0) -> void:
 
 func _update_tank_wheel_rotation() -> void:
 	for tank_variant in tank_wheels.keys():
+		if not is_instance_valid(tank_variant):
+			tank_wheels.erase(tank_variant)
+			wheel_last_positions.erase(tank_variant)
+			tank_barrels.erase(tank_variant)
+			continue
 		var tank := tank_variant as Node3D
 		if not is_instance_valid(tank):
 			tank_wheels.erase(tank_variant)
@@ -2380,12 +2421,17 @@ func _update_tank_wheel_rotation() -> void:
 		var wheels: Array = tank_wheels[tank_variant]
 		var rotation_step := distance / 0.34
 		for wheel_variant in wheels:
+			if not is_instance_valid(wheel_variant):
+				continue
 			var wheel := wheel_variant as MeshInstance3D
 			if is_instance_valid(wheel):
 				wheel.rotate_object_local(Vector3.UP, rotation_step)
 
 func _animate_tank_recoil(tank: Node3D) -> void:
-	var barrel := tank_barrels.get(tank) as MeshInstance3D
+	var barrel_variant = tank_barrels.get(tank)
+	if not is_instance_valid(barrel_variant):
+		return
+	var barrel := barrel_variant as MeshInstance3D
 	if not is_instance_valid(barrel):
 		return
 	var tween := create_tween()
