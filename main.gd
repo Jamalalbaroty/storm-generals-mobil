@@ -192,7 +192,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 	if source_index < 0:
 		return
 	var source_unit: Dictionary = units[source_index]
-	if order_type == "move" or order_type == "attack_move":
+	if order_type in ["move", "formation_move", "attack_move"]:
 		if order_type == "attack_move" and not (String(source_unit.get("kind", "")) in ["tank", "artillery", "infantry"]):
 			return
 		var map_size := get_viewport_rect().size
@@ -201,7 +201,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var ny := clampf((world_position.z + world_limit) / (world_limit * 2.0), 0.0, 1.0)
 		_cancel_airfield_recovery(source_unit)
 		var move_destination := Vector2(nx * map_size.x, ny * map_size.y)
-		if String(source_unit.get("kind", "")) in ["fighter", "helicopter"]:
+		if order_type == "move" and String(source_unit.get("kind", "")) in ["fighter", "helicopter"]:
+			# Legacy 2D move orders allocate air slots here; 3D formation_move
+			# orders already contain their final per-unit destinations.
 			if air_formation_order_clock <= 0.0 or air_formation_last_center.distance_to(move_destination) > 8.0:
 				air_formation_order_index = 0
 				air_formation_last_center = move_destination
