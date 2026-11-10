@@ -209,6 +209,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.call("_terrain_adjusted_damage", {"kind": "infantry"}, 100) == 100, "Desert terrain should not grant infantry cover")
 	_expect(game.call("_terrain_adjusted_damage", {"kind": "tank"}, 100) == 100, "Infantry terrain cover must not reduce tank damage")
 
+	# Exercise the real splash-damage path: terrain cover applies to infantry only,
+	# damage stays on the intended team/radius, and lethal hits clamp at zero HP.
+	game.get("units").clear()
+	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(310.0, 300.0)})
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(305.0, 300.0)})
+	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(500.0, 300.0)})
+	game.call("_apply_splash_damage", Vector2(300.0, 300.0), 48.0, 100, "player")
+	_expect(int(game.get("units")[0]["hp"]) == 24, "Forest cover should reduce real splash damage to player infantry")
+	_expect(int(game.get("units")[1]["hp"]) == 50, "Tanks should receive full splash damage in forest terrain")
+	_expect(int(game.get("units")[2]["hp"]) == 100, "Splash damage must not hit the opposing team")
+	_expect(int(game.get("units")[3]["hp"]) == 150, "Splash damage must not hit units outside its radius")
+	game.call("_apply_splash_damage", Vector2(300.0, 300.0), 48.0, 100, "player")
+	_expect(int(game.get("units")[0]["hp"]) == 0, "Lethal splash damage should clamp infantry health at zero")
+
 	game.get("units").clear()
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(100.0, 100.0), "attack_target": 2})
 	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 0, "pos": Vector2(120.0, 100.0)})
