@@ -95,6 +95,7 @@ var air_alert_active := false
 var ground_alert_active := false
 var missile_alert_active := false
 var enemy_strategy := "balanced"
+var next_building_production_id := 1
 
 func _ready() -> void:
 	randomize()
@@ -2318,6 +2319,8 @@ func _update_building_capture(delta: float) -> void:
 				var captured = building.duplicate(true)
 				captured.erase("capture_progress")
 				captured["captured"] = true
+				captured["production_id"] = next_building_production_id
+				next_building_production_id += 1
 				buildings.append(captured)
 				enemy_buildings.remove_at(i)
 				for assault_unit in units:
@@ -3136,7 +3139,8 @@ func _place_building(pos: Vector2) -> void:
 		"factory", "airfield": construction_duration = 10.0
 		"missile_silo", "shipyard": construction_duration = 13.0
 		"missile_defense": construction_duration = 9.0
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration})
+	buildings.append({"pos": pos, "kind": build_mode, "hp": 500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "production_id": next_building_production_id})
+	next_building_production_id += 1
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
 	var building_labels := {"power_plant": "محطة الطاقة", "shipyard": "حوض السفن", "missile_silo": "منصة الصواريخ", "missile_defense": "الدفاع الصاروخي", "barracks": "الثكنة", "factory": "المصنع", "airfield": "المطار", "anti_air": "الدفاع المضاد للطائرات", "turret": "برج الدفاع"}
@@ -3244,9 +3248,14 @@ func _production_duration(kind: String) -> float:
 func _enqueue_unit(kind: String) -> void:
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
+	var producer_id := -1
 	for i in range(buildings.size()):
 		if buildings[i].kind == producer_kind and _is_player_building_powered(i):
+			if not buildings[i].has("production_id"):
+				buildings[i]["production_id"] = next_building_production_id
+				next_building_production_id += 1
 			producer_pos = buildings[i].pos
+			producer_id = int(buildings[i].production_id)
 			break
 	if producer_kind == "" or producer_pos.x < -9000.0:
 		notice = "لا يوجد مبنى إنتاج مكتمل لهذه الوحدة"
@@ -3269,7 +3278,7 @@ func _enqueue_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
+	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "producer_id": producer_id, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
 	queue_redraw()
@@ -3285,8 +3294,16 @@ func _update_production_queues(delta: float) -> void:
 		var producer_exists := false
 		var producer_ready := false
 		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
+		var expected_producer_id := int(order.get("producer_id", -1))
 		for producer_index in range(buildings.size()):
-			if String(buildings[producer_index].get("kind", "")) == expected_producer_kind and buildings[producer_index].pos.distance_to(producer_pos) < 2.0:
+			var candidate: Dictionary = buildings[producer_index]
+			var matches_producer := false
+			if expected_producer_id >= 0:
+				matches_producer = int(candidate.get("production_id", -2)) == expected_producer_id
+			else:
+				# Compatibility for production orders created before producer IDs existed.
+				matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate.pos.distance_to(producer_pos) < 2.0
+			if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
 				producer_exists = true
 				producer_ready = _is_player_building_powered(producer_index)
 				break
