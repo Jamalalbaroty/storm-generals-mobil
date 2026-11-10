@@ -212,8 +212,8 @@ func _play_combat_audio(at: Vector3, is_impact: bool) -> void:
 	player.volume_db = -8.0 if is_impact else -11.0
 	player.unit_size = 9.0
 	player.max_distance = 58.0
-	player.global_position = at
 	add_child(player)
+	player.global_position = at
 	player.finished.connect(player.queue_free)
 	player.play()
 
@@ -1287,8 +1287,8 @@ func _fire_naval_shell(pivot: Node3D, target: Node3D, vessel: Node3D) -> void:
 	shell_material.emission = Color(1.0, 0.32, 0.06)
 	shell_material.emission_energy_multiplier = 2.6
 	shell.material_override = shell_material
-	shell.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.2) + Vector3.UP * 0.25
 	add_child(shell)
+	shell.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.2) + Vector3.UP * 0.25
 	_spawn_muzzle_flash(shell.global_position, 1.35)
 	_play_combat_audio(shell.global_position, false)
 	var destination := target.global_position + Vector3.UP * 0.75
@@ -1518,8 +1518,8 @@ func _fire_air_defense_missile(defense: Node3D, target: Node3D) -> void:
 	missile_material.emission = Color(1.0, 0.38, 0.08)
 	missile_material.emission_energy_multiplier = 1.4
 	missile.material_override = missile_material
-	missile.global_position = defense.global_position + (-defense.global_transform.basis.z * 1.0)
 	add_child(missile)
+	missile.global_position = defense.global_position + (-defense.global_transform.basis.z * 1.0)
 	var flight_time := clampf(missile.global_position.distance_to(target.global_position) / 18.0, 0.35, 1.1)
 	var tween := create_tween()
 	tween.tween_property(missile, "global_position", target.global_position, flight_time)
@@ -2334,10 +2334,10 @@ func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	projectile_material.emission = Color(1.0, 0.72, 0.18) if is_infantry or is_aircraft else Color(1.0, 0.32, 0.06)
 	projectile_material.emission_energy_multiplier = 2.0
 	projectile.material_override = projectile_material
+	add_child(projectile)
 	projectile.global_position = pivot.global_position + (-pivot.global_transform.basis.z * 2.4) + Vector3.UP * 0.04
 	_spawn_muzzle_flash(projectile.global_position, 0.72 if is_infantry else (0.9 if is_aircraft else 1.25))
 	_play_combat_audio(projectile.global_position, false)
-	add_child(projectile)
 	var destination := target.global_position + Vector3.UP * 0.95
 	var tween := create_tween()
 	tween.tween_property(projectile, "global_position", destination, 0.22 if is_infantry else (0.28 if is_aircraft else 0.32))
