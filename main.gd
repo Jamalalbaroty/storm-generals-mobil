@@ -165,6 +165,13 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
+func _cancel_airfield_recovery(unit: Dictionary) -> void:
+	# A fresh player command always takes priority over automatic recovery.
+	unit.erase("airfield_returning")
+	unit.erase("airfield_landed")
+	unit.erase("airfield_recovery_id")
+
+
 func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
 	var source_parts := source_key.split("|")
 	if source_parts.size() < 3 or source_parts[0] != "player":
@@ -183,6 +190,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var world_limit := 42.0 * 0.38
 		var nx := clampf((world_position.x + world_limit) / (world_limit * 2.0), 0.0, 1.0)
 		var ny := clampf((world_position.z + world_limit) / (world_limit * 2.0), 0.0, 1.0)
+		_cancel_airfield_recovery(source_unit)
 		source_unit["target"] = Vector2(nx * map_size.x, ny * map_size.y)
 		source_unit.erase("attack_target")
 		source_unit.erase("attack_focus_pos")
@@ -194,6 +202,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
 			return
+		_cancel_airfield_recovery(source_unit)
 		var target_index := -1
 		if target_parts[1].is_valid_int():
 			var target_id := int(target_parts[1])
@@ -532,7 +541,7 @@ func _process(delta: float) -> void:
 				# Damaged player aircraft automatically recover at a powered, completed airfield.
 				if unit.kind in ["fighter", "helicopter"]:
 					var aircraft_max_hp := _unit_repair_max_hp(unit)
-					if not bool(unit.get("airfield_returning", false)) and aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30:
+					if not bool(unit.get("airfield_returning", false)) and not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30:
 						var nearest_airfield := -1
 						var nearest_airfield_distance := INF
 						for airfield_index in range(buildings.size()):
@@ -2581,6 +2590,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		if not selected.is_empty() and pos.distance_to(enemy_base) <= 65.0:
 			for idx in selected:
 				if idx < units.size() and units[idx].team == "player":
+					_cancel_airfield_recovery(units[idx])
 					units[idx].attack_base = true
 					units[idx].erase("attack_target")
 			notice = "هجوم على قاعدة العدو!"
@@ -2588,6 +2598,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		elif enemy_found >= 0 and not selected.is_empty():
 			for idx in selected:
 				if idx < units.size() and units[idx].team == "player":
+					_cancel_airfield_recovery(units[idx])
 					units[idx].attack_target = enemy_found
 					units[idx].attack_focus_pos = units[enemy_found].pos
 					units[idx].erase("attack_base")
@@ -2605,6 +2616,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			else:
 				for idx in selected:
 					if idx < units.size():
+						if units[idx].team == "player":
+							_cancel_airfield_recovery(units[idx])
 						units[idx].target = pos
 						units[idx].erase("attack_target")
 						units[idx].erase("attack_base")
