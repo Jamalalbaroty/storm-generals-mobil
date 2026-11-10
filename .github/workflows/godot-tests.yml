@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - fix/3d-selection-stale-unit-cleanup
   pull_request:
     branches:
       - main
@@ -45,7 +46,7 @@ jobs:
   android-candidate:
     name: Export playable Android debug APK
     needs: regression
-    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup'))
+    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup') || (github.event_name == 'push' && github.ref == 'refs/heads/fix/3d-selection-stale-unit-cleanup'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container:
