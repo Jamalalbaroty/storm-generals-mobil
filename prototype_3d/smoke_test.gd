@@ -29,6 +29,29 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Verify the tactical move path renders while an order is active and clears afterward.
+	var path_test_unit := Node3D.new()
+	path_test_unit.set_meta("unit_type", "tank")
+	battlefield.add_child(path_test_unit)
+	battlefield.set("selected_tank", path_test_unit)
+	battlefield.set("selected_destination", Vector3(4.0, 0.0, 2.0))
+	battlefield.set("has_selected_destination", true)
+	battlefield.call("_update_order_path_visual")
+	var path_visual := battlefield.get("order_path_instance") as MeshInstance3D
+	var path_mesh := battlefield.get("order_path_mesh") as ImmediateMesh
+	if path_visual == null or path_mesh == null or not path_visual.visible or path_mesh.get_surface_count() != 1:
+		push_error("Tactical move path did not render a visible line for an active destination")
+		quit(1)
+		return
+	battlefield.set("has_selected_destination", false)
+	battlefield.call("_update_order_path_visual")
+	if path_visual.visible or path_mesh.get_surface_count() != 0:
+		push_error("Tactical move path remained visible after the movement order was cleared")
+		quit(1)
+		return
+	path_test_unit.queue_free()
+	battlefield.set("selected_tank", null)
+
 	var sun_light := battlefield.get("sun_light") as DirectionalLight3D
 	if sun_light == null:
 		push_error("3D battlefield mobile quality profile did not expose its directional light")
