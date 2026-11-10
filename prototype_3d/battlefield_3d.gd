@@ -29,6 +29,7 @@ var selected_destination := Vector3.ZERO
 var has_selected_destination := false
 var selection_ring: MeshInstance3D
 var group_selection_rings: Array[MeshInstance3D] = []
+var selection_count_label: Label
 var order_marker: MeshInstance3D
 var touch_start_positions: Dictionary = {}
 var touch_moved: Dictionary = {}
@@ -2176,6 +2177,21 @@ func _build_order_indicators() -> void:
 	selection_ring.visible = false
 	add_child(selection_ring)
 
+	var hud_layer := CanvasLayer.new()
+	hud_layer.name = "TacticalSelectionHud"
+	hud_layer.layer = 8
+	add_child(hud_layer)
+	selection_count_label = Label.new()
+	selection_count_label.name = "SelectionCountLabel"
+	selection_count_label.position = Vector2(22.0, 22.0)
+	selection_count_label.add_theme_font_size_override("font_size", 22)
+	selection_count_label.add_theme_color_override("font_color", Color(0.92, 0.96, 0.88))
+	selection_count_label.add_theme_color_override("font_shadow_color", Color(0.02, 0.04, 0.03, 0.92))
+	selection_count_label.add_theme_constant_override("shadow_offset_x", 2)
+	selection_count_label.add_theme_constant_override("shadow_offset_y", 2)
+	selection_count_label.visible = false
+	hud_layer.add_child(selection_count_label)
+
 	order_marker = MeshInstance3D.new()
 	var marker_mesh := CylinderMesh.new()
 	marker_mesh.top_radius = 0.48
@@ -2197,7 +2213,16 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 	has_selected_destination = false
 	selection_ring.visible = is_instance_valid(selected_tank)
 	_refresh_group_selection_rings()
+	_update_selection_count_label()
 	order_marker.visible = false
+
+
+func _update_selection_count_label() -> void:
+	if not is_instance_valid(selection_count_label):
+		return
+	var count := selected_live_units.size()
+	selection_count_label.text = "UNITS: %d" % count
+	selection_count_label.visible = count > 0
 
 
 func _refresh_group_selection_rings() -> void:
@@ -2255,6 +2280,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 		selected_tank = tapped_tank
 		selected_live_units.clear()
 		_refresh_group_selection_rings()
+		_update_selection_count_label()
 		attack_target = null
 		has_selected_destination = false
 		selection_ring.visible = true

@@ -170,6 +170,11 @@ func _initialize() -> void:
 		push_error("Mobile group selection did not retain both live player units")
 		quit(1)
 		return
+	var selection_count_label := battlefield.get_node_or_null("TacticalSelectionHud/SelectionCountLabel") as Label
+	if selection_count_label == null or not selection_count_label.visible or selection_count_label.text != "UNITS: 2":
+		push_error("Mobile tactical HUD did not show the correct live group selection count")
+		quit(1)
+		return
 	if battlefield.get("group_selection_rings").size() != 1:
 		push_error("Group selection did not create a visible marker for every additional selected unit")
 		quit(1)
