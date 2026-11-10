@@ -56,7 +56,27 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_update_enemy_building_construction", 3.5)
 	_expect(game.call("_enemy_has_building", "barracks"), "Enemy barracks should become available after its construction timer completes")
 
-	print("Gameplay economy smoke test passed: port capture, income, contest lockout, and enemy barracks recovery.")
+	# Verify that each adaptive strategy can order its intended counter-unit.
+	game.get("enemy_buildings").clear()
+	game.get("enemy_buildings").append({"kind": "airfield", "pos": game.get("enemy_base"), "hp": 450, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "factory", "pos": game.get("enemy_base") + Vector2(-100, 0), "hp": 500, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "shipyard", "pos": Vector2(game.get("enemy_base").x - 120.0, 590.0), "hp": 500, "build_progress": 1.0})
+	game.set("enemy_credits", 10000)
+	game.set("enemy_supplies", 100)
+	var counter_cases := [
+		["air_control", "fighter"],
+		["armor_breaker", "helicopter"],
+		["area_denial", "artillery"],
+		["naval_control", "destroyer"]
+	]
+	for counter_case in counter_cases:
+		var produced_before := game.get("units").size()
+		var ordered: bool = game.call("_enemy_counter_production", counter_case[0], 0, 0, 0, 0)
+		_expect(ordered, "Enemy strategy %s should be able to order %s" % [counter_case[0], counter_case[1]])
+		_expect(game.get("units").size() == produced_before + 1, "Counter production should add exactly one unit")
+		_expect(String(game.get("units")[-1]["kind"]) == counter_case[1], "Enemy strategy %s should produce %s" % [counter_case[0], counter_case[1]])
+
+	print("Gameplay smoke test passed: supply economy, enemy recovery, and all four adaptive counter-production strategies.")
 	game.queue_free()
 	quit()
 
