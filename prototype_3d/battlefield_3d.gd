@@ -733,8 +733,14 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		if kind in ["fighter", "helicopter"]:
 			var was_landed := bool(unit.get_meta("gameplay_aircraft_landed", false))
 			var is_landed := bool(record.get("airfield_landed", false))
-			if was_landed and not is_landed:
+			var sortie_launch_requested := bool(record.get("airfield_sortie_launch", false))
+			var sortie_launch_seen := bool(unit.get_meta("gameplay_aircraft_sortie_launch_seen", false))
+			if (was_landed and not is_landed) or (sortie_launch_requested and not sortie_launch_seen):
 				unit.set_meta("gameplay_aircraft_takeoff", true)
+			if sortie_launch_requested:
+				unit.set_meta("gameplay_aircraft_sortie_launch_seen", true)
+			else:
+				unit.set_meta("gameplay_aircraft_sortie_launch_seen", false)
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
