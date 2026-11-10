@@ -4068,9 +4068,9 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 	if ground_point == null:
 		return
 	selected_destination = Vector3(
-		clampf(ground_point.x, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42),
+		clampf(ground_point.x, -ARENA_SIZE * 0.38, ARENA_SIZE * 0.38),
 		0.0,
-		clampf(ground_point.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
+		clampf(ground_point.z, -ARENA_SIZE * 0.38, ARENA_SIZE * 0.38)
 	)
 	if not selected_live_units.is_empty():
 		var valid_units: Array[Node3D] = []
@@ -4122,7 +4122,7 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 
 func _fit_group_formation_to_arena(destination: Vector3, offsets: Array[Vector3]) -> Vector3:
 	# Shift the whole formation near arena edges instead of clipping individual unit destinations.
-	var limit := ARENA_SIZE * 0.42
+	var limit := ARENA_SIZE * 0.38
 	var min_x := 0.0
 	var max_x := 0.0
 	var min_z := 0.0
