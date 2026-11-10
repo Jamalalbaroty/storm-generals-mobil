@@ -457,252 +457,9 @@ func _process(delta: float) -> void:
 							if unit.attack_cd <= 0.0:
 								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#ff9b72"), 0.18, 0.0)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.42, 24.0)
-								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
-								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
-						else:
-							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
-					else:
-						unit.pos += (base_pos - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
-					continue
-				if unit.kind == "artillery":
-					var artillery_target = enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos, unit.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)))
-					if artillery_target >= 0 and enemy_landing_support_target < 0:
-						unit["assault_target_pos"] = units[artillery_target].pos
-					var artillery_guard := bool(unit.get("defense_guard", false))
-					if artillery_guard:
-						var guard_target := -1
-						var closest_guard_threat := INF
-						for candidate_index in range(units.size()):
-							var candidate: Dictionary = units[candidate_index]
-							if candidate.team != "player" or candidate.get("hp", 0) <= 0 or not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
-								continue
-							var threatens_guarded_asset: bool = candidate.pos.distance_to(enemy_base) <= 250.0
-							if not threatens_guarded_asset:
-								for protected_building in enemy_buildings:
-									if int(protected_building.get("hp", 0)) <= 0:
-										continue
-									if candidate.pos.distance_to(protected_building.pos) <= 350.0:
-										threatens_guarded_asset = true
-										break
-							if threatens_guarded_asset:
-								var threat_distance: float = unit.pos.distance_to(candidate.pos)
-								if threat_distance < closest_guard_threat:
-									closest_guard_threat = threat_distance
-									guard_target = candidate_index
-						if guard_target >= 0:
-							artillery_target = guard_target
-						else:
-							var guard_anchor: Vector2 = unit.get("defense_anchor", enemy_base)
-							var anchor_distance: float = unit.pos.distance_to(guard_anchor)
-							if anchor_distance > 34.0:
-								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
-							continue
-					var artillery_fire_target: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
-					var artillery_destination: Vector2 = _enemy_artillery_support_position(artillery_fire_target, enemy_base, _enemy_artillery_formation_rank(i))
-					if artillery_guard:
-						artillery_destination = unit.get("defense_anchor", enemy_base)
-					var artillery_distance: float = unit.pos.distance_to(artillery_fire_target)
-					if _enemy_artillery_in_firing_band(artillery_distance):
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0:
-							_add_visual_effect("explosion", artillery_fire_target, artillery_fire_target, Color("#ff9855"), 0.65, 58.0)
-							if artillery_target >= 0:
-								_apply_splash_damage(artillery_fire_target, 52.0, 24, "player")
-							else:
-								player_base_hp = maxi(0, player_base_hp - 30)
-							unit.attack_cd = 2.4
-					else:
-						# Avoid point-blank brawling; reposition behind the assault line or toward maximum range.
-						unit.pos += (artillery_destination - unit.pos).normalized() * delta * 22.0
-					continue
-				var player_target := enemy_landing_support_target if enemy_landing_support_target >= 0 else _select_enemy_ground_assault_target(unit.pos, unit.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)))
-				if player_target >= 0 and enemy_landing_support_target < 0:
-					unit["assault_target_pos"] = units[player_target].pos
-				var player_distance := INF
-				if player_target >= 0:
-					player_distance = unit.pos.distance_to(units[player_target].pos)
-				var objective_index := _enemy_best_supply_objective(unit.pos)
-				var nearest_objective_distance := INF
-				var objective_destination: Vector2 = base_pos
-				if objective_index >= 0:
-					objective_destination = supply_points[objective_index].pos
-					nearest_objective_distance = unit.pos.distance_to(objective_destination)
-				# Defenders react only to player forces threatening the enemy base or its buildings.
-				var is_defender := bool(unit.get("defense_guard", false))
-				var defender_target := -1
-				if is_defender:
-					var closest_threat_distance = INF
-					for candidate_index in range(units.size()):
-						var candidate: Dictionary = units[candidate_index]
-						if candidate.team != "player" or candidate.get("hp", 0) <= 0:
-							continue
-						if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
-							continue
-						var threatens_asset: bool = candidate.pos.distance_to(enemy_base) <= 250.0
-						if not threatens_asset:
-							for protected_building in enemy_buildings:
-								if int(protected_building.get("hp", 0)) <= 0:
-									continue
-								if candidate.pos.distance_to(protected_building.pos) <= 350.0:
-									threatens_asset = true
-									break
-						if threatens_asset:
-							var threat_distance: float = unit.pos.distance_to(candidate.pos)
-							if threat_distance < closest_threat_distance:
-								closest_threat_distance = threat_distance
-								defender_target = candidate_index
-				# Guards leave their patrol point only when an asset is threatened.
-				var engage_player := _enemy_should_engage_player(player_target >= 0, player_distance, nearest_objective_distance, enemy_strategy, enemy_landing_support_target >= 0)
-				if is_defender:
-					# A guard's assignment is strict: it may engage only a ground unit that threatens its live base or a live building.
-					# Landing-assault support must not override this asset-protection rule.
-					engage_player = defender_target >= 0
-					if engage_player:
-						player_target = defender_target
-				var destination: Vector2 = base_pos
-				var supply_reinforcement_point := _enemy_supply_reinforcement_point(i)
-				if is_defender and not engage_player:
-					destination = unit.get("defense_anchor", enemy_base)
-				elif supply_reinforcement_point >= 0 and enemy_landing_support_target < 0 and not engage_player:
-					destination = supply_points[supply_reinforcement_point].pos
-				elif engage_player:
-					destination = units[player_target].pos
-					# Base guards must close directly on an intruder; assault-lane offsets
-					# can otherwise keep a nearby threat just outside their firing radius.
-					if not is_defender and (unit.kind == "tank" or unit.kind == "infantry"):
-						var immediate_threat_pos: Vector2 = units[player_target].pos
-						# Stop steering toward a formation slot behind a threat already in close-combat range.
-						# Preserve formation spacing for distant advances; nearby units acquire the actual target.
-						if unit.pos.distance_to(immediate_threat_pos) > 180.0:
-							destination = _enemy_infantry_support_position(unit.pos, immediate_threat_pos, enemy_base, _enemy_assault_formation_rank(i)) if unit.kind == "infantry" else _enemy_ground_assault_formation_position("tank", immediate_threat_pos, enemy_base, _enemy_assault_formation_rank(i))
-						else:
-							destination = immediate_threat_pos
-				elif nearest_objective_distance < INF:
-					destination = objective_destination
-					if unit.kind == "tank" or unit.kind == "infantry":
-						destination = _enemy_ground_assault_formation_position(String(unit.kind), objective_destination, enemy_base, _enemy_assault_formation_rank(i))
-				var distance_to_target: float = unit.pos.distance_to(destination)
-				if engage_player and distance_to_target <= 150.0:
-					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-					if unit.attack_cd <= 0.0:
-						units[player_target].hp = maxi(0, int(units[player_target].hp) - _terrain_adjusted_damage(units[player_target], 10))
-						unit.attack_cd = 0.9
-					# Infantry keeps closing into its screening slot while firing; armor remains the lead element.
-					if unit.kind == "infantry" and distance_to_target > 4.0:
-						unit.pos += (destination - unit.pos).normalized() * delta * 22.0
-				elif not is_defender and not engage_player and nearest_objective_distance == INF and distance_to_target <= 145.0:
-					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-					if unit.attack_cd <= 0.0:
-						player_base_hp = maxi(0, player_base_hp - 10)
-						unit.attack_cd = 0.9
-				elif distance_to_target > (4.0 if is_defender else 34.0):
-					unit.pos += (destination - unit.pos).normalized() * delta * 22.0
-			elif unit.team == "player":
-				if _is_naval_kind(String(unit.kind)):
-					var naval_target = _best_naval_target(unit.pos, "enemy", String(unit.kind))
-					var naval_destination := Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
-					var target_shipyard := -1
-					for bi in enemy_buildings.size():
-						if enemy_buildings[bi].kind == "shipyard":
-							target_shipyard = bi
-							break
-					if naval_target >= 0:
-						naval_destination = units[naval_target].pos
-					elif target_shipyard >= 0:
-						naval_destination = enemy_buildings[target_shipyard].pos
-					var naval_attack_destination: Vector2 = naval_destination
-					var escorting_destroyer := false
-					var escort_transport := _nearest_friendly_landing_craft(unit.pos, unit.team)
-					var escort_carrier := _nearest_friendly_carrier(unit.pos, unit.team)
-					if unit.kind == "destroyer" and escort_transport >= 0 and String(units[escort_transport].get("landing_state", "outbound")) in ["outbound", "returning"] and naval_attack_destination.distance_to(units[escort_transport].pos) > 240.0:
-						var escort_side = -1.0 if unit.pos.y <= units[escort_transport].pos.y else 1.0
-						naval_destination = units[escort_transport].pos + Vector2(58.0, escort_side * 66.0)
-						escorting_destroyer = true
-					elif unit.kind == "destroyer" and escort_carrier >= 0 and naval_attack_destination.distance_to(units[escort_carrier].pos) > 240.0:
-						var escort_side = -1.0 if unit.pos.y <= units[escort_carrier].pos.y else 1.0
-						naval_destination = units[escort_carrier].pos + Vector2(52.0, escort_side * 54.0)
-						escorting_destroyer = true
-					if unit.kind == "carrier":
-						unit.launch_cd = float(unit.get("launch_cd", 16.0)) - delta
-						var friendly_air := 0
-						for air_unit in units:
-							if air_unit.team == "player" and air_unit.kind == "fighter" and air_unit.get("hp", 0) > 0:
-								friendly_air += 1
-						if unit.launch_cd <= 0.0 and friendly_air < 3 and _team_unit_count("player") < MAX_TEAM_UNITS:
-							units.append({"pos": unit.pos + Vector2(0, -18), "team": "player", "kind": "fighter", "faction": faction, "hp": 120, "attack_cd": 0.0, "target": enemy_base, "carrier_home": true, "sortie_timer": 24.0, "carrier_returning": false})
-							unit.launch_cd = 18.0
-					if unit.kind == "landing_craft":
-						var landing_destination = Vector2(enemy_base.x, get_viewport_rect().size.y * 0.82)
-						_update_landing_craft(unit, delta, landing_destination)
-						continue
-					if unit.kind == "destroyer" and escorting_destroyer:
-						var escort_distance: float = unit.pos.distance_to(naval_destination)
-						if escort_distance > 18.0:
-							unit.pos += (naval_destination - unit.pos).normalized() * delta * 28.0
-						continue
-					if unit.pos.distance_to(naval_attack_destination) <= 290.0:
-						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-						if unit.attack_cd <= 0.0 and unit.kind != "landing_craft":
-							var naval_damage = _naval_damage(unit, naval_target)
-							_add_visual_effect("tracer", unit.pos, naval_attack_destination, Color("#a8eaff"), 0.2, 0.0)
-							_add_visual_effect("explosion", naval_attack_destination, naval_attack_destination, Color("#ffbd78"), 0.5, 40.0)
-							if naval_target >= 0:
-								_apply_splash_damage(naval_attack_destination, 48.0, naval_damage, "enemy")
-							elif target_shipyard >= 0:
-								enemy_buildings[target_shipyard].hp = maxi(0, int(enemy_buildings[target_shipyard].get("hp", 500)) - naval_damage)
-							else:
-								enemy_base_hp = maxi(0, enemy_base_hp - naval_damage)
-							unit.attack_cd = 2.0 if unit.kind == "submarine" else 2.2
-					else:
-						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 32.0)
-					continue
-				if unit.kind == "helicopter":
-					var heli_target = _nearest_unit_by_priority(unit.pos, 380.0, "enemy", ["tank", "artillery", "infantry"])
-					if heli_target >= 0:
-						var heli_enemy: Dictionary = units[heli_target]
-						if unit.pos.distance_to(heli_enemy.pos) <= 235.0:
-							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-							if unit.attack_cd <= 0.0:
-								_add_visual_effect("tracer", unit.pos, heli_enemy.pos, Color("#b9f0b1"), 0.2, 0.0)
-								_add_visual_effect("explosion", heli_enemy.pos, heli_enemy.pos, Color("#ffad62"), 0.52, 48.0)
-								var heli_damage := 58 if heli_enemy.kind == "submarine" else _helicopter_damage(unit)
-								_apply_splash_damage(heli_enemy.pos, 46.0, heli_damage, "enemy")
-								if heli_enemy.kind == "submarine":
-									_add_visual_effect("flash", heli_enemy.pos, heli_enemy.pos, Color("#7fe8ef"), 0.35, 28.0)
-								unit.attack_cd = _helicopter_cooldown(unit)
-						else:
-							unit.pos += (heli_enemy.pos - unit.pos).normalized() * delta * 82.0
-					else:
-						var heli_base_distance: float = unit.pos.distance_to(enemy_base)
-						if heli_base_distance <= 230.0:
-							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-							if unit.attack_cd <= 0.0:
-								_add_visual_effect("explosion", enemy_base, enemy_base, Color("#ffad62"), 0.52, 48.0)
-								enemy_base_hp = maxi(0, enemy_base_hp - 28)
-								unit.attack_cd = _helicopter_cooldown(unit)
-						else:
-							unit.pos += (enemy_base - unit.pos).normalized() * delta * 82.0
-					continue
-				if unit.kind == "builder":
-					if unit.has("target"):
-						var player_builder_target: Vector2 = unit.target
-						if unit.pos.distance_to(player_builder_target) > 8.0:
-							unit.pos += (player_builder_target - unit.pos).normalized() * delta * 32.0
-						else:
-							unit.erase("target")
-					continue
-				if unit.kind == "fighter":
-					var air_target = _landing_craft_air_threat_target(unit.pos, "player")
-					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "enemy", ["fighter", "helicopter"])
-					if air_target >= 0:
-						var air_enemy: Dictionary = units[air_target]
-						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
-							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
-							if unit.attack_cd <= 0.0:
-								_add_visual_effect("tracer", unit.pos, air_enemy.pos, Color("#a8eaff"), 0.18, 0.0)
-								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffbd78"), 0.4, 22.0)
-								air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
+								var air_hp_before := int(air_enemy.hp)
+								air_enemy.hp = maxi(0, air_hp_before - _terrain_adjusted_damage(air_enemy, _unit_damage_with_veterancy(unit, FIGHTER_DAMAGE)))
+								_award_unit_experience(unit, air_hp_before - int(air_enemy.hp))air_enemy.hp = maxi(0, int(air_enemy.hp) - _terrain_adjusted_damage(air_enemy, FIGHTER_DAMAGE))
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
@@ -742,8 +499,10 @@ func _process(delta: float) -> void:
 					if building_distance <= building_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							var building_damage = 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8)
-							target_building.hp = maxi(0, int(target_building.get("hp", 400)) - building_damage)
+							var building_damage = _unit_damage_with_veterancy(unit, 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8))
+							var building_hp_before := int(target_building.get("hp", 400))
+							target_building.hp = maxi(0, building_hp_before - building_damage)
+							_award_unit_experience(unit, building_hp_before - int(target_building.hp))
 							_add_visual_effect("explosion" if unit.kind == "artillery" else "flash", target_building.pos, target_building.pos, Color("#ffad62"), 0.45, 30.0)
 							unit.attack_cd = 2.0 if unit.kind == "artillery" else 0.9
 							if target_building.hp <= 0:
@@ -780,10 +539,12 @@ func _process(delta: float) -> void:
 						if unit.attack_cd <= 0.0:
 							if unit.kind == "artillery":
 								_add_visual_effect("explosion", enemy.pos, enemy.pos, Color("#ffb45e"), 0.72, 66.0)
-								_apply_splash_damage(enemy.pos, 58.0, 45, "enemy")
+								_apply_splash_damage(enemy.pos, 58.0, _unit_damage_with_veterancy(unit, 45), "enemy", unit)
 								unit.attack_cd = 2.4
 							else:
-								enemy.hp = maxi(0, int(enemy.hp) - _terrain_adjusted_damage(enemy, 20 if unit.kind == "tank" else 10))
+								var enemy_hp_before := int(enemy.hp)
+								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)))
+								_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
 								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
 								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
@@ -907,6 +668,26 @@ func _draw_environment_particles() -> void:
 		else:
 			draw_circle(center, radius, Color(tint.r, tint.g, tint.b, fade * 0.62))
 
+func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
+	var rank := int(unit.get("veterancy", 0))
+	var multiplier := 1.0 + (0.08 if rank == 1 else (0.15 if rank >= 2 else 0.0))
+	return maxi(1, roundi(float(base_damage) * multiplier))
+
+
+func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
+	if String(unit.get("team", "")) != "player" or damage_dealt <= 0:
+		return
+	var old_rank := int(unit.get("veterancy", 0))
+	var xp := float(unit.get("combat_xp", 0.0)) + float(damage_dealt) * 0.5
+	unit["combat_xp"] = xp
+	var new_rank := 2 if xp >= 250.0 else (1 if xp >= 100.0 else 0)
+	if new_rank > old_rank:
+		unit["veterancy"] = new_rank
+		var rank_name := "نخبة" if new_rank == 2 else "مخضرم"
+		notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
+		notice_time = 2.8
+
+
 func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 	# Infantry use natural cover in forest, mountain and dense urban theaters.
 	var kind := String(target.get("kind", ""))
@@ -930,10 +711,13 @@ func _terrain_effect_label() -> String:
 		_:
 			return "الصحراء: لا يوجد غطاء طبيعي"
 
-func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String) -> void:
+func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_team: String, attacker: Dictionary = {}) -> void:
 	for unit in units:
 		if unit.team == target_team and unit.get("hp", 0) > 0 and unit.pos.distance_to(center) <= radius:
-			unit.hp = maxi(0, int(unit.hp) - _terrain_adjusted_damage(unit, damage))
+			var hp_before := int(unit.hp)
+			unit.hp = maxi(0, hp_before - _terrain_adjusted_damage(unit, damage))
+			if not attacker.is_empty():
+				_award_unit_experience(attacker, hp_before - int(unit.hp))
 
 func _faction_profile(army: String) -> Dictionary:
 	var profile: Dictionary = FACTION_BALANCE.get(army, FACTION_BALANCE["الصيني"])
@@ -1721,6 +1505,11 @@ func _draw() -> void:
 				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
 		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
+		var veterancy := int(u.get("veterancy", 0))
+		if u.team == "player" and veterancy > 0:
+			var rank_color := Color("#f0c85a") if veterancy == 1 else Color("#8be4ff")
+			draw_circle(u.pos + Vector2(18, -19), 5.0, rank_color)
+			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else "★★", HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
@@ -3907,7 +3696,7 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
-	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0}
+	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0}
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
 		spawned_unit["landing_state"] = "outbound"
