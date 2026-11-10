@@ -1,5 +1,18 @@
 extends SceneTree
 
+func _has_faction_insignia_color(unit: Node, badge_path: NodePath, expected: Color) -> bool:
+	if unit == null:
+		return false
+	var badge := unit.get_node_or_null(badge_path) as MeshInstance3D
+	if badge == null:
+		return false
+	var material := badge.material_override as StandardMaterial3D
+	if material == null:
+		return false
+	var actual := material.albedo_color
+	return absf(actual.r - expected.r) <= 0.001 and absf(actual.g - expected.g) <= 0.001 and absf(actual.b - expected.b) <= 0.001
+
+
 func _initialize() -> void:
 	var packed := load("res://prototype_3d/battlefield_3d.tscn") as PackedScene
 	if packed == null:
@@ -80,6 +93,21 @@ func _initialize() -> void:
 		var infantry_color_mismatch := absf(infantry_badge_color.r - unit_expected_color.r) > 0.001 or absf(infantry_badge_color.g - unit_expected_color.g) > 0.001 or absf(infantry_badge_color.b - unit_expected_color.b) > 0.001
 		if infantry_badge_material == null or infantry_color_mismatch:
 			push_error("Faction infantry insignia is incorrect for: " + faction_ids[faction_index])
+			quit(1)
+			return
+		var faction_fighter := battlefield.call("spawn_game_unit", "fighter", Vector3(-72.0 + float(faction_index) * 12.0, 0.0, 54.0), faction_ids[faction_index], Color(0.32, 0.38, 0.30)) as Node3D
+		if not _has_faction_insignia_color(faction_fighter, NodePath("FactionInsignia_Left"), unit_expected_color) or not _has_faction_insignia_color(faction_fighter, NodePath("FactionInsignia_Right"), unit_expected_color):
+			push_error("Faction fighter wing insignia is incorrect for: " + faction_ids[faction_index])
+			quit(1)
+			return
+		var faction_helicopter := battlefield.call("spawn_game_unit", "helicopter", Vector3(-72.0 + float(faction_index) * 12.0, 0.0, 62.0), faction_ids[faction_index], Color(0.32, 0.38, 0.30)) as Node3D
+		if not _has_faction_insignia_color(faction_helicopter, NodePath("FactionInsignia"), unit_expected_color):
+			push_error("Faction helicopter insignia is incorrect for: " + faction_ids[faction_index])
+			quit(1)
+			return
+		var faction_destroyer := battlefield.call("spawn_game_unit", "destroyer", Vector3(-72.0 + float(faction_index) * 12.0, 0.0, 70.0), faction_ids[faction_index], Color(0.32, 0.38, 0.30)) as Node3D
+		if not _has_faction_insignia_color(faction_destroyer, NodePath("FactionInsignia"), unit_expected_color):
+			push_error("Faction destroyer insignia is incorrect for: " + faction_ids[faction_index])
 			quit(1)
 			return
 		var faction_building := battlefield.call("spawn_game_building", "command", Vector3(-72.0 + float(faction_index) * 12.0, 0.0, 28.0), faction_ids[faction_index], Color(0.32, 0.38, 0.30)) as Node3D
