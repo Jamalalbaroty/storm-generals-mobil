@@ -31,6 +31,9 @@ var selection_ring: MeshInstance3D
 var group_selection_rings: Array[MeshInstance3D] = []
 var selection_count_label: Label
 var order_marker: MeshInstance3D
+var order_path_instance: MeshInstance3D
+var order_path_mesh: ImmediateMesh
+var order_path_material: StandardMaterial3D
 var touch_start_positions: Dictionary = {}
 var touch_moved: Dictionary = {}
 var attack_target: Node3D
@@ -2211,6 +2214,19 @@ func _build_order_indicators() -> void:
 	order_marker.position.y = 0.04
 	order_marker.material_override = _make_armour_material(Color(0.92, 0.76, 0.25))
 	add_child(order_marker)
+	order_path_instance = MeshInstance3D.new()
+	order_path_instance.name = "TacticalMovePath"
+	order_path_mesh = ImmediateMesh.new()
+	order_path_instance.mesh = order_path_mesh
+	order_path_material = StandardMaterial3D.new()
+	order_path_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	order_path_material.albedo_color = Color(0.38, 0.92, 0.58, 0.92)
+	order_path_material.emission_enabled = true
+	order_path_material.emission = Color(0.12, 0.72, 0.32)
+	order_path_material.emission_energy_multiplier = 1.35
+	order_path_instance.material_override = order_path_material
+	order_path_instance.visible = false
+	add_child(order_path_instance)
 	var reticle_material := _make_armour_material(Color(1.0, 0.84, 0.32))
 	for reticle_index in range(4):
 		var reticle_tick := MeshInstance3D.new()
@@ -2504,12 +2520,37 @@ func _unit_separation_vector(unit: Node3D) -> Vector3:
 			push += offset / distance * ((clearance - distance) / clearance)
 	return push
 
+func _update_order_path_visual() -> void:
+	if not is_instance_valid(order_path_instance) or order_path_mesh == null:
+		return
+	order_path_mesh.clear_surfaces()
+	if not has_selected_destination or not is_instance_valid(selected_tank):
+		order_path_instance.visible = false
+		return
+	var start_point := selected_tank.global_position + Vector3.UP * 0.16
+	var end_point := selected_destination + Vector3.UP * 0.16
+	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
+	if unit_type == "helicopter":
+		start_point.y += 5.2
+		end_point.y += 5.2
+	elif unit_type == "fighter":
+		start_point.y += 6.4
+		end_point.y += 6.4
+	order_path_mesh.surface_begin(Mesh.PRIMITIVE_LINES, order_path_material)
+	order_path_mesh.surface_add_vertex(order_path_instance.to_local(start_point))
+	order_path_mesh.surface_add_vertex(order_path_instance.to_local(end_point))
+	order_path_mesh.surface_end()
+	order_path_instance.visible = true
+
+
 func _update_showcase_orders(delta: float) -> void:
 	selected_live_units = selected_live_units.filter(func(unit): return is_instance_valid(unit) and _is_live_player_unit(unit))
 	_update_selection_count_label()
 	if not is_instance_valid(selected_tank):
 		selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
 	if not is_instance_valid(selected_tank):
+		if is_instance_valid(order_path_instance):
+			order_path_instance.visible = false
 		selection_ring.visible = false
 		for ring in group_selection_rings:
 			if is_instance_valid(ring):
@@ -2520,6 +2561,7 @@ func _update_showcase_orders(delta: float) -> void:
 	selection_ring.visible = true
 	selection_ring.global_position = selected_tank.global_position + Vector3.UP * 0.08
 	selection_ring.scale = Vector3.ONE * _selection_ring_scale_for_unit(selected_tank)
+	_update_order_path_visual()
 	for index in range(group_selection_rings.size()):
 		var ring := group_selection_rings[index]
 		var unit_index := index + 1
