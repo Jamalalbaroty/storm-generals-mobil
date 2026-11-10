@@ -2314,7 +2314,7 @@ func _tank_at_screen_position(screen_position: Vector2) -> Node3D:
 	var nearest: Node3D
 	var nearest_distance := 68.0
 	for tank in showcase_tanks:
-		if not is_instance_valid(tank) or rts_camera.is_position_behind(tank.global_position):
+		if not is_instance_valid(tank) or tank.is_queued_for_deletion() or rts_camera.is_position_behind(tank.global_position):
 			continue
 		var tank_screen := rts_camera.unproject_position(tank.global_position + Vector3.UP * 1.0)
 		var distance := tank_screen.distance_to(screen_position)
