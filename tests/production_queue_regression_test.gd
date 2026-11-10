@@ -546,6 +546,44 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Enemy defensive fire must stop when the specific turret is outside the allocated grid.
+	game.game_started = true
+	game.paused = false
+	game.battle_result = ""
+	game.buildings.clear()
+	game.missiles.clear()
+	game.supply_points.clear()
+	game.enemy_timer = 0.0
+	game.enemy_missile_timer = 0.0
+	game.enemy_income_timer = 0.0
+	game.income_timer = 0.0
+	game.units = [{
+		"pos": Vector2(1700.0, 100.0),
+		"team": "player",
+		"kind": "tank",
+		"hp": 150,
+		"target": Vector2(1700.0, 100.0),
+		"attack_cd": 1000.0
+	}]
+	game.enemy_buildings = [
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
+		{"pos": Vector2(500.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
+		{"pos": Vector2(900.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
+		{"pos": Vector2(1300.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0},
+		{"pos": Vector2(1700.0, 100.0), "kind": "turret", "hp": 350, "build_progress": 1.0, "attack_cd": 0.0}
+	]
+	game._process(0.1)
+	if int(game.units[0].hp) != 150:
+		push_error("An unpowered enemy turret must not fire at player units")
+		quit(1)
+		return
+	game.enemy_buildings.append({"pos": Vector2(1900.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game._process(0.1)
+	if int(game.units[0].hp) >= 150:
+		push_error("Enemy turret fire should resume when power capacity is restored")
+		quit(1)
+		return
+
 	# A new battle must not inherit queued production from the finished match.
 	game.game_started = true
 	game.battle_result = "انتصرت! دمرت قاعدة العدو"
