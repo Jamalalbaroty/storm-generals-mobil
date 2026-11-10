@@ -2738,12 +2738,6 @@ func _enemy_ai_turn() -> void:
 	for existing_building in enemy_buildings:
 		if existing_building.kind == "anti_air":
 			enemy_anti_air_count += 1
-	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
-		enemy_credits -= _building_cost("anti_air")
-		_enemy_add_building("anti_air", build_pos, 380)
-		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
-		notice_time = 2.0
-		return
 	var enemy_tanks := 0
 	var enemy_infantry := 0
 	var enemy_artillery := 0
@@ -2799,6 +2793,14 @@ func _enemy_ai_turn() -> void:
 		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
 		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
 		notice_time = 2.5
+
+	# Update strategic doctrine before optional defensive construction can end this turn.
+	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
+		enemy_credits -= _building_cost("anti_air")
+		_enemy_add_building("anti_air", build_pos, 380)
+		notice = "العدو عزز دفاعه بمضاد طائرات إضافي"
+		notice_time = 2.0
+		return
 	if _team_unit_count("enemy") >= MAX_TEAM_UNITS:
 		return
 	if _enemy_counter_production(enemy_strategy, enemy_fighters, enemy_helicopters, enemy_artillery, enemy_destroyers):
