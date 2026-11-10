@@ -731,6 +731,18 @@ func _get_faction_accent_color(faction_id: String) -> Color:
 			return Color(0.62, 0.62, 0.58)
 
 
+func _add_faction_insignia(parent: Node3D, faction_id: String, local_position: Vector3, badge_size: Vector3) -> MeshInstance3D:
+	var insignia := MeshInstance3D.new()
+	insignia.name = "FactionInsignia"
+	var badge_mesh := BoxMesh.new()
+	badge_mesh.size = badge_size
+	insignia.mesh = badge_mesh
+	insignia.position = local_position
+	insignia.material_override = _make_armour_material(_get_faction_accent_color(faction_id))
+	parent.add_child(insignia)
+	return insignia
+
+
 func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String, build_progress: float = 1.0, show_progress: bool = false) -> Node3D:
 	var building := Node3D.new()
 	building.name = faction_id + "_" + kind
@@ -1922,9 +1934,10 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		Vector3(-0.72, 0.0, 0.72),
 		Vector3(0.72, 0.0, 0.72)
 	]
-	for offset in soldier_offsets:
+	for soldier_index in range(soldier_offsets.size()):
 		var soldier := Node3D.new()
-		soldier.position = offset
+		soldier.name = "Soldier_" + str(soldier_index)
+		soldier.position = soldier_offsets[soldier_index]
 		squad.add_child(soldier)
 
 		var body := MeshInstance3D.new()
@@ -1953,6 +1966,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		helmet.position.y = 1.66
 		helmet.material_override = _make_armour_material(faction_color.darkened(0.22))
 		soldier.add_child(helmet)
+		_add_faction_insignia(soldier, faction_id, Vector3(0.0, 1.02, -0.215), Vector3(0.18, 0.20, 0.045))
 
 		var soldier_legs: Array[Node3D] = []
 		for leg_side in [-1.0, 1.0]:
@@ -2057,8 +2071,10 @@ func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String
 
 	# Rotating turret pivot keeps the gun and armour aligned while scanning.
 	var turret_pivot := Node3D.new()
+	turret_pivot.name = "TurretPivot"
 	turret_pivot.position = Vector3(0.0, 1.55, -0.15)
 	tank.add_child(turret_pivot)
+	_add_faction_insignia(turret_pivot, faction_id, Vector3(0.0, 0.36, 0.15), Vector3(0.48, 0.12, 0.28))
 	showcase_turrets.append(turret_pivot)
 
 	var turret := MeshInstance3D.new()
