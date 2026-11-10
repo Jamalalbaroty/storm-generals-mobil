@@ -2786,7 +2786,7 @@ func _enemy_building_max_hp(building: Dictionary) -> int:
 
 func _enemy_repair_damaged_building() -> bool:
 	var repair_index := -1
-	var repair_ratio := 1.0
+	var repair_ratio := 0.30
 	var repair_max_hp := 0
 	for i in range(enemy_buildings.size()):
 		var building: Dictionary = enemy_buildings[i]
