@@ -56,8 +56,15 @@ jobs:
       - name: Smoke test gameplay economy and AI recovery
         shell: bash
         run: |
+          set +e
           godot --headless --path . --script res://tests/gameplay_economy_smoke_test.gd > /tmp/gameplay-smoke.log 2>&1
+          gameplay_status=$?
+          set -e
           cat /tmp/gameplay-smoke.log
+          if [ "$gameplay_status" -ne 0 ]; then
+            echo "Gameplay smoke test exited with status $gameplay_status"
+            exit "$gameplay_status"
+          fi
           if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/gameplay-smoke.log; then
             echo "Gameplay smoke test reported engine or script errors"
             exit 1
