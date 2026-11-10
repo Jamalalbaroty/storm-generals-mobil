@@ -115,6 +115,12 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Enemy defense assignments should preserve artillery and armor for combined-arms attacks.
+	if game._enemy_defense_guard_role_penalty("infantry") != 0 or game._enemy_defense_guard_role_penalty("tank") <= game._enemy_defense_guard_role_penalty("infantry") or game._enemy_defense_guard_role_penalty("artillery") <= game._enemy_defense_guard_role_penalty("tank"):
+		push_error("Enemy guard role priority must prefer infantry, then tanks, then artillery")
+		quit(1)
+		return
+
 	# Artillery uses its own live-unit lanes and maintains a safe 185-330 unit firing band.
 	game.units = [
 		{"team": "player", "kind": "tank", "hp": 150},
