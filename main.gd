@@ -1074,6 +1074,10 @@ func _process(delta: float) -> void:
 				var target: Vector2 = unit.target
 				if unit.pos.distance_to(target) > 8.0:
 					unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+				else:
+					# Clear completed ground move orders; attack-move remains active
+					# and can still acquire a nearby hostile on the next simulation tick.
+					unit.erase("target")
 		_resolve_ground_unit_spacing()
 		_resolve_fortification_collisions(wall_collision_origins)
 		_cleanup_destroyed_units()
