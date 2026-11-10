@@ -61,7 +61,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Exercise the real press/release path, not only the geometry helpers.
 	# Each army card must start a match and assign the chosen faction to the builder.
 	var active_viewport: Vector2 = game.get_viewport_rect().size
-	for faction_index in range(FACTIONS.size()):
+	var expected_factions: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+	for faction_index in range(expected_factions.size()):
 		game.set("game_started", false)
 		game.set("faction", "")
 		game.get("units").clear()
@@ -69,7 +70,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.call("_handle_pointer", touch_target.get_center(), true)
 		game.call("_handle_pointer", touch_target.get_center(), false)
 		_expect(bool(game.get("game_started")), "Tapping army card %d should start the match" % faction_index)
-		_expect(String(game.get("faction")) == String(game.get("FACTIONS")[faction_index]), "Tapping army card %d should select the matching faction" % faction_index)
+		_expect(String(game.get("faction")) == expected_factions[faction_index], "Tapping army card %d should select the matching faction" % faction_index)
 		var starting_units: Array = game.get("units")
 		_expect(not starting_units.is_empty() and String(starting_units[0].get("kind", "")) == "builder", "Each faction should receive its starting builder")
 		if not starting_units.is_empty():
