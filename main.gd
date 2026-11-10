@@ -2528,7 +2528,64 @@ func _draw_terrain(size: Vector2) -> void:
 					draw_rect(Rect2(p, Vector2(35, 27)), block_color)
 					draw_rect(Rect2(p + Vector2(5, 5), Vector2(8, 6)), Color("#d2c59a", 0.55))
 					draw_rect(Rect2(p + Vector2(21, 5), Vector2(8, 6)), Color("#d2c59a", 0.45))
+	# Decorative landmarks enrich each theater without blocking movement lanes.
+	_draw_map_landmarks(size)
 	# Bases, supply nodes and the shoreline remain in clear tactical lanes
+
+func _draw_map_landmarks(size: Vector2) -> void:
+	match map_type:
+		"الساحل الصحراوي":
+			# Small spring oasis and sunlit rock formations, kept clear of the central road.
+			for oasis_index in range(3):
+				var oasis := Vector2(size.x * (0.16 + oasis_index * 0.34), size.y * (0.19 + float(oasis_index % 2) * 0.34))
+				if absf(oasis.y - size.y * 0.40) < 75.0:
+					continue
+				draw_ellipse_placeholder(oasis, Vector2(24, 8), Color("#477b65", 0.55))
+				draw_circle(oasis + Vector2(-12, -5), 7, Color("#39714f"))
+				draw_circle(oasis + Vector2(2, -8), 8, Color("#54875b"))
+				draw_circle(oasis + Vector2(14, -3), 6, Color("#6c985e"))
+			for rock_index in range(5):
+				var rock_pos := Vector2(size.x * (0.08 + rock_index * 0.19), size.y * (0.12 + float((rock_index * 3) % 5) * 0.09))
+				if absf(rock_pos.y - size.y * 0.40) > 78.0:
+					draw_colored_polygon(PackedVector2Array([rock_pos + Vector2(-13, 8), rock_pos + Vector2(-5, -9), rock_pos + Vector2(11, -5), rock_pos + Vector2(16, 8)]), Color("#b49b70", 0.72))
+		"ساحل الغابات":
+			# Sunlit clearings and low shrubs add depth between the tree groups.
+			for clearing_index in range(5):
+				var clearing := Vector2(size.x * (0.10 + clearing_index * 0.20), size.y * (0.16 + float(clearing_index % 2) * 0.36))
+				if absf(clearing.y - size.y * 0.40) < 70.0:
+					continue
+				draw_circle(clearing, 17, Color("#9db27a", 0.18))
+				draw_circle(clearing + Vector2(15, 7), 5, Color("#718c58", 0.62))
+				draw_circle(clearing + Vector2(-12, 9), 4, Color("#819b61", 0.62))
+		"الساحل الجبلي":
+			# Layered foothills and bright exposed stone at the edges of the battlefield.
+			for ridge_index in range(6):
+				var ridge_x := size.x * (0.08 + ridge_index * 0.17)
+				var ridge_y := size.y * (0.18 + float(ridge_index % 3) * 0.12)
+				if absf(ridge_y - size.y * 0.40) < 75.0:
+					continue
+				draw_line(Vector2(ridge_x - 23, ridge_y + 12), Vector2(ridge_x, ridge_y - 9), Color("#aeb6a6", 0.42), 3.0)
+				draw_line(Vector2(ridge_x, ridge_y - 9), Vector2(ridge_x + 19, ridge_y + 12), Color("#d0c9a9", 0.32), 2.0)
+		"المدينة الساحلية":
+			# Sidewalks, planted squares and warm street lamps frame the urban lanes.
+			for plaza_index in range(4):
+				var plaza := Vector2(size.x * (0.13 + plaza_index * 0.25), size.y * (0.17 + float(plaza_index % 2) * 0.34))
+				if absf(plaza.y - size.y * 0.40) < 78.0:
+					continue
+				draw_rect(Rect2(plaza - Vector2(13, 10), Vector2(26, 20)), Color("#a8a18b", 0.48))
+				draw_circle(plaza, 5, Color("#6e9564"))
+				draw_line(plaza + Vector2(17, -7), plaza + Vector2(17, 9), Color("#454e50"), 2.0)
+				draw_circle(plaza + Vector2(17, -9), 3, Color("#f2d58a", 0.78))
+
+
+func draw_ellipse_placeholder(center: Vector2, radii: Vector2, tint: Color) -> void:
+	# Draw a compact ellipse from a polygon for broad Godot-version compatibility.
+	var points := PackedVector2Array()
+	for point_index in range(20):
+		var angle := TAU * float(point_index) / 20.0
+		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
+	draw_colored_polygon(points, tint)
+
 
 func _draw_supply_points() -> void:
 	for point in supply_points:
