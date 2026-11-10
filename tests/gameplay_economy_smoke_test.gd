@@ -265,6 +265,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
+		audio_player.stream = null
+		audio_player.queue_free()
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 	game.queue_free()
