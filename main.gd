@@ -2986,6 +2986,8 @@ func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
 func _enemy_ai_turn() -> void:
 	var player_air_threat = 0
 	var player_naval_threat = 0
+	var player_heavy_ground_threat = 0
+	var player_infantry_threat = 0
 	for player_unit in units:
 		if player_unit.team != "player" or player_unit.get("hp", 0) <= 0:
 			continue
@@ -2993,6 +2995,16 @@ func _enemy_ai_turn() -> void:
 			player_air_threat += 1
 		elif _is_naval_kind(String(player_unit.kind)):
 			player_naval_threat += 1
+		elif player_unit.kind == "tank" or player_unit.kind == "artillery":
+			player_heavy_ground_threat += 1
+		elif player_unit.kind == "infantry":
+			player_infantry_threat += 1
+	var next_strategy := _enemy_choose_strategy(player_air_threat, player_naval_threat, player_heavy_ground_threat, player_infantry_threat)
+	if next_strategy != enemy_strategy:
+		enemy_strategy = next_strategy
+		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
+		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
+		notice_time = 2.5
 	var build_pos := _enemy_build_position()
 	var player_missile_threat := _has_building("missile_silo")
 	for incoming_missile in missiles:
@@ -3104,24 +3116,6 @@ func _enemy_ai_turn() -> void:
 		elif unit.kind == "infantry":
 			enemy_infantry += 1
 
-	# Read the player's visible ground composition and scale counter-unit limits.
-	var player_heavy_ground_threat := 0
-	var player_infantry_threat := 0
-	for unit in units:
-		if unit.team != "player" or unit.get("hp", 0) <= 0:
-			continue
-		if unit.kind == "tank" or unit.kind == "artillery":
-			player_heavy_ground_threat += 1
-		elif unit.kind == "infantry":
-			player_infantry_threat += 1
-	var next_strategy := _enemy_choose_strategy(player_air_threat, player_naval_threat, player_heavy_ground_threat, player_infantry_threat)
-	if next_strategy != enemy_strategy:
-		enemy_strategy = next_strategy
-		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
-		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
-		notice_time = 2.5
-
-	# Update strategic doctrine before optional defensive construction can end this turn.
 	if build_pos.x >= 0.0 and player_air_threat >= 3 and enemy_anti_air_count < 2 and enemy_credits >= _building_cost("anti_air"):
 		enemy_credits -= _building_cost("anti_air")
 		_enemy_add_building("anti_air", build_pos, 380)
