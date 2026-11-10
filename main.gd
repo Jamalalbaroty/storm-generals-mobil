@@ -428,7 +428,7 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("landing_support_active")
 						unit.erase("landing_support_target")
-				if unit.kind in ["tank", "infantry", "artillery"] and not bool(unit.get("defense_guard", false)) and enemy_landing_support_target < 0:
+				if unit.kind in ["tank", "infantry", "artillery"]:
 					if _update_enemy_retreat(unit, delta):
 						continue
 				if unit.kind == "fighter":
@@ -3011,9 +3011,15 @@ func _update_enemy_retreat(unit: Dictionary, delta: float) -> bool:
 	# Critically damaged mobile troops withdraw, recover beside a safe asset, then rejoin the battle.
 	var max_hp := 150 if String(unit.get("kind", "")) == "tank" else (60 if String(unit.get("kind", "")) == "infantry" else 100)
 	var current_hp := int(unit.get("hp", max_hp))
-	if not bool(unit.get("retreating", false)) and current_hp > max_hp * 0.25:
+	if current_hp <= 0:
+		return false
+	var is_defensive_assignment := bool(unit.get("defense_guard", false)) or bool(unit.get("landing_support_active", false))
+	# Guards and landing-support units hold their post until critically wounded, but never fight to destruction.
+	var retreat_threshold := 0.12 if is_defensive_assignment else 0.25
+	if not bool(unit.get("retreating", false)) and float(current_hp) > float(max_hp) * retreat_threshold:
 		return false
 	unit["retreating"] = true
+	unit.erase("landing_support_target")
 	var retreat_destination: Vector2 = _enemy_retreat_destination(unit.pos)
 	var retreat_distance: float = unit.pos.distance_to(retreat_destination)
 	if retreat_distance > 48.0:
