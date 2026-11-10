@@ -27,10 +27,14 @@ const MISSILE_DEFENSE_COST := 700
 const MISSILE_COST := 650
 const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
 const FACTION_BALANCE := {
-	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40},
-	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44},
-	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42},
-	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50}
+	# China fields efficient armor and submarines, trading some air/artillery cost.
+	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
+	# American forces retain the baseline combined-arms economy.
+	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
+	# Arab forces emphasize affordable infantry and field artillery.
+	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
+	# Watan fields elite equipment with a deliberate economy and reinforcement premium.
+	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
 }
 const ECONOMY_BALANCE := {
 	"building_costs": {
@@ -2196,6 +2200,10 @@ func _building_cost(kind: String) -> int:
 func _unit_cost(kind: String, army: String) -> int:
 	if kind == "helicopter":
 		return _helicopter_cost(army)
+	var profile := _faction_profile(army)
+	var faction_costs: Dictionary = profile.get("unit_costs", {})
+	if faction_costs.has(kind):
+		return int(faction_costs[kind])
 	var costs: Dictionary = ECONOMY_BALANCE["unit_costs"]
 	return int(costs.get(kind, TANK_COST))
 
