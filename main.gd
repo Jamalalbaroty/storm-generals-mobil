@@ -192,7 +192,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 	if source_index < 0:
 		return
 	var source_unit: Dictionary = units[source_index]
-	if order_type == "move":
+	if order_type == "move" or order_type == "attack_move":
+		if order_type == "attack_move" and not String(source_unit.get("kind", "")) in ["tank", "artillery", "infantry"]:
+			return
 		var map_size := get_viewport_rect().size
 		var world_limit := 42.0 * 0.38
 		var nx := clampf((world_position.x + world_limit) / (world_limit * 2.0), 0.0, 1.0)
@@ -217,6 +219,10 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			source_unit["air_formation_slot"] = formation_slot
 			source_unit["air_formation_center"] = air_formation_last_center
 		source_unit["target"] = move_destination
+		if order_type == "attack_move":
+			source_unit["attack_move_active"] = true
+		else:
+			source_unit.erase("attack_move_active")
 		source_unit.erase("air_patrol_points")
 		source_unit.erase("air_patrol_index")
 		source_unit.erase("air_patrol_resume")
@@ -808,6 +814,31 @@ func _process(delta: float) -> void:
 					else:
 						unit.erase("target")
 				continue
+			if bool(unit.get("attack_move_active", false)) and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
+				var current_attack_target := int(unit.get("attack_target", -1))
+				var has_live_attack_target := current_attack_target >= 0 and current_attack_target < units.size() and units[current_attack_target].team == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
+				if not has_live_attack_target:
+					var attack_move_unit_target := _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 235.0)
+					var attack_move_unit_distance := INF
+					if attack_move_unit_target >= 0:
+						attack_move_unit_distance = unit.pos.distance_to(units[attack_move_unit_target].pos)
+					var attack_move_building_target := -1
+					var attack_move_building_distance := 360.0 if unit.kind == "artillery" else 210.0
+					for candidate_building_index in range(enemy_buildings.size()):
+						var candidate_building: Dictionary = enemy_buildings[candidate_building_index]
+						if int(candidate_building.get("hp", 0)) <= 0:
+							continue
+						var candidate_distance := unit.pos.distance_to(candidate_building.pos)
+						if candidate_distance < attack_move_building_distance:
+							attack_move_building_distance = candidate_distance
+							attack_move_building_target = candidate_building_index
+					if attack_move_building_target >= 0 and attack_move_building_distance < attack_move_unit_distance:
+						unit["attack_building"] = attack_move_building_target
+						unit.erase("attack_target")
+						unit.erase("attack_focus_pos")
+					elif attack_move_unit_target >= 0:
+						unit["attack_target"] = attack_move_unit_target
+						unit["attack_focus_pos"] = units[attack_move_unit_target].pos
 			if unit.has("attack_building"):
 				var building_target = int(unit.attack_building)
 				if building_target < 0 or building_target >= enemy_buildings.size():
