@@ -4103,7 +4103,9 @@ func _handle_world_tap(screen_position: Vector2) -> void:
 				elif attack_move_order_mode and friendly_kind in ["tank", "artillery", "infantry"]:
 					gameplay_order_issued.emit(source_key, "attack_move", formation_destination + formation_offsets[index], "")
 				else:
-					gameplay_order_issued.emit(source_key, "move", formation_destination + formation_offsets[index], "")
+					# The 3D formation already assigns a unique slot to each unit.
+					# Mark this order so the 2D bridge does not apply a second air slot.
+					gameplay_order_issued.emit(source_key, "formation_move", formation_destination + formation_offsets[index], "")
 			if patrol_order_mode:
 				patrol_order_button.button_pressed = false
 			if attack_move_order_mode and is_instance_valid(attack_move_order_button):
