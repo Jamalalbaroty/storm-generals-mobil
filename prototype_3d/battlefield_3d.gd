@@ -109,7 +109,12 @@ func _process(delta: float) -> void:
 	turret_scan_clock += delta
 	for i in range(showcase_turrets.size()):
 		var pivot := showcase_turrets[i]
-		if is_instance_valid(pivot) and i < showcase_tanks.size() and showcase_tanks[i] != selected_tank:
+		if not is_instance_valid(pivot) or i >= showcase_tanks.size():
+			continue
+		var parent_unit := showcase_tanks[i]
+		# Showcase turrets may scan for atmosphere, but live gameplay turrets
+		# must be driven only by the authoritative RTS unit record.
+		if is_instance_valid(parent_unit) and not bool(parent_unit.get_meta("source_gameplay_unit", false)) and parent_unit != selected_tank:
 			pivot.rotation.y = sin(turret_scan_clock * 0.42 + float(i) * 2.1) * 0.34
 	_update_showcase_orders(delta)
 	_update_showcase_combat(delta)
@@ -624,6 +629,20 @@ func _gameplay_max_health_for_kind(kind: String) -> float:
 			return 100.0
 
 
+func _sync_gameplay_unit_orientation(unit: Node3D, record: Dictionary) -> void:
+	# The 2D RTS stores angles in screen-space radians. Convert them to the
+	# battlefield's forward (-Z) convention without inventing missing angles.
+	if record.has("facing"):
+		unit.rotation.y = -float(record.get("facing", 0.0)) + PI * 0.5
+	if not record.has("turret_facing"):
+		return
+	var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
+	if not is_instance_valid(turret_pivot):
+		return
+	var desired_world_yaw := -float(record.get("turret_facing", record.get("facing", 0.0))) + PI * 0.5
+	turret_pivot.rotation.y = wrapf(desired_world_yaw - unit.rotation.y, -PI, PI)
+
+
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return 0
@@ -671,8 +690,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
 			unit.set_meta("source_faction", faction_id)
-		if record.has("facing"):
-			unit.rotation.y = -float(record.get("facing", 0.0)) + PI * 0.5
+		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
 	for existing_key in game_unit_nodes.keys():
 		if not active_keys.has(existing_key):
