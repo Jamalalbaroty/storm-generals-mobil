@@ -1006,7 +1006,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(coordinated_artillery.pos.distance_to(coordinated_target) >= 185.0 and coordinated_artillery.pos.distance_to(coordinated_target) <= 330.0, "Live assault artillery should preserve its protected firing envelope")
 	_expect(coordinated_artillery.pos.distance_to(artillery_initial_position) < 0.1, "Artillery already inside its firing envelope should not rush into the frontline")
 	for assault_index in range(3):
-		_expect(coordinated_tank.get("assault_target_pos", Vector2(-1000000.0, -1000000.0)).distance_to(coordinated_target) < 0.1 if assault_index == 0 else game.get("units")[assault_index].get("assault_target_pos", Vector2(-1000000.0, -1000000.0)).distance_to(coordinated_target) < 0.1, "Every live assault role should retain the same valid local threat focus")
+		var assault_focus: Vector2 = game.get("units")[assault_index].get("assault_target_pos", Vector2(-1000000.0, -1000000.0))
+		_expect(assault_focus.distance_to(coordinated_target) < 0.1, "Every live assault role should retain the same valid local threat focus")
 
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
