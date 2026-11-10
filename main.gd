@@ -668,10 +668,10 @@ func _process(delta: float) -> void:
 								var air_damage := FIGHTER_DAMAGE if unit.kind == "fighter" else _helicopter_damage(unit)
 								_add_visual_effect("air_missile", unit.pos, air_enemy.pos, Color("#ffd18a"), 0.22, 0.0)
 								if unit.kind == "helicopter":
-									_apply_splash_damage(air_enemy.pos, 38.0, air_damage, "enemy")
+									_apply_splash_damage(air_enemy.pos, 38.0, air_damage, "enemy", unit)
 								else:
 									var air_hp_before := int(air_enemy.hp)
-									air_enemy.hp = maxi(0, air_hp_before - air_damage)
+									air_enemy.hp = maxi(0, air_hp_before - _terrain_adjusted_damage(air_enemy, air_damage))
 									_award_unit_experience(unit, air_hp_before - int(air_enemy.hp))
 									_register_unit_kill(unit, air_enemy, air_hp_before)
 								_add_visual_effect("explosion", air_enemy.pos, air_enemy.pos, Color("#ffad72"), 0.38, 25.0)
