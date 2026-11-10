@@ -1124,6 +1124,51 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_process", 0.1)
 	_expect(String(game.get("battle_result")).contains("هُزمت"), "Enemy artillery destroying the player base should resolve a defeat")
 
+	# Run supply capture and ownership changes through the real frame loop, not direct helper calls.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("faction", "الأمريكي")
+	game.set("credits", 100)
+	game.set("supplies", 0)
+	game.set("income_timer", 0.0)
+	game.set("enemy_credits", 100)
+	game.set("enemy_supplies", 0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_missile_timer", 999.0)
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("production_orders").clear()
+	game.get("units").clear()
+	game.get("supply_points").clear()
+	var live_supply_position := Vector2(640.0, 360.0)
+	game.get("supply_points").append({"pos": live_supply_position, "owner": "neutral", "kind": "port", "payout": 0.0, "supply_payout": 0.0})
+	game.get("units").append({"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": live_supply_position, "attack_cd": 10.0})
+	for supply_frame in range(80):
+		game.call("_process", 0.1)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Live match loop should capture a neutral port for uncontested player infantry")
+	_expect(int(game.get("credits")) >= 212, "Live match loop should combine passive income and eight-credit port payouts over eight seconds")
+	_expect(int(game.get("supplies")) >= 1, "Live match loop should deliver the port's six-second supply payout")
+	var player_income_before_contest := int(game.get("credits"))
+	game.get("units").append({"kind": "infantry", "team": "enemy", "faction": "الصيني", "hp": 60, "pos": live_supply_position, "attack_cd": 10.0})
+	for contest_frame in range(10):
+		game.call("_process", 0.1)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "A contested point should retain its last owner while stopping its payout")
+	_expect(int(game.get("credits")) - player_income_before_contest <= 7, "Contested port must stop paying its owner while passive income continues")
+	game.get("units")[0]["hp"] = 0
+	var enemy_income_before_capture := int(game.get("enemy_credits"))
+	for capture_frame in range(10):
+		game.call("_process", 0.1)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "enemy", "Live match loop should transfer the port after enemy forces become uncontested")
+	_expect(int(game.get("enemy_credits")) >= enemy_income_before_capture + 13, "Enemy should receive passive income and the captured port payout through the live loop")
+	game.get("units")[0]["hp"] = 0
+	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": live_supply_position, "attack_cd": 10.0})
+	for recapture_frame in range(10):
+		game.call("_process", 0.1)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "Player armor should recapture the port through the live match loop")
+	_expect(int(game.get("enemy_credits")) - enemy_income_before_capture <= 7, "Enemy should stop receiving port income after player recapture")
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
