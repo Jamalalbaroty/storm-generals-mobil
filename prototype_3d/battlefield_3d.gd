@@ -717,6 +717,20 @@ func update_game_building_progress(building: Node3D, build_progress: float) -> v
 	if background:
 		background.visible = progress < 1.0
 
+func _get_faction_accent_color(faction_id: String) -> Color:
+	match faction_id:
+		"american":
+			return Color(0.20, 0.48, 0.82)
+		"chinese":
+			return Color(0.82, 0.20, 0.16)
+		"arab":
+			return Color(0.20, 0.58, 0.32)
+		"watan":
+			return Color(0.88, 0.68, 0.22)
+		_:
+			return Color(0.62, 0.62, 0.58)
+
+
 func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: String, build_progress: float = 1.0, show_progress: bool = false) -> Node3D:
 	var building := Node3D.new()
 	building.name = faction_id + "_" + kind
@@ -760,12 +774,12 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 	building.add_child(roof)
 
 	var faction_stripe := MeshInstance3D.new()
+	faction_stripe.name = "FactionStripe"
 	var stripe_mesh := BoxMesh.new()
 	stripe_mesh.size = Vector3(5.5, 0.20, 0.12)
 	faction_stripe.mesh = stripe_mesh
 	faction_stripe.position = Vector3(0.0, 2.72, -2.67)
-	var stripe_color := Color(0.20, 0.48, 0.82) if faction_id == "american" else Color(0.82, 0.20, 0.16)
-	faction_stripe.material_override = _make_armour_material(stripe_color)
+	faction_stripe.material_override = _make_armour_material(_get_faction_accent_color(faction_id))
 	building.add_child(faction_stripe)
 
 	var door := MeshInstance3D.new()
