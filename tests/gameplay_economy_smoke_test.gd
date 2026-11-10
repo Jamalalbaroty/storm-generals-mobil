@@ -262,6 +262,73 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[1]["hp"]) == 80, "Player tank should deal its real 20-point direct hit through the combat loop")
 
+	# Exercise real anti-air combat from both sides using the live _process loop.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_missile_timer", 0.0)
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").clear()
+	game.get("enemy_buildings").append({
+		"kind": "anti_air", "pos": Vector2(500.0, 300.0),
+		"hp": 500, "build_progress": 1.0, "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "fighter", "team": "player", "faction": "الصيني",
+		"hp": 120, "pos": Vector2(520.0, 300.0), "attack_cd": 10.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 86, "Completed enemy anti-air should deal its real 34-point hit to a player fighter")
+	_expect(is_equal_approx(float(game.get("enemy_buildings")[0]["attack_cd"]), 0.55), "Enemy anti-air should use its 0.65-second firing cycle")
+
+	game.get("buildings").append({
+		"kind": "anti_air", "pos": Vector2(500.0, 300.0),
+		"hp": 500, "build_progress": 1.0, "attack_cd": 0.0
+	})
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "fighter", "team": "enemy", "faction": "الصيني",
+		"hp": 120, "pos": Vector2(520.0, 300.0), "attack_cd": 10.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 86, "Powered player anti-air should deal its real 34-point hit to an enemy fighter")
+	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.55), "Player anti-air should use its 0.65-second firing cycle")
+
+	# Verify faction-specific missile launch cost, damage, and reload timing.
+	game.set("faction", "وطن")
+	game.set("credits", 2000)
+	game.set("supplies", 5)
+	game.get("buildings").clear()
+	game.get("buildings").append({
+		"kind": "missile_silo", "pos": Vector2(180.0, 330.0),
+		"hp": 500, "build_progress": 1.0, "attack_cd": 0.0
+	})
+	game.get("missiles").clear()
+	game.call("_launch_player_missile")
+	_expect(int(game.get("credits")) == 1150, "Watan missile launch should deduct its 850-credit premium")
+	_expect(int(game.get("supplies")) == 1, "Missile launch should consume four supply points")
+	_expect(game.get("missiles").size() == 1 and int(game.get("missiles")[0]["damage"]) == 230, "Watan missile should launch with its 230-damage warhead")
+	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 11.0), "Watan missile silo should reload in 11 seconds")
+
+	# Missile defense must intercept an incoming hostile missile before impact.
+	game.get("buildings").clear()
+	game.get("buildings").append({
+		"kind": "missile_defense", "pos": Vector2(300.0, 300.0),
+		"hp": 500, "build_progress": 1.0, "attack_cd": 0.0
+	})
+	game.get("missiles").clear()
+	game.get("missiles").append({
+		"pos": Vector2(310.0, 300.0), "target": Vector2(180.0, 330.0),
+		"target_kind": "base", "team": "enemy", "damage": 195, "life": 8.0
+	})
+	var base_health_before_intercept: int = int(game.get("player_base_hp"))
+	game.call("_update_missiles", 0.1)
+	_expect(game.get("missiles").is_empty(), "Missile defense should remove an incoming missile inside its 190-unit interception radius")
+	_expect(int(game.get("player_base_hp")) == base_health_before_intercept, "An intercepted missile must not damage the player base")
+	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.75), "Missile defense should observe its 0.75-second intercept cooldown")
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
