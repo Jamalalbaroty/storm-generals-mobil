@@ -13,7 +13,7 @@ const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتي
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
-	[10, 11, 12, 13, 14, 15],
+	[10, 11, 12, 13, 14, 15, 24],
 	[16, 17, 18, 19, 20, 12],
 	[23]
 ]
@@ -55,7 +55,7 @@ const ECONOMY_BALANCE := {
 	"building_costs": {
 		"barracks": BARRACKS_COST, "factory": FACTORY_COST, "turret": TURRET_COST,
 		"airfield": AIRFIELD_COST, "anti_air": AA_COST, "missile_silo": MISSILE_SILO_COST,
-		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700, "power_plant": 450, "bunker": 520
+		"missile_defense": MISSILE_DEFENSE_COST, "shipyard": 700, "power_plant": 450, "bunker": 520, "supply_depot": 550
 	},
 	"unit_costs": {
 		"infantry": INFANTRY_COST, "tank": TANK_COST, "builder": 600, "artillery": ARTILLERY_COST,
@@ -327,6 +327,7 @@ func _process(delta: float) -> void:
 			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
 			income_timer = fmod(income_timer, 1.0)
 		_update_supply_control(delta)
+		_update_supply_depots(delta)
 		_update_building_construction(delta)
 		_update_field_repairs(delta)
 		_update_production_queues(delta)
@@ -2048,7 +2049,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550"]
 	if _has_selected_player_building():
 		labels[10] = "إصلاح المنشأة"
 		labels[11] = "بيع المنشأة"
@@ -2429,6 +2430,18 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				build_mode = "bunker"
 				notice = "اختر موقعاً مناسباً لبناء مخبأ دفاعي — يوفر نيراناً وحماية للقوات القريبة"
 				notice_time = 3.5
+			elif i == 24:
+				var depot_count := 0
+				for building in buildings:
+					if String(building.get("kind", "")) == "supply_depot":
+						depot_count += 1
+				if depot_count >= 2:
+					notice = "وصلت إلى الحد الأقصى لمخازن الإمداد (2)"
+					notice_time = 2.5
+				else:
+					build_mode = "supply_depot"
+					notice = "اختر موقعاً مناسباً لبناء مخزن الإمداد — يزيد السعة ويجهز الإمدادات دورياً"
+					notice_time = 3.5
 			else:
 				selected.clear()
 				selected_enemy_building = -1
@@ -2934,13 +2947,31 @@ func _unit_supply_cost(kind: String) -> int:
 	return int(costs.get(kind, 0))
 
 
+func _update_supply_depots(delta: float) -> void:
+	for i in range(buildings.size()):
+		var depot: Dictionary = buildings[i]
+		if String(depot.get("kind", "")) != "supply_depot" or int(depot.get("hp", 0)) <= 0 or float(depot.get("build_progress", 1.0)) < 1.0:
+			continue
+		depot["supply_timer"] = float(depot.get("supply_timer", 0.0)) + delta
+		var interval := maxf(7.0, 12.0 - float(maxi(1, int(depot.get("level", 1))) - 1) * 1.5)
+		if float(depot["supply_timer"]) >= interval:
+			var batches := int(floor(float(depot["supply_timer"]) / interval))
+			depot["supply_timer"] = fmod(float(depot["supply_timer"]), interval)
+			supplies = mini(_player_supply_capacity(), supplies + batches)
+		buildings[i] = depot
+
+
 func _player_supply_capacity() -> int:
-	# Captured logistics nodes expand the reserve without adding permanent HUD clutter.
+	# Captured logistics nodes and completed depots expand the reserve.
 	var controlled_nodes := 0
 	for point in supply_points:
 		if String(point.get("owner", "")) == "player":
 			controlled_nodes += 1
-	return 99 + controlled_nodes * 20
+	var depot_capacity := 0
+	for building in buildings:
+		if String(building.get("kind", "")) == "supply_depot" and int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+			depot_capacity += 30 + (maxi(1, int(building.get("level", 1))) - 1) * 10
+	return 99 + controlled_nodes * 20 + depot_capacity
 
 
 func _update_building_construction(delta: float) -> void:
@@ -4090,6 +4121,12 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			draw_rect(Rect2(p + Vector2(-19, -5), Vector2(38, 18)), dark)
 			draw_rect(Rect2(p + Vector2(-12, -2), Vector2(24, 9)), Color("#b7a27b"))
 			draw_line(p + Vector2(-25, 13), p + Vector2(25, 13), accent, 4)
+		"supply_depot":
+			draw_rect(Rect2(p + Vector2(-22, -15), Vector2(44, 30)), dark)
+			draw_rect(Rect2(p + Vector2(-18, -11), Vector2(36, 22)), Color("#6b887d"))
+			for crate_x in [-10.0, 0.0, 10.0]:
+				draw_rect(Rect2(p + Vector2(crate_x - 4.0, -7), Vector2(8, 14)), Color("#d3bd82"))
+				draw_line(p + Vector2(crate_x - 4.0, 0), p + Vector2(crate_x + 4.0, 0), dark, 1.5)
 		"power_plant":
 			draw_rect(Rect2(p + Vector2(-18, -17), Vector2(36, 34)), dark)
 			draw_rect(Rect2(p + Vector2(-13, -12), Vector2(26, 24)), shell)
@@ -4108,7 +4145,7 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 	if kind in ["barracks", "factory", "airfield", "missile_silo", "missile_defense"]:
 		draw_line(p + Vector2(22, -17), p + Vector2(22, -31), dark, 2)
 		draw_circle(p + Vector2(22, -32), 3, Color("#f1c66d"))
-	var labels := {"power_plant": "محطة طاقة", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "anti_air": "مضاد جو", "bunker": "مخبأ دفاعي"}
+	var labels := {"power_plant": "محطة طاقة", "shipyard": "حوض سفن", "missile_silo": "منصة صواريخ", "missile_defense": "دفاع صاروخي", "barracks": "ثكنة", "factory": "مصنع", "airfield": "مطار", "anti_air": "مضاد جو", "bunker": "مخبأ دفاعي", "supply_depot": "مخزن إمداد"}
 	var label: String = labels.get(kind, "برج دفاع")
 	var display_label := "مستولى عليها: " + label if is_captured else label
 	draw_string(ThemeDB.fallback_font, p + Vector2(-52, 43), display_label, HORIZONTAL_ALIGNMENT_CENTER, 104, 12 if is_captured else 13, Color("#b8f0b4") if is_captured else Color.WHITE)
@@ -4150,7 +4187,8 @@ func _place_building(pos: Vector2) -> void:
 		"factory", "airfield": construction_duration = 10.0
 		"missile_silo", "shipyard": construction_duration = 13.0
 		"missile_defense", "bunker": construction_duration = 9.0
-	buildings.append({"pos": pos, "kind": build_mode, "hp": 650 if build_mode == "bunker" else (500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400)), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "production_id": next_building_production_id})
+		"supply_depot": construction_duration = 10.0
+	buildings.append({"pos": pos, "kind": build_mode, "hp": 650 if build_mode == "bunker" else (500 if build_mode == "missile_silo" else (450 if build_mode == "missile_defense" else 400)), "attack_cd": 0.0, "build_progress": 0.0, "build_duration": construction_duration, "supply_timer": 0.0, "production_id": next_building_production_id})
 	next_building_production_id += 1
 	units[builder_index]["target"] = pos
 	units[builder_index]["build_target"] = pos
