@@ -4479,6 +4479,15 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 		credits -= cost
 		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
+	var aircraft_launch := false
+	if kind in ["fighter", "helicopter"]:
+		# Aircraft are dispatched from a completed, powered friendly airfield.
+		for airfield_index in range(buildings.size()):
+			var airfield: Dictionary = buildings[airfield_index]
+			if String(airfield.get("kind", "")) == "airfield" and float(airfield.get("build_progress", 1.0)) >= 1.0 and int(airfield.get("hp", 0)) > 0 and _is_player_building_powered(airfield_index):
+				unit_spawn = airfield.pos + Vector2(0.0, 34.0)
+				aircraft_launch = true
+				break
 	if _is_naval_kind(kind):
 		for dock in buildings:
 			if dock.kind == "shipyard":
@@ -4487,6 +4496,8 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
+	if aircraft_launch:
+		spawned_unit["airfield_launch"] = true
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
 		spawned_unit["landing_state"] = "outbound"
