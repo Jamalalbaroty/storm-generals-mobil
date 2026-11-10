@@ -1341,6 +1341,7 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 	var best_score := INF
 	var preferred_index := -1
 	var preferred_score := INF
+	var preferred_distance := INF
 	for candidate_index in range(units.size()):
 		var candidate: Dictionary = units[candidate_index]
 		if candidate.team != "player" or candidate.get("hp", 0) <= 0:
@@ -1364,7 +1365,9 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
-		if preferred_pos.x > -999999.0 and candidate.pos.distance_to(preferred_pos) <= 120.0 and score < preferred_score:
+		var lock_distance: float = candidate.pos.distance_to(preferred_pos)
+		if preferred_pos.x > -999999.0 and lock_distance <= 120.0 and lock_distance < preferred_distance:
+			preferred_distance = lock_distance
 			preferred_score = score
 			preferred_index = candidate_index
 	# Keep the current focus when a new candidate is only marginally better; switch decisively for a major threat change.
