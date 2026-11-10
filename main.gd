@@ -546,6 +546,7 @@ func _process(delta: float) -> void:
 								var enemy_hp_before := int(enemy.hp)
 								enemy.hp = maxi(0, enemy_hp_before - _terrain_adjusted_damage(enemy, _unit_damage_with_veterancy(unit, 20 if unit.kind == "tank" else 10)))
 								_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
+								_register_unit_kill(unit, enemy, enemy_hp_before)
 								_add_visual_effect("tracer", unit.pos, enemy.pos, Color("#ffe0a0"), 0.14, 0.0)
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#ffb34d"), 0.18, 8.0)
 								unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
@@ -675,6 +676,41 @@ func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	return maxi(1, roundi(float(base_damage) * multiplier))
 
 
+func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_before: int) -> void:
+	if String(attacker.get("team", "")) != "player" or target_hp_before <= 0 or int(target.get("hp", 0)) > 0:
+		return
+	var kills := int(attacker.get("combat_kills", 0)) + 1
+	attacker["combat_kills"] = kills
+	var target_kind := String(target.get("kind", ""))
+	var air_kills := int(attacker.get("air_kills", 0))
+	var armor_kills := int(attacker.get("armor_kills", 0))
+	var naval_kills := int(attacker.get("naval_kills", 0))
+	if target_kind in ["fighter", "helicopter"]:
+		air_kills += 1
+		attacker["air_kills"] = air_kills
+	elif target_kind in ["tank", "artillery"]:
+		armor_kills += 1
+		attacker["armor_kills"] = armor_kills
+	elif _is_naval_kind(target_kind):
+		naval_kills += 1
+		attacker["naval_kills"] = naval_kills
+	var medals: Array = attacker.get("combat_medals", [])
+	var earned := ""
+	if kills >= 5 and not medals.has("قاهر الميدان"):
+		earned = "قاهر الميدان"
+	elif air_kills >= 3 and not medals.has("صياد الجو"):
+		earned = "صياد الجو"
+	elif armor_kills >= 3 and not medals.has("مدمر الدروع"):
+		earned = "مدمر الدروع"
+	elif naval_kills >= 3 and not medals.has("سيد البحار"):
+		earned = "سيد البحار"
+	if earned != "":
+		medals.append(earned)
+		attacker["combat_medals"] = medals
+		notice = "وسام جديد: %s" % earned
+		notice_time = 3.0
+
+
 func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
 	if String(unit.get("team", "")) != "player" or damage_dealt <= 0:
 		return
@@ -719,6 +755,7 @@ func _apply_splash_damage(center: Vector2, radius: float, damage: int, target_te
 			unit.hp = maxi(0, hp_before - _terrain_adjusted_damage(unit, damage))
 			if not attacker.is_empty():
 				_award_unit_experience(attacker, hp_before - int(unit.hp))
+				_register_unit_kill(attacker, unit, hp_before)
 
 func _faction_profile(army: String) -> Dictionary:
 	var profile: Dictionary = FACTION_BALANCE.get(army, FACTION_BALANCE["الصيني"])
@@ -1683,6 +1720,7 @@ func _draw_hud(size: Vector2) -> void:
 				selected_player_units.append(selected_unit)
 	if not selected_player_units.is_empty():
 		var total_xp := 0.0
+		var total_kills := 0
 		var progress_total := 0.0
 		var highest_rank := 0
 		var elite_count := 0
@@ -1692,6 +1730,7 @@ func _draw_hud(size: Vector2) -> void:
 			var unit_xp := float(selected_unit.get("combat_xp", 0.0))
 			var unit_rank := int(selected_unit.get("veterancy", 0))
 			total_xp += unit_xp
+			total_kills += int(selected_unit.get("combat_kills", 0))
 			highest_rank = maxi(highest_rank, unit_rank)
 			if unit_rank >= 2:
 				elite_count += 1
@@ -1707,7 +1746,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(dossier, Color("#10232b", 0.94), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "%d وحدات محددة" % selected_player_units.size()
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f" % [unit_label, rank_label, average_xp], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 12, Color("#f2e8ca"))
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d" % [unit_label, rank_label, average_xp, total_kills], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 12, Color("#f2e8ca"))
 		var xp_bar := Rect2(dossier.position + Vector2(8, 26), Vector2(size.x - 36, 9))
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
@@ -3737,7 +3776,7 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
-	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0}
+	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": []}
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
 		spawned_unit["landing_state"] = "outbound"
