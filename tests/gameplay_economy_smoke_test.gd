@@ -150,6 +150,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("enemy_buildings").append({"kind": "airfield", "pos": game.get("enemy_base"), "hp": 450, "build_progress": 1.0})
 	game.get("enemy_buildings").append({"kind": "factory", "pos": game.get("enemy_base") + Vector2(-100, 0), "hp": 500, "build_progress": 1.0})
 	game.get("enemy_buildings").append({"kind": "shipyard", "pos": Vector2(game.get("enemy_base").x - 120.0, 590.0), "hp": 500, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "power_plant", "pos": game.get("enemy_base") + Vector2(-220.0, 160.0), "hp": 400, "build_progress": 1.0})
 	game.set("enemy_credits", 10000)
 	game.set("enemy_supplies", 100)
 	var counter_cases := [
@@ -180,7 +181,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.set("enemy_credits", 10000)
 		game.set("enemy_supplies", 100)
 		game.get("enemy_buildings").clear()
-		var completed_kinds := ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]
+		var completed_kinds := ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air", "power_plant", "power_plant"]
 		for structure_index in range(completed_kinds.size()):
 			var structure_pos: Vector2 = game.get("enemy_base") + Vector2(-float(structure_index) * 24.0, 110.0)
 			if completed_kinds[structure_index] == "shipyard":
@@ -204,7 +205,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("enemy_credits", 10000)
 	game.set("enemy_supplies", 100)
 	game.get("enemy_buildings").clear()
-	for structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]:
+	for structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air", "power_plant", "power_plant"]:
 		var doctrine_building_pos: Vector2 = game.get("enemy_base") + Vector2(-140.0, 120.0 + float(game.get("enemy_buildings").size()) * 28.0)
 		if structure_kind == "shipyard":
 			doctrine_building_pos = Vector2(game.get("enemy_base").x - 120.0, 590.0)
@@ -400,7 +401,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").clear()
 	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
-	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(290.0, 300.0), "attack_cd": 0.0})
+	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
 	_expect(int(game.get("units")[1]["hp"]) == 126, "Enemy artillery splash should damage nearby player armor")
