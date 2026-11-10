@@ -786,6 +786,8 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		body_size = Vector3(5.8, 2.2, 5.0)
 	elif kind == "power_plant":
 		body_size = Vector3(6.8, 3.0, 5.8)
+	elif kind == "bunker":
+		body_size = Vector3(7.2, 1.8, 6.2)
 	var body := MeshInstance3D.new()
 	var body_mesh := BoxMesh.new()
 	body_mesh.size = body_size
@@ -796,9 +798,9 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 
 	var roof := MeshInstance3D.new()
 	var roof_mesh := BoxMesh.new()
-	roof_mesh.size = Vector3(6.5, 0.28, 5.5)
+	roof_mesh.size = Vector3(7.6, 0.42, 6.6) if kind == "bunker" else Vector3(6.5, 0.28, 5.5)
 	roof.mesh = roof_mesh
-	roof.position.y = 3.08
+	roof.position.y = 2.18 if kind == "bunker" else 3.08
 	roof.material_override = _make_armour_material(tint.darkened(0.30))
 	building.add_child(roof)
 
@@ -819,6 +821,15 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 	door.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
 	building.add_child(door)
 
+	if kind == "bunker":
+		var firing_slit := MeshInstance3D.new()
+		firing_slit.name = "BunkerFiringSlit"
+		var slit_mesh := BoxMesh.new()
+		slit_mesh.size = Vector3(2.6, 0.22, 0.10)
+		firing_slit.mesh = slit_mesh
+		firing_slit.position = Vector3(0.0, 1.55, -3.12)
+		firing_slit.material_override = _make_armour_material(Color(0.08, 0.10, 0.10))
+		building.add_child(firing_slit)
 	for side in [-1.0, 1.0]:
 		var window := MeshInstance3D.new()
 		var window_mesh := BoxMesh.new()
