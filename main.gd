@@ -3021,10 +3021,11 @@ func _update_field_repairs(delta: float) -> void:
 		if float(builder.field_repair_fx_cd) <= 0.0:
 			_add_visual_effect("repair", builder.pos, target_unit.pos, Color("#8ce6a0"), 0.32, 0.0)
 			builder["field_repair_fx_cd"] = 0.75
-	for airfield in buildings:
+	for airfield_index in range(buildings.size()):
+		var airfield: Dictionary = buildings[airfield_index]
 		if String(airfield.get("kind", "")) != "airfield" or String(airfield.get("team", "player")) != "player":
 			continue
-		if float(airfield.get("build_progress", 1.0)) < 1.0 or int(airfield.get("hp", 0)) <= 0:
+		if float(airfield.get("build_progress", 1.0)) < 1.0 or int(airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
 			continue
 		for aircraft in units:
 			if String(aircraft.get("team", "")) != "player" or String(aircraft.get("kind", "")) not in ["fighter", "helicopter"]:
@@ -3053,10 +3054,11 @@ func _update_field_repairs(delta: float) -> void:
 				_add_visual_effect("repair", airfield.pos, aircraft.pos, Color("#f4d77a"), 0.32, 0.0)
 				aircraft["airfield_repair_fx_cd"] = 0.85
 
-	for dock in buildings:
+	for dock_index in range(buildings.size()):
+		var dock: Dictionary = buildings[dock_index]
 		if String(dock.get("kind", "")) != "shipyard" or String(dock.get("team", "player")) != "player":
 			continue
-		if float(dock.get("build_progress", 1.0)) < 1.0 or int(dock.get("hp", 0)) <= 0:
+		if float(dock.get("build_progress", 1.0)) < 1.0 or int(dock.get("hp", 0)) <= 0 or not _is_player_building_powered(dock_index):
 			continue
 		for vessel in units:
 			if String(vessel.get("team", "")) != "player" or not _is_naval_kind(String(vessel.get("kind", ""))):
