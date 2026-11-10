@@ -50,6 +50,32 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Supply objective selection must favor valuable recaptures and neutral ports, never friendly points.
+	game.supply_points = [
+		{"pos": Vector2(100.0, 0.0), "owner": "neutral", "kind": "supply"},
+		{"pos": Vector2(120.0, 0.0), "owner": "player", "kind": "supply"},
+		{"pos": Vector2(400.0, 0.0), "owner": "enemy", "kind": "supply"}
+	]
+	if game._enemy_best_supply_objective(Vector2.ZERO) != 1:
+		push_error("Enemy should prioritize a nearby player-held supply point for recapture")
+		quit(1)
+		return
+	game.supply_points = [
+		{"pos": Vector2(100.0, 0.0), "owner": "neutral", "kind": "supply"},
+		{"pos": Vector2(120.0, 0.0), "owner": "neutral", "kind": "port"}
+	]
+	if game._enemy_best_supply_objective(Vector2.ZERO) != 1:
+		push_error("Enemy should account for the higher income value of a neutral port")
+		quit(1)
+		return
+	game.supply_points = [
+		{"pos": Vector2(100.0, 0.0), "owner": "enemy", "kind": "supply"}
+	]
+	if game._enemy_best_supply_objective(Vector2.ZERO) != -1:
+		push_error("Enemy should not select a supply point it already owns")
+		quit(1)
+		return
+
 	# Enemy counter-production must respect faction pricing, supplies, and doctrine caps.
 	game.units.clear()
 	game.enemy_buildings.clear()
@@ -133,5 +159,5 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("PASS: faction costs, enemy strategy selection, counter-production caps, and production queue recovery")
+	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
 	quit(0)
