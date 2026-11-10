@@ -1334,9 +1334,9 @@ func _fire_naval_shell(pivot: Node3D, target: Node3D, vessel: Node3D) -> void:
 	var destination := target.global_position + Vector3.UP * 0.75
 	var tween := create_tween()
 	tween.tween_property(shell, "global_position", destination, 0.38)
-	tween.tween_callback(_resolve_naval_shell_hit.bind(shell, target, vessel, 22.0))
+	tween.tween_callback(_resolve_naval_shell_hit.bind(shell, target, 22.0))
 
-func _resolve_naval_shell_hit(shell: Node3D, target: Node3D, vessel: Node3D, damage: float) -> void:
+func _resolve_naval_shell_hit(shell: Node3D, target: Node3D, damage: float) -> void:
 	if is_instance_valid(shell):
 		shell.queue_free()
 	if not is_instance_valid(target):

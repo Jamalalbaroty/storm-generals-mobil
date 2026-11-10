@@ -1168,7 +1168,8 @@ func _initialize() -> void:
 		push_error("Could not locate a friendly live unit for stale-selection cleanup validation")
 		quit(1)
 		return
-	bridge.call("_set_live_selection", [selected_before_cleanup])
+	var selected_units_for_cleanup: Array[Node3D] = [selected_before_cleanup]
+	bridge.call("_set_live_selection", selected_units_for_cleanup)
 	bridge.set("attack_target", selected_before_cleanup)
 	bridge.set("has_selected_destination", true)
 	bridge.order_marker.visible = true
