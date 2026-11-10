@@ -575,9 +575,15 @@ func _process(delta: float) -> void:
 								nearest_airfield_distance = recovery_distance
 								nearest_airfield = airfield_index
 						if nearest_airfield >= 0:
+							var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
+							var recovery_slot := 0
+							for queued_aircraft in units:
+								if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
+									recovery_slot += 1
 							unit["airfield_returning"] = true
 							unit["airfield_landed"] = false
-							unit["airfield_recovery_id"] = int(buildings[nearest_airfield].get("production_id", -1))
+							unit["airfield_recovery_id"] = recovery_id
+							unit["airfield_recovery_slot"] = recovery_slot
 							unit.erase("target")
 							unit.erase("attack_target")
 							unit.erase("attack_focus_pos")
@@ -596,7 +602,10 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_recovery_id")
 					else:
 						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
-						var landing_spot := recovery_airfield_pos + Vector2(0.0, 30.0)
+						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
+						var landing_column := landing_slot % 3 - 1
+						var landing_row := int(landing_slot / 3)
+						var landing_spot := recovery_airfield_pos + Vector2(float(landing_column) * 24.0, 30.0 + float(landing_row) * 20.0)
 						var recovery_distance := unit.pos.distance_to(landing_spot)
 						if recovery_distance > 14.0:
 							unit.pos += (landing_spot - unit.pos).normalized() * delta * (92.0 if unit.kind == "fighter" else 68.0)
@@ -4647,12 +4656,20 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
 	var aircraft_launch := false
+	var aircraft_airfield_id := -1
+	var aircraft_launch_slot := 0
 	if kind in ["fighter", "helicopter"]:
-		# Aircraft are dispatched from a completed, powered friendly airfield.
+		# Stagger aircraft along the runway so consecutive production never stacks proxies.
 		for airfield_index in range(buildings.size()):
 			var airfield: Dictionary = buildings[airfield_index]
 			if String(airfield.get("kind", "")) == "airfield" and float(airfield.get("build_progress", 1.0)) >= 1.0 and int(airfield.get("hp", 0)) > 0 and _is_player_building_powered(airfield_index):
-				unit_spawn = airfield.pos + Vector2(0.0, 34.0)
+				aircraft_airfield_id = int(airfield.get("production_id", -1))
+				for existing_aircraft in units:
+					if String(existing_aircraft.get("team", "")) == "player" and String(existing_aircraft.get("kind", "")) in ["fighter", "helicopter"] and int(existing_aircraft.get("airfield_launch_id", -2)) == aircraft_airfield_id:
+						aircraft_launch_slot += 1
+				var runway_column := aircraft_launch_slot % 3 - 1
+				var runway_row := int(aircraft_launch_slot / 3)
+				unit_spawn = airfield.pos + Vector2(float(runway_column) * 22.0, 34.0 + float(runway_row) * 18.0)
 				aircraft_launch = true
 				break
 	if _is_naval_kind(kind):
@@ -4665,6 +4682,8 @@ func _spawn_unit(kind: String, already_paid: bool = false) -> void:
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
 	if aircraft_launch:
 		spawned_unit["airfield_launch"] = true
+		spawned_unit["airfield_launch_id"] = aircraft_airfield_id
+		spawned_unit["airfield_launch_slot"] = aircraft_launch_slot
 	if kind == "landing_craft":
 		spawned_unit["home_pos"] = unit_spawn
 		spawned_unit["landing_state"] = "outbound"
