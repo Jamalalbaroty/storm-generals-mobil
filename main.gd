@@ -192,19 +192,37 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
 			return
-		var target_id := int(target_parts[1])
 		var target_index := -1
-		for index in range(units.size()):
-			if units[index].team == "enemy" and int(units[index].get("3d_sync_id", -1)) == target_id and int(units[index].get("hp", 0)) > 0:
-				target_index = index
-				break
-		if target_index < 0:
-			return
-		source_unit["attack_target"] = target_index
-		source_unit["attack_focus_pos"] = units[target_index].pos
+		if target_parts[1].is_valid_int():
+			var target_id := int(target_parts[1])
+			for index in range(units.size()):
+				if units[index].team == "enemy" and int(units[index].get("3d_sync_id", -1)) == target_id and int(units[index].get("hp", 0)) > 0:
+					target_index = index
+					break
+			if target_index < 0:
+				return
+			source_unit["attack_target"] = target_index
+			source_unit["attack_focus_pos"] = units[target_index].pos
+			source_unit.erase("attack_building")
+		else:
+			var target_kind := String(target_parts[1])
+			var target_identity := String(target_parts[2])
+			var target_building_index := -1
+			for index in range(enemy_buildings.size()):
+				var candidate: Dictionary = enemy_buildings[index]
+				if String(candidate.get("kind", "")) != target_kind or int(candidate.get("hp", 0)) <= 0:
+					continue
+				var candidate_identity := str(candidate.get("production_id", "%.2f|%.2f" % [candidate.pos.x, candidate.pos.y]))
+				if candidate_identity == target_identity:
+					target_building_index = index
+					break
+			if target_building_index < 0:
+				return
+			source_unit["attack_building"] = target_building_index
+			source_unit.erase("attack_target")
+			source_unit.erase("attack_focus_pos")
 		source_unit.erase("target")
 		source_unit.erase("attack_base")
-		source_unit.erase("attack_building")
 		notice = "أمر اشتباك صادر من القيادة ثلاثية الأبعاد"
 		notice_time = 1.6
 	queue_redraw()
