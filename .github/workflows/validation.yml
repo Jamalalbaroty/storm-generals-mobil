@@ -77,3 +77,19 @@ jobs:
             echo "Gameplay smoke test reported engine or script errors"
             exit 1
           fi
+      - name: Run long-match endurance simulation
+        shell: bash
+        run: |
+          set +e
+          godot --headless --path . --script res://tests/long_match_endurance_test.gd --verbose > /tmp/long-match.log 2>&1
+          long_match_status=$?
+          set -e
+          cat /tmp/long-match.log
+          if [ "$long_match_status" -ne 0 ]; then
+            echo "Long-match endurance test exited with status $long_match_status"
+            exit "$long_match_status"
+          fi
+          if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/long-match.log; then
+            echo "Long-match endurance test reported engine or script errors"
+            exit 1
+          fi
