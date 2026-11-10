@@ -3006,8 +3006,6 @@ func _update_field_repairs(delta: float) -> void:
 		if float(builder.field_repair_fx_cd) <= 0.0:
 			_add_visual_effect("repair", builder.pos, tank.pos, Color("#8ce6a0"), 0.32, 0.0)
 			builder["field_repair_fx_cd"] = 0.75
-		if int(tank.hp) >= 150:
-			tank.erase("field_repair_glow")
 
 func _update_building_capture(delta: float) -> void:
 	for i in range(enemy_buildings.size() - 1, -1, -1):
