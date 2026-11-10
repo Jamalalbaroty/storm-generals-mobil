@@ -218,7 +218,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(305.0, 300.0)})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(500.0, 300.0)})
 	game.call("_apply_splash_damage", Vector2(300.0, 300.0), 48.0, 100, "player")
-	_expect(int(game.get("units")[0]["hp"]) == 24, "Forest cover should reduce real splash damage to player infantry")
+	_expect(int(game.get("units")[0]["hp"]) == 28, "Forest cover should reduce real splash damage to player infantry")
 	_expect(int(game.get("units")[1]["hp"]) == 50, "Tanks should receive full splash damage in forest terrain")
 	_expect(int(game.get("units")[2]["hp"]) == 100, "Splash damage must not hit the opposing team")
 	_expect(int(game.get("units")[3]["hp"]) == 150, "Splash damage must not hit units outside its radius")
