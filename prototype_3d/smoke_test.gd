@@ -37,6 +37,24 @@ func _initialize() -> void:
 		return
 	battlefield.call("_apply_mobile_quality_profile", OS.has_feature("mobile"))
 
+	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
+	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
+	if rock_scatter == null or scrub_scatter == null:
+		push_error("Low-poly terrain detail scatter nodes are missing")
+		quit(1)
+		return
+	if rock_scatter.multimesh == null or scrub_scatter.multimesh == null or rock_scatter.multimesh.instance_count != 14 or scrub_scatter.multimesh.instance_count != 14:
+		push_error("Terrain detail scatter instance counts are incorrect")
+		quit(1)
+		return
+	for scatter_node in [rock_scatter, scrub_scatter]:
+		for instance_index in range(scatter_node.multimesh.instance_count):
+			var instance_transform: Transform3D = scatter_node.multimesh.get_instance_transform(instance_index)
+			if instance_transform.origin.y < 0.0 or absf(instance_transform.origin.x) > 19.0 or absf(instance_transform.origin.z) > 19.0:
+				push_error("Terrain scatter instance is outside the safe ground bounds")
+				quit(1)
+				return
+
 	var building_kinds := ["command", "barracks", "factory", "airfield", "power_plant", "turret", "anti_air", "missile_silo", "missile_defense", "shipyard"]
 	for building_index in range(building_kinds.size()):
 		var kind: String = building_kinds[building_index]
