@@ -43,6 +43,9 @@ jobs:
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
 
+      - name: Run long-match endurance simulation
+        run: timeout 180s godot --headless --path . --script tests/long_match_endurance_test.gd
+
   android-candidate:
     name: Export playable Android debug APK
     needs: regression
