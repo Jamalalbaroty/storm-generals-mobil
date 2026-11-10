@@ -242,5 +242,24 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# The terminal overlay must remain clickable while the 3D battlefield is active.
+	game.game_started = true
+	game.battle_result = "هُزمت! سقطت قاعدتك"
+	game.production_orders = [{"kind": "infantry", "remaining": 1.0, "duration": 2.0}]
+	game._set_3d_view_enabled(true)
+	var restart_position: Vector2 = game._restart_rect(game.get_viewport_rect().size).get_center()
+	var restart_press := InputEventScreenTouch.new()
+	restart_press.pressed = true
+	restart_press.position = restart_position
+	game._input(restart_press)
+	var restart_release := InputEventScreenTouch.new()
+	restart_release.pressed = false
+	restart_release.position = restart_position
+	game._input(restart_release)
+	if game.game_started or game.battle_result != "" or not game.production_orders.is_empty():
+		push_error("3D view must route the result-screen restart tap into the 2D match reset")
+		quit(1)
+		return
+
 	print("PASS: faction costs, enemy strategy and supply objectives, counter-production caps, and production queue recovery")
 	quit(0)
