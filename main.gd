@@ -1955,7 +1955,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(metric_rect, Color("#425b62"), false, 1.0)
 	var metric_values := [
 		{"label": "الموارد", "value": str(credits), "color": Color("#f2d47b")},
-		{"label": "الإمداد", "value": str(supplies), "color": Color("#9fe6d2")},
+		{"label": "الإمداد", "value": "%d / %d" % [supplies, _player_supply_capacity()], "color": Color("#9fe6d2")},
 		{"label": "الطاقة", "value": "%d / %d" % [power_demand, power_capacity], "color": Color("#ff9c82") if power_demand > power_capacity else Color("#a8e6b0")},
 		{"label": "التهديد", "value": "خطر %d" % nearby_threats if nearby_threats > 0 else "آمن %d" % hostile_count, "color": Color("#ff766b") if nearby_threats > 0 else Color("#a8e6b0")}
 	]
@@ -2561,7 +2561,7 @@ func _update_supply_control(delta: float) -> void:
 				credits = mini(MAX_CREDITS, credits + gold_rate * int(supply_points[i].payout))
 				supply_points[i].payout = fmod(supply_points[i].payout, 1.0)
 			if supply_points[i].supply_payout >= supply_interval:
-				supplies = mini(99, supplies + int(supply_points[i].supply_payout / supply_interval))
+				supplies = mini(_player_supply_capacity(), supplies + int(supply_points[i].supply_payout / supply_interval))
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
 		elif supply_points[i].owner == "enemy":
 			supply_points[i].payout += delta
@@ -2932,6 +2932,15 @@ func _unit_cost(kind: String, army: String) -> int:
 func _unit_supply_cost(kind: String) -> int:
 	var costs: Dictionary = ECONOMY_BALANCE["unit_supplies"]
 	return int(costs.get(kind, 0))
+
+
+func _player_supply_capacity() -> int:
+	# Captured logistics nodes expand the reserve without adding permanent HUD clutter.
+	var controlled_nodes := 0
+	for point in supply_points:
+		if String(point.get("owner", "")) == "player":
+			controlled_nodes += 1
+	return 99 + controlled_nodes * 20
 
 
 func _update_building_construction(delta: float) -> void:
@@ -4314,7 +4323,7 @@ func _update_production_queues(delta: float) -> void:
 			var cancelled_kind := String(order.get("kind", ""))
 			var refund := int(floor(float(_unit_cost(cancelled_kind, faction)) * 0.75))
 			credits = mini(MAX_CREDITS, credits + refund)
-			supplies = mini(99, supplies + _unit_supply_cost(cancelled_kind))
+			supplies = mini(_player_supply_capacity(), supplies + _unit_supply_cost(cancelled_kind))
 			production_orders.remove_at(i)
 			notice = "دُمّر مبنى الإنتاج — أُلغي الطلب وأُعيد 75٪ من الموارد"
 			notice_time = 2.5
