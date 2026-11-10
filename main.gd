@@ -2,6 +2,13 @@ extends Node2D
 
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
+const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "البحرية"]
+const COMMAND_ACTIONS := [
+	[0, 1, 2, 3, 4, 5],
+	[6, 7, 8, 9, 21, 22],
+	[10, 11, 12, 13, 14, 15],
+	[16, 17, 18, 19, 20, 12]
+]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
@@ -96,6 +103,7 @@ var ground_alert_active := false
 var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
+var command_tab := 0
 
 func _ready() -> void:
 	randomize()
@@ -1762,11 +1770,18 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(bar_rect, Color("#26383d"), true)
 		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
-	for i in labels.size():
-		var r = _button_rect(i, size)
+	for tab_index in range(COMMAND_TAB_LABELS.size()):
+		var tab_rect := _command_tab_rect(tab_index, size)
+		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
+		draw_rect(tab_rect, Color("#f4d77a") if tab_index == command_tab else Color("#58717b"), false, 1.5)
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), COMMAND_TAB_LABELS[tab_index], HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, 15, Color.WHITE)
+	var visible_actions: Array = _command_action_ids()
+	for slot in range(visible_actions.size()):
+		var action_id := int(visible_actions[slot])
+		var r := _button_rect(slot, size)
 		draw_rect(r, Color("#263d50"), true)
 		draw_rect(r, Color("#8fa8b8"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 31), labels[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
 	var pause_button := _pause_rect(size)
 	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
@@ -1776,11 +1791,20 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
 
+func _command_action_ids() -> Array:
+	return COMMAND_ACTIONS[clampi(command_tab, 0, COMMAND_ACTIONS.size() - 1)]
+
+
+func _command_tab_rect(index: int, size: Vector2) -> Rect2:
+	var tab_width := (size.x - 44.0) / float(COMMAND_TAB_LABELS.size())
+	return Rect2(Vector2(8.0 + float(index) * (tab_width + 4.0), size.y - 166.0), Vector2(tab_width, 32.0))
+
+
 func _button_rect(index: int, size: Vector2) -> Rect2:
-	var column = index % 4
-	var row := int(index / 4)
-	var button_width := (size.x - 40.0) / 4.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 358.0 + row * 58.0), Vector2(button_width, 52.0))
+	var column := index % 3
+	var row := int(index / 3)
+	var button_width := (size.x - 40.0) / 3.0
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	draw_rect(Rect2(size.x * 0.22, size.y * 0.19, size.x * 0.56, size.y * 0.62), Color(0.04, 0.07, 0.08, 0.94))
@@ -1918,8 +1942,15 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				queue_redraw()
 				return
 		return
-	for i in 23:
-		if _button_rect(i, size).has_point(pos):
+	for tab_index in range(COMMAND_TAB_LABELS.size()):
+		if _command_tab_rect(tab_index, size).has_point(pos):
+			command_tab = tab_index
+			queue_redraw()
+			return
+	var command_actions: Array = _command_action_ids()
+	for button_slot in range(command_actions.size()):
+		var i := int(command_actions[button_slot])
+		if _button_rect(button_slot, size).has_point(pos):
 			if i == 0:
 				_enqueue_unit("infantry")
 			elif i == 1:
@@ -3257,22 +3288,22 @@ func _power_priority(kind: String) -> int:
 func _player_power_capacity() -> int:
 	var capacity := BASE_POWER_OUTPUT
 	for building in buildings:
-		if building.kind == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
+		if int(building.get("hp", 1)) > 0 and String(building.get("kind", "")) == "power_plant" and float(building.get("build_progress", 1.0)) >= 1.0:
 			capacity += POWER_PLANT_OUTPUT
 	return capacity
 
 func _player_power_demand() -> int:
 	var demand := 0
 	for building in buildings:
-		if float(building.get("build_progress", 1.0)) >= 1.0:
-			demand += _power_demand(String(building.kind))
+		if int(building.get("hp", 1)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
+			demand += _power_demand(String(building.get("kind", "")))
 	return demand
 
 func _is_player_building_powered(building_index: int) -> bool:
 	if building_index < 0 or building_index >= buildings.size():
 		return false
 	var target: Dictionary = buildings[building_index]
-	if float(target.get("build_progress", 1.0)) < 1.0:
+	if int(target.get("hp", 1)) <= 0 or float(target.get("build_progress", 1.0)) < 1.0:
 		return false
 	var target_demand := _power_demand(String(target.kind))
 	if target_demand <= 0:
@@ -3283,7 +3314,7 @@ func _is_player_building_powered(building_index: int) -> bool:
 		if i == building_index:
 			continue
 		var other: Dictionary = buildings[i]
-		if float(other.get("build_progress", 1.0)) < 1.0:
+		if int(other.get("hp", 1)) <= 0 or float(other.get("build_progress", 1.0)) < 1.0:
 			continue
 		var other_priority := _power_priority(String(other.kind))
 		if other_priority < target_priority or (other_priority == target_priority and i < building_index):
