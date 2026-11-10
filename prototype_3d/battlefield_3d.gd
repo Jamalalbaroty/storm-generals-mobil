@@ -2476,6 +2476,7 @@ func _unit_separation_vector(unit: Node3D) -> Vector3:
 
 func _update_showcase_orders(delta: float) -> void:
 	selected_live_units = selected_live_units.filter(func(unit): return is_instance_valid(unit) and _is_live_player_unit(unit))
+	_update_selection_count_label()
 	if not is_instance_valid(selected_tank):
 		selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
 	if not is_instance_valid(selected_tank):

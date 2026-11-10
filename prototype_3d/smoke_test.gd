@@ -293,6 +293,18 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+	# The HUD must immediately reflect units queued for deletion, not retain a stale count.
+	group_infantry.queue_free()
+	battlefield.call("_update_showcase_orders", 0.0)
+	if selection_count_label.text != "UNITS: 1" or not selection_count_label.visible:
+		push_error("Selection HUD count did not update after a selected unit was removed")
+		quit(1)
+		return
+	if battlefield.get("selected_live_units").size() != 1:
+		push_error("Deleted group member remained in the live selection")
+		quit(1)
+		return
+
 	var rock_scatter := battlefield.get_node_or_null("TerrainRockScatter") as MultiMeshInstance3D
 	var scrub_scatter := battlefield.get_node_or_null("TerrainScrubScatter") as MultiMeshInstance3D
 	if rock_scatter == null or scrub_scatter == null:
