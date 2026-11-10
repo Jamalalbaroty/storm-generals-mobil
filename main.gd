@@ -3421,6 +3421,10 @@ func _remove_destroyed_buildings(target_team: String) -> void:
 	var removed_indices: Array[int] = []
 	for building_index in range(targets.size() - 1, -1, -1):
 		if int(targets[building_index].get("hp", 400)) <= 0:
+			var destroyed_building: Dictionary = targets[building_index]
+			if is_instance_valid(battlefield_3d) and battlefield_3d.has_method("spawn_game_building_destruction_effect"):
+				var effect_map_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+				battlefield_3d.call("spawn_game_building_destruction_effect", destroyed_building.get("pos", Vector2.ZERO), effect_map_rect, String(destroyed_building.get("kind", "")))
 			removed_indices.append(building_index)
 			targets.remove_at(building_index)
 	if target_team != "enemy" or removed_indices.is_empty():
