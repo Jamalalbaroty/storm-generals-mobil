@@ -122,13 +122,17 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_handle_pointer", barracks_site, false)
 	_expect(game.get("buildings").size() == 1 and String(game.get("buildings")[0].get("kind", "")) == "barracks", "Build command should place a barracks at a valid tapped site")
 	if not game.get("buildings").is_empty():
+		# A nearby second structure must not progress unless the builder is assigned to it.
+		game.get("buildings").append({"pos": barracks_site + Vector2(20.0, 0.0), "kind": "turret", "hp": 400, "build_progress": 0.0, "build_duration": 8.0})
 		# Construction must pause unless a living builder remains within 48 units.
 		game.get("units")[0]["pos"] = barracks_site + Vector2(60.0, 0.0)
 		game.call("_update_building_construction", 2.0)
 		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.0), "Construction should not advance while the builder is outside its work radius")
+		_expect(is_equal_approx(float(game.get("buildings")[1].get("build_progress", 0.0)), 0.0), "An unassigned nearby structure must not progress")
 		game.get("units")[0]["pos"] = barracks_site + Vector2(30.0, 0.0)
 		game.call("_update_building_construction", 2.0)
-		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "A nearby living builder should advance construction proportionally")
+		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "A nearby living builder should advance its assigned construction proportionally")
+		_expect(is_equal_approx(float(game.get("buildings")[1].get("build_progress", 0.0)), 0.0), "A builder must not advance a second structure it was not assigned to")
 		game.get("units")[0]["pos"] = barracks_site + Vector2(80.0, 0.0)
 		game.call("_update_building_construction", 2.0)
 		_expect(is_equal_approx(float(game.get("buildings")[0].get("build_progress", 0.0)), 0.25), "Construction should pause when the builder leaves the work radius")
@@ -140,6 +144,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.call("_update_building_construction", 6.0)
 		_expect(float(game.get("buildings")[0].get("build_progress", 0.0)) >= 1.0, "A living builder returning to the site should finish the remaining construction")
 		_expect(not game.get("units")[0].has("build_target"), "The builder should be released from its completed construction assignment")
+		_expect(is_equal_approx(float(game.get("buildings")[1].get("build_progress", 0.0)), 0.0), "The unassigned structure should remain untouched after the assigned building completes")
+		game.get("buildings").remove_at(1)
 		var infantry_credits_before: int = int(game.get("credits"))
 		var infantry_supplies_before: int = int(game.get("supplies"))
 		game.call("_enqueue_unit", "infantry")
