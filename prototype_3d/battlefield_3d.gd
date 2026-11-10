@@ -5,6 +5,8 @@ signal gameplay_order_issued(source_key: String, order_type: String, world_posit
 ## until real faction assets, gameplay conversion, and Android performance are verified.
 
 const ARENA_SIZE := 42.0
+const NAVAL_PRESENTATION_ENABLED := false
+const NAVAL_GAMEPLAY_KINDS := ["destroyer", "carrier", "submarine", "landing_craft"]
 const MIN_CAMERA_HEIGHT := 14.0
 const MAX_CAMERA_HEIGHT := 48.0
 
@@ -454,6 +456,8 @@ func spawn_game_building(kind: String, at: Vector3, faction_id: String, tint: Co
 	return _add_base_building(at, kind, tint, faction_id, build_progress, true)
 
 func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color, health: float = 100.0) -> Node3D:
+	if not NAVAL_PRESENTATION_ENABLED and kind in NAVAL_GAMEPLAY_KINDS:
+		return null
 	var unit: Node3D
 	match kind:
 		"fighter":
@@ -678,6 +682,8 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var source_pos: Vector2 = record.pos
 		var team := String(record.get("team", "player"))
 		var kind := String(record.get("kind", "tank"))
+		if not NAVAL_PRESENTATION_ENABLED and kind in NAVAL_GAMEPLAY_KINDS:
+			continue
 		var faction_id := _normalize_faction_id(String(record.get("faction", "american")))
 		if not record.has("3d_sync_id"):
 			record["3d_sync_id"] = next_game_unit_sync_id
