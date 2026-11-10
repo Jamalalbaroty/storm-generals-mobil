@@ -74,7 +74,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		var starting_units: Array = game.get("units")
 		_expect(not starting_units.is_empty() and String(starting_units[0].get("kind", "")) == "builder", "Each faction should receive its starting builder")
 		if not starting_units.is_empty():
-			_expect(String(starting_units[0].get("faction", "")) == String(game.get("FACTIONS")[faction_index]), "Starting builder should inherit the selected faction")
+			_expect(String(starting_units[0].get("faction", "")) == expected_factions[faction_index], "Starting builder should inherit the selected faction")
 	game.set("game_started", false)
 	game.get("units").clear()
 
