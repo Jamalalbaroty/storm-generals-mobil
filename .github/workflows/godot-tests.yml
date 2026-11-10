@@ -43,10 +43,13 @@ jobs:
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
 
+      - name: Run long-match endurance simulation
+        run: timeout 180s godot --headless --path . --script tests/long_match_endurance_test.gd
+
   android-candidate:
     name: Export playable Android debug APK
     needs: regression
-    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup'))
+    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.head.ref == 'fix/3d-selection-stale-unit-cleanup' || github.event.pull_request.head.ref == 'test/long-match-endurance-loop')))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container:
