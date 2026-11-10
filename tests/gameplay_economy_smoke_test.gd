@@ -401,10 +401,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").clear()
 	game.get("units").append({"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
-	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0})
-	print("DEBUG_ARTILLERY pre_focus=", game.call("_select_enemy_ground_assault_target"), " nearest=", game.call("_nearest_player_ground_unit", Vector2(500.0, 300.0)), " in_band=", game.call("_enemy_artillery_in_firing_band", 200.0))
+	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(510.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
-	print("DEBUG_ARTILLERY post_units=", game.get("units"))
 	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
 	_expect(int(game.get("units")[1]["hp"]) == 126, "Enemy artillery splash should damage nearby player armor")
 
