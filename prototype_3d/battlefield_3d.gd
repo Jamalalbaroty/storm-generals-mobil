@@ -1560,6 +1560,78 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			cooling_tower.position = Vector3(side * 1.8, 4.2, 0.5)
 			cooling_tower.material_override = _make_armour_material(Color(0.55, 0.54, 0.45))
 			building.add_child(cooling_tower)
+
+		# Generator equipment and faction-specific power-source identity.
+		var generator_core := MeshInstance3D.new()
+		generator_core.name = "PowerGeneratorCore"
+		var core_mesh := CylinderMesh.new()
+		core_mesh.top_radius = 0.72
+		core_mesh.bottom_radius = 0.86
+		core_mesh.height = 1.65
+		generator_core.mesh = core_mesh
+		generator_core.position = Vector3(0.0, 3.65, -1.75)
+		var core_material := StandardMaterial3D.new()
+		core_material.albedo_color = faction_accent.darkened(0.22)
+		core_material.metallic = 0.62
+		core_material.roughness = 0.32
+		core_material.emission_enabled = true
+		core_material.emission = faction_accent
+		core_material.emission_energy_multiplier = 0.42
+		generator_core.material_override = core_material
+		building.add_child(generator_core)
+
+		for pipe_side in [-1.0, 1.0]:
+			var power_pipe := MeshInstance3D.new()
+			var pipe_mesh := CylinderMesh.new()
+			pipe_mesh.top_radius = 0.13
+			pipe_mesh.bottom_radius = 0.13
+			pipe_mesh.height = 2.6
+			power_pipe.mesh = pipe_mesh
+			power_pipe.rotation.z = PI * 0.5
+			power_pipe.position = Vector3(pipe_side * 2.05, 2.75, -1.45)
+			power_pipe.material_override = _make_armour_material(Color(0.22, 0.25, 0.24))
+			building.add_child(power_pipe)
+
+		if faction_id == "american":
+			for vent_side in [-1.0, 1.0]:
+				var turbine_vent := MeshInstance3D.new()
+				var vent_mesh := BoxMesh.new()
+				vent_mesh.size = Vector3(0.62, 1.35, 0.72)
+				turbine_vent.mesh = vent_mesh
+				turbine_vent.position = Vector3(vent_side * 2.55, 3.35, 1.65)
+				turbine_vent.material_override = _make_armour_material(Color(0.32, 0.37, 0.38))
+				building.add_child(turbine_vent)
+		elif faction_id == "chinese":
+			var reactor_collar := MeshInstance3D.new()
+			var collar_mesh := TorusMesh.new()
+			collar_mesh.inner_radius = 0.72
+			collar_mesh.outer_radius = 0.88
+			reactor_collar.mesh = collar_mesh
+			reactor_collar.position = Vector3(0.0, 4.48, -1.75)
+			reactor_collar.material_override = _make_armour_material(faction_accent)
+			building.add_child(reactor_collar)
+		elif faction_id == "arab":
+			for panel_side in [-1.0, 1.0]:
+				var solar_panel := MeshInstance3D.new()
+				var solar_mesh := BoxMesh.new()
+				solar_mesh.size = Vector3(1.65, 0.10, 1.12)
+				solar_panel.mesh = solar_mesh
+				solar_panel.position = Vector3(panel_side * 2.45, 3.28, 1.75)
+				solar_panel.rotation.x = -0.12
+				var solar_material := StandardMaterial3D.new()
+				solar_material.albedo_color = Color(0.08, 0.17, 0.25)
+				solar_material.metallic = 0.52
+				solar_material.roughness = 0.24
+				solar_panel.material_override = solar_material
+				building.add_child(solar_panel)
+		elif faction_id == "watan":
+			var reactor_shield := MeshInstance3D.new()
+			var shield_mesh := BoxMesh.new()
+			shield_mesh.size = Vector3(2.35, 2.05, 0.22)
+			reactor_shield.mesh = shield_mesh
+			reactor_shield.position = Vector3(0.0, 3.75, -2.78)
+			reactor_shield.material_override = _make_armour_material(tint.lightened(0.12))
+			building.add_child(reactor_shield)
 	elif kind == "shipyard":
 		var dock := MeshInstance3D.new()
 		var dock_mesh := BoxMesh.new()
