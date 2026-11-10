@@ -243,6 +243,42 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(stress_artillery_count <= 3, "Repeated area-denial turns must respect the artillery counter-unit cap")
 	_expect(stress_infantry_count <= 8, "Repeated enemy production must respect the infantry force cap")
 
+	# Run the live match loop long enough for three scheduled enemy AI turns.
+	game.set("faction", "الصيني")
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_credits", 5000)
+	game.set("enemy_supplies", 100)
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_base_hp", 1000)
+	game.set("player_base_hp", 1000)
+	game.get("enemy_buildings").clear()
+	for ai_structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]:
+		game.get("enemy_buildings").append({
+			"kind": ai_structure_kind,
+			"pos": game.get("enemy_base") + Vector2(-100.0, float(game.get("enemy_buildings").size()) * 65.0 - 220.0),
+			"hp": 500, "build_progress": 1.0
+		})
+	game.get("units").clear()
+	for live_threat_index in range(3):
+		game.get("units").append({
+			"kind": "tank", "team": "player", "faction": "الصيني",
+			"hp": 150, "pos": Vector2(70.0 + float(live_threat_index) * 35.0, 650.0),
+			"attack_cd": 10.0
+		})
+	for live_ai_frame in range(380):
+		game.call("_process", 0.1)
+	_expect(String(game.get("enemy_strategy")) == "armor_breaker", "Live enemy AI turns should retain the armor-breaker doctrine against a sustained tank threat")
+	var live_counter_helicopters := 0
+	for live_ai_unit in game.get("units"):
+		if String(live_ai_unit.get("team", "")) == "enemy" and String(live_ai_unit.get("kind", "")) == "helicopter":
+			live_counter_helicopters += 1
+	_expect(live_counter_helicopters >= 1, "Live enemy AI should field helicopter counters during a sustained tank-threat match")
+	_expect(int(game.get("enemy_credits")) >= 0 and int(game.get("enemy_supplies")) >= 0, "Live enemy AI turns must preserve non-negative resource balances")
+
 	# Guard the four faction profiles and the premium cost of the strongest "Watan" units.
 	var faction_cases := [
 		["الصيني", 30, 1.35, 185, 14.0, 40],
