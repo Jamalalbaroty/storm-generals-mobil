@@ -307,6 +307,65 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[0]["hp"]) == 86, "Powered player anti-air should deal its real 34-point hit to an enemy fighter")
 	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.65), "Player anti-air should use its 0.65-second firing cycle")
 
+	# Exercise real fighter-vs-fighter dogfights in both directions.
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "fighter", "team": "player", "faction": "الأمريكي",
+		"hp": 120, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "fighter", "team": "enemy", "faction": "الصيني",
+		"hp": 120, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 90, "Enemy fighter should return fire for 30 damage in an air-to-air engagement")
+	_expect(int(game.get("units")[1]["hp"]) == 90, "Player fighter should deal its real 30-damage air-to-air hit")
+	_expect(is_equal_approx(float(game.get("units")[0]["attack_cd"]), 1.35), "Player fighter should use its 1.35-second firing cycle")
+
+	# Verify faction-specific helicopter damage and cooldown through live combat.
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "tank", "team": "enemy", "hp": 150,
+		"pos": Vector2(420.0, 300.0), "attack_cd": 10.0
+	})
+	game.get("units").append({
+		"kind": "helicopter", "team": "player", "faction": "الصيني",
+		"hp": 160, "pos": Vector2(400.0, 300.0), "attack_cd": 0.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 120, "Chinese helicopter should deal its real 30-point hit to enemy armor")
+	_expect(is_equal_approx(float(game.get("units")[1]["attack_cd"]), 1.35), "Chinese helicopter should use its 1.35-second firing cycle")
+
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "helicopter", "team": "enemy", "faction": "الأمريكي",
+		"hp": 160, "pos": Vector2(400.0, 300.0), "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "tank", "team": "player", "hp": 150,
+		"pos": Vector2(420.0, 300.0), "attack_cd": 10.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[1]["hp"]) == 118, "American helicopter should deal its real 32-point hit to player armor")
+	_expect(is_equal_approx(float(game.get("units")[0]["attack_cd"]), 1.25), "American helicopter should use its 1.25-second firing cycle")
+
+	# Anti-air must also counter helicopters, not only fixed-wing fighters.
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("enemy_buildings").append({
+		"kind": "anti_air", "pos": Vector2(500.0, 300.0),
+		"hp": 500, "build_progress": 1.0, "attack_cd": 0.0
+	})
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "helicopter", "team": "player", "faction": "الصيني",
+		"hp": 160, "pos": Vector2(520.0, 300.0), "attack_cd": 10.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[0]["hp"]) == 126, "Enemy anti-air should deal its 34-point counter hit to a player helicopter")
+
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
 	game.set("credits", 2000)
