@@ -476,9 +476,9 @@ func _process(delta: float) -> void:
 								unit.pos += (guard_anchor - unit.pos).normalized() * delta * 22.0
 							continue
 					var artillery_fire_target: Vector2 = base_pos if artillery_target < 0 else units[artillery_target].pos
-					var artillery_destination: Vector2 = artillery_fire_target
-					if artillery_target >= 0 and not artillery_guard:
-						artillery_destination = _enemy_artillery_support_position(artillery_fire_target, enemy_base, _enemy_artillery_formation_rank(i))
+					var artillery_destination: Vector2 = _enemy_artillery_support_position(artillery_fire_target, enemy_base, _enemy_artillery_formation_rank(i))
+					if artillery_guard:
+						artillery_destination = unit.get("defense_anchor", enemy_base)
 					var artillery_distance: float = unit.pos.distance_to(artillery_fire_target)
 					if _enemy_artillery_in_firing_band(artillery_distance):
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
