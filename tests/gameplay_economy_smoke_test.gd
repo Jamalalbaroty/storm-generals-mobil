@@ -1042,6 +1042,32 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("player_base_hp")) == base_health_before_intercept, "An intercepted missile must not damage the player base")
 	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.75), "Missile defense should observe its 0.75-second intercept cooldown")
 
+	# Full match lifecycle: resolve a player victory through live helicopter combat.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("supply_points").clear()
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("income_timer", 0.0)
+	game.set("enemy_base_hp", 1)
+	game.set("player_base_hp", 500)
+	game.get("units").append({"pos": game.get("enemy_base") + Vector2(120.0, 0.0), "team": "player", "kind": "helicopter", "faction": game.get("faction"), "hp": 180, "attack_cd": 0.0})
+	game.call("_process", 0.1)
+	_expect(String(game.get("battle_result")).contains("انتصرت"), "A live player helicopter strike that destroys the enemy base should resolve a victory")
+
+	# Reset the same match state and verify the enemy can win through artillery fire.
+	game.set("battle_result", "")
+	game.set("enemy_base_hp", 500)
+	game.set("player_base_hp", 1)
+	game.get("units").clear()
+	game.get("units").append({"pos": game.get("base_pos") + Vector2(250.0, 0.0), "team": "enemy", "kind": "artillery", "hp": 100, "attack_cd": 0.0})
+	game.call("_process", 0.1)
+	_expect(String(game.get("battle_result")).contains("هُزمت"), "Enemy artillery destroying the player base should resolve a defeat")
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
