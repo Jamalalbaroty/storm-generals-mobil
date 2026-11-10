@@ -143,6 +143,9 @@ func _ready() -> void:
 const BATTLEFIELD_3D_SCENE: PackedScene = preload("res://prototype_3d/battlefield_3d.tscn")
 var battlefield_3d: Node3D
 var battlefield_sync_timer := 0.0
+var air_formation_last_center := Vector2(INF, INF)
+var air_formation_order_index := 0
+var air_formation_order_clock := 0.0
 var use_3d_view := false
 const BATTLEFIELD_SYNC_INTERVAL := 0.12
 
@@ -191,7 +194,25 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var nx := clampf((world_position.x + world_limit) / (world_limit * 2.0), 0.0, 1.0)
 		var ny := clampf((world_position.z + world_limit) / (world_limit * 2.0), 0.0, 1.0)
 		_cancel_airfield_recovery(source_unit)
-		source_unit["target"] = Vector2(nx * map_size.x, ny * map_size.y)
+		var move_destination := Vector2(nx * map_size.x, ny * map_size.y)
+		if String(source_unit.get("kind", "")) in ["fighter", "helicopter"]:
+			if air_formation_order_clock <= 0.0 or air_formation_last_center.distance_to(move_destination) > 8.0:
+				air_formation_order_index = 0
+				air_formation_last_center = move_destination
+			var formation_slot := air_formation_order_index
+			air_formation_order_index += 1
+			air_formation_order_clock = 0.35
+			var slot_column := 0
+			var slot_row := 0
+			if formation_slot > 0:
+				slot_row = int(ceil(float(formation_slot) / 2.0))
+				slot_column = -1 if formation_slot % 2 == 1 else 1
+			move_destination += Vector2(float(slot_column) * 28.0 * float(slot_row), float(slot_row) * 34.0)
+			move_destination.x = clampf(move_destination.x, 24.0, map_size.x - 24.0)
+			move_destination.y = clampf(move_destination.y, 24.0, map_size.y - 24.0)
+			source_unit["air_formation_slot"] = formation_slot
+			source_unit["air_formation_center"] = air_formation_last_center
+		source_unit["target"] = move_destination
 		source_unit.erase("attack_target")
 		source_unit.erase("attack_focus_pos")
 		source_unit.erase("attack_base")
@@ -338,6 +359,7 @@ func _play_battle_sound(sound_name: String) -> void:
 			return
 
 func _process(delta: float) -> void:
+	air_formation_order_clock = maxf(0.0, air_formation_order_clock - delta)
 	if use_3d_view and is_instance_valid(battlefield_3d):
 		battlefield_sync_timer += delta
 		if battlefield_sync_timer >= BATTLEFIELD_SYNC_INTERVAL:
