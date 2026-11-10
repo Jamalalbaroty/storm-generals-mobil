@@ -1129,6 +1129,12 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Start this identity-family check from a clean bridge so its stable IDs are deterministic.
+	var empty_game_units: Array[Dictionary] = []
+	game.set("units", empty_game_units)
+	game.call("_sync_3d_gameplay_bridge")
+	bridge.set("next_game_unit_sync_id", 1)
+
 	# Every production unit family must receive a stable live 3D proxy, not only tanks.
 	var all_unit_families: Array[Dictionary] = [
 		{"pos": Vector2(180.0, 180.0), "team": "player", "kind": "infantry", "faction": "الجيش العربي", "hp": 55.0, "max_hp": 60.0},
