@@ -61,6 +61,52 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_update_enemy_building_construction", 3.5)
 	_expect(game.call("_enemy_has_building", "barracks"), "Enemy barracks should become available after its construction timer completes")
 
+	# Verify that enemy reserves protect the base and the highest-value completed production asset.
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	var protected_factory_pos: Vector2 = game.get("enemy_base") + Vector2(-300.0, -100.0)
+	var secondary_barracks_pos: Vector2 = game.get("enemy_base") + Vector2(-100.0, 20.0)
+	game.get("enemy_buildings").append({"kind": "factory", "pos": protected_factory_pos, "hp": 500, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "barracks", "pos": secondary_barracks_pos, "hp": 400, "build_progress": 1.0})
+	game.get("units").append({"pos": game.get("enemy_base") + Vector2(-12.0, 0.0), "team": "enemy", "kind": "tank", "hp": 150})
+	game.get("units").append({"pos": protected_factory_pos + Vector2(12.0, 0.0), "team": "enemy", "kind": "tank", "hp": 150})
+	for reserve_index in range(3):
+		game.get("units").append({"pos": game.get("enemy_base") + Vector2(80.0 + float(reserve_index) * 35.0, 45.0), "team": "enemy", "kind": "infantry", "hp": 60})
+	game.call("_update_enemy_defense_assignments")
+	var guard_count := 0
+	var base_guard_assigned := false
+	var factory_guard_assigned := false
+	for enemy_unit in game.get("units"):
+		if not bool(enemy_unit.get("defense_guard", false)):
+			continue
+		guard_count += 1
+		var guard_anchor: Vector2 = enemy_unit.get("defense_anchor", Vector2.ZERO)
+		if guard_anchor.distance_to(game.get("enemy_base")) < 90.0:
+			base_guard_assigned = true
+		if guard_anchor.distance_to(protected_factory_pos) < 90.0:
+			factory_guard_assigned = true
+	_expect(guard_count == 2, "Enemy AI should assign a compact reserve when five ground units are available")
+	_expect(base_guard_assigned, "Enemy AI should keep one ground guard near its main base")
+	_expect(factory_guard_assigned, "Enemy AI should assign another guard to its highest-priority completed factory")
+
+	# Critically damaged enemy armor retreats to a completed asset, heals, and then rejoins.
+	game.get("enemy_buildings").clear()
+	var retreat_factory_pos := Vector2(220.0, 100.0)
+	game.get("enemy_buildings").append({"kind": "factory", "pos": retreat_factory_pos, "hp": 500, "build_progress": 1.0})
+	game.get("enemy_buildings").append({"kind": "barracks", "pos": Vector2(102.0, 100.0), "hp": 400, "build_progress": 0.5})
+	var retreat_origin := Vector2(100.0, 100.0)
+	_expect(game.call("_enemy_retreat_destination", retreat_origin) == retreat_factory_pos, "Retreat routing should ignore incomplete buildings and choose the nearest completed asset")
+	var wounded_tank: Dictionary = {"kind": "tank", "hp": 20, "pos": retreat_origin}
+	var is_retreating: bool = game.call("_update_enemy_retreat", wounded_tank, 1.0)
+	_expect(is_retreating and bool(wounded_tank.get("retreating", false)), "A critically damaged tank should enter retreat mode")
+	_expect(wounded_tank.pos.distance_to(retreat_origin) > 0.0, "A retreating tank should move toward a safe completed asset")
+	wounded_tank.pos = retreat_factory_pos + Vector2(40.0, 0.0)
+	wounded_tank.hp = 80
+	is_retreating = game.call("_update_enemy_retreat", wounded_tank, 1.0)
+	_expect(is_retreating and int(wounded_tank.hp) == 88, "A retreating tank should recover 8 health per second near its safe asset")
+	is_retreating = game.call("_update_enemy_retreat", wounded_tank, 1.0)
+	_expect(not is_retreating and not wounded_tank.has("retreating") and int(wounded_tank.hp) >= 90, "A recovered tank should leave retreat mode at 60 percent health")
+
 	# Verify that each adaptive strategy can order its intended counter-unit.
 	game.get("enemy_buildings").clear()
 	game.get("enemy_buildings").append({"kind": "airfield", "pos": game.get("enemy_base"), "hp": 450, "build_progress": 1.0})
