@@ -213,6 +213,35 @@ func _initialize() -> void:
 	for role_unit in role_units:
 		role_unit.free()
 
+	# Multiple rows per role must remain in distinct, ordered tactical lanes.
+	var dense_role_units: Array[Node3D] = []
+	var dense_role_types := ["artillery", "infantry", "tank", "helicopter"]
+	var dense_role_positions: Array[Vector3] = []
+	for dense_type in dense_role_types:
+		for dense_index in range(4):
+			var dense_unit := Node3D.new()
+			dense_unit.set_meta("unit_type", dense_type)
+			dense_role_units.append(dense_unit)
+	for dense_unit in dense_role_units:
+		dense_role_positions.append(battlefield.call("_group_formation_offset_for_unit", dense_unit, dense_role_units, Vector3.FORWARD, 4.0))
+	for role_index in range(3):
+		var current_min := INF
+		var current_max := -INF
+		var next_min := INF
+		for unit_index in range(dense_role_units.size()):
+			var depth_value: float = dense_role_positions[unit_index].dot(Vector3.FORWARD)
+			if unit_index / 4 == role_index:
+				current_min = minf(current_min, depth_value)
+				current_max = maxf(current_max, depth_value)
+			elif unit_index / 4 == role_index + 1:
+				next_min = minf(next_min, depth_value)
+		if current_max >= next_min:
+			push_error("Dense mixed formation role lanes overlapped")
+			quit(1)
+			return
+	for dense_unit in dense_role_units:
+		dense_unit.free()
+
 	# Keep the entire formation inside arena bounds without distorting its spacing.
 	var edge_offsets: Array[Vector3] = []
 	for index in range(6):

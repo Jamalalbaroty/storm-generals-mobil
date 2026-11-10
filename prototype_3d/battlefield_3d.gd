@@ -2323,18 +2323,26 @@ func _group_formation_role(unit: Node3D) -> int:
 func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forward: Vector3, spacing: float) -> Vector3:
 	var role := _group_formation_role(unit)
 	var role_index := 0
-	var role_count := 0
+	var role_counts: Array[int] = [0, 0, 0, 0]
 	for candidate in units:
-		if not is_instance_valid(candidate) or _group_formation_role(candidate) != role:
+		if not is_instance_valid(candidate):
 			continue
+		var candidate_role := _group_formation_role(candidate)
 		if candidate == unit:
-			role_index = role_count
-		role_count += 1
-	var count := maxi(1, role_count)
-	var columns := mini(3, count)
-	var rows := int(ceil(float(count) / float(columns)))
+			role_index = role_counts[candidate_role]
+		role_counts[candidate_role] += 1
+	role_counts[role] = maxi(1, role_counts[role])
+	var preceding_rows := 0
+	var total_rows := 0
+	for role_index_value in range(role_counts.size()):
+		var role_rows := int(ceil(float(role_counts[role_index_value]) / 3.0)) if role_counts[role_index_value] > 0 else 0
+		total_rows += role_rows
+		if role_index_value < role:
+			preceding_rows += role_rows
+	var columns := mini(3, role_counts[role])
 	var row := int(role_index / columns)
 	var column := role_index % columns
+	var lane_row := preceding_rows + row
 	var direction := Vector3(forward.x, 0.0, forward.z)
 	if direction.length_squared() < 0.0001:
 		direction = Vector3.FORWARD
@@ -2342,7 +2350,7 @@ func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forwar
 		direction = direction.normalized()
 	var right := Vector3(direction.z, 0.0, -direction.x)
 	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
-	var depth := (float(role - 1) + float(row) - float(rows - 1) * 0.5) * spacing
+	var depth := (float(lane_row) - (float(total_rows) - 1.0) * 0.5) * spacing
 	return right * lateral + direction * depth
 
 
