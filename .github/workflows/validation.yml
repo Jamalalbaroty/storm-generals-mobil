@@ -1,6 +1,14 @@
 name: Godot Validation
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.gd'
+      - '**.tscn'
+      - '**.tres'
+      - 'project.godot'
+      - '.github/workflows/validation.yml'
   push:
     branches: [main]
     paths:
