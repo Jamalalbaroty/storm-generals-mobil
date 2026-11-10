@@ -74,6 +74,7 @@ var buildings: Array[Dictionary] = []
 var production_orders: Array[Dictionary] = []
 var build_mode := ""
 var selected_enemy_building := -1
+var selected_player_building := -1
 var notice := "اختر جيشك لبدء المعركة"
 var notice_time := 4.0
 var enemy_timer := 0.0
@@ -1491,13 +1492,15 @@ func _draw() -> void:
 	_draw_base(enemy_base, Color("#b94b42"), "قاعدة العدو")
 	_draw_base_health(base_pos, player_base_hp)
 	_draw_base_health(enemy_base, enemy_base_hp)
-	for building in buildings:
+	for building_index in buildings.size():
+		var building: Dictionary = buildings[building_index]
 		var is_captured = bool(building.get("captured", false))
 		_draw_building(building.pos, building.kind, false, is_captured)
+		if building_index == selected_player_building:
+			draw_arc(building.pos, 41.0, 0.0, TAU, 48, Color("#8be0a0"), 3.0)
 		if float(building.get("build_progress", 1.0)) < 1.0:
 			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
-		if is_captured:
-			_draw_building_health(building.pos, int(building.get("hp", 400)))
+		_draw_building_health(building.pos, int(building.get("hp", 400)), _building_max_hp(building))
 	for building_index in enemy_buildings.size():
 		var building: Dictionary = enemy_buildings[building_index]
 		_draw_building(building.pos, building.kind, true)
@@ -1505,7 +1508,7 @@ func _draw() -> void:
 			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
 		if building_index == selected_enemy_building:
 			draw_arc(building.pos, 39.0, 0.0, TAU, 48, Color("#ffe27a"), 3.0)
-		_draw_building_health(building.pos, int(building.get("hp", 400)))
+		_draw_building_health(building.pos, int(building.get("hp", 400)), _building_max_hp(building))
 		if float(building.get("capture_progress", 0.0)) > 0.0:
 			_draw_capture_progress(building.pos, float(building.capture_progress))
 	for i in units.size():
@@ -1770,6 +1773,9 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(bar_rect, Color("#26383d"), true)
 		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450"]
+	if _has_selected_player_building():
+		labels[10] = "إصلاح المنشأة"
+		labels[11] = "بيع المنشأة"
 	for tab_index in range(COMMAND_TAB_LABELS.size()):
 		var tab_rect := _command_tab_rect(tab_index, size)
 		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
@@ -1891,6 +1897,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			enemy_buildings.clear()
 			selected.clear()
 			selected_enemy_building = -1
+			selected_player_building = -1
 			dragging = false
 			build_mode = ""
 			credits = STARTING_CREDITS
@@ -1940,6 +1947,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				enemy_buildings.clear()
 				selected.clear()
 				selected_enemy_building = -1
+				selected_player_building = -1
 				dragging = false
 				visual_effects.clear()
 				environment_particles.clear()
@@ -1997,12 +2005,19 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			elif i == 9:
 				_enqueue_unit("helicopter")
 			elif i == 10:
-				_capture_selected_building()
+				if _has_selected_player_building():
+					_repair_selected_building()
+				else:
+					_capture_selected_building()
 			elif i == 11:
-				_order_destroy_selected_building()
+				if _has_selected_player_building():
+					_sell_selected_building()
+				else:
+					_order_destroy_selected_building()
 			elif i == 12:
 				selected.clear()
 				selected_enemy_building = -1
+				selected_player_building = -1
 				build_mode = ""
 			elif i == 13:
 				build_mode = "missile_silo"
@@ -2044,18 +2059,34 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		return
 	if drag_start.distance_to(pos) > 24.0:
 		selected_enemy_building = -1
+		selected_player_building = -1
 		selected.clear()
 		var area := Rect2(drag_start, pos - drag_start).abs()
 		for i in units.size():
 			if units[i].team == "player" and area.has_point(units[i].pos):
 				selected.append(i)
 	else:
+		var player_building_found := -1
+		for i in buildings.size():
+			if buildings[i].pos.distance_to(pos) < 40.0:
+				player_building_found = i
+				break
+		if player_building_found >= 0:
+			selected_player_building = player_building_found
+			selected_enemy_building = -1
+			selected.clear()
+			notice = "تم تحديد منشأتك — اختر الإصلاح أو البيع"
+			notice_time = 2.5
+			queue_redraw()
+			return
+		selected_player_building = -1
 		var building_found = -1
 		for i in enemy_buildings.size():
 			if enemy_buildings[i].pos.distance_to(pos) < 38.0:
 				building_found = i
 				break
 		if building_found >= 0:
+			selected_player_building = -1
 			selected_enemy_building = building_found
 			notice = "تم تحديد مبنى العدو — اختر السيطرة أو التدمير"
 			notice_time = 3.0
@@ -2303,6 +2334,77 @@ func _building_cost(kind: String) -> int:
 	var costs: Dictionary = ECONOMY_BALANCE["building_costs"]
 	return int(costs.get(kind, TURRET_COST))
 
+func _building_max_hp(building: Dictionary) -> int:
+	match String(building.get("kind", "")):
+		"missile_silo":
+			return 500
+		"missile_defense":
+			return 450
+		_:
+			return 400
+
+
+func _has_selected_player_building() -> bool:
+	return selected_player_building >= 0 and selected_player_building < buildings.size()
+
+
+func _repair_selected_building() -> void:
+	if not _has_selected_player_building():
+		notice = "حدد إحدى منشآتك أولاً"
+		notice_time = 2.0
+		return
+	var building: Dictionary = buildings[selected_player_building]
+	if float(building.get("build_progress", 1.0)) < 1.0:
+		notice = "لا يمكن إصلاح منشأة قبل اكتمال بنائها"
+		notice_time = 2.0
+		return
+	var max_hp := _building_max_hp(building)
+	var current_hp := clampi(int(building.get("hp", max_hp)), 0, max_hp)
+	if current_hp <= 0:
+		notice = "المنشأة مدمرة ولا يمكن إصلاحها — أعد بناءها"
+		notice_time = 2.5
+		return
+	if current_hp >= max_hp:
+		notice = "المنشأة سليمة ولا تحتاج إلى إصلاح"
+		notice_time = 2.0
+		return
+	var missing_hp := max_hp - current_hp
+	var repair_cost := maxi(1, int(ceil(float(_building_cost(String(building.get("kind", "")))) * float(missing_hp) / float(max_hp) * 0.5)))
+	if credits < repair_cost:
+		notice = "موارد غير كافية لإصلاح المنشأة — التكلفة %d" % repair_cost
+		notice_time = 2.5
+		return
+	credits -= repair_cost
+	building["hp"] = max_hp
+	buildings[selected_player_building] = building
+	notice = "اكتمل إصلاح المنشأة — التكلفة %d" % repair_cost
+	notice_time = 2.5
+	queue_redraw()
+
+
+func _sell_selected_building() -> void:
+	if not _has_selected_player_building():
+		notice = "حدد إحدى منشآتك أولاً"
+		notice_time = 2.0
+		return
+	var building: Dictionary = buildings[selected_player_building]
+	if float(building.get("build_progress", 1.0)) < 1.0:
+		notice = "لا يمكن بيع منشأة قيد الإنشاء"
+		notice_time = 2.0
+		return
+	if int(building.get("hp", 0)) <= 0:
+		notice = "لا يمكن بيع منشأة مدمرة"
+		notice_time = 2.0
+		return
+	var refund := int(floor(float(_building_cost(String(building.get("kind", "")))) * 0.5))
+	buildings.remove_at(selected_player_building)
+	selected_player_building = -1
+	credits = mini(MAX_CREDITS, credits + refund)
+	notice = "تم بيع المنشأة واسترداد %d من الموارد" % refund
+	notice_time = 2.5
+	queue_redraw()
+
+
 
 func _unit_cost(kind: String, army: String) -> int:
 	if kind == "helicopter":
@@ -2430,8 +2532,8 @@ func _order_destroy_selected_building() -> void:
 		notice = "صدرت أوامر تدمير المبنى المحدد!"
 	notice_time = 3.0
 
-func _draw_building_health(p: Vector2, hp: int) -> void:
-	var ratio = clampf(float(hp) / 400.0, 0.0, 1.0)
+func _draw_building_health(p: Vector2, hp: int, max_hp: int = 400) -> void:
+	var ratio = clampf(float(hp) / float(maxi(1, max_hp)), 0.0, 1.0)
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50, 5)), Color("#292929"))
 	draw_rect(Rect2(p + Vector2(-25, -32), Vector2(50.0 * ratio, 5)), Color("#79d47b"))
 
