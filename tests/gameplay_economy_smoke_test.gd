@@ -396,6 +396,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("units")[1]["hp"]) == 122, "Enemy destroyer should retain its 78-damage anti-submarine counter")
 	_expect(int(game.get("units")[0]["hp"]) == 138, "Player submarine should retaliate for its 62-damage specialist strike")
 
+	# Enemy naval base damage must use the ship owner's faction, not the player's faction.
+	game.set("faction", "وطن")
+	game.get("units").clear()
+	game.get("units").append({
+		"kind": "destroyer", "team": "enemy", "faction": "الصيني",
+		"hp": 260, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+	})
+	game.get("units").append({
+		"kind": "carrier", "team": "player", "faction": "وطن",
+		"hp": 520, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+	})
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[1]["hp"]) == 480, "Chinese enemy destroyer should use its own 40-point naval profile, not the player's Watan 50")
+	_expect(int(game.get("units")[0]["hp"]) == 236, "Player carrier should retain its 24-point role-specific naval strike")
+
 	# Sonar detection must respect destroyer range and remain hidden outside it.
 	game.get("units").clear()
 	var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
