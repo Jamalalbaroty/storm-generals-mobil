@@ -913,6 +913,19 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(landed_marines == 3, "Landing craft should deploy its complete three-marine assault squad")
 	_expect(String(game.get("units")[0].get("landing_state", "")) == "returning", "Landing craft should return to its home dock after unloading")
 
+	# Formation slots must be isolated from defensive guards and landing-support attachments.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150})
+	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 60, "defense_guard": true})
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100, "landing_support_active": true})
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150})
+	_expect(int(game.call("_enemy_assault_formation_rank", 3)) == 1, "Defensive guards and landing-support units must not consume assault formation slots")
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100})
+	_expect(int(game.call("_enemy_artillery_formation_rank", 4)) == 0, "Landing-support artillery must not consume offensive fire-support slots")
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100, "defense_guard": true})
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100})
+	_expect(int(game.call("_enemy_artillery_formation_rank", 6)) == 1, "Defensive artillery must not distort offensive artillery spacing")
+
 	# Verify faction-specific missile launch cost, damage, and reload timing.
 	game.set("faction", "وطن")
 	game.set("credits", 2000)
