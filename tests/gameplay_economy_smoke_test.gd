@@ -22,6 +22,30 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
+	# Mobile command deck keeps all 23 gameplay actions reachable in four compact tabs.
+	var expected_command_tabs: Array = [
+		[0, 1, 2, 3, 4, 5],
+		[6, 7, 8, 9, 21, 22],
+		[10, 11, 12, 13, 14, 15],
+		[16, 17, 18, 19, 20, 12]
+	]
+	var covered_actions: Dictionary = {}
+	for tab_index in range(expected_command_tabs.size()):
+		game.set("command_tab", tab_index)
+		var visible_actions: Array = game.call("_command_action_ids")
+		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
+		for action_id in visible_actions:
+			covered_actions[int(action_id)] = true
+	_expect(covered_actions.size() == 23, "The compact command tabs should retain access to all 23 gameplay actions")
+	var mobile_viewport := Vector2(1280.0, 720.0)
+	var first_command_button: Rect2 = game.call("_button_rect", 0, mobile_viewport)
+	var last_command_button: Rect2 = game.call("_button_rect", 5, mobile_viewport)
+	var first_command_tab: Rect2 = game.call("_command_tab_rect", 0, mobile_viewport)
+	_expect(first_command_button.size.y >= 44.0 and first_command_button.size.x >= 300.0, "Command buttons should remain comfortable touch targets")
+	_expect(last_command_button.end.y <= mobile_viewport.y, "The final command row should remain inside the mobile viewport")
+	_expect(first_command_tab.position.y - 197.0 >= 340.0, "The compact command deck should preserve a useful central battlefield area")
+	game.set("command_tab", 0)
+
 	game.set("credits", 0)
 	game.set("supplies", 0)
 	game.call("_initialize_supply_points", Vector2(1280.0, 720.0))
