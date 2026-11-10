@@ -129,6 +129,9 @@ func _setup_3d_gameplay_bridge() -> void:
 		return
 	battlefield_3d.name = "Gameplay3DBridge"
 	battlefield_3d.visible = false
+	# The 3D scene is a full visual prototype; do not spend mobile CPU/GPU time
+	# animating its showcase units, radar, audio, and effects while the 2D view is active.
+	battlefield_3d.process_mode = Node.PROCESS_MODE_DISABLED
 	add_child(battlefield_3d)
 	if battlefield_3d.has_signal("gameplay_order_issued"):
 		battlefield_3d.connect("gameplay_order_issued", Callable(self, "_on_3d_gameplay_order_issued"))
@@ -195,8 +198,10 @@ func _set_3d_view_enabled(enabled: bool) -> void:
 		return
 	use_3d_view = enabled
 	if is_instance_valid(battlefield_3d):
+		battlefield_3d.process_mode = Node.PROCESS_MODE_INHERIT if enabled else Node.PROCESS_MODE_DISABLED
 		battlefield_3d.visible = enabled
 	if enabled:
+		# Rebuild the visual snapshot on activation; hidden 3D proxies do not need per-frame sync.
 		_sync_3d_gameplay_bridge()
 	dragging = false
 	queue_redraw()
@@ -262,10 +267,11 @@ func _play_battle_sound(sound_name: String) -> void:
 			return
 
 func _process(delta: float) -> void:
-	battlefield_sync_timer += delta
-	if battlefield_sync_timer >= BATTLEFIELD_SYNC_INTERVAL:
-		battlefield_sync_timer = fmod(battlefield_sync_timer, BATTLEFIELD_SYNC_INTERVAL)
-		_sync_3d_gameplay_bridge()
+	if use_3d_view and is_instance_valid(battlefield_3d):
+		battlefield_sync_timer += delta
+		if battlefield_sync_timer >= BATTLEFIELD_SYNC_INTERVAL:
+			battlefield_sync_timer = fmod(battlefield_sync_timer, BATTLEFIELD_SYNC_INTERVAL)
+			_sync_3d_gameplay_bridge()
 	if paused:
 		return
 	for sound_name in sound_cooldowns.keys():

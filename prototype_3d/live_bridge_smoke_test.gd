@@ -28,6 +28,10 @@ func _initialize() -> void:
 		push_error("3D gameplay bridge must remain hidden until the 3D view is explicitly enabled")
 		quit(1)
 		return
+	if bridge.process_mode != Node.PROCESS_MODE_DISABLED:
+		push_error("Hidden 3D bridge must disable processing to preserve mobile resources")
+		quit(1)
+		return
 
 	game.set("game_started", true)
 	game.set("faction", "الأمريكي")
@@ -36,9 +40,17 @@ func _initialize() -> void:
 		push_error("Explicit 3D view activation did not reveal the live battlefield")
 		quit(1)
 		return
+	if bridge.process_mode == Node.PROCESS_MODE_DISABLED:
+		push_error("Visible 3D battlefield must resume processing when activated")
+		quit(1)
+		return
 	game.call("_set_3d_view_enabled", false)
 	if bridge.visible or bool(game.get("use_3d_view")):
 		push_error("Returning to 2D view did not hide the 3D battlefield")
+		quit(1)
+		return
+	if bridge.process_mode != Node.PROCESS_MODE_DISABLED:
+		push_error("Returning to 2D view must disable hidden 3D processing again")
 		quit(1)
 		return
 	var test_units: Array[Dictionary] = [
