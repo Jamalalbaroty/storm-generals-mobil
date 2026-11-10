@@ -1830,6 +1830,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	dragging = false
 	if battle_result != "":
 		if _restart_rect(size).has_point(pos):
+			_set_3d_view_enabled(false)
 			game_started = false
 			paused = false
 			battle_result = ""
