@@ -77,26 +77,26 @@ func _run() -> void:
 		return
 
 	# Supply objective selection must favor valuable recaptures and neutral ports, never friendly points.
-	game.supply_points = [
+	game.supply_points.assign([
 		{"pos": Vector2(100.0, 0.0), "owner": "neutral", "kind": "supply"},
 		{"pos": Vector2(120.0, 0.0), "owner": "player", "kind": "supply"},
 		{"pos": Vector2(400.0, 0.0), "owner": "enemy", "kind": "supply"}
-	]
+	])
 	if game._enemy_best_supply_objective(Vector2.ZERO) != 1:
 		push_error("Enemy should prioritize a nearby player-held supply point for recapture")
 		quit(1)
 		return
-	game.supply_points = [
+	game.supply_points.assign([
 		{"pos": Vector2(100.0, 0.0), "owner": "neutral", "kind": "supply"},
 		{"pos": Vector2(120.0, 0.0), "owner": "neutral", "kind": "port"}
-	]
+	])
 	if game._enemy_best_supply_objective(Vector2.ZERO) != 1:
 		push_error("Enemy should account for the higher income value of a neutral port")
 		quit(1)
 		return
-	game.supply_points = [
+	game.supply_points.assign([
 		{"pos": Vector2(100.0, 0.0), "owner": "enemy", "kind": "supply"}
-	]
+	])
 	if game._enemy_best_supply_objective(Vector2.ZERO) != -1:
 		push_error("Enemy should not select a supply point it already owns")
 		quit(1)
