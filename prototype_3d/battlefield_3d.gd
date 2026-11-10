@@ -574,8 +574,17 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		if not active_keys.has(existing_key):
 			var stale_unit := game_unit_nodes[existing_key] as Node3D
 			if is_instance_valid(stale_unit):
+				# Remove destroyed/despawned units from every active selection and target.
+				if selected_live_units.has(stale_unit):
+					selected_live_units.erase(stale_unit)
+				if attack_target == stale_unit:
+					attack_target = null
 				if selected_tank == stale_unit:
-					selected_tank = null
+					selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
+					selection_ring.visible = is_instance_valid(selected_tank)
+				if selected_live_units.is_empty() and not is_instance_valid(selected_tank):
+					has_selected_destination = false
+					order_marker.visible = false
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
 	return synced_count
