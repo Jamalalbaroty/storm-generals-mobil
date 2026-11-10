@@ -177,7 +177,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("enemy_credits", 10000)
 	game.set("enemy_supplies", 100)
 	game.get("enemy_buildings").clear()
-	for structure_kind in ["barracks", "factory", "airfield", "shipyard"]:
+	for structure_kind in ["barracks", "factory", "turret", "airfield", "missile_silo", "missile_defense", "shipyard", "anti_air"]:
 		var doctrine_building_pos: Vector2 = game.get("enemy_base") + Vector2(-140.0, 120.0 + float(game.get("enemy_buildings").size()) * 28.0)
 		if structure_kind == "shipyard":
 			doctrine_building_pos = Vector2(game.get("enemy_base").x - 120.0, 590.0)
