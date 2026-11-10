@@ -743,6 +743,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
+	var selection_roster_changed := false
 	for existing_key in game_unit_nodes.keys():
 		if not active_keys.has(existing_key):
 			var stale_unit_variant = game_unit_nodes[existing_key]
@@ -751,6 +752,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				# Remove destroyed/despawned units from every active selection and target.
 				if selected_live_units.has(stale_unit):
 					selected_live_units.erase(stale_unit)
+					selection_roster_changed = true
 				if attack_target == stale_unit:
 					attack_target = null
 				if selected_tank == stale_unit:
@@ -763,6 +765,9 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				# Only the authoritative death callback creates a wreck.
 				stale_unit.queue_free()
 			game_unit_nodes.erase(existing_key)
+	if selection_roster_changed:
+		# Rebuild only when the selected roster changes; avoid churning rings on every sync tick.
+		_refresh_group_selection_rings()
 	_update_selection_count_label()
 	return synced_count
 
