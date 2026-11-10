@@ -27,6 +27,34 @@ func _run() -> void:
 		push_error("Watan elite aircraft must carry a higher production cost")
 		quit(1)
 		return
+
+	# Enemy counter-production must respect faction pricing, supplies, and doctrine caps.
+	game.units.clear()
+	game.enemy_buildings.clear()
+	game.enemy_buildings.append({"kind": "airfield", "hp": 450, "build_progress": 1.0, "pos": Vector2(900.0, 300.0)})
+	game.enemy_credits = 1000
+	game.enemy_supplies = 10
+	if not game._enemy_counter_production("air_control", 0, 0, 0, 0):
+		push_error("Enemy air-control doctrine failed to produce its available fighter counter")
+		quit(1)
+		return
+	if game.enemy_credits != 480 or game.enemy_supplies != 8:
+		push_error("Enemy counter-production did not charge faction cost and supply correctly")
+		quit(1)
+		return
+	if game.units.size() != 1 or game.units[0].kind != "fighter" or game.units[0].faction != "الصيني":
+		push_error("Enemy counter-production spawned the wrong counter-unit or faction")
+		quit(1)
+		return
+	if game._enemy_counter_production("air_control", 4, 0, 0, 0):
+		push_error("Enemy air-control doctrine exceeded its fighter cap")
+		quit(1)
+		return
+	if game.enemy_credits != 480 or game.enemy_supplies != 8 or game.units.size() != 1:
+		push_error("Enemy production cap check spent resources or spawned an extra unit")
+		quit(1)
+		return
+
 	game.credits = 0
 	game.supplies = 0
 	game.buildings.clear()
@@ -83,5 +111,5 @@ func _run() -> void:
 		quit(1)
 		return
 
-	print("PASS: destroyed producers refund cancelled orders; unfinished producers pause without refund")
+	print("PASS: faction costs, enemy counter-production caps, and production queue recovery")
 	quit(0)
