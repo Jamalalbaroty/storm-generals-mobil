@@ -963,7 +963,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("enemy_buildings").clear()
 	game.set("enemy_base", Vector2(900.0, 400.0))
 	game.get("units").append({"pos": Vector2(500.0, 400.0), "team": "player", "kind": "tank", "hp": 150})
-	game.get("units").append({"pos": Vector2(460.0, 400.0), "team": "player", "kind": "artillery", "hp": 100})
+	game.get("units").append({"pos": Vector2(500.0, 400.0), "team": "player", "kind": "artillery", "hp": 100})
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 400.0), Vector2(500.0, 400.0))) == 0, "Ground assault should retain its current target when a new threat is only marginally better")
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 400.0), Vector2(-1000000.0, -1000000.0))) == 1, "Ground assault should select the higher-priority artillery threat when no valid target lock exists")
 
