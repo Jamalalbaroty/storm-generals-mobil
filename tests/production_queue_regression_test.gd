@@ -434,6 +434,11 @@ func _run() -> void:
 		push_error("Enemy power capacity and demand should mirror the player's grid rules")
 		quit(1)
 		return
+	for defense_index in range(3):
+		if not game._is_enemy_building_powered(defense_index):
+			push_error("Enemy defensive turrets must retain power priority over production")
+			quit(1)
+			return
 	if game._is_enemy_building_powered(3) or game._enemy_has_powered_building("factory"):
 		push_error("Enemy factory must lose power when defensive structures consume the grid")
 		quit(1)
