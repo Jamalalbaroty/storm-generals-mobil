@@ -206,7 +206,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			source_unit.erase("attack_building")
 		else:
 			var target_kind := String(target_parts[1])
-			var target_identity := String(target_parts[2])
+			var target_identity := "|".join(target_parts.slice(2))
 			var target_building_index := -1
 			for index in range(enemy_buildings.size()):
 				var candidate: Dictionary = enemy_buildings[index]
