@@ -335,9 +335,20 @@ func _run() -> void:
 		push_error("An unpowered missile silo must not launch or charge for a missile")
 		quit(1)
 		return
+	if not game.notice.contains("طاقة"):
+		push_error("An existing but unpowered silo should report its power/reload state, not claim it is missing")
+		quit(1)
+		return
 	game._update_missiles(1.0)
 	if not is_equal_approx(float(game.buildings[3].attack_cd), 5.0):
 		push_error("An unpowered missile silo must pause its reload timer")
+		quit(1)
+		return
+	game.buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	game.buildings[3]["attack_cd"] = 0.0
+	game._launch_player_missile()
+	if game.missiles.size() != 1 or game.credits >= 1200 or game.supplies != 6:
+		push_error("A powered missile silo should resume launching and charge the missile cost")
 		quit(1)
 		return
 
