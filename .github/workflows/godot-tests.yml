@@ -9,6 +9,11 @@ on:
       - main
   workflow_dispatch:
 
+# Keep only the newest queued PR validation; rapid commits must not create a CI backlog.
+concurrency:
+  group: storm-generals-regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   regression:
     name: Godot 4.4 headless regression
@@ -26,10 +31,13 @@ jobs:
           include-templates: false
 
       - name: Verify Godot project can import and load
-        run: godot --headless --editor --path . --quit
+        run: timeout 180s godot --headless --editor --path . --quit
 
       - name: Run economy, AI, artillery, and production regressions
-        run: godot --headless --path . --script tests/production_queue_regression_test.gd
+        run: timeout 240s godot --headless --path . --script tests/production_queue_regression_test.gd
+
+      - name: Run gameplay economy and enemy recovery smoke test
+        run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
 
       - name: Run live 2D-to-3D gameplay bridge smoke test
-        run: godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
+        run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
