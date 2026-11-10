@@ -265,6 +265,27 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("credits")) == 48, "Contested port must stop paying credits")
 	_expect(int(game.get("supplies")) == 1, "Contested port must stop paying supplies")
 
+	# Capture, contest, and recapture lifecycle: ownership changes must reset fractional income and transfer payouts to the new owner.
+	live_units = game.get("units")
+	live_units[0]["hp"] = 0
+	game.set("units", live_units)
+	game.set("enemy_credits", 0)
+	game.set("enemy_supplies", 0)
+	game.call("_update_supply_control", 1.0)
+	_expect(String(game.get("supply_points")[2]["owner"]) == "enemy", "Enemy infantry should capture the port after player forces are eliminated")
+	_expect(int(game.get("enemy_credits")) == 8, "Captured port income should transfer to the enemy immediately")
+	_expect(int(game.get("credits")) == 48, "Former owner must stop receiving port income after capture")
+	_expect(is_equal_approx(float(game.get("supply_points")[2]["payout"]), 0.0), "Ownership transfer should reset the previous owner's fractional credit timer")
+	_expect(is_equal_approx(float(game.get("supply_points")[2]["supply_payout"]), 1.0), "Ownership transfer should reset the previous owner's fractional supply timer before accruing the new owner's one-second payout")
+	live_units = game.get("units")
+	live_units[1]["hp"] = 0
+	live_units.append({"pos": port_position, "team": "player", "kind": "tank", "hp": 150})
+	game.set("units", live_units)
+	game.call("_update_supply_control", 1.0)
+	_expect(String(game.get("supply_points")[2]["owner"]) == "player", "Player armor should recapture the port after removing enemy control")
+	_expect(int(game.get("credits")) == 56, "Recaptured port should resume income for the player")
+	_expect(int(game.get("enemy_credits")) == 8, "Enemy income should stop after losing the port")
+
 	# Enemy strategic logistics should favor valuable player-held objectives and dispatch only one guard per threatened point.
 	game.get("supply_points").clear()
 	game.get("supply_points").append({"pos": Vector2(200.0, 300.0), "owner": "neutral", "kind": "supply", "payout": 0.0, "supply_payout": 0.0})
