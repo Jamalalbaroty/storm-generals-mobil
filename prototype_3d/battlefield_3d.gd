@@ -1351,7 +1351,11 @@ func update_game_building_progress(building: Node3D, build_progress: float) -> v
 	building.set_meta("construction_progress", progress)
 	var fill := building.get_node_or_null("ConstructionProgressFill") as MeshInstance3D
 	if fill:
+		var fill_mesh := fill.mesh as BoxMesh
+		var fill_width := fill_mesh.size.x if is_instance_valid(fill_mesh) else 3.0
 		fill.scale.x = maxf(0.001, progress)
+		# Keep the left edge fixed so construction advances smoothly from left to right.
+		fill.position.x = -fill_width * 0.5 * (1.0 - progress)
 		fill.visible = progress < 1.0
 	var background := building.get_node_or_null("ConstructionProgressBackground") as MeshInstance3D
 	if background:
@@ -1478,7 +1482,9 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			progress_fill.mesh = fill_mesh
 			progress_fill.position = Vector3(-1.9, 2.76, -0.01)
 			progress_fill.material_override = _make_armour_material(Color(0.34, 0.82, 0.48))
-			progress_fill.scale.x = maxf(0.001, clampf(build_progress, 0.0, 1.0))
+			var wall_progress := clampf(build_progress, 0.0, 1.0)
+			progress_fill.scale.x = maxf(0.001, wall_progress)
+			progress_fill.position.x = -3.8 * 0.5 * (1.0 - wall_progress)
 			progress_fill.visible = build_progress < 1.0
 			building.add_child(progress_fill)
 		return building
@@ -2165,7 +2171,9 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 		progress_fill.mesh = fill_mesh
 		progress_fill.position = Vector3(-1.5, 5.16, -0.01)
 		progress_fill.material_override = _make_armour_material(Color(0.34, 0.82, 0.48))
-		progress_fill.scale.x = maxf(0.001, clampf(build_progress, 0.0, 1.0))
+		var building_progress := clampf(build_progress, 0.0, 1.0)
+		progress_fill.scale.x = maxf(0.001, building_progress)
+		progress_fill.position.x = -3.0 * 0.5 * (1.0 - building_progress)
 		progress_fill.visible = build_progress < 1.0
 		building.add_child(progress_fill)
 	return building
