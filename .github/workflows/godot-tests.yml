@@ -70,6 +70,9 @@ jobs:
           test -d "$ANDROID_HOME/platforms"
           test -d "$ANDROID_HOME/build-tools"
           test -f /root/debug.keystore
+          # export_presets.cfg pins the debug keystore path to /tmp/debug.keystore.
+          install -D -m 600 /root/debug.keystore /tmp/debug.keystore
+          test -f /tmp/debug.keystore
           test -f /root/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk
           test -f /root/.local/share/godot/export_templates/4.4.1.stable/android_release.apk
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
