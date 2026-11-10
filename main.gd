@@ -514,7 +514,10 @@ func _process(delta: float) -> void:
 					if base_distance <= base_range:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 						if unit.attack_cd <= 0.0:
-							enemy_base_hp = maxi(0, enemy_base_hp - (45 if unit.kind == "artillery" else (20 if unit.kind == "tank" else 10)))
+							var base_damage := _unit_damage_with_veterancy(unit, 45 if unit.kind == "artillery" else (20 if unit.kind == "tank" else 10))
+						var base_hp_before := enemy_base_hp
+						enemy_base_hp = maxi(0, enemy_base_hp - base_damage)
+						_award_unit_experience(unit, base_hp_before - enemy_base_hp)
 							unit.attack_cd = 2.4 if unit.kind == "artillery" else (0.75 if unit.kind == "tank" else 1.0)
 					else:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
