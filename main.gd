@@ -217,6 +217,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			source_unit["air_formation_slot"] = formation_slot
 			source_unit["air_formation_center"] = air_formation_last_center
 		source_unit["target"] = move_destination
+		source_unit.erase("air_patrol_points")
+		source_unit.erase("air_patrol_index")
+		source_unit.erase("air_patrol_resume")
 		source_unit.erase("attack_target")
 		source_unit.erase("attack_focus_pos")
 		source_unit.erase("attack_base")
@@ -276,6 +279,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			source_unit.erase("attack_target")
 			source_unit.erase("attack_focus_pos")
 		source_unit.erase("target")
+		source_unit.erase("air_patrol_points")
+		source_unit.erase("air_patrol_index")
+		source_unit.erase("air_patrol_resume")
 		source_unit.erase("attack_base")
 		notice = "أمر اشتباك صادر من القيادة ثلاثية الأبعاد"
 		notice_time = 1.6
