@@ -4864,7 +4864,11 @@ func _transport_ai_select_emergency_escort_threat(transport_id: int, escort_inde
 
 func _transport_ai_select_group_escort_threat(transport_id: int, from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
 	# Avoid assigning the same automatic target to multiple escorts protecting one transport.
-	var priority_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if escort_kind == "fighter" else ["tank", "artillery", "infantry"]
+	var priority_kinds: Array[String] = []
+	if escort_kind == "fighter":
+		priority_kinds.assign(["fighter", "helicopter", "transport_helicopter"])
+	else:
+		priority_kinds.assign(["tank", "artillery", "infantry"])
 	for preferred_kind in priority_kinds:
 		var best_index := -1
 		var best_distance := max_distance
@@ -4899,7 +4903,11 @@ func _transport_ai_escort_should_release_target(escort_pos: Vector2, transport_p
 
 
 func _transport_ai_select_escort_threat(from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
-	var priority_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if escort_kind == "fighter" else ["tank", "artillery", "infantry"]
+	var priority_kinds: Array[String] = []
+	if escort_kind == "fighter":
+		priority_kinds.assign(["fighter", "helicopter", "transport_helicopter"])
+	else:
+		priority_kinds.assign(["tank", "artillery", "infantry"])
 	for preferred_kind in priority_kinds:
 		var best_index := -1
 		var best_distance := max_distance
