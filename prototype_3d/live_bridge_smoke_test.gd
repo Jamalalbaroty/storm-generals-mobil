@@ -1155,9 +1155,10 @@ func _initialize() -> void:
 	var all_unit_families: Array[Dictionary] = [
 		{"pos": Vector2(180.0, 180.0), "team": "player", "kind": "infantry", "faction": "الجيش العربي", "hp": 55.0, "max_hp": 60.0},
 		{"pos": Vector2(260.0, 180.0), "team": "player", "kind": "artillery", "faction": "وطن", "hp": 95.0, "max_hp": 110.0},
-		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0}
+		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0},
+		{"pos": Vector2(660.0, 180.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0}
 	]
-	var expected_live_keys: Array[String] = ["player|1|infantry", "player|2|artillery", "player|3|helicopter"]
+	var expected_live_keys: Array[String] = ["player|1|infantry", "player|2|artillery", "player|3|helicopter", "enemy|4|fighter"]
 	if bool(bridge.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
 		all_unit_families.append_array([
 			{"pos": Vector2(420.0, 180.0), "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 240.0, "max_hp": 260.0},
