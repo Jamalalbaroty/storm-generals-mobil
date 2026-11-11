@@ -4608,9 +4608,29 @@ func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void
 	}
 	var current_score := _transport_ai_evaluate_landing_site(current_candidate, objective_pos)
 	var replacement := _transport_ai_plan_landing(objective_pos)
-	if not bool(replacement.get("valid", false)):
-		return
 	var current_valid := bool(current_score.get("valid", false))
+	if not bool(replacement.get("valid", false)):
+		if not current_valid:
+			# Never continue toward a landing zone that has become unsafe when no alternate site exists.
+			var recovery_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+			transport["transport_ai_last_decision_reason"] = "no_safe_landing_site"
+			transport.erase("transport_target_pos")
+			transport.erase("transport_ai_objective_pos")
+			if not recovery_airfield.is_empty():
+				var recovery_pos: Vector2 = recovery_airfield.pos
+				transport["transport_return_pos"] = recovery_pos
+				_transport_ai_assign_route(transport, recovery_pos)
+				transport["transport_ai_autonomous_active"] = true
+				transport["transport_state"] = "returning"
+				notice = "لا يوجد موقع إنزال آمن — الطائرة تعود إلى أقرب مطار"
+			else:
+				transport.erase("transport_ai_route_points")
+				transport.erase("transport_ai_route_index")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+				notice = "لا يوجد موقع إنزال أو مطار آمن — الحمولة محفوظة والطائرة في وضع انتظار"
+			notice_time = 3.0
+		return
 	var should_replan := not current_valid
 	if current_valid:
 		should_replan = float(replacement.get("score", 0.0)) >= float(current_score.get("score", 0.0)) + 14.0
@@ -5505,6 +5525,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 	_update_transport_passenger_fire(transport, delta)
 	if state == "inbound":
 		_transport_ai_reassess_inbound(transport, delta)
+		if String(transport.get("transport_state", "")) != "inbound":
+			return
 		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
 		var route_points: Array = transport.get("transport_ai_route_points", [])
 		var route_index := int(transport.get("transport_ai_route_index", 0))
