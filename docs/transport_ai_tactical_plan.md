@@ -91,3 +91,8 @@ This remains a planning primitive: it does not yet launch or redirect a transpor
 ## Implemented third slice — broader threat sampling
 
 The landing evaluator now samples the approach corridor at 25%, 50%, and 75% rather than relying on one midpoint. It also applies a distance-weighted penalty for nearby living enemy mobile units, with heavier weights for armor, artillery, and aircraft. The regression script includes a case that verifies the planner prefers a site outside a nearby hostile tank's threat radius. This remains unverified until the Godot headless test is run; it still does not issue transport movement orders or provide the player policy UI.
+
+
+## Implemented fourth slice — player-priority decision contract
+
+Added a pure decision layer for transport landing recommendations. The mode is read from `transport_ai_mode` and accepts MANUAL, ASSISTED, and AUTONOMOUS; absent or invalid values safely fall back to MANUAL. Empty cargo and missing safe sites are rejected. MANUAL returns manual_control, ASSISTED returns a recommendation without execution permission, and AUTONOMOUS may authorize a planned landing. The explicit `transport_ai_player_override` flag always blocks autonomous authorization. This helper does not move aircraft, alter existing targets, or replace the current manual landing command path. Regression coverage was added for all modes, the default, empty cargo, and player override. Godot execution remains pending.
