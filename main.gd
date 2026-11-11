@@ -4377,6 +4377,10 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					notice = "الموقع مزدحم — اختر مساحة مفتوحة للإنزال"
 					notice_time = 2.2
 					return true
+		# A fresh player-issued destination takes priority over any pending AI recommendation.
+		transport["transport_ai_player_override"] = true
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
 		if rooftop_found:
@@ -4406,6 +4410,9 @@ func _cancel_transport_order() -> void:
 			continue
 		transport.erase("transport_target_pos")
 		transport.erase("transport_order_pending")
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport["transport_ai_player_override"] = true
 		transport.erase("target")
 		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
 		cancelled += 1
