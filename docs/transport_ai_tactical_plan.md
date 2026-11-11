@@ -74,3 +74,9 @@ Expose the selected policy in the transport selection panel and persist it in ga
 
 ## Completion rule
 Declare 100% only after all required tests pass in Godot headless CI and the full airlift loop is manually verified in an Android build on a real device. Report design readiness and implementation/test coverage separately; never mark unimplemented behavior complete.
+
+## Implemented first slice — deterministic site evaluation
+
+The development branch now contains `_transport_ai_evaluate_landing_site` and `_transport_ai_choose_landing_site` in `main.gd`. The evaluator rejects out-of-bounds ground/roof points, unresolved rooftops, blocked ground footprints, and occupied landing footprints; it ranks remaining candidates using known anti-air exposure, route midpoint exposure, objective distance, nearby friendly support, and escape margin. Equal score/distance candidates use a stable site-ID tie-break. A focused headless test script was added at `tests/transport_ai_landing_site_test.gd`.
+
+This is a reusable decision primitive only. It is not yet wired to MANUAL / ASSISTED / AUTONOMOUS mission execution, route movement, periodic threat replanning, or the transport UI. The new test has been authored but has not been executed in this environment; do not count it as passing until CI or a local Godot run confirms it.
