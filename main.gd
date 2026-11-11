@@ -4951,7 +4951,8 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 			var other: Dictionary = units[other_index]
 			if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == candidate_id and int(other.get("hp", 0)) > 0:
 				assigned_count += 1
-		var cost: float = escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0
+		var threat_priority := _transport_ai_transport_threat_score(candidate) * 45.0
+		var cost: float = escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0 - threat_priority
 		if cost < best_cost:
 			best_cost = cost
 			best_transport_index = transport_index
@@ -4982,6 +4983,33 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 	return true
 
 
+func _transport_ai_transport_threat_score(transport: Dictionary) -> float:
+	# Estimate how urgently this transport needs escort coverage around its current tactical anchor.
+	var anchor_pos := _transport_ai_escort_anchor_position(transport)
+	var score := 0.0
+	for enemy in units:
+		if String(enemy.get("team", "")) != "enemy" or int(enemy.get("hp", 0)) <= 0:
+			continue
+		var distance: float = anchor_pos.distance_to(enemy.get("pos", anchor_pos))
+		if distance > 240.0:
+			continue
+		var enemy_kind := String(enemy.get("kind", ""))
+		var weight := 1.0
+		match enemy_kind:
+			"fighter":
+				weight = 2.4
+			"helicopter", "transport_helicopter":
+				weight = 2.0
+			"anti_air":
+				weight = 2.2
+			"tank":
+				weight = 1.8
+			"artillery":
+				weight = 1.6
+		score += weight * clampf(1.0 - distance / 240.0, 0.0, 1.0)
+	return minf(score, 4.0)
+
+
 func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
 	if transport_indices.is_empty():
 		return 0
@@ -5005,7 +5033,8 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 			if sync_id < 0 or String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
 				continue
 			var assigned_count := int(escort_counts.get(transport_index, 0))
-			var cost: float = escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0
+			var threat_priority := _transport_ai_transport_threat_score(transport) * 45.0
+			var cost: float = escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0 - threat_priority
 			if cost < best_cost:
 				best_cost = cost
 				best_transport_index = transport_index
