@@ -25,6 +25,25 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
+	# Stable identities must survive array compaction and distinguish carried passengers.
+	var identity_transport: Dictionary = {"kind": "transport_helicopter", "team": "player", "hp": 160, "pos": Vector2(100.0, 100.0), "unit_id": "unit_00000077", "transport_cargo": [{"kind": "infantry", "team": "player", "hp": 60, "unit_id": "unit_00000077"}]}
+	var identity_enemy: Dictionary = {"kind": "tank", "team": "enemy", "hp": 180, "pos": Vector2(300.0, 100.0), "unit_id": "unit_00000077"}
+	game.get("units").append(identity_transport)
+	game.get("units").append(identity_enemy)
+	game.call("_ensure_stable_unit_identities")
+	var identity_ids: Array[String] = [
+		String(game.get("units")[0].get("unit_id", "")),
+		String(game.get("units")[1].get("unit_id", "")),
+		String(game.get("units")[0].get("transport_cargo", [])[0].get("unit_id", ""))
+	]
+	var unique_identity_ids: Dictionary = {}
+	for identity_id in identity_ids:
+		_expect(not identity_id.is_empty(), "Every field unit and carried passenger should receive a stable identity")
+		unique_identity_ids[identity_id] = true
+	_expect(unique_identity_ids.size() == 3, "Duplicate identities must be repaired across field units and transport cargo")
+	_expect(int(game.get("next_unit_identity")) > 77, "Identity allocator must advance beyond restored numeric IDs")
+	game.get("units").clear()
+
 	# Mobile command deck exposes all 29 unique actions across five tabs.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
