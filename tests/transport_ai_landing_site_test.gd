@@ -314,6 +314,20 @@ func _run() -> void:
 	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1 and Array(game.get("units")[1].get("transport_cargo", [])).size() == 1, "Group return must preserve every transport cargo manifest")
 	_expect(game.get("units")[0].has("transport_ai_route_points") and game.get("units")[1].has("transport_ai_route_points"), "Every aircraft in the group should receive a threat-aware route")
 
+	# Group validation is atomic: an empty aircraft must not dispatch the other selected transport.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(200.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(900.0, 300.0), "transport_state": "idle", "transport_cargo": []})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(100.0, 300.0)})
+	game.get("selected").append_array([0, 1])
+	game.call("_order_transport_return_to_base")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "A failed group validation must not partially dispatch the first aircraft")
+	_expect(String(game.get("units")[1].get("transport_state", "")) == "idle", "A failed group validation must leave the invalid aircraft unchanged")
+	game.get("units").clear()
+
 	# If the selected recovery airfield is destroyed or loses power in flight, replan to another valid friendly field.
 	game.get("units").clear()
 	game.get("buildings").clear()
