@@ -4715,6 +4715,22 @@ func _order_transport_pickup() -> void:
 	notice_time = 3.0
 
 
+func _transport_ai_nearest_friendly_airfield(from_pos: Vector2) -> Dictionary:
+	var nearest: Dictionary = {}
+	var nearest_distance := INF
+	for airfield_index in range(buildings.size()):
+		var airfield: Dictionary = buildings[airfield_index]
+		if String(airfield.get("kind", "")) != "airfield":
+			continue
+		if not _is_player_building_powered(airfield_index):
+			continue
+		var distance: float = from_pos.distance_to(airfield.pos)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = {"index": airfield_index, "pos": airfield.pos, "distance": distance}
+	return nearest
+
+
 func _order_transport_return_to_base() -> void:
 	var transport: Dictionary = {}
 	for index in selected:
@@ -4740,17 +4756,7 @@ func _order_transport_return_to_base() -> void:
 		notice = "لا يمكن تغيير مسار الطائرة أثناء تنفيذ مهمة أخرى"
 		notice_time = 2.2
 		return
-	var nearest_airfield: Dictionary = {}
-	var nearest_distance := INF
-	for airfield in buildings:
-		if String(airfield.get("kind", "")) != "airfield" or int(airfield.get("hp", 0)) <= 0:
-			continue
-		if float(airfield.get("build_progress", 1.0)) < 1.0:
-			continue
-		var distance: float = transport.pos.distance_to(airfield.pos)
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_airfield = airfield
+	var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
 	if nearest_airfield.is_empty():
 		notice = "لا توجد قاعدة جوية صديقة مكتملة وصالحة — بقي الجنود داخل الطائرة"
 		notice_time = 2.8
@@ -4902,19 +4908,13 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 				transport.erase("transport_target_pos")
 				transport.erase("transport_ai_objective_pos")
 				transport["transport_ai_autonomous_active"] = false
-				var nearest_airfield := Vector2.ZERO
-				var airfield_found := false
-				var nearest_distance := INF
-				for airfield in buildings:
-					if String(airfield.get("kind", "")) != "airfield" or int(airfield.get("hp", 0)) <= 0 or float(airfield.get("build_progress", 1.0)) < 1.0:
-						continue
-					var airfield_distance: float = transport.pos.distance_to(airfield.pos)
-					if airfield_distance < nearest_distance:
-						nearest_distance = airfield_distance
-						nearest_airfield = airfield.pos
-						airfield_found = true
+				var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+				var airfield_found := not nearest_airfield.is_empty()
 				if airfield_found:
-					transport["transport_return_pos"] = nearest_airfield
+					var nearest_airfield_pos: Vector2 = nearest_airfield.pos
+					transport["transport_return_pos"] = nearest_airfield_pos
+					_transport_ai_assign_route(transport, nearest_airfield_pos)
+					transport["transport_ai_autonomous_active"] = true
 					transport["transport_state"] = "returning"
 				else:
 					transport["transport_state"] = "idle"
