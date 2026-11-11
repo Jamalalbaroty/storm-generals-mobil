@@ -4730,13 +4730,19 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 
 
 func _transport_ai_escort_anchor_position(transport: Dictionary) -> Vector2:
-	# In the final approach, escorts stage around the assigned drop zone before the transport arrives.
+	# Escorts stage at the drop zone on final approach and hold a short rear guard during extraction.
 	var state := String(transport.get("transport_state", ""))
+	var transport_pos: Vector2 = transport.get("pos", Vector2.ZERO)
 	if state in ["inbound", "descending"] and transport.has("transport_target_pos"):
-		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.get("pos", Vector2.ZERO))
-		if Vector2(transport.get("pos", Vector2.ZERO)).distance_to(landing_pos) <= 320.0:
+		var landing_pos: Vector2 = transport.get("transport_target_pos", transport_pos)
+		if transport_pos.distance_to(landing_pos) <= 320.0:
 			return landing_pos
-	return transport.get("pos", Vector2.ZERO)
+	if state == "returning" and transport.has("transport_post_drop_guard_pos"):
+		var post_drop_pos: Vector2 = transport.get("transport_post_drop_guard_pos", transport_pos)
+		if transport_pos.distance_to(post_drop_pos) <= 320.0:
+			return post_drop_pos
+		transport.erase("transport_post_drop_guard_pos")
+	return transport_pos
 
 
 func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float) -> float:
@@ -5332,6 +5338,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
 			_add_visual_effect("dust", drop_pos, drop_pos, Color("#c5b28b"), 0.42, 8.0)
 			if cargo.is_empty():
+				# Escorts keep the insertion area covered while the empty transport begins extraction.
+				transport["transport_post_drop_guard_pos"] = landing_center
 				transport.erase("transport_target_pos")
 				transport.erase("transport_ai_objective_pos")
 				transport["transport_ai_autonomous_active"] = false
