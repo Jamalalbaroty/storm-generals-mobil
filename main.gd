@@ -5235,7 +5235,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 			if int(asset.get("hp", 0)) <= 0 or float(asset.get("build_progress", 1.0)) < 1.0:
 				continue
 			var asset_pos: Vector2 = asset.get("pos", enemy_base)
-			if asset_pos.distance_to(anchor) <= 120.0:
+			if asset_pos.distance_to(anchor) <= 240.0:
 				anchor_is_valid = true
 				break
 	if not anchor_is_valid:
