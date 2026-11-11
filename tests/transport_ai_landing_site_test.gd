@@ -299,7 +299,8 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(390.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(315.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 25, "pos": Vector2(500.0, 300.0)})
-	var triage_order: Array[int] = game.call("_transport_ai_sort_rescue_infantry", [0, 1, 2], Vector2(300.0, 300.0))
+	var triage_indices: Array[int] = [0, 1, 2]
+	var triage_order: Array[int] = game.call("_transport_ai_sort_rescue_infantry", triage_indices, Vector2(300.0, 300.0))
 	_expect(triage_order == [2, 1, 0], "Rescue triage should prioritize the most wounded first, then the nearest casualty at equal health")
 	game.get("units").clear()
 
