@@ -15,7 +15,7 @@ const COMMAND_ACTIONS := [
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
 	[23, 24, 25, 26, 27],
-	[28, 29, 30]
+	[28, 29, 30, 31]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -2960,7 +2960,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3361,6 +3361,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_load_selected_infantry_into_transport()
 			elif i == 30:
 				_prepare_transport_rooftop_landing()
+			elif i == 31:
+				_cancel_transport_order()
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -4008,6 +4010,31 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		notice_time = 2.5
 		return true
 	return false
+
+
+func _cancel_transport_order() -> void:
+	var cancelled := 0
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		var state := String(transport.get("transport_state", "idle"))
+		if state == "descending":
+			continue
+		transport.erase("transport_target_pos")
+		transport.erase("transport_order_pending")
+		transport.erase("target")
+		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+		cancelled += 1
+	if cancelled > 0:
+		notice = "أُلغيت مهمة النقل — الجنود ما زالوا داخل الطائرة"
+	else:
+		notice = "لا توجد مهمة نقل قابلة للإلغاء"
+	notice_time = 2.2
+
+
 
 
 func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
