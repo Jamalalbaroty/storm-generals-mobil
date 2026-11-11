@@ -980,7 +980,7 @@ func _process(delta: float) -> void:
 						else:
 							var air_escort_target: Dictionary = units[air_escort_index]
 							var escort_enemy_index := int(unit.get("attack_target", -1))
-							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or units[escort_enemy_index].pos.distance_to(air_escort_target.pos) > 220.0):
+							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, air_escort_target.pos, units[escort_enemy_index].pos)):
 								unit.erase("attack_target")
 								unit.erase("attack_focus_pos")
 								unit.erase("escort_auto_target")
@@ -4725,6 +4725,11 @@ func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float)
 	var distance := maxf(0.0, slot_distance)
 	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
 	return base_speed * catchup_factor
+
+
+func _transport_ai_escort_should_release_target(escort_pos: Vector2, transport_pos: Vector2, enemy_pos: Vector2) -> bool:
+	# Keep automatic pursuit inside the transport's defensive bubble.
+	return enemy_pos.distance_to(transport_pos) > 220.0 or escort_pos.distance_to(transport_pos) > 260.0
 
 
 func _transport_ai_select_escort_threat(from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
