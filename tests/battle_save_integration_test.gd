@@ -433,6 +433,31 @@ func _run_battle_save_integration_test() -> void:
 		game.call("_record_battle_result")
 		_expect(int(mission_profile.get("campaign_funds", 0)) == expected_campaign_rewards[mission_index], "Campaign mission %d repeated result must not duplicate rewards" % (mission_index + 1))
 
+	# Exercise the real faction-picker and campaign-start pointer path.
+	game.set("commander_profile", {
+		"battles_played": 0,
+		"victories": 0,
+		"defeats": 0,
+		"campaign_progress": {"وطن": 2},
+		"campaign_funds": 0
+	})
+	game.set("game_started", false)
+	game.set("campaign_briefing", false)
+	game.set("battle_result", "")
+	game.set("faction", "")
+	var menu_size: Vector2 = game.get_viewport_rect().size
+	var watan_button: Rect2 = game.call("_faction_rect", 3, menu_size)
+	game.call("_handle_pointer", watan_button.get_center(), true)
+	game.call("_handle_pointer", watan_button.get_center(), false)
+	_expect(String(game.get("faction")) == "وطن" and bool(game.get("campaign_briefing")), "Selecting Watan from the live faction picker must open its campaign briefing")
+	var campaign_start_button: Rect2 = game.call("_campaign_start_rect", menu_size)
+	game.call("_handle_pointer", campaign_start_button.get_center(), true)
+	game.call("_handle_pointer", campaign_start_button.get_center(), false)
+	_expect(bool(game.get("game_started")) and not bool(game.get("campaign_briefing")), "Campaign start button must enter the live match")
+	_expect(int(game.get("campaign_mission_index")) == 2 and String(game.get("map_type")) == "الساحل الجبلي", "Campaign start must resume the correct unlocked mission and map")
+	_expect(game.get("units").size() == 1 and String(game.get("units")[0].get("kind", "")) == "builder" and String(game.get("units")[0].get("faction", "")) == "وطن", "Campaign start must deploy the selected army's builder")
+	_expect(int(game.get("credits")) == 1200 and int(game.get("supplies")) == 5 and int(game.get("enemy_supplies")) == 5, "Campaign start must initialize both economies and opening supplies")
+
 	game.set("commander_profile", original_commander_profile)
 	game.call("_save_commander_profile")
 
