@@ -6185,7 +6185,7 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 		notice = "الوحدات البحرية مؤجلة عن النسخة الحالية"
 		notice_time = 2.5
 		return
-	if _team_unit_count("player") >= MAX_TEAM_UNITS
+	if _team_unit_count("player") >= MAX_TEAM_UNITS:
 		notice = "وصلت إلى الحد الأقصى للقوات (%d)" % MAX_TEAM_UNITS
 		notice_time = 2.5
 		return
