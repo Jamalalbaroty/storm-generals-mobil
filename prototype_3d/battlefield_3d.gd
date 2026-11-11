@@ -3679,6 +3679,23 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 			soldier_legs.append(leg)
 		infantry_leg_pairs[soldier] = soldier_legs
 
+		# Lightweight upper-limb proxies make the marching cycle read as a
+		# complete soldier animation, with arm swing opposite to each leg.
+		var soldier_arms: Array[Node3D] = []
+		for arm_side in [-1.0, 1.0]:
+			var arm := MeshInstance3D.new()
+			arm.name = "Arm_Left" if arm_side < 0.0 else "Arm_Right"
+			var arm_mesh := CapsuleMesh.new()
+			arm_mesh.radius = 0.085
+			arm_mesh.height = 0.58
+			arm.mesh = arm_mesh
+			arm.position = Vector3(arm_side * 0.29, 1.02, -0.015)
+			arm.rotation.z = arm_side * -0.12
+			arm.material_override = _make_armour_material(faction_color.darkened(0.08))
+			soldier.add_child(arm)
+			soldier_arms.append(arm)
+		soldier.set_meta("infantry_arm_pairs", soldier_arms)
+
 		var pack := MeshInstance3D.new()
 		var pack_mesh := BoxMesh.new()
 		pack_mesh.size = Vector3(0.34, 0.42, 0.20)
@@ -3840,14 +3857,22 @@ func _update_infantry_animation(delta: float) -> void:
 		var slot_index := int(soldier.get_meta("infantry_slot_index", 0))
 		var phase_offset := float(slot_index % 4) * (PI * 0.5)
 		var phase := infantry_gait_clock * lerpf(6.0, 9.0, gait_intensity) + phase_offset
+		var stride := lerpf(0.025, 0.52, gait_intensity)
 		for leg_index in range(legs.size()):
 			var leg_variant = legs[leg_index]
 			if not is_instance_valid(leg_variant):
 				continue
 			var leg := leg_variant as Node3D
 			if is_instance_valid(leg):
-				var stride := lerpf(0.025, 0.52, gait_intensity)
 				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * stride
+		var arms: Array = soldier.get_meta("infantry_arm_pairs", [])
+		for arm_index in range(arms.size()):
+			var arm_variant = arms[arm_index]
+			if not is_instance_valid(arm_variant):
+				continue
+			var arm := arm_variant as Node3D
+			if is_instance_valid(arm):
+				arm.rotation.x = sin(phase + (0.0 if arm_index == 0 else PI)) * stride * 0.72
 		soldier.position.y = sin(phase * 2.0) * 0.025 * gait_intensity
 
 func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String) -> void:
