@@ -5632,6 +5632,17 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			var previous_return_pos: Vector2 = transport.pos
 			transport.pos = transport.pos.move_toward(return_target, delta * 72.0)
 			transport["facing"] = (return_target - previous_return_pos).angle()
+			# Complete the final leg in the same simulation tick when a long frame reaches it.
+			if transport.pos.distance_to(return_target) <= 14.0:
+				if bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
+					transport["transport_ai_route_index"] = return_route_index + 1
+				elif transport.pos.distance_to(return_pos) <= 14.0:
+					transport.pos = return_pos
+					transport.erase("transport_ai_route_points")
+					transport.erase("transport_ai_route_index")
+					transport["transport_ai_autonomous_active"] = false
+					transport["transport_rearm_progress"] = 0.0
+					transport["transport_state"] = "rearming"
 		elif bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
 			transport["transport_ai_route_index"] = return_route_index + 1
 		elif transport.pos.distance_to(return_pos) <= 14.0:
