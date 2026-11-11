@@ -3804,30 +3804,28 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 			chest_plate.material_override = _make_armour_material(faction_color.lightened(0.10))
 			soldier.add_child(chest_plate)
 
-	# A separate aim pivot turns the squad weapon without rotating the whole formation.
-	var aim_pivot := Node3D.new()
-	aim_pivot.position = Vector3(0.0, 1.15, 0.0)
-	squad.add_child(aim_pivot)
-	showcase_turrets.append(aim_pivot)
-
-	var rifle := MeshInstance3D.new()
-	var rifle_mesh := BoxMesh.new()
-	rifle_mesh.size = Vector3(0.12, 0.12, 1.05)
-	rifle.mesh = rifle_mesh
-	rifle.position = Vector3(0.0, 0.0, -0.48)
-	rifle.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
-	aim_pivot.add_child(rifle)
-
-	var barrel := MeshInstance3D.new()
-	var barrel_mesh := CylinderMesh.new()
-	barrel_mesh.top_radius = 0.035
-	barrel_mesh.bottom_radius = 0.045
-	barrel_mesh.height = 0.42
-	barrel.mesh = barrel_mesh
-	barrel.rotation_degrees.x = 90.0
-	barrel.position = Vector3(0.0, 0.015, -1.18)
-	barrel.material_override = _make_armour_material(Color(0.08, 0.09, 0.08))
-	aim_pivot.add_child(barrel)
+		# Every infantry member carries an individual rifle aligned with the squad.
+		var weapon_pivot := Node3D.new()
+		weapon_pivot.name = "InfantryWeapon"
+		weapon_pivot.position = Vector3(0.0, 1.13, -0.20)
+		soldier.add_child(weapon_pivot)
+		var rifle := MeshInstance3D.new()
+		var rifle_mesh := BoxMesh.new()
+		rifle_mesh.size = Vector3(0.105, 0.105, 0.78)
+		rifle.mesh = rifle_mesh
+		rifle.position = Vector3(0.0, 0.0, -0.36)
+		rifle.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
+		weapon_pivot.add_child(rifle)
+		var barrel := MeshInstance3D.new()
+		var barrel_mesh := CylinderMesh.new()
+		barrel_mesh.top_radius = 0.026
+		barrel_mesh.bottom_radius = 0.034
+		barrel_mesh.height = 0.30
+		barrel.mesh = barrel_mesh
+		barrel.rotation_degrees.x = 90.0
+		barrel.position = Vector3(0.0, 0.0, -0.88)
+		barrel.material_override = _make_armour_material(Color(0.07, 0.08, 0.07))
+		weapon_pivot.add_child(barrel)
 
 
 func _update_infantry_animation(delta: float) -> void:
