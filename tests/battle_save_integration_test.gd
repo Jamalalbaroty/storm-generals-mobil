@@ -51,7 +51,7 @@ func _run_battle_save_integration_test() -> void:
 	})
 	game.get("buildings").append({"kind": "airfield", "hp": 390, "pos": Vector2(650.0, 320.0), "production_id": 4})
 	game.get("enemy_buildings").append({"kind": "factory", "hp": 240, "pos": Vector2(980.0, 320.0), "production_id": 9})
-	game.get("production_orders").append({"producer_id": 4, "kind": "fighter", "remaining": 8.5, "duration": 20.0})
+	game.get("production_orders").append({"producer_id": 4, "producer_pos": Vector2(650.0, 320.0), "producer_kind": "airfield", "kind": "fighter", "remaining": 8.5, "duration": 20.0})
 	game.get("missiles").append({"team": "player", "pos": Vector2(200.0, 300.0), "target": Vector2(800.0, 300.0), "damage": 180})
 
 	_expect(bool(game.call("_save_battle_snapshot")), "Active battle should save through the gameplay integration")
