@@ -4149,6 +4149,21 @@ func _load_selected_infantry_into_transport() -> void:
 		notice_time = 2.2
 		return
 	var transport: Dictionary = units[transport_index]
+	var transport_state := String(transport.get("transport_state", "idle"))
+	if transport_state not in ["idle", "loaded"]:
+		notice = "لا يمكن تحميل الجنود أثناء طيران المروحية أو تنفيذ الإنزال"
+		notice_time = 2.2
+		return
+	# Boarding is physical: selected infantry must be close to the landed transport.
+	var nearby_infantry: Array[int] = []
+	for infantry_index in infantry_indices:
+		if infantry_index >= 0 and infantry_index < units.size() and units[infantry_index].pos.distance_to(transport.pos) <= 76.0:
+			nearby_infantry.append(infantry_index)
+	infantry_indices = nearby_infantry
+	if infantry_indices.is_empty():
+		notice = "اقترب بالمشاة إلى مسافة 76 من طائرة النقل لتحميلهم"
+		notice_time = 2.4
+		return
 	var cargo: Array = transport.get("transport_cargo", [])
 	var available := 8 - cargo.size()
 	if available <= 0:
