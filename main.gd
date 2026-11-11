@@ -5139,7 +5139,6 @@ func _transport_ai_order_group_pickups(infantry_indices: Array[int], transport_i
 			var assigned_group: Array = passenger_groups[best_transport]
 			assigned_group.append(infantry_index)
 			passenger_groups[best_transport] = assigned_group
-	var candidates_by_transport: Dictionary = {}
 	var reserved_sites: Array[Vector2] = []
 	var assignments: Array[Dictionary] = []
 	var total_passengers := 0
