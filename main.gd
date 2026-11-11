@@ -2918,8 +2918,17 @@ func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
 
 
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
-	# Select aircraft that threaten valuable installations, while retaining fighter-first priority.
-	var protected_assets: Array = buildings if target_team == "enemy" else enemy_buildings
+	# Snapshot only live strategic assets once; candidate scoring reuses their positions and priorities.
+	var source_assets: Array = buildings if target_team == "enemy" else enemy_buildings
+	var protected_assets: Array = []
+	for asset in source_assets:
+		if int(asset.get("hp", 0)) <= 0:
+			continue
+		var asset_kind := String(asset.get("kind", ""))
+		if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
+			continue
+		var asset_priority := 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
+		protected_assets.append({"pos": asset.pos, "priority": asset_priority})
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
@@ -2935,15 +2944,10 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 		var asset_threat_distance := 520.0
 		var asset_priority := 0.0
 		for asset in protected_assets:
-			if int(asset.get("hp", 0)) <= 0:
-				continue
-			var asset_kind := String(asset.get("kind", ""))
-			if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
-				continue
 			var threat_distance: float = candidate.pos.distance_to(asset.pos)
 			if threat_distance < asset_threat_distance:
 				asset_threat_distance = threat_distance
-				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
+				asset_priority = float(asset.priority)
 		var kind_priority := 70.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
 		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
 		if score < best_score:
