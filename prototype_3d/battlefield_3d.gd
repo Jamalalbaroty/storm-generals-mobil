@@ -675,6 +675,15 @@ func _sync_gameplay_unit_orientation(unit: Node3D, record: Dictionary) -> void:
 		unit.set_meta("gameplay_turret_yaw_target", desired_world_yaw)
 
 
+func _gameplay_rooftop_height(building_kind: String) -> float:
+	# Heights match the roof meshes created by _add_base_building.
+	match building_kind:
+		"bunker":
+			return 2.39
+		_:
+			return 3.22
+
+
 func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return 0
@@ -701,8 +710,13 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
 		var altitude := 5.2 if kind in ["helicopter", "transport_helicopter"] else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
+		if kind == "transport_helicopter":
+			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
+			altitude += _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0
 		if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
 			altitude = 0.45
+		if kind in ["infantry", "builder", "marine"] and record.has("transport_rooftop_kind"):
+			altitude = _gameplay_rooftop_height(String(record.get("transport_rooftop_kind", "")))
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
@@ -726,6 +740,9 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				unit.set_meta("transport_touchdown_elapsed", 0.0)
 				unit.global_position.y = world_pos.y + 1.65
 				_add_transport_touchdown_dust(world_pos)
+			if kind == "transport_helicopter":
+				var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
+				unit.set_meta("transport_rooftop_altitude", _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0)
 			if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
 				unit.set_meta("gameplay_aircraft_takeoff", true)
 			_sync_gameplay_unit_orientation(unit, record)
@@ -737,6 +754,9 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
 			unit.set_meta("source_faction", faction_id)
+		if kind == "transport_helicopter":
+			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
+			unit.set_meta("transport_rooftop_altitude", _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0)
 		if kind in ["fighter", "helicopter"]:
 			var was_landed := bool(unit.get_meta("gameplay_aircraft_landed", false))
 			var is_landed := bool(record.get("airfield_landed", false))
@@ -833,6 +853,8 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		if is_aircraft:
 			# Small climb under forward movement; helicopters retain a gentle hover motion.
 			var base_altitude := 5.2 if aircraft_kind in ["helicopter", "transport_helicopter"] else 6.4
+			if aircraft_kind == "transport_helicopter":
+				base_altitude += float(unit.get_meta("transport_rooftop_altitude", 0.0))
 			var climb_target := clampf(horizontal_travel * 0.035, 0.0, 0.42)
 			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind in ["helicopter", "transport_helicopter"] else 1.15)
 			unit.set_meta("gameplay_hover_phase", hover_phase)
@@ -893,7 +915,7 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 				if is_instance_valid(descending_soldier):
 					var rope_side := -0.48 if drop_index % 2 == 0 else 0.48
 					var rope_sway := sin(float(Time.get_ticks_msec()) * 0.006 + float(drop_index) * 0.35) * 0.035
-					descending_soldier.position = Vector3(rope_side, lerpf(-0.55, -4.15, drop_progress), 0.48)
+					descending_soldier.position = Vector3(rope_side, lerpf(-0.55, -4.85, drop_progress), 0.48)
 					descending_soldier.rotation.z = rope_sway
 					descending_soldier.rotation.x = cos(float(Time.get_ticks_msec()) * 0.0045) * 0.025
 			if is_instance_valid(fast_ropes):
@@ -2720,9 +2742,9 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 			var rope_mesh := CylinderMesh.new()
 			rope_mesh.top_radius = 0.025
 			rope_mesh.bottom_radius = 0.025
-			rope_mesh.height = 4.4
+			rope_mesh.height = 5.2
 			rope.mesh = rope_mesh
-			rope.position = Vector3(rope_side, -2.55, 0.48)
+			rope.position = Vector3(rope_side, -2.95, 0.48)
 			rope.material_override = _make_armour_material(Color(0.78, 0.70, 0.52))
 			rope_group.add_child(rope)
 		var rope_troops := Node3D.new()
