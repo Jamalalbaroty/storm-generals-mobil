@@ -906,7 +906,7 @@ func _process(delta: float) -> void:
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter", "transport_helicopter"])
+						air_target = _enemy_fighter_select_air_target(unit.pos, i)
 					if air_target >= 0:
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
@@ -2762,6 +2762,35 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 		if best_index >= 0:
 			return best_index
 	return -1
+
+
+func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -> int:
+	# Spread enemy fighters across available hostile aircraft instead of dogpiling one target.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter"]:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance > FIGHTER_TARGET_RANGE:
+			continue
+		var assigned_fighters := 0
+		for friendly_index in range(units.size()):
+			if friendly_index == self_index:
+				continue
+			var friendly: Dictionary = units[friendly_index]
+			if String(friendly.get("team", "")) == "enemy" and String(friendly.get("kind", "")) == "fighter" and int(friendly.get("hp", 0)) > 0 and friendly.pos.distance_to(candidate.pos) <= 115.0:
+				assigned_fighters += 1
+		var score: float = distance + float(assigned_fighters) * 185.0
+		if String(candidate.get("kind", "")) == "fighter":
+			score -= 24.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
 
 
 func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
