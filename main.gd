@@ -925,12 +925,12 @@ func _process(delta: float) -> void:
 					if unit.has("air_patrol_points") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 						var patrol_points: Array = unit.get("air_patrol_points", [])
 						if patrol_points.size() >= 2:
-						var patrol_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
-						var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
-						if patrol_threat >= 0:
-							unit["attack_target"] = patrol_threat
-							unit["attack_focus_pos"] = units[patrol_threat].pos
-							unit["air_patrol_resume"] = true
+							var patrol_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+							var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
+							if patrol_threat >= 0:
+								unit["attack_target"] = patrol_threat
+								unit["attack_focus_pos"] = units[patrol_threat].pos
+								unit["air_patrol_resume"] = true
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
