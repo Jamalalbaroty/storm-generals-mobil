@@ -193,6 +193,20 @@ func _run() -> void:
 	game.get("selected").clear()
 	game.get("units").clear()
 
+	# A selected transport can be recalled to a selected field squad using the tactical landing planner.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(220.0, 220.0), "transport_state": "idle", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(620.0, 420.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 55, "pos": Vector2(650.0, 440.0)})
+	game.get("selected").append_array([0, 1, 2])
+	game.call("_order_transport_pickup")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "inbound", "A valid pickup request should dispatch the transport toward the squad")
+	_expect(game.get("units")[0].has("transport_target_pos"), "A pickup request should store a safe planned landing point")
+	_expect(game.get("units")[0].has("transport_ai_route_points"), "A pickup request should assign an AI flight route")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	# Boarding requires a landed aircraft and infantry within the physical pickup radius.
 	game.get("units").clear()
 	game.get("selected").clear()
