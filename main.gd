@@ -1340,11 +1340,11 @@ func _process(delta: float) -> void:
 					continue
 				var target_building: Dictionary = enemy_buildings[building_target]
 				var building_distance: float = unit.pos.distance_to(target_building.pos)
-				var building_range := 350.0 if unit.kind == "artillery" else 75.0
+				var building_range := _ground_building_attack_range(String(unit.get("kind", "")))
 				if building_distance <= building_range:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
-						var building_damage = _unit_damage_with_veterancy(unit, 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8))
+						var building_damage := _ground_building_attack_damage(unit)
 						var building_hp_before := int(target_building.get("hp", 400))
 						target_building.hp = maxi(0, building_hp_before - building_damage)
 						_award_unit_experience(unit, building_hp_before - int(target_building.hp))
@@ -1692,6 +1692,17 @@ func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	var rank := int(unit.get("veterancy", 0))
 	var multiplier := 1.25 if rank >= 3 else (1.15 if rank == 2 else (1.08 if rank == 1 else 1.0))
 	return maxi(1, roundi(float(base_damage) * multiplier))
+
+
+func _ground_building_attack_range(unit_kind: String) -> float:
+	# Artillery stays at standoff range; direct-fire ground units must close in.
+	return 350.0 if unit_kind == "artillery" else 75.0
+
+
+func _ground_building_attack_damage(unit: Dictionary) -> int:
+	var unit_kind := String(unit.get("kind", ""))
+	var base_damage := 48 if unit_kind == "artillery" else (32 if unit_kind == "tank" else 8)
+	return _unit_damage_with_veterancy(unit, base_damage)
 
 
 func _unit_damage_taken_with_veterancy(unit: Dictionary, raw_damage: int) -> int:
