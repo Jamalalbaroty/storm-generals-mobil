@@ -42,7 +42,8 @@ func _run_battle_save_store_test() -> void:
 		}],
 		"buildings": [{"kind": "airfield", "hp": 390, "pos": Vector2(650.0, 320.0), "production_id": 4}],
 		"enemy_buildings": [{"kind": "factory", "hp": 240, "pos": Vector2(980.0, 320.0), "production_id": 9}],
-		"production_orders": [{"producer_id": 4, "kind": "fighter", "remaining": 8.5, "duration": 20.0}]
+		"production_orders": [{"producer_id": 4, "kind": "fighter", "remaining": 8.5, "duration": 20.0}],
+		"missiles": [{"team": "player", "pos": Vector2(200.0, 300.0), "target": Vector2(800.0, 300.0), "damage": 180}]
 	}
 	_expect(store.save_snapshot(snapshot), "A valid versioned battle snapshot should save atomically")
 	var restored: Dictionary = store.load_snapshot()
