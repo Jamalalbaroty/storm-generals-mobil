@@ -21,7 +21,11 @@ func _run_battle_save_store_test() -> void:
 			"enemy_credits": 920,
 			"player_base_hp": 760,
 			"enemy_base_hp": 510,
-			"next_unit_identity": 42
+			"next_unit_identity": 42,
+			"supply_points": [
+				{"pos": Vector2(300.0, 220.0), "owner": "player", "kind": "supply", "payout": 0.5, "supply_payout": 3.0},
+				{"pos": Vector2(600.0, 420.0), "owner": "neutral", "kind": "port", "payout": 0.0, "supply_payout": 0.0}
+			]
 		},
 		"units": [{
 			"unit_id": "unit_00000041",
@@ -87,6 +91,15 @@ func _run_battle_save_store_test() -> void:
 	var malformed_missile: Dictionary = snapshot.duplicate(true)
 	malformed_missile["missiles"][0]["target"] = Vector2(0.0, NAN)
 	_expect(not store.save_snapshot(malformed_missile), "Non-finite missile target coordinates must be rejected")
+	var malformed_supply_owner: Dictionary = snapshot.duplicate(true)
+	malformed_supply_owner["match"]["supply_points"][0]["owner"] = "rogue"
+	_expect(not store.save_snapshot(malformed_supply_owner), "Unknown supply-point ownership must be rejected")
+	var malformed_supply_position: Dictionary = snapshot.duplicate(true)
+	malformed_supply_position["match"]["supply_points"][0]["pos"] = Vector2(NAN, 10.0)
+	_expect(not store.save_snapshot(malformed_supply_position), "Non-finite supply-point coordinates must be rejected")
+	var malformed_supply_payout: Dictionary = snapshot.duplicate(true)
+	malformed_supply_payout["match"]["supply_points"][0]["payout"] = -0.5
+	_expect(not store.save_snapshot(malformed_supply_payout), "Negative supply-point payout timers must be rejected")
 	var preserved_after_malformed: Dictionary = store.load_snapshot()
 	_expect(not preserved_after_malformed.is_empty() and int(preserved_after_malformed["match"].get("credits", 0)) == 1840, "Malformed snapshots must never replace the last valid save")
 
