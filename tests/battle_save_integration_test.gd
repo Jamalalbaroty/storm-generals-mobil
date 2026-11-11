@@ -78,6 +78,12 @@ func _run_battle_save_integration_test() -> void:
 	_expect(game.get("buildings").size() == 1 and game.get("enemy_buildings").size() == 1, "Both armies' building states should be restored")
 	_expect(game.get("production_orders").size() == 1 and game.get("missiles").size() == 1, "Production and active missile state should be restored")
 
+	game.set("credits", 1337)
+	game.call("_notification", Node.NOTIFICATION_APPLICATION_PAUSED)
+	game.set("credits", 5)
+	_expect(bool(game.call("_load_battle_snapshot")), "Android pause notification should persist a resumable battle")
+	_expect(int(game.get("credits")) == 1337, "Pause autosave should capture the latest economy state")
+
 	game.get("battle_save_store").call("delete_snapshot")
 	game.queue_free()
 	await process_frame
