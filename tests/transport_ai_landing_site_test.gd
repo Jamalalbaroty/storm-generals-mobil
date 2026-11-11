@@ -217,6 +217,17 @@ func _run() -> void:
 	_expect(game.get("units")[1].has("target"), "Distant infantry should receive a movement target near the transport")
 	_expect(Vector2(game.get("units")[1].get("target", Vector2.ZERO)).distance_to(Vector2(300.0, 300.0)) <= 76.0, "The rendezvous target should lie inside the boarding radius")
 
+	# Wounded infantry board first when capacity is limited.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(320.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 25, "pos": Vector2(340.0, 300.0)})
+	game.get("selected").append_array([0, 1, 2])
+	game.call("_load_selected_infantry_into_transport")
+	var rescue_cargo: Array = game.get("units")[0].get("transport_cargo", [])
+	_expect(rescue_cargo.size() == 2 and int(rescue_cargo[0].get("hp", 100)) == 25, "The most wounded selected infantry should board first")
+
 	game.get("units").clear()
 	game.get("selected").clear()
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "inbound", "transport_cargo": []})
