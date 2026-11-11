@@ -49,6 +49,17 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_next_airfield_recovery_slot", 4)) == 2, "Recovery slot allocator must choose the next free slot when lower slots are occupied")
 	game.get("units").clear()
 
+	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9},
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4}
+	])
+	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
+	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 0.0), "Takeoff queue must be isolated per airfield")
+	game.get("units").clear()
+
 	# Strategic supply points remain neutral while contested and change hands when uncontested.
 	game.get("supply_points").assign([{
 		"pos": Vector2(400.0, 300.0),
