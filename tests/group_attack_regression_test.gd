@@ -28,7 +28,7 @@ func _run() -> void:
 		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(200.0, 290.0), "attack_target": 4},
 		{"team": "enemy", "kind": "tank", "hp": 120, "pos": focus},
 		{"team": "enemy", "kind": "infantry", "hp": 70, "pos": focus + Vector2(28.0, 8.0)},
-		{"team": "enemy", "kind": "fighter", "hp": 130, "pos": focus + Vector2(18.0, -18.0)}
+		{"team": "enemy", "kind": "fighter", "hp": 130, "pos": focus + Vector2(120.0, -110.0)}
 	])
 	var commanded_selection: Array[int] = [0, 1, 2, 0, 99]
 	game.selected = commanded_selection
