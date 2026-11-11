@@ -10,6 +10,16 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 
+	# Formation logic does not require audio. Remove generated players so the
+	# headless SceneTree exits deterministically after the assertions.
+	for audio_player in game.get("audio_players"):
+		audio_player.stop()
+		audio_player.stream = null
+		game.remove_child(audio_player)
+		audio_player.free()
+	(game.get("audio_players") as Array).clear()
+	(game.get("audio_streams") as Dictionary).clear()
+
 	print("Formation regression: scene ready")
 	var viewport_size: Vector2 = game.get_viewport_rect().size
 	if viewport_size.x < 100.0 or viewport_size.y < 100.0:
