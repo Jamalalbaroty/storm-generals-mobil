@@ -124,6 +124,11 @@ func _run_battle_save_integration_test() -> void:
 	_expect(first_reserve_handled and second_reserve_handled, "The enemy must mobilize up to two counterattack reserves against a breach")
 	_expect(not third_reserve_handled, "The enemy must not commit more than two counterattack reserves at once")
 	_expect(bool(game.get("units")[0].get("counterattack_active", false)) and bool(game.get("units")[1].get("counterattack_active", false)), "Both committed counterattack units must retain their active assignments")
+	# A reserve at its anchor must be released once the local breach is cleared.
+	game.get("units").assign([{"kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2(700.0, 300.0), "counterattack_active": true, "counterattack_anchor": Vector2(700.0, 300.0)}])
+	var released_reserve_handled: bool = game.call("_update_enemy_counterattack_reserve", game.get("units")[0], 0, 0.1)
+	_expect(released_reserve_handled, "An active reserve must complete its local counterattack update")
+	_expect(not bool(game.get("units")[0].get("counterattack_active", false)), "A reserve must be released after the breach is cleared and it returns to its anchor")
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
 
