@@ -3941,23 +3941,16 @@ func _load_selected_infantry_into_transport() -> void:
 	var load_count := mini(available, infantry_indices.size())
 	for n in range(load_count):
 		var passenger: Dictionary = units[infantry_indices[n]]
-		var cargo_entry: Dictionary = {
-			"team": "player",
-			"faction": String(passenger.get("faction", faction)),
-			"hp": int(passenger.get("hp", 100)),
-			"combat_xp": float(passenger.get("combat_xp", 0.0)),
-			"veterancy": int(passenger.get("veterancy", 0)),
-			"combat_kills": int(passenger.get("combat_kills", 0)),
-			"air_kills": int(passenger.get("air_kills", 0)),
-			"armor_kills": int(passenger.get("armor_kills", 0)),
-			"naval_kills": int(passenger.get("naval_kills", 0)),
-			"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
-			"cargo_attack_cd": randf_range(0.0, 0.35)
-		}
-		# Preserve safe player movement/stance orders; never store array indices that can go stale.
-		for order_key in ["target", "attack_base", "attack_focus_pos", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
-			if passenger.has(order_key):
-				cargo_entry[order_key] = passenger[order_key]
+		# Keep the complete infantry record so upgrades, stance, cooldowns and future unit fields survive transport.
+		var cargo_entry: Dictionary = passenger.duplicate(true)
+		cargo_entry["team"] = "player"
+		cargo_entry["faction"] = String(passenger.get("faction", faction))
+		cargo_entry["kind"] = "infantry"
+		cargo_entry["hp"] = int(passenger.get("hp", 100))
+		cargo_entry["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
+		cargo_entry["cargo_attack_cd"] = randf_range(0.0, 0.35)
+		# Array indices are not stable while passengers are removed; preserve the target position instead.
+		cargo_entry.erase("attack_target")
 		if passenger.has("attack_target"):
 			var passenger_target_index := int(passenger.get("attack_target", -1))
 			if passenger_target_index >= 0 and passenger_target_index < units.size():
@@ -3972,9 +3965,25 @@ func _load_selected_infantry_into_transport() -> void:
 	var loaded_indices: Array = infantry_indices.slice(0, load_count)
 	loaded_indices.sort()
 	loaded_indices.reverse()
-	for remove_index in loaded_indices:
-		if int(remove_index) >= 0 and int(remove_index) < units.size():
-			units.remove_at(int(remove_index))
+	for remove_index_value in loaded_indices:
+		var remove_index := int(remove_index_value)
+		if remove_index < 0 or remove_index >= units.size():
+			continue
+		var removed_unit: Dictionary = units[remove_index]
+		# Repair every live unit's target index before compacting the shared units array.
+		for reference_index in range(units.size()):
+			if reference_index == remove_index:
+				continue
+			var referencing_unit: Dictionary = units[reference_index]
+			if not referencing_unit.has("attack_target"):
+				continue
+			var referenced_index := int(referencing_unit.get("attack_target", -1))
+			if referenced_index == remove_index:
+				referencing_unit["attack_focus_pos"] = removed_unit.pos
+				referencing_unit.erase("attack_target")
+			elif referenced_index > remove_index:
+				referencing_unit["attack_target"] = referenced_index - 1
+		units.remove_at(remove_index)
 	var updated_transport_index := units.find(transport_record)
 	selected.clear()
 	if updated_transport_index >= 0:
@@ -4034,7 +4043,7 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					notice_time = 2.2
 					return true
 		else:
-			var safe_map_rect := Rect2(Vector2(36.0, 36.0), get_viewport_rect().size - Vector2(72.0, 72.0))
+			var safe_map_rect := _transport_landing_bounds(false)
 			if not safe_map_rect.has_point(target_pos):
 				notice = "اختر نقطة إنزال داخل حدود الخريطة وبعيدة عن الحواف"
 				notice_time = 2.2
@@ -4124,26 +4133,17 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport["transport_drop_timer"] = 0.0
 			var drop_pos: Vector2 = drop_pos_value
 			var passenger: Dictionary = cargo.pop_front()
-			var restored_passenger: Dictionary = {
-				"pos": drop_pos,
-				"team": "player",
-				"kind": "infantry",
-				"faction": String(passenger.get("faction", faction)),
-				"hp": int(passenger.get("hp", 100)),
-				"attack_cd": 0.0,
-				"combat_xp": float(passenger.get("combat_xp", 0.0)),
-				"veterancy": int(passenger.get("veterancy", 0)),
-				"combat_kills": int(passenger.get("combat_kills", 0)),
-				"air_kills": int(passenger.get("air_kills", 0)),
-				"armor_kills": int(passenger.get("armor_kills", 0)),
-				"naval_kills": int(passenger.get("naval_kills", 0)),
-				"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
-				"facing": 0.0,
-				"turret_facing": 0.0
-			}
-		for order_key in ["target", "attack_base", "attack_focus_pos", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
-			if passenger.has(order_key):
-				restored_passenger[order_key] = passenger[order_key]
+			# Restore the original record rather than rebuilding a reduced infantry dictionary.
+			var restored_passenger: Dictionary = passenger.duplicate(true)
+			restored_passenger["pos"] = drop_pos
+			restored_passenger["team"] = "player"
+			restored_passenger["kind"] = "infantry"
+			restored_passenger["faction"] = String(passenger.get("faction", faction))
+			restored_passenger["hp"] = int(passenger.get("hp", 100))
+			restored_passenger["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
+			restored_passenger["facing"] = float(passenger.get("facing", 0.0))
+			restored_passenger["turret_facing"] = float(passenger.get("turret_facing", restored_passenger["facing"]))
+			restored_passenger.erase("attack_target")
 		# Resolve a fresh hostile target from its saved position after array changes.
 		if passenger.has("attack_focus_pos"):
 			var focus_pos: Vector2 = passenger["attack_focus_pos"]
@@ -4203,6 +4203,18 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 
 
 
+func _transport_landing_bounds(is_rooftop: bool) -> Rect2:
+	# The 2D battlefield fills the viewport; its lower strip is beach/sea, not safe infantry ground.
+	var map_size := get_viewport_rect().size
+	var lower_edge := map_size.y - 36.0
+	if not is_rooftop:
+		lower_edge = minf(lower_edge, map_size.y * 0.66)
+	return Rect2(
+		Vector2(36.0, 36.0),
+		Vector2(maxf(0.0, map_size.x - 72.0), maxf(0.0, lower_edge - 36.0))
+	)
+
+
 func _find_transport_drop_position(center: Vector2, drop_index: int, transport: Dictionary) -> Variant:
 	# Rooftop drops stay close to the selected building; ground drops use a wider ring.
 	var is_rooftop := String(transport.get("transport_landing_type", "ground")) == "rooftop"
@@ -4215,7 +4227,7 @@ func _find_transport_drop_position(center: Vector2, drop_index: int, transport: 
 		Vector2(0, -42), Vector2(0, 42), Vector2(-46, 0), Vector2(46, 0)
 	]
 	var offsets: Array[Vector2] = rooftop_offsets if is_rooftop else ground_offsets
-	var safe_map_rect := Rect2(Vector2(36.0, 36.0), get_viewport_rect().size - Vector2(72.0, 72.0))
+	var safe_map_rect := _transport_landing_bounds(is_rooftop)
 	for attempt in range(offsets.size()):
 		var candidate: Vector2 = center + offsets[(drop_index + attempt) % offsets.size()]
 		if not safe_map_rect.has_point(candidate):
