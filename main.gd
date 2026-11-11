@@ -321,7 +321,8 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		notice = "القوات اتخذت مواقع الحراسة والدفاع"
 		notice_time = 1.8
 	elif order_type == "escort":
-		if String(source_unit.get("kind", "")) != "tank":
+		var escort_kind := String(source_unit.get("kind", ""))
+		if escort_kind not in ["tank", "fighter", "helicopter"]:
 			return
 		var escort_parts := target_key.split("|")
 		if escort_parts.size() < 3 or escort_parts[0] != "player" or not escort_parts[1].is_valid_int():
@@ -330,9 +331,13 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var escort_target_index := -1
 		for candidate_index in range(units.size()):
 			var candidate: Dictionary = units[candidate_index]
-			if candidate.team == "player" and int(candidate.get("3d_sync_id", -1)) == escort_target_id and String(candidate.get("kind", "")) == "artillery" and int(candidate.get("hp", 0)) > 0:
-				escort_target_index = candidate_index
-				break
+			var candidate_kind := String(candidate.get("kind", ""))
+			if candidate.team != "player" or int(candidate.get("3d_sync_id", -1)) != escort_target_id or int(candidate.get("hp", 0)) <= 0:
+				continue
+			if candidate_kind not in ["artillery", "transport_helicopter"]:
+				continue
+			escort_target_index = candidate_index
+			break
 		if escort_target_index < 0:
 			return
 		_cancel_airfield_recovery(source_unit)
@@ -340,6 +345,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit["escort_target_id"] = escort_target_id
 		source_unit["escort_offset"] = source_unit.pos - escort_target.pos
 		source_unit["escort_active"] = true
+		source_unit.erase("escort_auto_target")
 		source_unit.erase("target")
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
@@ -349,7 +355,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("attack_focus_pos")
 		source_unit.erase("attack_building")
 		source_unit.erase("attack_base")
-		notice = "الدبابة بدأت مرافقة المدفعية وحمايتها"
+		notice = "تم تكليف الوحدة بمرافقة القوة المحددة وحمايتها"
 		notice_time = 1.8
 	elif order_type == "patrol":
 		if String(source_unit.get("kind", "")) not in ["fighter", "helicopter"]:
@@ -932,6 +938,43 @@ func _process(delta: float) -> void:
 								unit["attack_target"] = patrol_threat
 								unit["attack_focus_pos"] = units[patrol_threat].pos
 								unit["air_patrol_resume"] = true
+					# Air escorts hold a formation slot beside their assigned artillery or transport.
+					if bool(unit.get("escort_active", false)):
+						var air_escort_id := int(unit.get("escort_target_id", -1))
+						var air_escort_index := -1
+						for escort_candidate_index in range(units.size()):
+							var escort_candidate: Dictionary = units[escort_candidate_index]
+							var escort_kind := String(escort_candidate.get("kind", ""))
+							if String(escort_candidate.get("team", "")) == "player" and int(escort_candidate.get("3d_sync_id", -1)) == air_escort_id and int(escort_candidate.get("hp", 0)) > 0 and escort_kind in ["artillery", "transport_helicopter"]:
+								air_escort_index = escort_candidate_index
+								break
+						if air_escort_index < 0:
+							unit.erase("escort_active")
+							unit.erase("escort_target_id")
+							unit.erase("escort_offset")
+							unit.erase("escort_auto_target")
+						else:
+							var air_escort_target: Dictionary = units[air_escort_index]
+							var escort_enemy_index := int(unit.get("attack_target", -1))
+							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or units[escort_enemy_index].pos.distance_to(air_escort_target.pos) > 220.0):
+								unit.erase("attack_target")
+								unit.erase("attack_focus_pos")
+								unit.erase("escort_auto_target")
+								escort_enemy_index = -1
+							if escort_enemy_index < 0 and not unit.has("attack_building"):
+								var escort_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+								var nearby_escort_threat := _nearest_unit_by_priority(air_escort_target.pos, 220.0, "enemy", escort_threat_kinds)
+								if nearby_escort_threat >= 0:
+									unit["attack_target"] = nearby_escort_threat
+									unit["attack_focus_pos"] = units[nearby_escort_threat].pos
+									unit["escort_auto_target"] = true
+									escort_enemy_index = nearby_escort_threat
+							if escort_enemy_index < 0 and not unit.has("attack_building"):
+								var air_escort_offset: Vector2 = unit.get("escort_offset", Vector2(42.0, -38.0))
+								var air_escort_position: Vector2 = air_escort_target.pos + air_escort_offset
+								if unit.pos.distance_to(air_escort_position) > 18.0:
+									unit.pos += (air_escort_position - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+								continue
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
