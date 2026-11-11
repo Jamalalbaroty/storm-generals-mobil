@@ -76,6 +76,10 @@ func _run_battle_save_store_test() -> void:
 	var recovered: Dictionary = store.load_snapshot()
 	_expect(not recovered.is_empty() and int(recovered["match"].get("credits", 0)) == 1840, "A verified backup should recover when the primary save is missing")
 
+	# Recreate the interrupted-promotion layout: known-good backup plus corrupt primary.
+	var retained_backup_error := DirAccess.rename_absolute(save_absolute, backup_absolute)
+	_expect(retained_backup_error == OK, "Test should retain the recovered good save as a backup before corrupting primary")
+
 	# Simulate a torn/corrupted primary file while retaining a known-good backup.
 	var corrupt_primary := FileAccess.open(SaveStore.SAVE_PATH, FileAccess.WRITE)
 	_expect(corrupt_primary != null, "Test should be able to create a corrupted primary save")
