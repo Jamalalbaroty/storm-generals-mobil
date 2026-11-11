@@ -238,3 +238,8 @@ Air escort formations now have a shared synchronization helper that rebuilds the
 ## Implemented twenty-second slice — adaptive escort formation catch-up
 
 Air escorts now use a bounded distance-based catch-up speed while returning to their assigned moving formation slot. The base speed remains unchanged inside the normal formation tolerance; speed increases progressively with separation and is capped at 1.4x the unit's own base speed. Fighter and gunship movement retain their distinct base speeds. Regression assertions cover acceleration beyond the formation tolerance and the upper speed cap for both aircraft classes. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented twenty-second slice — role-prioritized escort threat selection
+
+Transport escorts now select nearby threats using ordered priorities specific to their role instead of treating all preferred target classes equally. Fighters prioritize enemy fighters, then helicopters, then transports; gunships prioritize tanks, then artillery, then infantry. Within each threat class the nearest living enemy inside the protection radius is selected. Existing player-issued attack/building orders and escort auto-target release behavior remain intact. Regression assertions verify that fighters choose a farther enemy fighter over a closer helicopter and gunships choose a farther tank over closer infantry. Tests are authored only; Godot execution, CI, and Android validation remain pending.
