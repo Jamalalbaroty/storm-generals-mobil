@@ -979,22 +979,23 @@ func _process(delta: float) -> void:
 								unit.erase("escort_auto_target")
 						else:
 							var air_escort_target: Dictionary = units[air_escort_index]
+							var escort_anchor_pos := _transport_ai_escort_anchor_position(air_escort_target)
 							var escort_enemy_index := int(unit.get("attack_target", -1))
-							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, air_escort_target.pos, units[escort_enemy_index].pos)):
+							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, escort_anchor_pos, units[escort_enemy_index].pos)):
 								unit.erase("attack_target")
 								unit.erase("attack_focus_pos")
 								unit.erase("escort_auto_target")
 								escort_enemy_index = -1
-							var emergency_escort_threat := _transport_ai_select_emergency_escort_threat(air_escort_id, i, air_escort_target.pos, 150.0)
+							var emergency_escort_threat := _transport_ai_select_emergency_escort_threat(air_escort_id, i, escort_anchor_pos, 150.0)
 							if emergency_escort_threat >= 0 and not unit.has("attack_building") and (not unit.has("attack_target") or bool(unit.get("escort_auto_target", false))):
 								var current_auto_target := int(unit.get("attack_target", -1))
-								if not bool(unit.get("escort_auto_target", false)) or current_auto_target < 0 or current_auto_target >= units.size() or units[current_auto_target].pos.distance_to(air_escort_target.pos) > 150.0:
+								if not bool(unit.get("escort_auto_target", false)) or current_auto_target < 0 or current_auto_target >= units.size() or units[current_auto_target].pos.distance_to(escort_anchor_pos) > 150.0:
 									unit["attack_target"] = emergency_escort_threat
 									unit["attack_focus_pos"] = units[emergency_escort_threat].pos
 									unit["escort_auto_target"] = true
 									escort_enemy_index = emergency_escort_threat
 							if escort_enemy_index < 0 and not unit.has("attack_building"):
-								var nearby_escort_threat := _transport_ai_select_group_escort_threat(air_escort_id, air_escort_target.pos, String(unit.kind), 220.0)
+								var nearby_escort_threat := _transport_ai_select_group_escort_threat(air_escort_id, escort_anchor_pos, String(unit.kind), 220.0)
 								if nearby_escort_threat >= 0:
 									unit["attack_target"] = nearby_escort_threat
 									unit["attack_focus_pos"] = units[nearby_escort_threat].pos
@@ -1002,7 +1003,7 @@ func _process(delta: float) -> void:
 									escort_enemy_index = nearby_escort_threat
 							if escort_enemy_index < 0 and not unit.has("attack_building"):
 								var air_escort_offset: Vector2 = unit.get("escort_offset", Vector2(42.0, -38.0))
-								var air_escort_position: Vector2 = air_escort_target.pos + air_escort_offset
+								var air_escort_position: Vector2 = escort_anchor_pos + air_escort_offset
 								if unit.pos.distance_to(air_escort_position) > 18.0:
 									unit.pos += (air_escort_position - unit.pos).normalized() * delta * _transport_ai_escort_catchup_speed(String(unit.kind), unit.pos.distance_to(air_escort_position))
 								continue
@@ -4726,6 +4727,16 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 		transport["transport_drop_timer"] = 0.0
 		transport.erase("target")
 	return true
+
+
+func _transport_ai_escort_anchor_position(transport: Dictionary) -> Vector2:
+	# In the final approach, escorts stage around the assigned drop zone before the transport arrives.
+	var state := String(transport.get("transport_state", ""))
+	if state in ["inbound", "descending"] and transport.has("transport_target_pos"):
+		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.get("pos", Vector2.ZERO))
+		if Vector2(transport.get("pos", Vector2.ZERO)).distance_to(landing_pos) <= 320.0:
+			return landing_pos
+	return transport.get("pos", Vector2.ZERO)
 
 
 func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float) -> float:
