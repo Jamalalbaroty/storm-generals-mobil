@@ -4718,6 +4718,7 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 		transport.erase("transport_return_pos")
 		transport.erase("transport_ai_route_points")
 		transport.erase("transport_ai_route_index")
+		transport.erase("transport_post_drop_guard_pos")
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "ground"
 		transport.erase("transport_target_building_kind")
