@@ -2811,27 +2811,33 @@ func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int
 
 
 func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -> int:
-	# Spread enemy fighters across available hostile aircraft instead of dogpiling one target.
+	# Cache only living friendly interceptors once; avoid rescanning every unit for every candidate.
+	var friendly_fighter_positions: Array[Vector2] = []
+	for friendly_index in range(units.size()):
+		if friendly_index == self_index:
+			continue
+		var friendly: Dictionary = units[friendly_index]
+		if String(friendly.get("team", "")) == "enemy" and String(friendly.get("kind", "")) == "fighter" and int(friendly.get("hp", 0)) > 0:
+			friendly_fighter_positions.append(friendly.pos)
+
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
 		var candidate: Dictionary = units[candidate_index]
 		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
 			continue
-		if String(candidate.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter"]:
+		var candidate_kind := String(candidate.get("kind", ""))
+		if candidate_kind not in ["fighter", "helicopter", "transport_helicopter"]:
 			continue
 		var distance: float = from_pos.distance_to(candidate.pos)
 		if distance > FIGHTER_TARGET_RANGE:
 			continue
 		var assigned_fighters := 0
-		for friendly_index in range(units.size()):
-			if friendly_index == self_index:
-				continue
-			var friendly: Dictionary = units[friendly_index]
-			if String(friendly.get("team", "")) == "enemy" and String(friendly.get("kind", "")) == "fighter" and int(friendly.get("hp", 0)) > 0 and friendly.pos.distance_to(candidate.pos) <= 115.0:
+		for friendly_pos in friendly_fighter_positions:
+			if friendly_pos.distance_squared_to(candidate.pos) <= 13225.0:
 				assigned_fighters += 1
 		var score: float = distance + float(assigned_fighters) * 185.0
-		if String(candidate.get("kind", "")) == "fighter":
+		if candidate_kind == "fighter":
 			score -= 24.0
 		if score < best_score:
 			best_score = score
