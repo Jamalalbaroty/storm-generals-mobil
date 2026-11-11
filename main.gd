@@ -350,6 +350,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 				escort_slot += 1
 		var escort_offset := _transport_ai_escort_formation_offset(escort_slot)
 		source_unit["escort_target_id"] = escort_target_id
+		source_unit["escort_target_kind"] = String(escort_target.get("kind", ""))
 		source_unit["escort_offset"] = escort_offset
 		source_unit["escort_formation_slot"] = escort_slot
 		source_unit["escort_formation_size"] = escort_slot + 1
@@ -4740,6 +4741,8 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 	var escort: Dictionary = units[escort_index]
 	if String(escort.get("team", "")) != "player" or String(escort.get("kind", "")) not in ["fighter", "helicopter"] or int(escort.get("hp", 0)) <= 0:
 		return false
+	if String(escort.get("escort_target_kind", "")) != "transport_helicopter":
+		return false
 	var best_transport_index := -1
 	var best_cost := INF
 	for transport_index in range(units.size()):
@@ -4820,6 +4823,7 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 		var formation_slot := int(escort_counts.get(best_transport_index, 0))
 		var offset := _transport_ai_escort_formation_offset(formation_slot)
 		escort["escort_target_id"] = int(protected_transport.get("3d_sync_id", -1))
+		escort["escort_target_kind"] = "transport_helicopter"
 		escort["escort_offset"] = offset
 		escort["escort_formation_slot"] = formation_slot
 		escort["escort_formation_size"] = formation_slot + 1
