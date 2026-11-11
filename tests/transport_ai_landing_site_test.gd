@@ -62,6 +62,26 @@ func _run() -> void:
 	_expect(bool(planned_landing.get("valid", false)), "The planner should return a valid landing site when the map has safe ground")
 	_expect(planned_landing.has("pos") and planned_landing.has("landing_type"), "The planner should return the complete landing destination contract")
 
+	var transport_manual := {"transport_cargo": [{"kind": "infantry"}]}
+	var manual_decision: Dictionary = game.call("_transport_ai_landing_decision", transport_manual, objective)
+	_expect(String(manual_decision.get("mode", "")) == "MANUAL", "Transport AI must default to manual control")
+	_expect(String(manual_decision.get("action", "")) == "manual_control" and not bool(manual_decision.get("can_execute", true)), "MANUAL mode must never authorize autonomous movement")
+
+	var transport_assisted := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "ASSISTED"}
+	var assisted_decision: Dictionary = game.call("_transport_ai_landing_decision", transport_assisted, objective)
+	_expect(String(assisted_decision.get("action", "")) == "recommend" and not bool(assisted_decision.get("can_execute", true)), "ASSISTED mode may recommend but must not execute")
+
+	var transport_autonomous := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "AUTONOMOUS"}
+	var autonomous_decision: Dictionary = game.call("_transport_ai_landing_decision", transport_autonomous, objective)
+	_expect(String(autonomous_decision.get("action", "")) == "authorize_autonomous" and bool(autonomous_decision.get("can_execute", false)), "AUTONOMOUS mode may authorize a planned landing")
+	transport_autonomous["transport_ai_player_override"] = true
+	var override_decision: Dictionary = game.call("_transport_ai_landing_decision", transport_autonomous, objective)
+	_expect(String(override_decision.get("action", "")) == "manual_control" and not bool(override_decision.get("can_execute", true)), "An explicit player override must block autonomous execution")
+
+	var empty_transport := {"transport_cargo": [], "transport_ai_mode": "AUTONOMOUS"}
+	var empty_decision: Dictionary = game.call("_transport_ai_landing_decision", empty_transport, objective)
+	_expect(not bool(empty_decision.get("valid", true)) and String(empty_decision.get("reason", "")) == "empty_cargo", "The tactical director must reject empty transports")
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
