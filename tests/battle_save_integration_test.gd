@@ -459,6 +459,24 @@ func _run_battle_save_integration_test() -> void:
 	_expect(game.get("units").size() == 1 and String(game.get("units")[0].get("kind", "")) == "builder" and String(game.get("units")[0].get("faction", "")) == "وطن", "Campaign start must deploy the selected army's builder")
 	_expect(int(game.get("credits")) == 1200 and int(game.get("supplies")) == 5 and int(game.get("enemy_supplies")) == 5, "Campaign start must initialize both economies and opening supplies")
 
+	# Complete a full campaign battle through the actual frame loop and verify one-time resolution.
+	for building_index in range(4):
+		game.get("buildings").append({
+			"kind": "barracks" if building_index == 0 else "factory",
+			"pos": Vector2(300.0 + building_index * 80.0, 300.0),
+			"hp": 400,
+			"build_progress": 1.0
+		})
+	game.set("enemy_base_hp", 0)
+	game.call("_process", 0.1)
+	_expect(String(game.get("battle_result")) != "" and String(game.get("battle_result")).contains("انتصرت"), "Destroying the enemy base during the live campaign loop must resolve a victory")
+	var live_victory_profile: Dictionary = game.get("commander_profile")
+	_expect(int(live_victory_profile.get("battles_played", 0)) == 1 and int(live_victory_profile.get("victories", 0)) == 1, "Live campaign victory must record career totals exactly once")
+	_expect(int(live_victory_profile.get("campaign_progress", {}).get("وطن", 0)) == 3, "Live campaign victory must unlock the next Watan mission")
+	_expect(int(live_victory_profile.get("campaign_funds", 0)) == 625, "Live mountain campaign victory must grant its 450 base reward and 175 secondary bonus")
+	game.call("_process", 0.1)
+	_expect(int(live_victory_profile.get("battles_played", 0)) == 1 and int(live_victory_profile.get("campaign_funds", 0)) == 625, "Additional frames after victory must not duplicate campaign rewards or career totals")
+
 	game.set("commander_profile", original_commander_profile)
 	game.call("_save_commander_profile")
 
