@@ -175,6 +175,27 @@ func _run_battle_save_integration_test() -> void:
 	game.set("enemy_credits", 0)
 	game.set("enemy_supplies", 0)
 
+	# Enemy base management: repair the most damaged completed asset without starving unit production.
+	game.set("faction", "وطن")
+	game.set("enemy_credits", 1000)
+	game.get("enemy_buildings").assign([
+		{"kind": "turret", "hp": 200, "build_progress": 1.0, "pos": Vector2(800.0, 260.0)},
+		{"kind": "factory", "hp": 200, "build_progress": 1.0, "pos": Vector2(900.0, 300.0)},
+		{"kind": "barracks", "hp": 100, "build_progress": 0.4, "pos": Vector2(950.0, 360.0)}
+	])
+	_expect(bool(game.call("_enemy_repair_damaged_building")), "Enemy AI must repair a critically damaged completed building when it can afford repairs and preserve an infantry reserve")
+	_expect(int(game.get("enemy_buildings")[1].get("hp", 0)) == int(game.call("_enemy_building_max_hp", game.get("enemy_buildings")[1])), "Enemy AI must prioritize the most damaged completed building for repair")
+	_expect(int(game.get("enemy_buildings")[0].get("hp", 0)) == 200, "Enemy repair must not waste resources repairing a less damaged asset first")
+	game.set("enemy_credits", 200)
+	game.get("enemy_buildings")[1]["hp"] = 200
+	_expect(not bool(game.call("_enemy_repair_damaged_building")), "Enemy AI must preserve enough credits for a minimum infantry reserve instead of overspending on repairs")
+	_expect(int(game.get("enemy_buildings")[1].get("hp", 0)) == 200, "Unaffordable enemy repairs must leave building durability unchanged")
+	_expect(bool(game.call("_enemy_has_building_under_construction", "barracks")), "Enemy AI must recognize an existing barracks under construction and avoid duplicate construction")
+	_expect(not bool(game.call("_enemy_has_building_under_construction", "airfield")), "Enemy AI must not report absent production buildings as under construction")
+	game.get("enemy_buildings").clear()
+	game.set("enemy_credits", 1200)
+	game.set("faction", "")
+
 	# Enemy bunkers must acquire ground attackers only, never nearby aircraft or transports.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(20.0, 0.0)},
