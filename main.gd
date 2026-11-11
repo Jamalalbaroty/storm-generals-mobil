@@ -3333,11 +3333,11 @@ func _has_selected_transport() -> bool:
 
 
 func _transport_ai_mode_rect(size: Vector2) -> Rect2:
-	return Rect2(Vector2(10.0, 257.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+	return Rect2(Vector2(10.0, 158.0), Vector2((size.x - 26.0) * 0.5, 30.0))
 
 
 func _transport_ai_doctrine_rect(size: Vector2) -> Rect2:
-	return Rect2(Vector2(16.0 + (size.x - 26.0) * 0.5, 257.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+	return Rect2(Vector2(16.0 + (size.x - 26.0) * 0.5, 158.0), Vector2((size.x - 26.0) * 0.5, 30.0))
 
 
 func _selected_transport_mode() -> String:
