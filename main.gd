@@ -4107,8 +4107,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			var landing_center: Vector2 = transport.get("transport_target_pos", transport.pos)
 			var drop_pos_value = _find_transport_drop_position(landing_center, drop_index, transport)
 			if not drop_pos_value is Vector2:
-				# Keep the passenger aboard and retry shortly instead of spawning inside an obstacle.
-				transport["transport_drop_timer"] = 0.42
+				# Keep the passenger aboard and replay a complete rope descent on the next safe attempt.
+				transport["transport_drop_timer"] = 0.0
 				return
 			transport["transport_drop_timer"] = 0.0
 			var drop_pos: Vector2 = drop_pos_value
