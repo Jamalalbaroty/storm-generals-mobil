@@ -3338,6 +3338,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				if idx < units.size() and units[idx].team == "player":
 					_cancel_airfield_recovery(units[idx])
 					units[idx].attack_base = true
+					# A fresh attack order supersedes any stale movement or patrol route.
+					units[idx].erase("target")
+					units[idx].erase("air_patrol_points")
+					units[idx].erase("air_patrol_index")
+					units[idx].erase("air_patrol_resume")
 					units[idx].erase("attack_target")
 					units[idx].erase("attack_focus_pos")
 					units[idx].erase("attack_building")
@@ -3354,6 +3359,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					_cancel_airfield_recovery(units[idx])
 					units[idx].attack_target = enemy_found
 					units[idx].attack_focus_pos = units[enemy_found].pos
+					# Do not let an old move destination or patrol override this attack.
+					units[idx].erase("target")
+					units[idx].erase("air_patrol_points")
+					units[idx].erase("air_patrol_index")
+					units[idx].erase("air_patrol_resume")
 					units[idx].erase("attack_base")
 					units[idx].erase("attack_building")
 					units[idx].erase("attack_move_active")
