@@ -519,7 +519,7 @@ func _process(delta: float) -> void:
 				var is_bunker := building.kind == "bunker"
 				var bunker_level := maxi(1, int(building.get("level", 1))) if is_bunker else 1
 				var bunker_range := 185.0 + float(bunker_level - 1) * 30.0
-				var target := _nearest_enemy_ground_unit(building.pos, bunker_range) if is_bunker else _nearest_enemy_unit(building.pos, 320.0 if building.kind == "anti_air" else 230.0, building.kind == "anti_air")
+				var target := _nearest_enemy_ground_unit(building.pos, bunker_range) if is_bunker else (_priority_air_target(building.pos, "enemy", 320.0) if building.kind == "anti_air" else _nearest_enemy_unit(building.pos, 230.0))
 				if target >= 0 and building.attack_cd <= 0.0:
 					building["defense_target_pos"] = units[target].pos
 					var defense_damage := 22 + (bunker_level - 1) * 5 if is_bunker else (34 if building.kind == "anti_air" else 18)
@@ -535,7 +535,7 @@ func _process(delta: float) -> void:
 				continue
 			if building.kind == "turret" or building.kind == "anti_air":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var target := _nearest_player_unit(building.pos, building.kind == "anti_air")
+				var target := _priority_air_target(building.pos, "player", 320.0) if building.kind == "anti_air" else _nearest_player_unit(building.pos)
 				var max_range := 320.0 if building.kind == "anti_air" else 230.0
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
 					building["defense_target_pos"] = units[target].pos
@@ -2155,6 +2155,26 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 			if candidate.kind == "submarine" and not _is_submarine_detected(candidate, observer_team):
 				continue
 			if priority_pass == 0 and not preferred_kinds.has(String(candidate.kind)):
+				continue
+			var distance: float = from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
+
+
+func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
+	# Anti-air batteries intercept fighters first, then helicopters, without chasing ground units.
+	for preferred_kind in ["fighter", "helicopter"]:
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if String(candidate.get("team", "")) != target_team or int(candidate.get("hp", 0)) <= 0:
+				continue
+			if String(candidate.get("kind", "")) != preferred_kind:
 				continue
 			var distance: float = from_pos.distance_to(candidate.pos)
 			if distance < best_distance:
