@@ -4156,6 +4156,39 @@ func _transport_ai_evaluate_landing_site(candidate: Dictionary, objective_pos: V
 	return {"valid": true, "score": score, "reason": "ranked", "site_id": String(candidate.get("id", "")), "distance": objective_distance}
 
 
+func _transport_ai_build_landing_candidates(objective_pos: Vector2) -> Array[Dictionary]:
+	# Build a repeatable candidate set from the current battlefield, not hidden enemy data.
+	var candidates: Array[Dictionary] = []
+	var bounds := _transport_landing_bounds(false)
+	var x := bounds.position.x + 48.0
+	var y_start := bounds.position.y + 48.0
+	var row := 0
+	while y_start + float(row) * 112.0 <= bounds.end.y - 24.0:
+		var column := 0
+		while x + float(column) * 112.0 <= bounds.end.x - 24.0:
+			var point := Vector2(x + float(column) * 112.0, y_start + float(row) * 112.0)
+			candidates.append({"id": "ground_%03d_%03d" % [row, column], "pos": point, "landing_type": "ground"})
+			column += 1
+		row += 1
+	for structure in buildings + enemy_buildings:
+		var kind := String(structure.get("kind", ""))
+		if kind in ["wall", "wall_corner", "wall_gate", "airfield"] or int(structure.get("hp", 0)) <= 0 or float(structure.get("build_progress", 1.0)) < 1.0:
+			continue
+		var roof_pos: Vector2 = structure.get("pos", Vector2.ZERO)
+		candidates.append({
+			"id": "roof_%s_%d_%d" % [kind, roundi(roof_pos.x), roundi(roof_pos.y)],
+			"pos": roof_pos,
+			"landing_type": "rooftop",
+			"building_kind": kind
+		})
+	return candidates
+
+
+func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
+	var candidates := _transport_ai_build_landing_candidates(objective_pos)
+	return _transport_ai_choose_landing_site(candidates, objective_pos)
+
+
 func _transport_ai_choose_landing_site(candidates: Array[Dictionary], objective_pos: Vector2) -> Dictionary:
 	var best: Dictionary = {}
 	for candidate in candidates:
