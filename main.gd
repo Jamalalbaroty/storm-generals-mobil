@@ -2835,9 +2835,19 @@ func _draw_hud(size: Vector2) -> void:
 		var progress_total := 0.0
 		var highest_rank := 0
 		var elite_count := 0
+		var infantry_count := 0
+		var ground_support_count := 0
+		var aircraft_count := 0
 		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
 		var dossier_name := String(kind_labels.get(String(selected_player_units[0].get("kind", "")), "الوحدة"))
 		for selected_unit in selected_player_units:
+			var selected_kind := String(selected_unit.get("kind", ""))
+			if selected_kind == "infantry":
+				infantry_count += 1
+			elif selected_kind in ["tank", "artillery", "builder"]:
+				ground_support_count += 1
+			elif selected_kind in ["fighter", "helicopter"]:
+				aircraft_count += 1
 			var unit_xp := float(selected_unit.get("combat_xp", 0.0))
 			var unit_rank := int(selected_unit.get("veterancy", 0))
 			total_xp += unit_xp
@@ -2858,8 +2868,8 @@ func _draw_hud(size: Vector2) -> void:
 		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 48))
 		draw_rect(dossier, Color("#10232b", 0.94), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
-		var unit_label := dossier_name if selected_player_units.size() == 1 else "%d وحدات محددة" % selected_player_units.size()
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 12, Color("#f2e8ca"))
+		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d" % [infantry_count, ground_support_count, aircraft_count]
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 10 if selected_player_units.size() > 1 else 12, Color("#f2e8ca"))
 		var xp_bar := Rect2(dossier.position + Vector2(8, 26), Vector2(size.x - 36, 9))
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
