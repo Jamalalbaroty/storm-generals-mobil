@@ -1296,7 +1296,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.get("units").append(group_record)
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 	game.set("selected", group_selection)
-	var group_destination := Vector2(active_viewport.x * 0.58, active_viewport.y * 0.46)
+	var group_destination := Vector2(active_viewport.x * 0.58, clampf(active_viewport.y * 0.72, 240.0, 285.0))
 	game.call("_handle_pointer", group_destination, true)
 	game.call("_handle_pointer", group_destination, false)
 	var group_origin := Vector2.ZERO
@@ -1338,7 +1338,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(attacking_unit.get("attack_focus_pos", Vector2.ZERO).distance_to(group_enemy_position) < 0.1, "All selected units should preserve the player's chosen attack focus")
 
 	# A fresh move order should clear the old attack and re-form the group at its new destination.
-	var second_group_destination := Vector2(active_viewport.x * 0.36, active_viewport.y * 0.52)
+	var second_group_destination := Vector2(active_viewport.x * 0.36, clampf(active_viewport.y * 0.55, 232.0, 278.0))
 	game.call("_handle_pointer", second_group_destination, true)
 	game.call("_handle_pointer", second_group_destination, false)
 	var second_formation_targets: Array[Vector2] = []
