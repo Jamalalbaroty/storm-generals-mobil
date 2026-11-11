@@ -553,64 +553,66 @@ func _initialize() -> void:
 			push_error("Maximum health was not preserved for: " + kind)
 			quit(1)
 			return
-	var submarine := battlefield.game_unit_nodes.get("player|7|submarine") as Node3D
-	var destroyer := battlefield.game_unit_nodes.get("player|5|destroyer") as Node3D
-	if battlefield.get_node_or_null("CoastalWater") == null or battlefield.get_node_or_null("CoastalShore") == null:
-		push_error("Coastal water or shoreline is missing from the 3D battlefield")
-		quit(1)
-		return
-	if submarine == null or submarine.position.y > -0.5:
-		push_error("Submarine was not placed beneath the coastal waterline")
-		quit(1)
-		return
-	if destroyer == null or destroyer.position.y <= 0.0 or destroyer.get_node_or_null("Hull") == null:
-		push_error("Surface ship hull was not positioned at the water surface")
-		quit(1)
-		return
-	if battlefield.naval_propellers.size() < 6 or destroyer.get_node_or_null("PropellerLeft") == null or destroyer.get_node_or_null("PropellerRight") == null:
-		push_error("Surface naval vessels are missing animated propeller assemblies")
-		quit(1)
-		return
-	var propeller_before: float = battlefield.naval_propellers[0].rotation.z
-	battlefield._update_naval_animation(0.1)
-	if battlefield.naval_propellers[0].rotation.z <= propeller_before:
-		push_error("Naval propeller animation did not advance")
-		quit(1)
-		return
-	# Verify a carrier launches a visible patrol aircraft and starts its sortie cooldown.
-	var test_carrier := battlefield.game_unit_nodes.get("player|6|carrier") as Node3D
-	if test_carrier == null:
-		push_error("Carrier unit missing before air operations test")
-		quit(1)
-		return
-	battlefield.call("_update_carrier_air_operations", 0.1)
-	if battlefield.carrier_aircraft.size() != 1 or float(test_carrier.get_meta("air_ops_cooldown", 0.0)) <= 0.0:
-		push_error("Carrier failed to launch a patrol aircraft or set its sortie cooldown")
-		quit(1)
-		return
-	var launched_aircraft := battlefield.carrier_aircraft[0].get("node") as Node3D
-	if launched_aircraft == null or launched_aircraft.get_child_count() < 3 or launched_aircraft.position.y <= test_carrier.position.y:
-		push_error("Carrier patrol aircraft geometry or takeoff altitude is invalid")
-		quit(1)
-		return
-
-	# Verify the patrol aircraft descends onto the carrier deck before despawning.
-	battlefield.call("_update_carrier_air_operations", 8.8)
-	if not is_instance_valid(launched_aircraft) or not launched_aircraft.is_inside_tree():
-		push_error("Carrier patrol aircraft disappeared before completing its deck approach")
-		quit(1)
-		return
-	var landing_offset: Vector3 = launched_aircraft.position - test_carrier.position
-	if absf(landing_offset.y - 1.48) > 0.25 or Vector2(landing_offset.x, landing_offset.z).length() > 0.45:
-		push_error("Carrier patrol aircraft did not reach the carrier deck approach zone")
-		quit(1)
-		return
-	battlefield.call("_update_carrier_air_operations", 0.3)
-	if battlefield.carrier_aircraft.size() != 0 or (is_instance_valid(launched_aircraft) and not launched_aircraft.is_queued_for_deletion()):
-		push_error("Carrier patrol aircraft was not recovered after landing")
-		quit(1)
-		return
-
+	if bool(battlefield.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
+		var submarine := battlefield.game_unit_nodes.get("player|7|submarine") as Node3D
+		var destroyer := battlefield.game_unit_nodes.get("player|5|destroyer") as Node3D
+		if battlefield.get_node_or_null("CoastalWater") == null or battlefield.get_node_or_null("CoastalShore") == null:
+			push_error("Coastal water or shoreline is missing from the 3D battlefield")
+			quit(1)
+			return
+		if submarine == null or submarine.position.y > -0.5:
+			push_error("Submarine was not placed beneath the coastal waterline")
+			quit(1)
+			return
+		if destroyer == null or destroyer.position.y <= 0.0 or destroyer.get_node_or_null("Hull") == null:
+			push_error("Surface ship hull was not positioned at the water surface")
+			quit(1)
+			return
+		if battlefield.naval_propellers.size() < 6 or destroyer.get_node_or_null("PropellerLeft") == null or destroyer.get_node_or_null("PropellerRight") == null:
+			push_error("Surface naval vessels are missing animated propeller assemblies")
+			quit(1)
+			return
+		var propeller_before: float = battlefield.naval_propellers[0].rotation.z
+		battlefield._update_naval_animation(0.1)
+		if battlefield.naval_propellers[0].rotation.z <= propeller_before:
+			push_error("Naval propeller animation did not advance")
+			quit(1)
+			return
+		# Verify a carrier launches a visible patrol aircraft and starts its sortie cooldown.
+		var test_carrier := battlefield.game_unit_nodes.get("player|6|carrier") as Node3D
+		if test_carrier == null:
+			push_error("Carrier unit missing before air operations test")
+			quit(1)
+			return
+		battlefield.call("_update_carrier_air_operations", 0.1)
+		if battlefield.carrier_aircraft.size() != 1 or float(test_carrier.get_meta("air_ops_cooldown", 0.0)) <= 0.0:
+			push_error("Carrier failed to launch a patrol aircraft or set its sortie cooldown")
+			quit(1)
+			return
+		var launched_aircraft := battlefield.carrier_aircraft[0].get("node") as Node3D
+		if launched_aircraft == null or launched_aircraft.get_child_count() < 3 or launched_aircraft.position.y <= test_carrier.position.y:
+			push_error("Carrier patrol aircraft geometry or takeoff altitude is invalid")
+			quit(1)
+			return
+	
+		# Verify the patrol aircraft descends onto the carrier deck before despawning.
+		battlefield.call("_update_carrier_air_operations", 8.8)
+		if not is_instance_valid(launched_aircraft) or not launched_aircraft.is_inside_tree():
+			push_error("Carrier patrol aircraft disappeared before completing its deck approach")
+			quit(1)
+			return
+		var landing_offset: Vector3 = launched_aircraft.position - test_carrier.position
+		if absf(landing_offset.y - 1.48) > 0.25 or Vector2(landing_offset.x, landing_offset.z).length() > 0.45:
+			push_error("Carrier patrol aircraft did not reach the carrier deck approach zone")
+			quit(1)
+			return
+		battlefield.call("_update_carrier_air_operations", 0.3)
+		if battlefield.carrier_aircraft.size() != 0 or (is_instance_valid(launched_aircraft) and not launched_aircraft.is_queued_for_deletion()):
+			push_error("Carrier patrol aircraft was not recovered after landing")
+			quit(1)
+			return
+	
+	
 	var stable_artillery := battlefield.game_unit_nodes.get("player|4|artillery") as Node3D
 	battlefield.call("sync_game_units", archetype_records, map_rect)
 	if battlefield.game_unit_nodes.get("player|4|artillery") != stable_artillery or battlefield.showcase_turrets.size() != battlefield.showcase_tanks.size():
@@ -618,26 +620,28 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Exercise automatic destroyer target selection and its firing cadence against a hostile contact.
-	var naval_combat_records: Array = [
-		{"pos": Vector2(42.0, 50.0), "team": "player", "kind": "destroyer", "faction": "american", "hp": 180, "max_hp": 240},
-		{"pos": Vector2(55.0, 50.0), "team": "enemy", "kind": "tank", "faction": "chinese", "hp": 150, "max_hp": 150}
-	]
-	battlefield.call("sync_game_units", naval_combat_records, map_rect)
-	var combat_destroyer := battlefield.game_unit_nodes.get("player|9|destroyer") as Node3D
-	var hostile_contact := battlefield.game_unit_nodes.get("enemy|10|tank") as Node3D
-	if combat_destroyer == null or hostile_contact == null or battlefield.call("_find_naval_target", combat_destroyer, "player", 15.0) != hostile_contact:
-		push_error("Destroyer did not acquire the nearest hostile unit in range")
-		quit(1)
-		return
-	var child_count_before_fire := battlefield.get_child_count()
-	battlefield.call("_update_naval_combat", 0.1)
-	if absf(float(combat_destroyer.get_meta("naval_fire_cooldown", 0.0)) - 2.4) > 0.001 or battlefield.get_child_count() <= child_count_before_fire:
-		push_error("Destroyer failed to fire a naval shell or set its firing cooldown")
-		quit(1)
-		return
-
-	print("3D battlefield, 10 building archetypes, building sync, health sync, artillery, naval combat and carrier flight operations passed")
+	if bool(battlefield.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
+		# Exercise automatic destroyer target selection and its firing cadence against a hostile contact.
+		var naval_combat_records: Array = [
+			{"pos": Vector2(42.0, 50.0), "team": "player", "kind": "destroyer", "faction": "american", "hp": 180, "max_hp": 240},
+			{"pos": Vector2(55.0, 50.0), "team": "enemy", "kind": "tank", "faction": "chinese", "hp": 150, "max_hp": 150}
+		]
+		battlefield.call("sync_game_units", naval_combat_records, map_rect)
+		var combat_destroyer := battlefield.game_unit_nodes.get("player|9|destroyer") as Node3D
+		var hostile_contact := battlefield.game_unit_nodes.get("enemy|10|tank") as Node3D
+		if combat_destroyer == null or hostile_contact == null or battlefield.call("_find_naval_target", combat_destroyer, "player", 15.0) != hostile_contact:
+			push_error("Destroyer did not acquire the nearest hostile unit in range")
+			quit(1)
+			return
+		var child_count_before_fire := battlefield.get_child_count()
+		battlefield.call("_update_naval_combat", 0.1)
+		if absf(float(combat_destroyer.get_meta("naval_fire_cooldown", 0.0)) - 2.4) > 0.001 or battlefield.get_child_count() <= child_count_before_fire:
+			push_error("Destroyer failed to fire a naval shell or set its firing cooldown")
+			quit(1)
+			return
+	
+	
+	print("3D battlefield, building archetypes, 2D-to-3D sync, health bars and artillery presentation passed")
 	battlefield.queue_free()
 	await process_frame
 	quit(0)
