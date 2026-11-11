@@ -718,7 +718,7 @@ func _process(delta: float) -> void:
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter"])
+						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter", "transport_helicopter"])
 					if air_target >= 0:
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
@@ -933,7 +933,7 @@ func _process(delta: float) -> void:
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
-							var air_preferred_kinds := ["fighter", "helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+							var air_preferred_kinds := ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
 							air_enemy_target = _nearest_unit_by_priority(unit.attack_focus_pos, 320.0, "enemy", air_preferred_kinds)
 						if air_enemy_target >= 0:
 							unit.attack_target = air_enemy_target
@@ -2290,7 +2290,7 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 		if String(candidate.get("team", "")) != target_team or int(candidate.get("hp", 0)) <= 0:
 			continue
 		var candidate_kind := String(candidate.get("kind", ""))
-		if candidate_kind not in ["fighter", "helicopter"]:
+		if candidate_kind not in ["fighter", "helicopter", "transport_helicopter"]:
 			continue
 		var defense_distance: float = from_pos.distance_to(candidate.pos)
 		if defense_distance > max_distance:
@@ -2307,7 +2307,7 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 			if threat_distance < asset_threat_distance:
 				asset_threat_distance = threat_distance
 				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
-		var kind_priority := 34.0 if candidate_kind == "fighter" else 0.0
+		var kind_priority := 34.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
 		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
 		if score < best_score:
 			best_score = score
@@ -2366,7 +2366,7 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 			continue
 		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], "enemy"):
 			continue
-		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
+		if air_only and units[i].kind not in ["fighter", "helicopter", "transport_helicopter"]:
 			continue
 		var distance: float = from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
@@ -4110,9 +4110,11 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 	# Loaded infantry fire from the transport's side doors at nearby hostile ground units.
 	var cargo: Array = transport.get("transport_cargo", [])
 	if cargo.is_empty():
+		transport["transport_firing"] = false
 		return
 	var state := String(transport.get("transport_state", "idle"))
 	if state == "descending":
+		transport["transport_firing"] = false
 		return
 	var target_index := -1
 	var target_distance := 158.0
