@@ -89,6 +89,22 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_missile_damage", "الصيني")) == 185 and int(game.call("_missile_cost", "الصيني")) == 650, "Chinese strategic missiles must retain the lower-cost, lower-damage profile")
 	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")) and int(game.call("_unit_cost", "tank", "الصيني")) < int(game.call("_unit_cost", "tank", "الأمريكي")), "Elite Watan and efficient Chinese armor must remain distinct from the American baseline")
 
+	# Land/air focus: verify each faction's helicopter and strategic missile combat profile.
+	var air_profile_contract := {
+		"الصيني": {"helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_damage": 185, "missile_cooldown": 14.0},
+		"الأمريكي": {"helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_damage": 195, "missile_cooldown": 13.0},
+		"الجيش العربي": {"helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_damage": 205, "missile_cooldown": 12.0},
+		"وطن": {"helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_damage": 230, "missile_cooldown": 11.0}
+	}
+	for army_name in air_profile_contract:
+		var expected_air_profile: Dictionary = air_profile_contract[army_name]
+		var helicopter_fixture: Dictionary = {"kind": "helicopter", "faction": String(army_name)}
+		_expect(int(game.call("_helicopter_damage", helicopter_fixture)) == int(expected_air_profile["helicopter_damage"]), "Helicopter damage must match the approved faction profile for " + String(army_name))
+		_expect(is_equal_approx(float(game.call("_helicopter_cooldown", helicopter_fixture)), float(expected_air_profile["helicopter_cooldown"])), "Helicopter reload must match the approved faction profile for " + String(army_name))
+		_expect(int(game.call("_missile_damage", String(army_name))) == int(expected_air_profile["missile_damage"]), "Strategic missile damage must match the approved faction profile for " + String(army_name))
+		_expect(is_equal_approx(float(game.call("_missile_cooldown", String(army_name)), float(expected_air_profile["missile_cooldown"])), "Strategic missile cooldown must match the approved faction profile for " + String(army_name))
+	_expect(int(game.get("FIGHTER_DAMAGE")) == 30 and is_equal_approx(float(game.get("FIGHTER_ATTACK_COOLDOWN")), 1.35), "Fighter baseline must remain consistent while faction identity is expressed through helicopter and strategic missile profiles")
+
 	# Shared construction economy remains consistent across all four factions.
 	var building_cost_contract := {
 		"barracks": 250, "factory": 450, "turret": 350, "airfield": 600,
