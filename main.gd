@@ -1,5 +1,7 @@
 extends Node2D
 
+const BattleSaveStoreScript = preload("res://scripts/battle_save_store.gd")
+
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
@@ -134,10 +136,12 @@ var commander_profile: Dictionary = {
 	"campaign_funds": 0
 }
 var commander_profile_saved_result := ""
+var battle_save_store: RefCounted
 
 func _ready() -> void:
 	randomize()
 	_load_commander_profile()
+	battle_save_store = BattleSaveStoreScript.new()
 	_setup_battle_audio()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
@@ -1582,6 +1586,144 @@ func _save_commander_profile() -> void:
 	var save_error := config.save("user://storm_generals_profile.cfg")
 	if save_error != OK:
 		push_warning("Could not save commander profile: %s" % error_string(save_error))
+
+
+func _build_battle_snapshot() -> Dictionary:
+	_ensure_stable_unit_identities()
+	return {
+		"schema_version": 1,
+		"match": {
+			"faction": faction,
+			"map_type": map_type,
+			"campaign_mission_index": campaign_mission_index,
+			"game_started": game_started,
+			"credits": credits,
+			"supplies": supplies,
+			"enemy_supplies": enemy_supplies,
+			"income_timer": income_timer,
+			"supply_points": supply_points.duplicate(true),
+			"enemy_credits": enemy_credits,
+			"enemy_income_timer": enemy_income_timer,
+			"enemy_timer": enemy_timer,
+			"enemy_strategy": enemy_strategy,
+			"base_pos": base_pos,
+			"enemy_base": enemy_base,
+			"player_base_hp": player_base_hp,
+			"enemy_base_hp": enemy_base_hp,
+			"battle_result": battle_result,
+			"next_building_production_id": next_building_production_id,
+			"next_unit_identity": next_unit_identity
+		},
+		"units": units.duplicate(true),
+		"buildings": buildings.duplicate(true),
+		"enemy_buildings": enemy_buildings.duplicate(true),
+		"production_orders": production_orders.duplicate(true),
+		"missiles": missiles.duplicate(true)
+	}
+
+
+func _save_battle_snapshot() -> bool:
+	if not game_started or battle_save_store == null:
+		return false
+	var snapshot := _build_battle_snapshot()
+	var saved := bool(battle_save_store.call("save_snapshot", snapshot))
+	if saved:
+		notice = "تم حفظ المعركة بنجاح"
+		notice_time = 2.5
+	else:
+		notice = "تعذر حفظ المعركة — بقي الحفظ السابق آمناً"
+		notice_time = 3.0
+	queue_redraw()
+	return saved
+
+
+func _load_battle_snapshot() -> bool:
+	if battle_save_store == null:
+		return false
+	var snapshot: Dictionary = battle_save_store.call("load_snapshot")
+	if snapshot.is_empty():
+		notice = "لا يوجد حفظ معركة صالح للاستعادة"
+		notice_time = 3.0
+		return false
+	var match_state: Dictionary = snapshot.get("match", {})
+	var restored_faction := String(match_state.get("faction", ""))
+	var restored_map := String(match_state.get("map_type", ""))
+	var restored_supply_points: Variant = match_state.get("supply_points", [])
+	if restored_faction not in FACTIONS or restored_map not in MAP_TYPES or not restored_supply_points is Array:
+		return false
+	for point_variant in restored_supply_points:
+		if not point_variant is Dictionary:
+			return false
+	for unit_variant in snapshot.get("units", []):
+		if not unit_variant is Dictionary:
+			return false
+	# Stage all arrays before mutating the live match; malformed data cannot half-restore it.
+	var staged_units: Array[Dictionary] = []
+	var staged_buildings: Array[Dictionary] = []
+	var staged_enemy_buildings: Array[Dictionary] = []
+	var staged_production_orders: Array[Dictionary] = []
+	var staged_missiles: Array[Dictionary] = []
+	for unit_variant in snapshot["units"]:
+		staged_units.append((unit_variant as Dictionary).duplicate(true))
+	for building_variant in snapshot["buildings"]:
+		if not building_variant is Dictionary:
+			return false
+		staged_buildings.append((building_variant as Dictionary).duplicate(true))
+	for building_variant in snapshot["enemy_buildings"]:
+		if not building_variant is Dictionary:
+			return false
+		staged_enemy_buildings.append((building_variant as Dictionary).duplicate(true))
+	for order_variant in snapshot["production_orders"]:
+		if not order_variant is Dictionary:
+			return false
+		staged_production_orders.append((order_variant as Dictionary).duplicate(true))
+	for missile_variant in snapshot["missiles"]:
+		if not missile_variant is Dictionary:
+			return false
+		staged_missiles.append((missile_variant as Dictionary).duplicate(true))
+	faction = restored_faction
+	map_type = restored_map
+	campaign_mission_index = clampi(int(match_state.get("campaign_mission_index", 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
+	game_started = bool(match_state.get("game_started", true))
+	credits = int(match_state.get("credits", STARTING_CREDITS))
+	supplies = int(match_state.get("supplies", 5))
+	enemy_supplies = int(match_state.get("enemy_supplies", 5))
+	income_timer = float(match_state.get("income_timer", 0.0))
+	supply_points.clear()
+	for point_variant in restored_supply_points:
+		supply_points.append((point_variant as Dictionary).duplicate(true))
+	enemy_credits = int(match_state.get("enemy_credits", STARTING_CREDITS))
+	enemy_income_timer = float(match_state.get("enemy_income_timer", 0.0))
+	enemy_timer = float(match_state.get("enemy_timer", 0.0))
+	enemy_strategy = String(match_state.get("enemy_strategy", "balanced"))
+	base_pos = match_state.get("base_pos", base_pos)
+	enemy_base = match_state.get("enemy_base", enemy_base)
+	player_base_hp = int(match_state.get("player_base_hp", 1000))
+	enemy_base_hp = int(match_state.get("enemy_base_hp", 1000))
+	battle_result = String(match_state.get("battle_result", ""))
+	next_building_production_id = maxi(1, int(match_state.get("next_building_production_id", 1)))
+	next_unit_identity = maxi(1, int(match_state.get("next_unit_identity", 1)))
+	units = staged_units
+	buildings = staged_buildings
+	enemy_buildings = staged_enemy_buildings
+	production_orders = staged_production_orders
+	missiles = staged_missiles
+	selected.clear()
+	selected_enemy_building = -1
+	selected_player_building = -1
+	build_mode = ""
+	paused = false
+	dragging = false
+	active_touch_index = -1
+	visual_effects.clear()
+	environment_particles.clear()
+	campaign_briefing = false
+	commander_profile_saved_result = battle_result
+	_ensure_stable_unit_identities()
+	notice = "تمت استعادة المعركة — قواتك ومهمات النقل جاهزة"
+	notice_time = 3.5
+	queue_redraw()
+	return true
 
 
 func _campaign_secondary_objective_met() -> bool:
