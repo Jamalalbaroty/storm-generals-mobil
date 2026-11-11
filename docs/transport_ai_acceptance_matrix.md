@@ -139,3 +139,7 @@ Rebuildable presentation state should be regenerated after load, not serialized:
 7. Confirm on Android that saving and loading works across app termination/relaunch and that the restored touch UI remains usable.
 
 **Implementation status:** audit and contract only. No battle save/load code has been added yet, and no persistence test has been claimed as passing. The next engineering task is to implement this contract in small, testable steps, beginning with stable entity IDs and a versioned snapshot codec.
+
+### Stable-identity prerequisite found in source audit
+
+The current source assigns `production_id` to buildings and uses it to reacquire airfield/building references. The unit creation paths inspected do not assign an equivalent persistent unit ID; several live combat/selection paths still refer to units by array index. A safe save-game implementation must therefore introduce and regression-test stable unit identities (including cargo passengers and spawned enemy units) before it can claim robust restoration of cross-unit targets, escort links, or transport manifests. This is a prerequisite, not a cosmetic enhancement.
