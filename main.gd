@@ -199,18 +199,34 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
-func _nearest_powered_player_airfield_index(origin: Vector2) -> int:
+func _nearest_powered_player_airfield_index(origin: Vector2, excluded_airfield_id: int = -1) -> int:
 	var nearest_airfield := -1
 	var nearest_distance := INF
 	for airfield_index in range(buildings.size()):
 		var candidate: Dictionary = buildings[airfield_index]
-		if String(candidate.get("kind", "")) != "airfield" or float(candidate.get("build_progress", 1.0)) < 1.0 or int(candidate.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
+		if String(candidate.get("kind", "")) != "airfield" or float(candidate.get("build_progress", 1.0)) < 1.0 or int(candidate.get("hp", 0)) <= 0 or int(candidate.get("production_id", -2)) == excluded_airfield_id or not _is_player_building_powered(airfield_index):
 			continue
 		var candidate_distance: float = origin.distance_to(candidate.pos)
 		if candidate_distance < nearest_distance:
 			nearest_distance = candidate_distance
 			nearest_airfield = airfield_index
 	return nearest_airfield
+
+
+func _redirect_aircraft_recovery(unit: Dictionary, failed_airfield_id: int) -> bool:
+	# Keep the saved flight order while moving recovery to another valid friendly field.
+	var alternate_index := _nearest_powered_player_airfield_index(unit.pos, failed_airfield_id)
+	if alternate_index < 0:
+		_abandon_airfield_recovery(unit)
+		return false
+	var alternate_id := int(buildings[alternate_index].get("production_id", -1))
+	for state_key in ["airfield_landed", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
+		unit.erase(state_key)
+	unit["airfield_returning"] = true
+	unit["airfield_recovery_id"] = alternate_id
+	unit["airfield_recovery_slot"] = _next_airfield_recovery_slot(alternate_id)
+	unit["airfield_rearm_progress"] = float(unit.get("airfield_rearm_progress", 0.0))
+	return true
 
 
 func _next_airfield_recovery_slot(recovery_id: int) -> int:
@@ -939,7 +955,7 @@ func _process(delta: float) -> void:
 							recovery_index = airfield_index
 							break
 					if recovery_index < 0:
-						_abandon_airfield_recovery(unit)
+						_redirect_aircraft_recovery(unit, int(unit.get("airfield_recovery_id", -1)))
 					else:
 						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
 						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
@@ -1005,7 +1021,7 @@ func _process(delta: float) -> void:
 							sortie_airfield_index = sortie_index
 							break
 					if sortie_airfield_index < 0:
-						_abandon_airfield_recovery(unit)
+						_redirect_aircraft_recovery(unit, sortie_airfield_id)
 					else:
 						var launch_wait := float(unit.get("airfield_sortie_launch_wait", 0.0))
 						if launch_wait > 0.0:
