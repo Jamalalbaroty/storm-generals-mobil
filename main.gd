@@ -4630,6 +4630,7 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		transport["transport_ai_autonomous_active"] = false
 		transport.erase("transport_ai_objective_pos")
 		transport.erase("transport_ai_recommendation")
+		transport.erase("transport_pickup_waiting")
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
 		if rooftop_found:
@@ -4716,6 +4717,7 @@ func _cancel_transport_order() -> void:
 		if state == "descending":
 			continue
 		transport.erase("transport_target_pos")
+		transport.erase("transport_pickup_waiting")
 		transport.erase("transport_order_pending")
 		transport.erase("transport_ai_objective_pos")
 		transport.erase("transport_ai_recommendation")
