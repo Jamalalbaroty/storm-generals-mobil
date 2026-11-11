@@ -3638,6 +3638,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		squad.add_child(soldier)
 
 		var body := MeshInstance3D.new()
+		body.name = "InfantryBody"
 		var body_mesh := CapsuleMesh.new()
 		body_mesh.radius = 0.22
 		body_mesh.height = 0.92
@@ -3647,6 +3648,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		soldier.add_child(body)
 
 		var head := MeshInstance3D.new()
+		head.name = "InfantryHead"
 		var head_mesh := SphereMesh.new()
 		head_mesh.radius = 0.19
 		head_mesh.height = 0.38
@@ -3656,6 +3658,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		soldier.add_child(head)
 
 		var helmet := MeshInstance3D.new()
+		helmet.name = "InfantryHelmet"
 		var helmet_mesh := SphereMesh.new()
 		helmet_mesh.radius = 0.22
 		helmet_mesh.height = 0.20
@@ -3841,6 +3844,15 @@ func _update_infantry_animation(delta: float) -> void:
 			continue
 		var legs: Array = infantry_leg_pairs[soldier_variant]
 		var squad := soldier.get_parent() as Node3D
+		var is_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
+		var crouch_target := 0.12 if is_aiming else 0.0
+		var crouch_blend := clampf(delta * 7.0, 0.0, 1.0)
+		for part_name in ["InfantryBody", "InfantryHead", "InfantryHelmet"]:
+			var part := soldier.get_node_or_null(part_name) as Node3D
+			if is_instance_valid(part):
+				var base_y := 0.86 if part_name == "InfantryBody" else (1.48 if part_name == "InfantryHead" else 1.66)
+				var drop := crouch_target * (0.55 if part_name == "InfantryBody" else 1.0)
+				part.position.y = lerpf(part.position.y, base_y - drop, crouch_blend)
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
@@ -3862,9 +3874,10 @@ func _update_infantry_animation(delta: float) -> void:
 				continue
 			var leg := leg_variant as Node3D
 			if is_instance_valid(leg):
-				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * stride
+				var leg_swing := sin(phase + (PI if leg_index == 1 else 0.0)) * stride
+				var crouch_bend := 0.28 if is_aiming else 0.0
+				leg.rotation.x = lerpf(leg.rotation.x, leg_swing + crouch_bend, crouch_blend)
 		var arms: Array = soldier.get_meta("infantry_arm_pairs", [])
-		var is_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
 		for arm_index in range(arms.size()):
 			var arm_variant = arms[arm_index]
 			if not is_instance_valid(arm_variant):
