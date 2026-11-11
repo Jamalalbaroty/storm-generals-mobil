@@ -2416,7 +2416,7 @@ func _nearest_enemy_unit(from_pos: Vector2, max_distance: float, air_only: bool 
 			continue
 		if units[i].kind == "submarine" and not _is_submarine_detected(units[i], "player"):
 			continue
-		if air_only and units[i].kind != "fighter" and units[i].kind != "helicopter":
+		if air_only and units[i].kind not in ["fighter", "helicopter", "transport_helicopter"]:
 			continue
 		var distance: float = from_pos.distance_to(units[i].pos)
 		if distance < best_distance:
