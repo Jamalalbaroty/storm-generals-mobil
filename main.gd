@@ -14,7 +14,8 @@ const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
-	[23, 24, 25, 26, 27]
+	[23, 24, 25, 26, 27, 28]
+]
 const INFANTRY_COST := 100
 const TANK_COST := 300
 const STARTING_CREDITS := 1200
@@ -60,12 +61,12 @@ const ECONOMY_BALANCE := {
 	},
 	"unit_costs": {
 		"infantry": INFANTRY_COST, "tank": TANK_COST, "builder": 600, "artillery": ARTILLERY_COST,
-		"fighter": FIGHTER_COST, "destroyer": 900, "carrier": 1600,
+		"fighter": FIGHTER_COST, "transport_helicopter": 950, "destroyer": 900, "carrier": 1600,
 		"submarine": 1100, "landing_craft": 800
 	},
 	"unit_supplies": {
 		"infantry": 0, "tank": 1, "builder": 0, "artillery": 2, "fighter": 2,
-		"helicopter": 3, "destroyer": 4, "landing_craft": 4,
+		"helicopter": 3, "transport_helicopter": 4, "destroyer": 4, "landing_craft": 4,
 		"submarine": 5, "carrier": 8
 	}
 }
@@ -877,6 +878,14 @@ func _process(delta: float) -> void:
 					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
+				if unit.kind == "transport_helicopter":
+					if unit.has("target"):
+						var transport_move_target: Vector2 = unit.target
+						if unit.pos.distance_to(transport_move_target) > 12.0:
+							unit.pos += (transport_move_target - unit.pos).normalized() * delta * 72.0
+						else:
+							unit.erase("target")
+					continue
 				if unit.kind in ["fighter", "helicopter"]:
 					if unit.has("attack_building"):
 						var air_building_index := int(unit.attack_building)
@@ -2569,12 +2578,15 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([u.pos + Vector2(27, 0), u.pos + Vector2(13, -10), u.pos + Vector2(-24, -8), u.pos + Vector2(-31, 0), u.pos + Vector2(-24, 8), u.pos + Vector2(13, 10)]), Color("#8c9da5") if u.team == "player" else Color("#b65c55"))
 			draw_rect(Rect2(u.pos + Vector2(-9, -7), Vector2(19, 14)), Color("#303e47"))
 			draw_line(u.pos + Vector2(2, 0), u.pos + Vector2(23, -2), Color("#d8dedc"), 3.0)
-		elif u.kind == "helicopter":
+		elif u.kind in ["helicopter", "transport_helicopter"]:
 			var heli_color = _helicopter_color(u)
 			var heli_angle := _unit_facing_angle(u)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(0, 4), heli_angle), 13, Color(0, 0, 0, 0.22))
-			draw_circle(u.pos, 10, Color("#263238"))
-			draw_circle(_unit_rotated_point(u.pos, Vector2(1, -2), heli_angle), 8, heli_color)
+			draw_circle(u.pos, 12 if u.kind == "transport_helicopter" else 10, Color("#263238"))
+			draw_circle(_unit_rotated_point(u.pos, Vector2(1, -2), heli_angle), 10 if u.kind == "transport_helicopter" else 8, heli_color)
+			if u.kind == "transport_helicopter":
+				draw_rect(Rect2(u.pos + Vector2(-9, -5), Vector2(17, 10)), Color("#5c665e"))
+				draw_line(_unit_rotated_point(u.pos, Vector2(0, 7), heli_angle), _unit_rotated_point(u.pos, Vector2(0, 16), heli_angle), Color("#d7c69b"), 2.0)
 			draw_colored_polygon(_unit_polygon_points(u.pos, PackedVector2Array([Vector2(8, -4), Vector2(30, -1), Vector2(9, 4)]), heli_angle), heli_color)
 			draw_line(_unit_rotated_point(u.pos, Vector2(-19, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(18, -14), heli_angle), Color("#252b2b"), 4)
 			draw_line(_unit_rotated_point(u.pos, Vector2(0, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(0, -23), heli_angle), Color("#252b2b"), 2)
@@ -2941,7 +2953,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3336,6 +3348,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				build_mode = "wall_gate"
 				notice = "اختر موضعاً لإنشاء بوابة القاعدة"
 				notice_time = 3.0
+			elif i == 28:
+				_enqueue_unit("transport_helicopter")
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -3875,6 +3889,8 @@ func _sell_selected_building() -> void:
 func _unit_cost(kind: String, army: String) -> int:
 	if kind == "helicopter":
 		return _helicopter_cost(army)
+	if kind == "transport_helicopter":
+		return 1200 if army == "وطن" else 950
 	var profile := _faction_profile(army)
 	var faction_costs: Dictionary = profile.get("unit_costs", {})
 	if faction_costs.has(kind):
@@ -5404,7 +5420,7 @@ func _production_building_for(kind: String) -> String:
 		return "barracks"
 	if kind in ["tank", "artillery"]:
 		return "factory"
-	if kind in ["fighter", "helicopter"]:
+	if kind in ["fighter", "helicopter", "transport_helicopter"]:
 		return "airfield"
 	if NAVAL_SYSTEM_ENABLED and kind in NAVAL_UNIT_KINDS:
 		return "shipyard"
@@ -5418,6 +5434,7 @@ func _production_duration(kind: String) -> float:
 		"artillery": return 9.0
 		"fighter": return 8.0
 		"helicopter": return 10.0
+		"transport_helicopter": return 14.0
 		"destroyer": return 13.0
 		"submarine": return 12.0
 		"landing_craft": return 11.0
@@ -5644,8 +5661,8 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 		notice = "ابنِ مصنعاً أولاً لإنتاج المدفعية"
 		notice_time = 2.5
 		return
-	if (kind == "fighter" or kind == "helicopter") and not _has_building("airfield"):
-		notice = "ابنِ مطاراً أولاً لإنتاج المقاتلات والمروحيات"
+	if kind in ["fighter", "helicopter", "transport_helicopter"] and not _has_building("airfield"):
+		notice = "ابنِ مطاراً أولاً لإنتاج المقاتلات والمروحيات وطائرات النقل"
 		notice_time = 2.5
 		return
 	if kind == "infantry" and not _has_building("barracks"):
@@ -5671,7 +5688,7 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 		supplies -= supply_cost
 	var unit_spawn := base_pos + Vector2(65, randf_range(-35, 35))
 	# Search around the exact producer for a free exit lane, respecting walls, buildings, and units.
-	if kind not in ["fighter", "helicopter"] and producer_id >= 0:
+	if kind not in ["fighter", "helicopter", "transport_helicopter"] and producer_id >= 0:
 		for producer in buildings:
 			if int(producer.get("production_id", -2)) == producer_id and String(producer.get("kind", "")) == _production_building_for(kind):
 				unit_spawn = _find_clear_ground_spawn(producer.pos, kind, producer_id)
@@ -5679,7 +5696,7 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 	var aircraft_launch := false
 	var aircraft_airfield_id := -1
 	var aircraft_launch_slot := 0
-	if kind in ["fighter", "helicopter"]:
+	if kind in ["fighter", "helicopter", "transport_helicopter"]:
 		# Stagger aircraft along the runway so consecutive production never stacks proxies.
 		for airfield_index in range(buildings.size()):
 			var airfield: Dictionary = buildings[airfield_index]
@@ -5687,7 +5704,7 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 			if matches_producer and String(airfield.get("kind", "")) == "airfield" and float(airfield.get("build_progress", 1.0)) >= 1.0 and int(airfield.get("hp", 0)) > 0 and _is_player_building_powered(airfield_index):
 				aircraft_airfield_id = int(airfield.get("production_id", -1))
 				for existing_aircraft in units:
-					if String(existing_aircraft.get("team", "")) == "player" and String(existing_aircraft.get("kind", "")) in ["fighter", "helicopter"] and int(existing_aircraft.get("airfield_launch_id", -2)) == aircraft_airfield_id:
+					if String(existing_aircraft.get("team", "")) == "player" and String(existing_aircraft.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter"] and int(existing_aircraft.get("airfield_launch_id", -2)) == aircraft_airfield_id:
 						aircraft_launch_slot += 1
 				var runway_column := aircraft_launch_slot % 3 - 1
 				var runway_row := int(aircraft_launch_slot / 3)
@@ -5700,7 +5717,7 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 				unit_spawn = dock.pos
 				break
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
-	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100))))
+	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (250 if kind == "transport_helicopter" else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)))))
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
 	if kind in ["fighter", "helicopter"]:
 		spawned_unit["aircraft_ammo"] = 8 if kind == "fighter" else 12
@@ -5731,6 +5748,8 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 		unit_name = "دبابة"
 	elif kind == "helicopter":
 		unit_name = "مروحية قتالية"
+	elif kind == "transport_helicopter":
+		unit_name = "مروحية نقل وإنزال"
 	elif kind == "fighter":
 		unit_name = "مقاتلة"
 	notice = "تم إنتاج %s" % unit_name
