@@ -442,6 +442,13 @@ func _run() -> void:
 	_expect(int(game.get("units")[1].get("escort_formation_slot", -1)) == 0, "Surviving escorts should compact into the first available formation slot")
 	_expect(int(game.get("units")[1].get("escort_formation_size", 0)) == 1, "Compacted formation size should exclude destroyed escorts")
 	_expect(Vector2(game.get("units")[1].get("escort_offset", Vector2.ZERO)) == game.call("_transport_ai_escort_formation_offset", 0), "Compaction should restore the deterministic slot offset")
+	var staging_transport := {"pos": Vector2(500.0, 300.0), "transport_state": "inbound", "transport_target_pos": Vector2(760.0, 300.0)}
+	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(760.0, 300.0), "Escorts should stage at the assigned drop zone during the final approach")
+	staging_transport["pos"] = Vector2(300.0, 300.0)
+	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(300.0, 300.0), "Escorts should stay with the transport before the final approach staging window")
+	staging_transport["transport_state"] = "loaded"
+	staging_transport["pos"] = Vector2(500.0, 300.0)
+	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(500.0, 300.0), "Escorts should return to the transport after landing or when it is not inbound")
 	var escort_base_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 18.0)
 	var escort_far_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 420.0)
 	var escort_helicopter_speed: float = game.call("_transport_ai_escort_catchup_speed", "helicopter", 420.0)
