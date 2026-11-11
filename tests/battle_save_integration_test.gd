@@ -78,6 +78,32 @@ func _run_battle_save_integration_test() -> void:
 	_expect(nearest_guard_handled, "The nearest defender must reinforce even when another mobile defender is nearby")
 	game.get("units").clear()
 	game.get("supply_points").clear()
+	# Defense director keeps a compact base reserve and protects a high-value forward installation.
+	game.set("enemy_base", Vector2(700.0, 300.0))
+	game.get("enemy_buildings").assign([
+		{"kind": "missile_silo", "hp": 500, "build_progress": 1.0, "pos": Vector2(500.0, 300.0)},
+		{"kind": "factory", "hp": 400, "build_progress": 1.0, "pos": Vector2(600.0, 300.0)}
+	])
+	var defense_units: Array = []
+	for guard_index in range(8):
+		defense_units.append({"kind": "infantry" if guard_index < 5 else "tank", "team": "enemy", "hp": 60 if guard_index < 5 else 150, "pos": Vector2(660.0 + float(guard_index % 3) * 12.0, 280.0 + float(guard_index) * 5.0)})
+	game.get("units").assign(defense_units)
+	game.call("_update_enemy_defense_assignments")
+	var assigned_guard_count := 0
+	var protects_base := false
+	var protects_silo := false
+	for defense_unit in game.get("units"):
+		if not bool(defense_unit.get("defense_guard", false)):
+			continue
+		assigned_guard_count += 1
+		var guard_anchor: Vector2 = defense_unit.get("defense_anchor", Vector2.ZERO)
+		protects_base = protects_base or guard_anchor.distance_to(game.get("enemy_base")) < 100.0
+		protects_silo = protects_silo or guard_anchor.distance_to(Vector2(500.0, 300.0)) < 100.0
+	_expect(assigned_guard_count == 2, "Eight enemy ground units must retain a compact two-unit defensive reserve")
+	_expect(protects_base, "Enemy defense director must preserve a guard around the main base")
+	_expect(protects_silo, "Enemy defense director must assign a guard to the high-value missile silo")
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
 
 	game.set("faction", "وطن")
 	game.set("map_type", "الساحل الجبلي")
