@@ -3864,13 +3864,18 @@ func _update_infantry_animation(delta: float) -> void:
 			if is_instance_valid(leg):
 				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * stride
 		var arms: Array = soldier.get_meta("infantry_arm_pairs", [])
+		var is_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
 		for arm_index in range(arms.size()):
 			var arm_variant = arms[arm_index]
 			if not is_instance_valid(arm_variant):
 				continue
 			var arm := arm_variant as Node3D
 			if is_instance_valid(arm):
-				arm.rotation.x = sin(phase + (0.0 if arm_index == 0 else PI)) * stride * 0.72
+				var arm_swing := sin(phase + (0.0 if arm_index == 0 else PI)) * stride * 0.72
+				var firing_pose_x := -0.78 + arm_swing * 0.16 if is_aiming else arm_swing
+				var firing_pose_z := (0.12 if arm_index == 0 else -0.12) if is_aiming else (0.0 if arm_index == 0 else 0.0)
+				arm.rotation.x = lerpf(arm.rotation.x, firing_pose_x, clampf(delta * 9.0, 0.0, 1.0))
+				arm.rotation.z = lerpf(arm.rotation.z, firing_pose_z, clampf(delta * 9.0, 0.0, 1.0))
 		soldier.position.y = sin(phase * 2.0) * 0.025 * gait_intensity
 
 func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String) -> void:
