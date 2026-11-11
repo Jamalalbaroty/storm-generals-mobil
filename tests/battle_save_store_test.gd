@@ -69,6 +69,13 @@ func _run_battle_save_store_test() -> void:
 	var preserved: Dictionary = store.load_snapshot()
 	_expect(not preserved.is_empty() and int(preserved["match"].get("credits", 0)) == 1840, "A rejected snapshot must not overwrite the previous valid save")
 
+	var save_absolute := ProjectSettings.globalize_path(SaveStore.SAVE_PATH)
+	var backup_absolute := ProjectSettings.globalize_path(SaveStore.BACKUP_PATH)
+	var backup_move_error := DirAccess.rename_absolute(save_absolute, backup_absolute)
+	_expect(backup_move_error == OK, "Test should simulate an interrupted save promotion with a backup file")
+	var recovered: Dictionary = store.load_snapshot()
+	_expect(not recovered.is_empty() and int(recovered["match"].get("credits", 0)) == 1840, "A verified backup should recover when the primary save is missing")
+
 	var unsupported_snapshot: Dictionary = snapshot.duplicate(true)
 	unsupported_snapshot["schema_version"] = 999
 	_expect(not store.save_snapshot(unsupported_snapshot), "Unsupported save schema versions must be rejected")
