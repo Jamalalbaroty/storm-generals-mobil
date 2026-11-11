@@ -448,6 +448,14 @@ func _run() -> void:
 	_expect(escort_far_speed > escort_base_speed, "An escort far from its moving formation slot should accelerate to catch up")
 	_expect(escort_far_speed <= escort_base_speed * 1.4, "Escort catch-up acceleration must remain capped for balance")
 	_expect(escort_helicopter_speed > 78.0 and escort_helicopter_speed <= 78.0 * 1.4, "Gunship catch-up speed should scale independently within the same cap")
+	# Escort target priorities are role-specific, not simply nearest-enemy selection.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "helicopter", "hp": 100, "pos": Vector2(510.0, 300.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(650.0, 300.0)})
+	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 100, "pos": Vector2(505.0, 300.0)})
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 100, "pos": Vector2(620.0, 300.0)})
+	_expect(int(game.call("_transport_ai_select_escort_threat", Vector2(500.0, 300.0), "fighter", 220.0)) == 1, "Fighters should prioritize enemy fighters over closer helicopters")
+	_expect(int(game.call("_transport_ai_select_escort_threat", Vector2(500.0, 300.0), "helicopter", 220.0)) == 3, "Gunships should prioritize enemy tanks over closer infantry")
 	game.get("units").clear()
 
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
