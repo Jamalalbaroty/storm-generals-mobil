@@ -747,6 +747,12 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("gameplay_aircraft_rearm_progress", float(record.get("airfield_rearm_progress", 0.0)))
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		if kind == "transport_helicopter":
+			var transport_health_ratio := clampf(current_health / maximum_health, 0.0, 1.0)
+			unit.set_meta("transport_damage_ratio", transport_health_ratio)
+			var damage_smoke := unit.get_node_or_null("DamageSmoke") as Node3D
+			if is_instance_valid(damage_smoke):
+				damage_smoke.visible = transport_health_ratio <= 0.62 and transport_health_ratio > 0.0
+				damage_smoke.scale = Vector3.ONE * lerpf(0.55, 1.35, clampf((0.62 - transport_health_ratio) / 0.62, 0.0, 1.0))
 			var descending_now := String(record.get("transport_state", "")) == "descending"
 			var fast_ropes := unit.get_node_or_null("FastRopes")
 			if fast_ropes is Node3D:
@@ -843,6 +849,12 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		else:
 			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
 		if aircraft_kind == "transport_helicopter":
+			var damage_smoke := unit.get_node_or_null("DamageSmoke") as Node3D
+			if is_instance_valid(damage_smoke) and damage_smoke.visible:
+				var smoke_phase := float(unit.get_meta("transport_smoke_phase", 0.0)) + delta * 2.1
+				unit.set_meta("transport_smoke_phase", smoke_phase)
+				damage_smoke.position.y = 0.92 + sin(smoke_phase) * 0.10
+				damage_smoke.rotation.y = sin(smoke_phase * 0.65) * 0.16
 			var rope_troops := unit.get_node_or_null("RopeTroops") as Node3D
 			var fast_ropes := unit.get_node_or_null("FastRopes") as Node3D
 			var drop_progress := clampf(float(unit.get_meta("transport_drop_progress", 0.0)), 0.0, 1.0)
@@ -2555,6 +2567,25 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 		helicopter.add_child(landing_skid)
 
 	if is_transport:
+		# Visible damage smoke is driven by the authoritative 2D health ratio.
+		var damage_smoke := Node3D.new()
+		damage_smoke.name = "DamageSmoke"
+		damage_smoke.visible = false
+		damage_smoke.position = Vector3(0.0, 0.92, 1.18)
+		helicopter.add_child(damage_smoke)
+		for smoke_index in range(3):
+			var smoke_puff := MeshInstance3D.new()
+			var smoke_mesh := SphereMesh.new()
+			smoke_mesh.radius = 0.24 + float(smoke_index) * 0.055
+			smoke_mesh.height = smoke_mesh.radius * 2.0
+			smoke_puff.mesh = smoke_mesh
+			smoke_puff.position = Vector3(float(smoke_index - 1) * 0.16, float(smoke_index) * 0.34, float(smoke_index) * 0.12)
+			var smoke_material := StandardMaterial3D.new()
+			smoke_material.albedo_color = Color(0.12, 0.13, 0.12, 0.42 - float(smoke_index) * 0.07)
+			smoke_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			smoke_material.roughness = 1.0
+			smoke_puff.material_override = smoke_material
+			damage_smoke.add_child(smoke_puff)
 		var cargo_bay := MeshInstance3D.new()
 		cargo_bay.name = "CargoBay"
 		var cargo_mesh := BoxMesh.new()
