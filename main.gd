@@ -980,13 +980,6 @@ func _process(delta: float) -> void:
 						else:
 							unit.erase("target")
 					continue
-				if unit.has("target"):
-					var idle_air_target: Vector2 = unit.target
-					if unit.pos.distance_to(idle_air_target) > 10.0:
-						unit.pos += (idle_air_target - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
-					else:
-						unit.erase("target")
-				continue
 			if bool(unit.get("escort_active", false)):
 				var escort_target_id := int(unit.get("escort_target_id", -1))
 				var escort_target_index := -1
