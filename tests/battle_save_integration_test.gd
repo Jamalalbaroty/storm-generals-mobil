@@ -69,8 +69,8 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft_2, 4)), "Second aircraft must also be redirected to the alternate field")
 	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft_3, 4)), "Third aircraft must also be redirected to the alternate field")
 	_expect(int(rerouted_aircraft.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft.get("airfield_recovery_slot", -1)) == 0, "First rerouted aircraft must reserve the first free slot at the alternate field")
-	_expect(int(rerouted_aircraft_2.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_2.get("airfield_recovery_slot", -1)) == 1, "Second rerouted aircraft must reserve a distinct second slot; actual=" + str(rerouted_aircraft_2.get("airfield_recovery_slot", -99)) + " live=" + str(game.get("units")))
-	_expect(int(rerouted_aircraft_3.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_3.get("airfield_recovery_slot", -1)) == 2, "Third rerouted aircraft must reserve a distinct third slot; actual=" + str(rerouted_aircraft_3.get("airfield_recovery_slot", -99)) + " live=" + str(game.get("units")))
+	_expect(int(rerouted_aircraft_2.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_2.get("airfield_recovery_slot", -1)) == 1, "Second rerouted aircraft must reserve a distinct second slot")
+	_expect(int(rerouted_aircraft_3.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_3.get("airfield_recovery_slot", -1)) == 2, "Third rerouted aircraft must reserve a distinct third slot")
 	_expect(bool(rerouted_aircraft.get("airfield_returning", false)) and not bool(rerouted_aircraft.get("airfield_sortie_launch", false)), "Rerouting must resume the recovery flight and clear the stale takeoff queue")
 	_expect(is_equal_approx(float(rerouted_aircraft.get("airfield_rearm_progress", 0.0)), 2.25) and rerouted_aircraft.has("airfield_resume_order"), "Rerouting must preserve rearm progress and the original flight order")
 	game.get("buildings").append_array([
