@@ -344,9 +344,19 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			return
 		_cancel_airfield_recovery(source_unit)
 		var escort_target: Dictionary = units[escort_target_index]
+		var escort_slot := 0
+		for existing_escort in units:
+			if bool(existing_escort.get("escort_active", false)) and int(existing_escort.get("escort_target_id", -1)) == escort_target_id and int(existing_escort.get("hp", 0)) > 0:
+				escort_slot += 1
+		var escort_offset := _transport_ai_escort_formation_offset(escort_slot)
 		source_unit["escort_target_id"] = escort_target_id
-		source_unit["escort_offset"] = source_unit.pos - escort_target.pos
+		source_unit["escort_offset"] = escort_offset
+		source_unit["escort_formation_slot"] = escort_slot
+		source_unit["escort_formation_size"] = escort_slot + 1
 		source_unit["escort_active"] = true
+		for existing_escort in units:
+			if bool(existing_escort.get("escort_active", false)) and int(existing_escort.get("escort_target_id", -1)) == escort_target_id and int(existing_escort.get("hp", 0)) > 0:
+				existing_escort["escort_formation_size"] = escort_slot + 1
 		source_unit.erase("escort_auto_target")
 		source_unit.erase("target")
 		source_unit.erase("guard_active")
@@ -4702,6 +4712,18 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 	return true
 
 
+func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
+	var row := int(slot / 2)
+	var side := -1.0 if slot % 2 == 0 else 1.0
+	if slot == 4:
+		return Vector2(0.0, 112.0)
+	if slot > 4:
+		var reserve_row := int((slot - 5) / 2)
+		var reserve_side := -1.0 if (slot - 5) % 2 == 0 else 1.0
+		return Vector2(reserve_side * (96.0 + float(reserve_row) * 16.0), 112.0 + float(reserve_row) * 48.0)
+	return Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
+
+
 func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
 	if transport_indices.is_empty():
 		return 0
@@ -4734,15 +4756,7 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 		var protected_transport: Dictionary = units[best_transport_index]
 		_cancel_airfield_recovery(escort)
 		var formation_slot := int(escort_counts.get(best_transport_index, 0))
-		var row := int(formation_slot / 2)
-		var side := -1.0 if formation_slot % 2 == 0 else 1.0
-		var offset := Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
-		if formation_slot == 4:
-			offset = Vector2(0.0, 112.0)
-		elif formation_slot > 4:
-			var reserve_row := int((formation_slot - 5) / 2)
-			var reserve_side := -1.0 if (formation_slot - 5) % 2 == 0 else 1.0
-			offset = Vector2(reserve_side * (96.0 + float(reserve_row) * 16.0), 112.0 + float(reserve_row) * 48.0)
+		var offset := _transport_ai_escort_formation_offset(formation_slot)
 		escort["escort_target_id"] = int(protected_transport.get("3d_sync_id", -1))
 		escort["escort_offset"] = offset
 		escort["escort_formation_slot"] = formation_slot
