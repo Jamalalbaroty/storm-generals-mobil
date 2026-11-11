@@ -135,6 +135,18 @@ func _run_battle_save_integration_test() -> void:
 	])
 	_expect(int(game.call("_nearest_player_ground_unit", Vector2.ZERO, 185.0)) == 2, "Enemy bunker targeting must ignore aircraft, transports, and destroyed ground units")
 	game.get("units").clear()
+	# Enemy anti-air batteries must prioritize fighters over helicopters and ground units.
+	game.get("enemy_buildings").assign([
+		{"kind": "airfield", "hp": 600, "pos": Vector2(0.0, 0.0)}
+	])
+	game.get("units").assign([
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(15.0, 0.0)},
+		{"kind": "helicopter", "team": "player", "hp": 160, "pos": Vector2(40.0, 0.0)},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(75.0, 0.0)}
+	])
+	_expect(int(game.call("_priority_air_target", Vector2.ZERO, "player", 320.0)) == 2, "Anti-air target selection must prioritize fighters threatening strategic installations over helicopters and ground units")
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
