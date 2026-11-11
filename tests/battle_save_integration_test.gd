@@ -19,6 +19,20 @@ func _run_battle_save_integration_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
+	# Stable IDs must be reserved before assigning IDs to earlier unassigned records.
+	game.set("next_unit_identity", 1)
+	game.get("units").assign([
+		{"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(100.0, 100.0)},
+		{"unit_id": "unit_00000001", "kind": "infantry", "team": "player", "hp": 60, "pos": Vector2(130.0, 100.0)}
+	])
+	game.call("_ensure_stable_unit_identities")
+	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000002", "Unassigned earlier spawn must not steal a later unit's reserved stable ID")
+	_expect(String(game.get("units")[1].get("unit_id", "")) == "unit_00000001", "Existing stable unit ID must remain unchanged")
+	game.get("units").remove_at(0)
+	game.call("_ensure_stable_unit_identities")
+	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000001", "Stable identity must survive unit-array compaction")
+	game.get("units").clear()
+
 	game.set("faction", "وطن")
 	game.set("map_type", "الساحل الجبلي")
 	game.set("game_started", true)
