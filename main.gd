@@ -315,17 +315,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		notice = "دورية جوية مفعّلة بين نقطتين"
 		notice_time = 1.8
 	elif order_type == "attack":
-		source_unit.erase("guard_active")
-		source_unit.erase("guard_position")
-		source_unit.erase("guard_radius")
-		source_unit.erase("escort_active")
-		source_unit.erase("escort_target_id")
-		source_unit.erase("escort_offset")
-		source_unit.erase("attack_move_active")
 		var target_parts := target_key.split("|")
 		if target_parts.size() < 3 or target_parts[0] != "enemy":
 			return
-		_cancel_airfield_recovery(source_unit)
 		var target_index := -1
 		if target_parts[1].is_valid_int():
 			var target_id := int(target_parts[1])
@@ -360,6 +352,15 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("air_patrol_index")
 		source_unit.erase("air_patrol_resume")
 		source_unit.erase("attack_base")
+		# Commit the new attack only after its enemy target has been validated.
+		_cancel_airfield_recovery(source_unit)
+		source_unit.erase("guard_active")
+		source_unit.erase("guard_position")
+		source_unit.erase("guard_radius")
+		source_unit.erase("escort_active")
+		source_unit.erase("escort_target_id")
+		source_unit.erase("escort_offset")
+		source_unit.erase("attack_move_active")
 		notice = "أمر اشتباك صادر من القيادة ثلاثية الأبعاد"
 		notice_time = 1.6
 	queue_redraw()
