@@ -316,3 +316,8 @@ The unified escort-priority score now combines nearby hostile pressure with tran
 ## Regression correction — exact flight arrival and airfield service lifecycle
 
 Inbound and return flight movement now uses bounded Vector2.move_toward steps, preventing a large frame delta from overshooting a landing or airfield waypoint and oscillating around it. The airlift regression now validates the actual lifecycle: the aircraft reaches the airfield, enters rearming, remains at the exact destination, and becomes idle only after the five-second service interval. This updates the older test expectation that incorrectly treated arrival as immediate readiness. The regression is now aligned with the implemented rearm mechanic.
+
+
+## Final flight-boundary regression
+
+Added a large-delta return-flight case: a transport 230 world units from its airfield receives a single ten-second simulation step and must clamp exactly to the destination, entering rearming without overshoot. This specifically guards against route oscillation under frame stalls or low-frame-rate simulation. The test is authored and awaits the current Godot regression workflow.
