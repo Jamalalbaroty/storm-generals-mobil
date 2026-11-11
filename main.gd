@@ -4072,6 +4072,10 @@ func _load_selected_infantry_into_transport() -> void:
 		cargo.append(cargo_entry)
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
+	# A newly loaded sortie starts a fresh task; old manual overrides belong to the previous sortie.
+	transport["transport_ai_player_override"] = false
+	transport.erase("transport_ai_objective_pos")
+	transport.erase("transport_ai_recommendation")
 	var transport_record: Dictionary = transport
 	# Remove only passengers that actually boarded; excess selected infantry stay on the field.
 	var loaded_indices: Array = infantry_indices.slice(0, load_count)
