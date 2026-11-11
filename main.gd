@@ -5500,8 +5500,9 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 		if bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size():
 			flight_target = route_points[route_index]
 		if transport.pos.distance_to(flight_target) > 14.0:
-			transport.pos += (flight_target - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (flight_target - transport.pos).angle()
+			var previous_flight_pos: Vector2 = transport.pos
+			transport.pos = transport.pos.move_toward(flight_target, delta * 72.0)
+			transport["facing"] = (flight_target - previous_flight_pos).angle()
 		elif bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size() - 1:
 			transport["transport_ai_route_index"] = route_index + 1
 		elif transport.pos.distance_to(landing_pos) <= 14.0:
@@ -5628,8 +5629,9 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 		if bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size():
 			return_target = return_route[return_route_index]
 		if transport.pos.distance_to(return_target) > 14.0:
-			transport.pos += (return_target - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (return_target - transport.pos).angle()
+			var previous_return_pos: Vector2 = transport.pos
+			transport.pos = transport.pos.move_toward(return_target, delta * 72.0)
+			transport["facing"] = (return_target - previous_return_pos).angle()
 		elif bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
 			transport["transport_ai_route_index"] = return_route_index + 1
 		elif transport.pos.distance_to(return_pos) <= 14.0:
