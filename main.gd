@@ -2086,6 +2086,29 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 	return best_index
 
 
+func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
+	# Estimate the defensive screen around a player ground target.
+	# Ground assaults should prefer exposed threats over targets covered by several defenses.
+	var risk := 0.0
+	for defense in buildings:
+		if int(defense.get("hp", 0)) <= 0 or float(defense.get("build_progress", 1.0)) < 1.0:
+			continue
+		var defense_kind := String(defense.get("kind", ""))
+		var weight := 0.0
+		match defense_kind:
+			"turret":
+				weight = 1.0
+			"anti_air":
+				weight = 0.65
+			"missile_defense":
+				weight = 0.8
+		if weight > 0.0:
+			var distance: float = defense.pos.distance_to(target_pos)
+			if distance <= 240.0:
+				risk += weight * (1.0 - distance / 300.0)
+	return risk
+
+
 func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, preferred_pos: Vector2 = Vector2(-1000000.0, -1000000.0)) -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
 	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
@@ -2125,7 +2148,8 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 					threat_priority += 32.0
 				elif String(candidate.kind) == "infantry":
 					threat_priority += 22.0
-		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 - threat_priority
+		var defensive_risk := _enemy_ground_target_defense_risk(candidate.pos)
+		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
