@@ -4757,7 +4757,7 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport["transport_drop_timer"] = 0.0
 	elif state == "descending":
 		var cargo: Array = transport.get("transport_cargo", [])
-			if cargo.is_empty():
+		if cargo.is_empty():
 			if bool(transport.get("transport_pickup_waiting", false)):
 				# Hold position for the field squad; the player confirms boarding when infantry arrive.
 				transport["transport_state"] = "pickup_waiting"
