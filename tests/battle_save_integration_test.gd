@@ -50,6 +50,10 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_unit_damage_taken_with_veterancy", {"veterancy": 1}, 100)) == 97, "Veteran units must take 3 percent less damage")
 	_expect(int(game.call("_unit_damage_taken_with_veterancy", {"veterancy": 2}, 100)) == 94, "Elite units must take 6 percent less damage")
 	_expect(int(game.call("_unit_damage_taken_with_veterancy", {"veterancy": 3}, 100)) == 91, "Heroic units must take 9 percent less damage")
+	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 0}, 76.0)), 76.0), "Unranked artillery must retain its base blast radius")
+	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 1}, 76.0)), 78.28), "Veteran artillery must gain 3 percent blast radius")
+	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 2}, 76.0)), 80.56), "Elite artillery must gain 6 percent blast radius")
+	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 3}, 76.0)), 83.6), "Heroic artillery must gain 10 percent blast radius")
 	var enemy_veterancy_test: Dictionary = {"unit_id": "enemy_veterancy_test", "kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
 	game.call("_award_unit_experience", enemy_veterancy_test, 500)
 	_expect(float(enemy_veterancy_test.get("combat_xp", 0.0)) == 250.0 and int(enemy_veterancy_test.get("veterancy", 0)) == 2, "Enemy units must earn elite veterancy just like player units")
