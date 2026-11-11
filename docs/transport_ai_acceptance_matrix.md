@@ -90,3 +90,8 @@ The tactical AI is not 100% until:
 3. Godot headless CI passes.
 4. Android device testing verifies touch selection, command override, rope descent presentation, and stable performance.
 5. A complete mission can be played in MANUAL, ASSISTED, and AUTONOMOUS modes without losing or duplicating passengers.
+
+
+## AIRAI-008 implementation note
+
+The automated transport AI regression now covers an immediate hostile tank appearing during rope descent: the aircraft diverts to a candidate outside the threat radius, resets the rope cycle, preserves all remaining cargo, and leaves already deployed ground units untouched. The full acceptance case still requires a separate manual Android presentation check at the release gate.
