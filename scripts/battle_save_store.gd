@@ -53,9 +53,24 @@ func save_snapshot(snapshot: Dictionary) -> bool:
 
 
 func load_snapshot() -> Dictionary:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var primary := _read_snapshot(SAVE_PATH)
+	if not primary.is_empty():
+		return primary
+	# Recover the last verified snapshot if the app stopped during atomic promotion.
+	var backup := _read_snapshot(BACKUP_PATH)
+	if backup.is_empty():
 		return {}
-	var input := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	_remove_if_exists(SAVE_PATH)
+	var recovery_error := DirAccess.rename_absolute(ProjectSettings.globalize_path(BACKUP_PATH), ProjectSettings.globalize_path(SAVE_PATH))
+	if recovery_error != OK:
+		return backup
+	return backup
+
+
+func _read_snapshot(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var input := FileAccess.open(path, FileAccess.READ)
 	if input == null:
 		return {}
 	var decoded: Variant = input.get_var(true)
