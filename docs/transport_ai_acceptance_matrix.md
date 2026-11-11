@@ -95,3 +95,16 @@ The tactical AI is not 100% until:
 ## AIRAI-008 implementation note
 
 The automated transport AI regression now covers an immediate hostile tank appearing during rope descent: the aircraft diverts to a candidate outside the threat radius, resets the rope cycle, preserves all remaining cargo, and leaves already deployed ground units untouched. The full acceptance case still requires a separate manual Android presentation check at the release gate.
+
+## Verified CI snapshot — 2026-11-11
+
+Validated development commit: `a1b423c6e3fd43c41420fb894723ddbf2e793883`.
+
+GitHub Actions results for this exact commit:
+- Godot Validation run `43071919288` (#806): success.
+- Godot Regression Tests run `43071919399` (#729): success.
+- The regression workflow completed the gameplay economy/enemy recovery smoke test, transport airlift regression, transport AI landing-site/control-policy regression, combined-arms group formation, coordinated group attack, live 2D-to-3D bridge, and long-match endurance simulation.
+
+The automated coverage now exercises deterministic landing selection and tie-breaking, invalid/occupied sites, threat-aware route/site choices, MANUAL/ASSISTED/AUTONOMOUS authorization, explicit player override, inbound reassessment, critical-damage recovery, no-safe-site cargo preservation, threat response during rope descent, post-drop DEFEND/ATTACK_MOVE behavior, multi-transport rescue and escort assignment/rebalancing, passenger capacity/preservation, rooftop insertion, and airfield return/service.
+
+This CI result verifies the headless scenarios in the checked-in scripts only. It does **not** close every acceptance item above: save/load during each mission state is not demonstrated by this run; visual/touch behavior and performance still require a real Android device; and a complete end-to-end sortie in all three policies still needs manual device verification. Therefore the transport tactical AI is **CI-green, not release-certified or 100% complete**.
