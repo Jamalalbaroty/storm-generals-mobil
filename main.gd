@@ -4671,6 +4671,52 @@ func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void
 	transport["transport_ai_replanned"] = int(transport.get("transport_ai_replanned", 0)) + 1
 
 
+func _transport_ai_reassess_descending(transport: Dictionary) -> void:
+	if not bool(transport.get("transport_ai_autonomous_active", false)) or bool(transport.get("transport_ai_player_override", false)):
+		return
+	var current_target: Vector2 = transport.get("transport_target_pos", transport.pos)
+	if not _transport_ai_site_has_immediate_threat(current_target):
+		return
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", current_target)
+	var replacement := _transport_ai_plan_safe_alternate_landing(objective_pos)
+	if bool(replacement.get("valid", false)):
+		var replacement_pos: Vector2 = replacement.get("pos", current_target)
+		transport["transport_target_pos"] = replacement_pos
+		transport["transport_landing_type"] = String(replacement.get("landing_type", "ground"))
+		if String(transport["transport_landing_type"]) == "rooftop":
+			transport["transport_target_building_kind"] = String(replacement.get("building_kind", ""))
+		else:
+			transport.erase("transport_target_building_kind")
+		_transport_ai_assign_route(transport, replacement_pos)
+		transport["transport_ai_last_decision_reason"] = "descent_threat_replanned"
+		transport["transport_state"] = "inbound"
+		transport["transport_drop_timer"] = 0.0
+		notice = "رُصد تهديد أثناء الإنزال — أُعيد توجيه الطائرة إلى موقع آمن"
+		notice_time = 3.0
+		return
+	# No safe insertion remains: abort before removing the next passenger from cargo.
+	var recovery_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+	transport["transport_ai_last_decision_reason"] = "descent_threat_no_safe_site"
+	transport.erase("transport_target_pos")
+	transport.erase("transport_ai_objective_pos")
+	transport["transport_drop_timer"] = 0.0
+	if not recovery_airfield.is_empty():
+		var recovery_pos: Vector2 = recovery_airfield.pos
+		transport["transport_return_pos"] = recovery_pos
+		_transport_ai_assign_route(transport, recovery_pos)
+		transport["transport_ai_route_index"] = 0
+		transport["transport_ai_autonomous_active"] = true
+		transport["transport_state"] = "returning"
+		notice = "منطقة الإنزال أصبحت خطرة — أُلغيت العملية والطائرة تنسحب إلى القاعدة"
+	else:
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
+		transport["transport_ai_autonomous_active"] = false
+		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+		notice = "منطقة الإنزال خطرة ولا يوجد مطار — توقف آمن والجنود المتبقون داخل الطائرة"
+	notice_time = 3.0
+
+
 func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
 	# Deterministic, coarse route risk estimate; it never overrides player-directed flight.
 	var exposure := 0.0
@@ -4751,6 +4797,30 @@ func _transport_ai_assign_route(transport: Dictionary, landing_pos: Vector2) -> 
 func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
 	var candidates := _transport_ai_build_landing_candidates(objective_pos)
 	return _transport_ai_choose_landing_site(candidates, objective_pos)
+
+
+func _transport_ai_site_has_immediate_threat(site_pos: Vector2) -> bool:
+	# Immediate danger is checked against simulation-known enemies only.
+	for hostile_unit in units:
+		if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
+			continue
+		var hostile_kind := String(hostile_unit.get("kind", ""))
+		var threat_radius := 240.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 170.0
+		if hostile_unit.pos.distance_to(site_pos) <= threat_radius:
+			return true
+	for hostile_structure in enemy_buildings:
+		if String(hostile_structure.get("kind", "")) == "anti_air" and int(hostile_structure.get("hp", 0)) > 0 and hostile_structure.pos.distance_to(site_pos) <= 320.0:
+			return true
+	return false
+
+
+func _transport_ai_plan_safe_alternate_landing(objective_pos: Vector2) -> Dictionary:
+	var safe_candidates: Array[Dictionary] = []
+	for candidate in _transport_ai_build_landing_candidates(objective_pos):
+		if _transport_ai_site_has_immediate_threat(Vector2(candidate.get("pos", Vector2.ZERO))):
+			continue
+		safe_candidates.append(candidate)
+	return _transport_ai_choose_landing_site(safe_candidates, objective_pos)
 
 
 func _transport_ai_choose_landing_site(candidates: Array[Dictionary], objective_pos: Vector2) -> Dictionary:
@@ -5581,6 +5651,9 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport.erase("transport_target_pos")
 			transport.erase("transport_ai_objective_pos")
 			transport["transport_ai_autonomous_active"] = false
+			return
+		_transport_ai_reassess_descending(transport)
+		if String(transport.get("transport_state", "")) != "descending":
 			return
 		transport["transport_drop_timer"] = float(transport.get("transport_drop_timer", 0.0)) + delta
 		if float(transport["transport_drop_timer"]) >= 0.72:
