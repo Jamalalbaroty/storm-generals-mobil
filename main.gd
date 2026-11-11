@@ -5228,6 +5228,18 @@ func _update_combat_alerts() -> void:
 func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float) -> bool:
 	# Defensive reserves protect their assigned asset and engage only threats inside its local perimeter.
 	var anchor: Vector2 = unit.get("defense_anchor", enemy_base)
+	# A guard must abandon a forward post when its assigned structure is destroyed.
+	var anchor_is_valid := anchor.distance_to(enemy_base) <= 120.0
+	if not anchor_is_valid:
+		for asset in enemy_buildings:
+			if int(asset.get("hp", 0)) <= 0 or float(asset.get("build_progress", 1.0)) < 1.0:
+				continue
+			if asset.get("pos", enemy_base).distance_to(anchor) <= 120.0:
+				anchor_is_valid = true
+				break
+	if not anchor_is_valid:
+		anchor = enemy_base
+		unit["defense_anchor"] = enemy_base
 	var guard_radius := 210.0
 	var threat_index := -1
 	var threat_distance := INF
