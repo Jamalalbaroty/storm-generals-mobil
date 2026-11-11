@@ -4630,11 +4630,13 @@ func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void
 func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
 	# Deterministic, coarse route risk estimate; it never overrides player-directed flight.
 	var exposure := 0.0
+	var sample_count := 0
 	for segment_index in range(points.size() - 1):
 		var segment_start: Vector2 = points[segment_index]
 		var segment_end: Vector2 = points[segment_index + 1]
 		for sample_index in range(1, 6):
 			var sample_pos := segment_start.lerp(segment_end, float(sample_index) / 6.0)
+			sample_count += 1
 			for hostile_building in enemy_buildings:
 				if String(hostile_building.get("kind", "")) != "anti_air" or int(hostile_building.get("hp", 0)) <= 0:
 					continue
@@ -4660,7 +4662,9 @@ func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
 				var mobile_aa_distance: float = sample_pos.distance_to(hostile_unit.pos)
 				if mobile_aa_distance < 280.0:
 					exposure += (280.0 - mobile_aa_distance) / 280.0
-	return exposure
+	# Normalize by sample count so adding a waypoint does not inflate risk merely
+	# because the route has more segments; distance remains a separate route cost.
+	return exposure / float(maxi(1, sample_count))
 
 
 func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Array[Vector2]:
