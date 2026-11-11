@@ -237,7 +237,7 @@ func _run_battle_save_integration_test() -> void:
 		_expect(int(transport.get("transport_drop_index", -1)) == 1 and is_equal_approx(float(transport.get("transport_drop_timer", -1.0)), 0.35), "Rope deployment progress must survive restore")
 		_expect(String(transport.get("transport_ai_last_site_id", "")) == "roof_factory_01", "Transport AI landing-site identity must survive restore")
 		_expect(Array(transport.get("transport_ai_route_points", [])).size() == 3 and int(transport.get("transport_ai_route_index", -1)) == 1, "Transport flight route and current waypoint must survive restore")
-		_expect(bool(transport.get("transport_ai_autonomous_active", false)) and not bool(transport.get("transport_ai_player_override", true), "Transport AI execution policy must survive restore")
+		_expect(bool(transport.get("transport_ai_autonomous_active", false)) and not bool(transport.get("transport_ai_player_override", true)), "Transport AI execution policy must survive restore")
 		_expect(bool(transport.get("transport_firing", false)) and transport.get("attack_focus_pos", Vector2.ZERO) == Vector2(735.0, 270.0) and transport.get("attack_target_pos", Vector2.ZERO) == Vector2(742.0, 275.0), "Loaded passenger firing focus must survive restore")
 		_expect(String(mover.get("unit_id", "")) == "unit_00000053" and mover.get("target", Vector2.ZERO) == Vector2(720.0, 240.0), "Movement destination order must survive save/restore")
 		_expect(String(attacker.get("unit_id", "")) == "unit_00000054" and int(attacker.get("attack_target", -1)) == 4, "Attack order must retain its target unit index after restore")
