@@ -444,7 +444,8 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(500.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(650.0, 300.0)})
 	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(520.0, 300.0)})
-	var threat_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", [0, 1], Vector2(500.0, 300.0))
+	var threat_priority_indices: Array[int] = [0, 1]
+	var threat_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", threat_priority_indices, Vector2(500.0, 300.0))
 	_expect(int(threat_sorted[0]) == 0, "Equal-health casualties under heavier local threat should board before safer casualties")
 	_expect(float(game.call("_transport_ai_rescue_threat_pressure", Vector2(500.0, 300.0))) > float(game.call("_transport_ai_rescue_threat_pressure", Vector2(900.0, 300.0))), "Rescue threat pressure should decrease outside hostile proximity")
 	game.get("units").clear()
@@ -455,7 +456,8 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(700.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(720.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(740.0, 300.0)})
-	var isolation_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", [0, 1], Vector2(600.0, 300.0))
+	var isolation_priority_indices: Array[int] = [0, 1]
+	var isolation_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", isolation_priority_indices, Vector2(600.0, 300.0))
 	_expect(int(isolation_sorted[0]) == 0, "An isolated casualty should be prioritized over an equally wounded soldier with nearby friendly support")
 	_expect(float(game.call("_transport_ai_rescue_isolation_score", Vector2(500.0, 300.0))) > float(game.call("_transport_ai_rescue_isolation_score", Vector2(720.0, 300.0))), "Isolation score should be higher when no friendly infantry are nearby")
 	game.get("units").clear()
