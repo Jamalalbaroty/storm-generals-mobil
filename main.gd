@@ -3584,7 +3584,7 @@ func _enemy_best_supply_objective(unit_pos: Vector2) -> int:
 			continue
 		var distance: float = unit_pos.distance_to(point.pos)
 		var income_weight := 1.5 if String(point.get("kind", "supply")) == "port" else 1.0
-		var ownership_weight := 1.6 if String(point.get("owner", "neutral")) == "player" else 1.0
+		var ownership_weight := 2.2 if String(point.get("owner", "neutral")) == "player" else 1.0
 		var priority: float = distance / (income_weight * ownership_weight)
 		if priority < best_priority:
 			best_priority = priority
