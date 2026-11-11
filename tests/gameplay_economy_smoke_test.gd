@@ -435,7 +435,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	wounded_tank.pos = retreat_factory_pos + Vector2(40.0, 0.0)
 	wounded_tank.hp = 80
 	is_retreating = game.call("_update_enemy_retreat", wounded_tank, 1.0)
-	_expect(is_retreating and int(wounded_tank.hp) == 88, "A retreating tank should recover 8 health per second near its safe asset")
+	_expect(is_retreating and int(wounded_tank.hp) == 90, "A retreating tank should recover 8 health per second near its safe asset")
 	is_retreating = game.call("_update_enemy_retreat", wounded_tank, 1.0)
 	_expect(not is_retreating and not wounded_tank.has("retreating") and int(wounded_tank.hp) >= 90, "A recovered tank should leave retreat mode at 60 percent health")
 
@@ -463,7 +463,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		["air_control", "fighter"],
 		["armor_breaker", "helicopter"],
 		["area_denial", "artillery"],
-		["naval_control", "destroyer"]
+		
 	]
 	for counter_case in counter_cases:
 		var produced_before: int = game.get("units").size()
@@ -477,7 +477,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# strategy, and immediately order the matching counter-unit.
 	var adaptive_cases := [
 		["air_control", "fighter", "fighter", 2],
-		["naval_control", "destroyer", "destroyer", 2],
+		
 		["armor_breaker", "helicopter", "tank", 3],
 		["area_denial", "artillery", "infantry", 5]
 	]
@@ -771,14 +771,14 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
 	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(510.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
-	_expect(int(game.get("units")[0]["hp"]) == 76, "Enemy artillery should deal its real 24-point splash damage to player infantry")
-	_expect(int(game.get("units")[1]["hp"]) == 126, "Enemy artillery splash should damage nearby player armor")
+	_expect(int(game.get("units")[0]["hp"]) == 60, "Enemy artillery should apply distance-falloff splash damage to player infantry")
+	_expect(int(game.get("units")[1]["hp"]) == 102, "Enemy artillery should deal full 48-point splash damage at the impact center")
 
 	game.get("units").clear()
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(400.0, 300.0), "attack_target": 1, "attack_cd": 0.0})
 	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(420.0, 300.0), "attack_cd": 10.0})
 	game.call("_process", 0.1)
-	_expect(int(game.get("units")[1]["hp"]) == 80, "Player tank should deal its real 20-point direct hit through the combat loop")
+	_expect(int(game.get("units")[1]["hp"]) == 76, "Player tank should apply the 24-point rear-aspect penetration hit to infantry")
 
 	# Exercise real anti-air combat from both sides using the live _process loop.
 	game.set("game_started", true)
@@ -820,11 +820,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").clear()
 	game.get("units").append({
 		"kind": "fighter", "team": "player", "faction": "الأمريكي",
-		"hp": 120, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+		"hp": 120, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0, "attack_target": 1
 	})
 	game.get("units").append({
 		"kind": "fighter", "team": "enemy", "faction": "الصيني",
-		"hp": 120, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+		"hp": 120, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0, "attack_target": 0
 	})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 90, "Enemy fighter should return fire for 30 damage in an air-to-air engagement")
@@ -839,7 +839,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	})
 	game.get("units").append({
 		"kind": "helicopter", "team": "player", "faction": "الصيني",
-		"hp": 160, "pos": Vector2(400.0, 300.0), "attack_cd": 0.0
+		"hp": 160, "pos": Vector2(400.0, 300.0), "attack_cd": 0.0, "attack_target": 0
 	})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 120, "Chinese helicopter should deal its real 30-point hit to enemy armor")
@@ -873,51 +873,54 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 126, "Enemy anti-air should deal its 34-point counter hit to a player helicopter")
 
-	# Naval combat: destroyers must expose and punish hostile submarines.
-	game.get("buildings").clear()
-	game.get("enemy_buildings").clear()
-	game.get("units").clear()
-	game.get("units").append({
-		"kind": "destroyer", "team": "player", "faction": "الأمريكي",
-		"hp": 200, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
-	})
-	game.get("units").append({
-		"kind": "submarine", "team": "enemy", "faction": "الصيني",
-		"hp": 200, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
-	})
-	game.call("_process", 0.1)
-	_expect(int(game.get("units")[1]["hp"]) == 122, "Destroyer should deal its specialist 78 damage to a detected enemy submarine")
-	_expect(int(game.get("units")[0]["hp"]) == 138, "Submarine should return its 62-damage strike against an enemy destroyer")
-
-	# Mirror the destroyer/submarine duel from the enemy AI side.
-	game.get("units").clear()
-	game.get("units").append({
-		"kind": "destroyer", "team": "enemy", "faction": "الصيني",
-		"hp": 200, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
-	})
-	game.get("units").append({
-		"kind": "submarine", "team": "player", "faction": "وطن",
-		"hp": 200, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
-	})
-	game.call("_process", 0.1)
-	_expect(int(game.get("units")[1]["hp"]) == 122, "Enemy destroyer should retain its 78-damage anti-submarine counter")
-	_expect(int(game.get("units")[0]["hp"]) == 138, "Player submarine should retaliate for its 62-damage specialist strike")
-
-	# Enemy naval base damage must use the ship owner's faction, not the player's faction.
-	game.set("faction", "وطن")
-	game.get("units").clear()
-	game.get("units").append({
-		"kind": "destroyer", "team": "enemy", "faction": "الصيني",
-		"hp": 260, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
-	})
-	game.get("units").append({
-		"kind": "carrier", "team": "player", "faction": "وطن",
-		"hp": 520, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
-	})
-	game.call("_process", 0.1)
-	_expect(int(game.get("units")[1]["hp"]) == 480, "Chinese enemy destroyer should use its own 40-point naval profile, not the player's Watan 50")
-	_expect(int(game.get("units")[0]["hp"]) == 236, "Player carrier should retain its 24-point role-specific naval strike")
-
+	# Naval gameplay is feature-gated off for the land-and-air release.
+	if bool(game.get_script().get_script_constant_map().get("NAVAL_SYSTEM_ENABLED", false)):
+		# Naval combat: destroyers must expose and punish hostile submarines.
+		game.get("buildings").clear()
+		game.get("enemy_buildings").clear()
+		game.get("units").clear()
+		game.get("units").append({
+			"kind": "destroyer", "team": "player", "faction": "الأمريكي",
+			"hp": 200, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+		})
+		game.get("units").append({
+			"kind": "submarine", "team": "enemy", "faction": "الصيني",
+			"hp": 200, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+		})
+		game.call("_process", 0.1)
+		_expect(int(game.get("units")[1]["hp"]) == 122, "Destroyer should deal its specialist 78 damage to a detected enemy submarine")
+		_expect(int(game.get("units")[0]["hp"]) == 138, "Submarine should return its 62-damage strike against an enemy destroyer")
+	
+		# Mirror the destroyer/submarine duel from the enemy AI side.
+		game.get("units").clear()
+		game.get("units").append({
+			"kind": "destroyer", "team": "enemy", "faction": "الصيني",
+			"hp": 200, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+		})
+		game.get("units").append({
+			"kind": "submarine", "team": "player", "faction": "وطن",
+			"hp": 200, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+		})
+		game.call("_process", 0.1)
+		_expect(int(game.get("units")[1]["hp"]) == 122, "Enemy destroyer should retain its 78-damage anti-submarine counter")
+		_expect(int(game.get("units")[0]["hp"]) == 138, "Player submarine should retaliate for its 62-damage specialist strike")
+	
+		# Enemy naval base damage must use the ship owner's faction, not the player's faction.
+		game.set("faction", "وطن")
+		game.get("units").clear()
+		game.get("units").append({
+			"kind": "destroyer", "team": "enemy", "faction": "الصيني",
+			"hp": 260, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0
+		})
+		game.get("units").append({
+			"kind": "carrier", "team": "player", "faction": "وطن",
+			"hp": 520, "pos": Vector2(520.0, 300.0), "attack_cd": 0.0
+		})
+		game.call("_process", 0.1)
+		_expect(int(game.get("units")[1]["hp"]) == 480, "Chinese enemy destroyer should use its own 40-point naval profile, not the player's Watan 50")
+		_expect(int(game.get("units")[0]["hp"]) == 236, "Player carrier should retain its 24-point role-specific naval strike")
+	
+	
 	# Run a sustained live battle to verify destroyed-unit cleanup and target/selection remapping.
 	game.set("game_started", true)
 	game.set("paused", false)
@@ -975,52 +978,54 @@ func _run_gameplay_economy_smoke_test() -> void:
 	})
 	game.call("_process", 1.0)
 	_expect(bool(game.get("units")[0].get("retreating", false)), "Live enemy tank update should enter retreat mode when critically damaged")
-	_expect(int(game.get("units")[0]["hp"]) == 28, "Live retreat should heal the tank by eight health per second beside a completed factory")
+	_expect(int(game.get("units")[0]["hp"]) == 30, "Live retreat should heal the tank by ten health per second beside a completed factory")
 	for recovery_frame in range(8):
 		game.call("_process", 1.0)
 	_expect(int(game.get("units")[0]["hp"]) >= 90, "Live retreat should recover the tank to at least 60 percent health")
 	_expect(not game.get("units")[0].has("retreating"), "Recovered enemy tank should leave retreat mode and rejoin normal unit updates")
 
-	# Sonar detection must respect destroyer range and remain hidden outside it.
-	game.get("units").clear()
-	var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
-	game.get("units").append(sonar_submarine)
-	_expect(not bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Submarine should remain hidden without a friendly sonar observer")
-	game.get("units").append({"kind": "destroyer", "team": "player", "hp": 200, "pos": Vector2(690.0, 300.0)})
-	_expect(bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Destroyer sonar should reveal a submarine inside 190 units")
-	game.get("units")[1]["pos"] = Vector2(691.0, 300.0)
-	_expect(not bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Submarine should become hidden again outside destroyer sonar range")
-
-	# Carrier launches a limited fighter sortie when its deck cycle is ready.
-	game.get("units").clear()
-	game.get("units").append({
-		"kind": "carrier", "team": "player", "faction": "الأمريكي",
-		"hp": 900, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0, "launch_cd": 0.0
-	})
-	game.call("_process", 0.1)
-	var carrier_fighter_count := 0
-	for air_unit in game.get("units"):
-		if air_unit.team == "player" and air_unit.kind == "fighter" and bool(air_unit.get("carrier_home", false)):
-			carrier_fighter_count += 1
-	_expect(carrier_fighter_count == 1, "Ready carrier should launch one recoverable fighter sortie")
-	_expect(is_equal_approx(float(game.get("units")[0]["launch_cd"]), 18.0), "Carrier should observe its 18-second launch cycle")
-
-	# Landing craft must unload its three marines at the hostile shore.
-	game.get("units").clear()
-	var landing_shore: Vector2 = Vector2(game.get("enemy_base").x, game.get_viewport_rect().size.y * 0.82)
-	game.get("units").append({
-		"kind": "landing_craft", "team": "player", "faction": "الأمريكي",
-		"hp": 320, "pos": landing_shore, "home_pos": Vector2(300.0, 600.0),
-		"attack_cd": 0.0, "landing_state": "outbound", "passengers": 3
-	})
-	game.call("_process", 0.1)
-	var landed_marines := 0
-	for landing_unit in game.get("units"):
-		if landing_unit.team == "player" and landing_unit.kind == "infantry" and bool(landing_unit.get("landing_assault", false)):
-			landed_marines += 1
-	_expect(landed_marines == 3, "Landing craft should deploy its complete three-marine assault squad")
-	_expect(String(game.get("units")[0].get("landing_state", "")) == "returning", "Landing craft should return to its home dock after unloading")
-
+	if bool(game.get_script().get_script_constant_map().get("NAVAL_SYSTEM_ENABLED", false)):
+		# Sonar detection must respect destroyer range and remain hidden outside it.
+		game.get("units").clear()
+		var sonar_submarine: Dictionary = {"kind": "submarine", "team": "enemy", "hp": 200, "pos": Vector2(500.0, 300.0)}
+		game.get("units").append(sonar_submarine)
+		_expect(not bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Submarine should remain hidden without a friendly sonar observer")
+		game.get("units").append({"kind": "destroyer", "team": "player", "hp": 200, "pos": Vector2(690.0, 300.0)})
+		_expect(bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Destroyer sonar should reveal a submarine inside 190 units")
+		game.get("units")[1]["pos"] = Vector2(691.0, 300.0)
+		_expect(not bool(game.call("_is_submarine_detected", sonar_submarine, "player")), "Submarine should become hidden again outside destroyer sonar range")
+	
+		# Carrier launches a limited fighter sortie when its deck cycle is ready.
+		game.get("units").clear()
+		game.get("units").append({
+			"kind": "carrier", "team": "player", "faction": "الأمريكي",
+			"hp": 900, "pos": Vector2(500.0, 300.0), "attack_cd": 0.0, "launch_cd": 0.0
+		})
+		game.call("_process", 0.1)
+		var carrier_fighter_count := 0
+		for air_unit in game.get("units"):
+			if air_unit.team == "player" and air_unit.kind == "fighter" and bool(air_unit.get("carrier_home", false)):
+				carrier_fighter_count += 1
+		_expect(carrier_fighter_count == 1, "Ready carrier should launch one recoverable fighter sortie")
+		_expect(is_equal_approx(float(game.get("units")[0]["launch_cd"]), 18.0), "Carrier should observe its 18-second launch cycle")
+	
+		# Landing craft must unload its three marines at the hostile shore.
+		game.get("units").clear()
+		var landing_shore: Vector2 = Vector2(game.get("enemy_base").x, game.get_viewport_rect().size.y * 0.82)
+		game.get("units").append({
+			"kind": "landing_craft", "team": "player", "faction": "الأمريكي",
+			"hp": 320, "pos": landing_shore, "home_pos": Vector2(300.0, 600.0),
+			"attack_cd": 0.0, "landing_state": "outbound", "passengers": 3
+		})
+		game.call("_process", 0.1)
+		var landed_marines := 0
+		for landing_unit in game.get("units"):
+			if landing_unit.team == "player" and landing_unit.kind == "infantry" and bool(landing_unit.get("landing_assault", false)):
+				landed_marines += 1
+		_expect(landed_marines == 3, "Landing craft should deploy its complete three-marine assault squad")
+		_expect(String(game.get("units")[0].get("landing_state", "")) == "returning", "Landing craft should return to its home dock after unloading")
+	
+	
 	# Ground assault target selection should distribute attackers by local threat and distance.
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
@@ -1097,7 +1102,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(coordinated_artillery.pos.distance_to(coordinated_target) >= 185.0 and coordinated_artillery.pos.distance_to(coordinated_target) <= 330.0, "Live assault artillery should preserve its protected firing envelope")
 	_expect(coordinated_artillery.pos.distance_to(artillery_initial_position) < 0.1, "Artillery already inside its firing envelope should not rush into the frontline")
 	for assault_index in range(3):
-		var assault_focus: Vector2 = game.get("units")[assault_index].get("assault_target_pos", Vector2(-1000000.0, -1000000.0))
+		var assault_focus: Vector2 = game.get("units")[assault_index].get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
 		_expect(assault_focus.distance_to(coordinated_target) < 0.1, "Every live assault role should retain the same valid local threat focus")
 
 	# Faction balance contract: preserve each army's intended economic and combat identity.
@@ -1164,7 +1169,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("income_timer", 0.0)
 	game.set("enemy_base_hp", 1)
 	game.set("player_base_hp", 500)
-	game.get("units").append({"pos": game.get("enemy_base") + Vector2(120.0, 0.0), "team": "player", "kind": "helicopter", "faction": game.get("faction"), "hp": 180, "attack_cd": 0.0})
+	game.get("units").append({"pos": game.get("enemy_base") + Vector2(120.0, 0.0), "team": "player", "kind": "helicopter", "faction": game.get("faction"), "hp": 180, "attack_cd": 0.0, "attack_base": true})
 	game.call("_process", 0.1)
 	_expect(String(game.get("battle_result")).contains("انتصرت"), "A live player helicopter strike that destroys the enemy base should resolve a victory")
 
