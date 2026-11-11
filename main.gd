@@ -4055,10 +4055,10 @@ func _capture_selected_building() -> void:
 		var unit: Dictionary = units[selected_index]
 		if unit.team != "player" or unit.kind != "infantry" or int(unit.get("hp", 0)) <= 0:
 			continue
+		# A fresh capture order must override every older combat or stance order.
 		unit.target = target
-		unit.erase("attack_base")
-		unit.erase("attack_target")
-		unit.erase("attack_building")
+		for order_key in ["attack_base", "attack_target", "attack_focus_pos", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+			unit.erase(order_key)
 		assigned += 1
 	if assigned == 0:
 		notice = "حدد مشاة أحياء أولاً للسيطرة على المبنى"
