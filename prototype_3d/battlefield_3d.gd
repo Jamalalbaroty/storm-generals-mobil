@@ -915,7 +915,7 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 				if is_instance_valid(descending_soldier):
 					var rope_side := -0.48 if drop_index % 2 == 0 else 0.48
 					var rope_sway := sin(float(Time.get_ticks_msec()) * 0.006 + float(drop_index) * 0.35) * 0.035
-					descending_soldier.position = Vector3(rope_side, lerpf(-0.55, -4.85, drop_progress), 0.48)
+					descending_soldier.position = Vector3(rope_side, lerpf(-0.55, -4.65, drop_progress), 0.48)
 					descending_soldier.rotation.z = rope_sway
 					descending_soldier.rotation.x = cos(float(Time.get_ticks_msec()) * 0.0045) * 0.025
 			if is_instance_valid(fast_ropes):
@@ -2742,9 +2742,9 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 			var rope_mesh := CylinderMesh.new()
 			rope_mesh.top_radius = 0.025
 			rope_mesh.bottom_radius = 0.025
-			rope_mesh.height = 5.2
+			rope_mesh.height = 4.9
 			rope.mesh = rope_mesh
-			rope.position = Vector3(rope_side, -2.95, 0.48)
+			rope.position = Vector3(rope_side, -2.75, 0.48)
 			rope.material_override = _make_armour_material(Color(0.78, 0.70, 0.52))
 			rope_group.add_child(rope)
 		var rope_troops := Node3D.new()
