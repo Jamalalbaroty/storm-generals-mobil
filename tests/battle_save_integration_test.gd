@@ -245,6 +245,16 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_enemy_fighter_escort_helicopter_index", Vector2.ZERO)) == 0, "Enemy fighter must escort the helicopter threatened by hostile aircraft even when another helicopter is closer")
 	game.get("units")[2]["hp"] = 0
 	_expect(int(game.call("_enemy_fighter_escort_helicopter_index", Vector2.ZERO)) == 1, "Enemy fighter must fall back to the nearest living helicopter when no hostile air threat remains")
+	# Interceptors distribute across distinct hostile aircraft instead of concentrating on one target.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(100.0, 0.0)},
+		{"kind": "helicopter", "team": "player", "hp": 160, "pos": Vector2(240.0, 0.0)},
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2(105.0, 0.0)},
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO}
+	])
+	_expect(int(game.call("_enemy_fighter_select_air_target", Vector2.ZERO, 3)) == 1, "Enemy fighters must distribute interceptions when another fighter is already engaging the nearest hostile aircraft")
+	game.get("units")[2]["hp"] = 0
+	_expect(int(game.call("_enemy_fighter_select_air_target", Vector2.ZERO, 3)) == 0, "Enemy fighters must select the nearest available hostile aircraft when no friendly interceptor is engaging it")
 	# Enemy combined-arms assault formations must keep armor forward, infantry in support, and artillery at standoff range.
 	var assault_target_pos := Vector2(500.0, 300.0)
 	var assault_origin_pos := Vector2(100.0, 300.0)
