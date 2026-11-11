@@ -1876,6 +1876,25 @@ func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vect
 	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * lane_offset
 
 
+func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
+	# When a target is covered by several defenses, approach from the less protected flank.
+	if _enemy_ground_target_defense_risk(target_pos) < 1.15:
+		return target_pos
+	var attack_direction: Vector2 = target_pos - assault_origin
+	if attack_direction.length_squared() <= 0.01:
+		attack_direction = Vector2.LEFT
+	else:
+		attack_direction = attack_direction.normalized()
+	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
+	var left_flank: Vector2 = target_pos - lateral_direction * 115.0
+	var right_flank: Vector2 = target_pos + lateral_direction * 115.0
+	var left_risk := _enemy_ground_target_defense_risk(left_flank)
+	var right_risk := _enemy_ground_target_defense_risk(right_flank)
+	if absf(left_risk - right_risk) <= 0.08:
+		return left_flank if unit_index % 2 == 0 else right_flank
+	return left_flank if left_risk < right_risk else right_flank
+
+
 func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: float) -> bool:
 	# Execute the enemy's land doctrine: armor leads, infantry screens, artillery stays in support.
 	var unit_kind := String(unit.get("kind", ""))
@@ -1899,10 +1918,12 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 	var formation_goal: Vector2
 	if unit_kind == "artillery":
 		formation_goal = _enemy_artillery_support_position(target_pos, enemy_base, _enemy_artillery_formation_rank(unit_index))
-	elif unit_kind == "infantry":
-		formation_goal = _enemy_infantry_support_position(unit.pos, target_pos, enemy_base, _enemy_assault_formation_rank(unit_index))
 	else:
-		formation_goal = _enemy_ground_assault_formation_position(unit_kind, target_pos, enemy_base, _enemy_assault_formation_rank(unit_index))
+		var approach_anchor := _enemy_ground_assault_flank_anchor(target_pos, enemy_base, unit_index)
+		if unit_kind == "infantry":
+			formation_goal = _enemy_infantry_support_position(unit.pos, approach_anchor, enemy_base, _enemy_assault_formation_rank(unit_index))
+		else:
+			formation_goal = _enemy_ground_assault_formation_position(unit_kind, approach_anchor, enemy_base, _enemy_assault_formation_rank(unit_index))
 	var weapon_range := 300.0 if unit_kind == "artillery" else (150.0 if unit_kind == "tank" else 105.0)
 	var target_distance: float = unit.pos.distance_to(target_pos)
 	if target_index >= 0 and target_distance <= weapon_range:
