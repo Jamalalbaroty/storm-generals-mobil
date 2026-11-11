@@ -4640,7 +4640,92 @@ func _prepare_transport_rooftop_landing() -> void:
 	notice_time = 2.4
 
 
+func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transport_indices: Array[int]) -> bool:
+	if transport_indices.size() < 2:
+		return false
+	var candidates := _transport_ai_build_landing_candidates(objective_pos)
+	var reserved_sites: Array[Vector2] = []
+	var assignments: Array[Dictionary] = []
+	# Plan every drop zone before issuing any order, so the group cannot be half-dispatched.
+	for transport_index in transport_indices:
+		if transport_index < 0 or transport_index >= units.size():
+			return false
+		var transport: Dictionary = units[transport_index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			return false
+		if Array(transport.get("transport_cargo", [])).is_empty() or String(transport.get("transport_state", "idle")) not in ["idle", "loaded", "pickup_waiting"]:
+			return false
+		var best_site: Dictionary = {}
+		for candidate in candidates:
+			var candidate_pos: Vector2 = candidate.get("pos", Vector2.ZERO)
+			if String(candidate.get("landing_type", "ground")) != "ground" or candidate_pos.distance_to(objective_pos) > 240.0:
+				continue
+			var separated := true
+			for reserved_pos in reserved_sites:
+				if candidate_pos.distance_to(reserved_pos) < 96.0:
+					separated = false
+					break
+			if not separated:
+				continue
+			var evaluation := _transport_ai_evaluate_landing_site(candidate, objective_pos)
+			if not bool(evaluation.get("valid", false)):
+				continue
+			var score := float(evaluation.get("score", -1.0))
+			if best_site.is_empty() or score > float(best_site.get("score", -1.0)) or (is_equal_approx(score, float(best_site.get("score", -1.0))) and String(candidate.get("id", "")) < String(best_site.get("site_id", ""))):
+				best_site = evaluation.duplicate(true)
+				best_site["pos"] = candidate_pos
+				best_site["site_id"] = String(candidate.get("id", ""))
+		if best_site.is_empty():
+			return false
+		reserved_sites.append(best_site.pos)
+		assignments.append({"unit_index": transport_index, "landing": best_site})
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var landing: Dictionary = assignment.landing
+		var target_pos: Vector2 = landing.pos
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = false
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
+		transport["transport_target_pos"] = target_pos
+		transport["transport_landing_type"] = "ground"
+		transport.erase("transport_target_building_kind")
+		transport["transport_state"] = "inbound"
+		transport["transport_order_pending"] = false
+		transport["transport_drop_index"] = 0
+		transport["transport_drop_timer"] = 0.0
+		transport.erase("target")
+	return true
+
+
 func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
+	var pending_transports: Array[int] = []
+	for selected_index in selected:
+		if selected_index >= 0 and selected_index < units.size():
+			var selected_transport: Dictionary = units[selected_index]
+			if String(selected_transport.get("kind", "")) == "transport_helicopter" and String(selected_transport.get("team", "")) == "player" and bool(selected_transport.get("transport_order_pending", false)) and not pending_transports.has(selected_index):
+				pending_transports.append(selected_index)
+	if pending_transports.size() > 1:
+		var clicked_rooftop := false
+		for structure in buildings + enemy_buildings:
+			var structure_kind := String(structure.get("kind", ""))
+			if structure_kind not in ["wall", "wall_corner", "wall_gate", "airfield"] and int(structure.get("hp", 0)) > 0 and float(structure.get("build_progress", 1.0)) >= 1.0 and structure.pos.distance_to(world_pos) <= 48.0:
+				clicked_rooftop = true
+				break
+		if clicked_rooftop:
+			notice = "الإنزال الجماعي على سطح واحد غير آمن — اختر منطقة أرضية أو وزّع الطائرات على أسطح منفصلة"
+			notice_time = 2.8
+			return true
+		if _transport_ai_order_group_ground_insertions(world_pos, pending_transports):
+			notice = "انطلقت %d طائرات نقل إلى مواقع إنزال أرضية متباعدة ومنسقة" % pending_transports.size()
+		else:
+			notice = "تعذر تأمين مواقع إنزال متباعدة لكل الطائرات — لم تصدر أي مهمة"
+		notice_time = 2.8
+		return true
 	for index in selected:
 		if index < 0 or index >= units.size():
 			continue
