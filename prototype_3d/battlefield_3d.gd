@@ -195,7 +195,7 @@ func _setup_engine_audio() -> void:
 
 func _update_ground_vehicle_effects(delta: float) -> void:
 	for unit in showcase_tanks:
-		if not is_instance_valid(unit):
+		if not is_instance_valid(unit) or not unit.is_inside_tree():
 			continue
 		var unit_type := String(unit.get_meta("unit_type", "tank"))
 		if unit_type not in ["tank", "artillery"]:
@@ -255,7 +255,7 @@ func _remove_track_dust(puff: Node3D) -> void:
 func _update_engine_audio() -> void:
 	if not is_instance_valid(engine_audio_player):
 		return
-	if not is_instance_valid(selected_tank) or not has_selected_destination:
+	if not is_instance_valid(selected_tank) or not selected_tank.is_inside_tree() or not has_selected_destination:
 		if engine_audio_player.playing:
 			engine_audio_player.stop()
 		return
@@ -860,7 +860,7 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 	var blend := clampf(delta * 16.0, 0.0, 1.0)
 	for unit_key in game_unit_nodes.keys():
 		var unit_variant = game_unit_nodes[unit_key]
-		if not is_instance_valid(unit_variant):
+		if not is_instance_valid(unit_variant) or not unit_variant.is_inside_tree():
 			continue
 		var unit := unit_variant as Node3D
 		var target_variant: Variant = unit.global_position
@@ -3068,7 +3068,7 @@ func _update_naval_combat(delta: float) -> void:
 		if not is_instance_valid(vessel_variant):
 			continue
 		var vessel := vessel_variant as Node3D
-		if not is_instance_valid(vessel) or str(vessel.get_meta("unit_type", "")) != "destroyer":
+		if not is_instance_valid(vessel) or not vessel.is_inside_tree() or str(vessel.get_meta("unit_type", "")) != "destroyer":
 			continue
 		var team := str(vessel.get_meta("source_team", ""))
 		if team.is_empty():
@@ -3161,7 +3161,7 @@ func _update_carrier_air_operations(delta: float) -> void:
 		if not is_instance_valid(carrier_variant):
 			continue
 		var carrier := carrier_variant as Node3D
-		if not is_instance_valid(carrier) or str(carrier.get_meta("unit_type", "")) != "carrier":
+		if not is_instance_valid(carrier) or not carrier.is_inside_tree() or str(carrier.get_meta("unit_type", "")) != "carrier":
 			continue
 		var cooldown := maxf(0.0, float(carrier.get_meta("air_ops_cooldown", 0.0)) - delta)
 		carrier.set_meta("air_ops_cooldown", cooldown)
@@ -3236,7 +3236,7 @@ func _update_naval_animation(delta: float) -> void:
 		if is_instance_valid(propeller):
 			propeller.rotation.z += delta * 12.0
 	for vessel in showcase_tanks:
-		if not is_instance_valid(vessel):
+		if not is_instance_valid(vessel) or not vessel.is_inside_tree():
 			continue
 		var vessel_kind := str(vessel.get_meta("unit_type", ""))
 		if vessel_kind in ["destroyer", "carrier", "landing_craft"]:
@@ -3316,7 +3316,7 @@ func _add_air_defense_turret(at: Vector3, tint: Color, faction_id: String) -> vo
 func _update_air_defenses(delta: float) -> void:
 	for defense_index in range(air_defense_nodes.size()):
 		var defense := air_defense_nodes[defense_index]
-		if not is_instance_valid(defense):
+		if not is_instance_valid(defense) or not defense.is_inside_tree():
 			continue
 		air_defense_cooldowns[defense_index] = maxf(0.0, air_defense_cooldowns[defense_index] - delta)
 		var nearest_aircraft: Node3D = null
@@ -3571,7 +3571,7 @@ func _update_radar_network(delta: float) -> void:
 	radar_alert_clock += delta
 	for radar_index in range(radar_nodes.size()):
 		var radar := radar_nodes[radar_index]
-		if not is_instance_valid(radar):
+		if not is_instance_valid(radar) or not radar.is_inside_tree():
 			continue
 		var sweep := radar_sweeps[radar_index]
 		if is_instance_valid(sweep):
@@ -3854,7 +3854,7 @@ func _update_infantry_animation(delta: float) -> void:
 			infantry_leg_pairs.erase(soldier_variant)
 			continue
 		var soldier := soldier_variant as Node3D
-		if not is_instance_valid(soldier):
+		if not is_instance_valid(soldier) or not soldier.is_inside_tree():
 			infantry_leg_pairs.erase(soldier_variant)
 			continue
 		var legs: Array = infantry_leg_pairs[soldier_variant]
@@ -4682,7 +4682,7 @@ func _group_formation_offset(index: int, unit_count: int, forward: Vector3, spac
 
 
 func _is_live_player_unit(unit: Node3D) -> bool:
-	return is_instance_valid(unit) and not unit.is_queued_for_deletion() and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
+	return is_instance_valid(unit) and unit.is_inside_tree() and not unit.is_queued_for_deletion() and str(unit.get_meta("source_team", "")) == "player" and not str(unit.get_meta("source_unit_key", "")).is_empty()
 
 func _building_at_screen_position(screen_position: Vector2) -> Node3D:
 	if not is_instance_valid(rts_camera):
@@ -4774,7 +4774,7 @@ func _update_order_path_visual() -> void:
 func _update_showcase_orders(delta: float) -> void:
 	selected_live_units = selected_live_units.filter(func(unit): return is_instance_valid(unit) and _is_live_player_unit(unit))
 	_update_selection_count_label()
-	if not is_instance_valid(selected_tank):
+	if not is_instance_valid(selected_tank) or not selected_tank.is_inside_tree():
 		selected_tank = selected_live_units[0] if not selected_live_units.is_empty() else null
 	if not is_instance_valid(selected_tank):
 		if is_instance_valid(order_path_instance):
@@ -4862,7 +4862,7 @@ func _update_showcase_health_bars() -> void:
 			showcase_health_bars.erase(tank_variant)
 			continue
 		var fill := fill_variant as MeshInstance3D
-		if not is_instance_valid(tank) or not is_instance_valid(fill):
+		if not is_instance_valid(tank) or not tank.is_inside_tree() or not is_instance_valid(fill) or not fill.is_inside_tree():
 			showcase_health_bars.erase(tank_variant)
 			continue
 		var maximum_health := maxf(1.0, float(tank.get_meta("max_health", 100.0)))
@@ -4918,7 +4918,7 @@ func _spawn_impact_flash(at: Vector3, is_destruction: bool = false) -> void:
 		smoke_tween.chain().tween_callback(smoke.queue_free)
 
 func _update_showcase_combat(delta: float) -> void:
-	if not is_instance_valid(selected_tank) or not is_instance_valid(attack_target):
+	if not is_instance_valid(selected_tank) or not selected_tank.is_inside_tree() or not is_instance_valid(attack_target) or not attack_target.is_inside_tree():
 		attack_target = null
 		return
 	var tank_index := showcase_tanks.find(selected_tank)
@@ -4971,7 +4971,7 @@ func _update_tank_wheel_rotation() -> void:
 			tank_barrels.erase(tank_variant)
 			continue
 		var tank := tank_variant as Node3D
-		if not is_instance_valid(tank):
+		if not is_instance_valid(tank) or not tank.is_inside_tree():
 			tank_wheels.erase(tank_variant)
 			wheel_last_positions.erase(tank_variant)
 			tank_barrels.erase(tank_variant)
