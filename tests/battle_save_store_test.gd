@@ -69,6 +69,27 @@ func _run_battle_save_store_test() -> void:
 	var preserved: Dictionary = store.load_snapshot()
 	_expect(not preserved.is_empty() and int(preserved["match"].get("credits", 0)) == 1840, "A rejected snapshot must not overwrite the previous valid save")
 
+	var malformed_unit: Dictionary = snapshot.duplicate(true)
+	malformed_unit["units"][0]["hp"] = NAN
+	_expect(not store.save_snapshot(malformed_unit), "Non-finite unit health must be rejected")
+	var malformed_position: Dictionary = snapshot.duplicate(true)
+	malformed_position["units"][0]["pos"] = Vector2(INF, 0.0)
+	_expect(not store.save_snapshot(malformed_position), "Non-finite unit coordinates must be rejected")
+	var malformed_building: Dictionary = snapshot.duplicate(true)
+	malformed_building["buildings"][0]["hp"] = -1
+	_expect(not store.save_snapshot(malformed_building), "Negative building health must be rejected")
+	var malformed_progress: Dictionary = snapshot.duplicate(true)
+	malformed_progress["enemy_buildings"][0]["build_progress"] = 1.5
+	_expect(not store.save_snapshot(malformed_progress), "Building progress outside zero-to-one must be rejected")
+	var malformed_order: Dictionary = snapshot.duplicate(true)
+	malformed_order["production_orders"][0]["duration"] = NAN
+	_expect(not store.save_snapshot(malformed_order), "Non-finite production duration must be rejected")
+	var malformed_missile: Dictionary = snapshot.duplicate(true)
+	malformed_missile["missiles"][0]["target"] = Vector2(0.0, NAN)
+	_expect(not store.save_snapshot(malformed_missile), "Non-finite missile target coordinates must be rejected")
+	var preserved_after_malformed: Dictionary = store.load_snapshot()
+	_expect(not preserved_after_malformed.is_empty() and int(preserved_after_malformed["match"].get("credits", 0)) == 1840, "Malformed snapshots must never replace the last valid save")
+
 	var save_absolute := ProjectSettings.globalize_path(SaveStore.SAVE_PATH)
 	var backup_absolute := ProjectSettings.globalize_path(SaveStore.BACKUP_PATH)
 	var backup_move_error := DirAccess.rename_absolute(save_absolute, backup_absolute)
