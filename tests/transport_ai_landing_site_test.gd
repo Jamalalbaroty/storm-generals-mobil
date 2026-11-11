@@ -272,6 +272,36 @@ func _run() -> void:
 	game.get("units").clear()
 	game.get("selected").clear()
 
+	# Returning with a loaded transport must target a completed friendly airfield and retain its passengers.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)})
+	game.get("enemy_buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(320.0, 300.0)})
+	game.get("selected").append(0)
+	game.call("_order_transport_return_to_base")
+	var returning_transport: Dictionary = game.get("units")[0]
+	_expect(String(returning_transport.get("transport_state", "")) == "returning", "A loaded transport should accept a return-to-base order")
+	_expect(Vector2(returning_transport.get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(700.0, 300.0)) < 1.0, "Return-to-base must select a friendly completed airfield, never an enemy airfield")
+	_expect(Array(returning_transport.get("transport_cargo", [])).size() == 1, "Return-to-base must preserve all passengers")
+	_expect(returning_transport.has("transport_ai_route_points"), "Return-to-base should assign the existing threat-aware flight route")
+
+	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.get("enemy_buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(320.0, 300.0)})
+	game.get("selected").append(0)
+	game.call("_order_transport_return_to_base")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "No friendly airfield should leave the loaded transport safely in place")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "A rejected return order must not lose passengers")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
