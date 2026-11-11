@@ -122,6 +122,7 @@ var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
 var next_unit_identity := 1
+var unit_identity_scan_timer := 0.5
 var command_tab := 0
 var commander_profile: Dictionary = {
 	"battles_played": 0,
@@ -703,7 +704,10 @@ func _ensure_stable_unit_identities() -> void:
 
 
 func _process(delta: float) -> void:
-	_ensure_stable_unit_identities()
+	unit_identity_scan_timer -= delta
+	if unit_identity_scan_timer <= 0.0:
+		_ensure_stable_unit_identities()
+		unit_identity_scan_timer = 0.5
 	air_formation_order_clock = maxf(0.0, air_formation_order_clock - delta)
 	if use_3d_view and is_instance_valid(battlefield_3d):
 		battlefield_sync_timer += delta
