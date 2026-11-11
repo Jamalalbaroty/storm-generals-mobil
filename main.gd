@@ -2734,6 +2734,10 @@ func _draw() -> void:
 			var repair_pulse := 0.55 + sin(progress * TAU) * 0.25
 			draw_line(effect.start, effect.finish, Color(0.42, 0.95, 0.62, fade * repair_pulse), 3.0)
 			draw_circle(effect.finish, 5.0 + progress * 4.0, Color(0.58, 1.0, 0.70, fade * 0.72))
+		elif effect.kind == "rope":
+			# Fast-rope insertion: keep the line visible from the aircraft to the rooftop soldier.
+			draw_line(effect.start, effect.finish, Color(tint.r, tint.g, tint.b, fade * 0.82), 2.4)
+			draw_circle(effect.finish, 2.2, Color("#e8dfc8", fade))
 		elif effect.kind == "tracer":
 			# Two-pass tracer: a soft colored halo beneath a crisp hot core.
 			var tracer_tint := Color(tint.r, tint.g, tint.b, fade * 0.24)
