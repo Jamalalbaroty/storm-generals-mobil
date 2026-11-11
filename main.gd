@@ -952,6 +952,9 @@ func _process(delta: float) -> void:
 							unit.erase("escort_active")
 							unit.erase("escort_target_id")
 							unit.erase("escort_offset")
+							if bool(unit.get("escort_auto_target", false)):
+								unit.erase("attack_target")
+								unit.erase("attack_focus_pos")
 							unit.erase("escort_auto_target")
 						else:
 							var air_escort_target: Dictionary = units[air_escort_index]
