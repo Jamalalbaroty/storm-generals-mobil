@@ -128,3 +128,10 @@ Autonomous transports now re-evaluate their landing site every 1.25 seconds whil
 Autonomous transport sorties now compare a direct flight corridor with four deterministic lateral detours. Each candidate route is sampled along its segments and scored against known living enemy anti-air buildings; route distance adds a small tie-breaking cost so a clear battlefield retains the direct route. The selected waypoint sequence is stored on the transport and consumed by the existing inbound movement loop. If landing-site reassessment changes the destination, the route is rebuilt from the aircraft's current position. Manual player-directed sorties do not receive or follow these AI waypoints.
 
 Regression coverage compares direct and detour exposure around a known anti-air battery and verifies that an unobstructed route remains direct. This code and test have been committed, but this slice must not be marked verified until the GitHub Actions run completes. The route planner is intentionally a first tactical layer: it currently models known anti-air buildings, not terrain occlusion, moving threat prediction, or full graph-based pathfinding.
+
+
+## Implemented seventh slice — autonomous post-drop squad doctrine
+
+When an AUTONOMOUS transport deploys a passenger who has no pre-existing player order, the passenger now receives the existing infantry guard stance anchored to the landing zone, with a 155-pixel defensive radius. This reuses the game's established guard/combat behavior instead of introducing a parallel combat system. Existing movement, attack, capture, attack-move, or guard orders are preserved and bypass the doctrine. MANUAL and ASSISTED sorties retain the previous formation-rally behavior. The doctrine is configurable per transport through `transport_ai_post_drop_doctrine`; the initial supported default is `DEFEND`.
+
+Regression coverage verifies defensive stance assignment, landing-zone anchoring, radius, preservation of a pre-existing movement order, and no automatic doctrine in MANUAL mode. Godot execution is still required before this slice can be called validated.
