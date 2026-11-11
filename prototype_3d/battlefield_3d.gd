@@ -1329,7 +1329,7 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 		wreck.add_child(fragment)
 	gameplay_debris_nodes.append(wreck)
 	while gameplay_debris_nodes.size() > 12:
-		var oldest := gameplay_debris_nodes.pop_front()
+		var oldest: Variant = gameplay_debris_nodes.pop_front()
 		if is_instance_valid(oldest):
 			oldest.queue_free()
 	var cleanup := create_tween()
