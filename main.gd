@@ -1703,6 +1703,13 @@ func _artillery_blast_radius_with_veterancy(unit: Dictionary, base_radius: float
 	return base_radius * multiplier
 
 
+func _tank_reload_cooldown_with_veterancy(unit: Dictionary, base_cooldown: float) -> float:
+	# Veteran tank crews reload more efficiently; the maximum cadence gain is capped at 10 percent.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 0.90 if rank == 3 else (0.94 if rank == 2 else (0.97 if rank == 1 else 1.0))
+	return base_cooldown * multiplier
+
+
 func _load_commander_profile() -> void:
 	var config := ConfigFile.new()
 	var load_error := config.load("user://storm_generals_profile.cfg")
@@ -2464,7 +2471,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				_award_unit_experience(unit, hp_before - int(threat["hp"]))
 				_register_unit_kill(unit, threat, hp_before)
 				_add_visual_effect("tracer" if unit_kind == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-				unit["attack_cd"] = 0.75 if unit_kind == "tank" else 1.0
+				unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if unit_kind == "tank" else 1.0
 		return true
 	if target_index < 0 and target_distance <= (360.0 if unit_kind == "artillery" else (155.0 if unit_kind == "tank" else 105.0)):
 		unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
@@ -7307,7 +7314,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 					_award_unit_experience(unit, hp_before - int(threat["hp"]))
 					_register_unit_kill(unit, threat, hp_before)
 					_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-					unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
+					unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if String(unit.get("kind", "")) == "tank" else 1.0
 		return true
 	if unit.pos.distance_to(anchor) > 12.0:
 		var return_speed := 22.0 if String(unit.get("kind", "")) == "artillery" else (36.0 if String(unit.get("kind", "")) == "tank" else 55.0)
@@ -7379,7 +7386,7 @@ func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delt
 			_award_unit_experience(unit, hp_before - int(threat["hp"]))
 			_register_unit_kill(unit, threat, hp_before)
 			_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-			unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
+			unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if String(unit.get("kind", "")) == "tank" else 1.0
 	return true
 
 
