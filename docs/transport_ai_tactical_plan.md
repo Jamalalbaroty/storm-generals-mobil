@@ -243,3 +243,8 @@ Air escorts now use a bounded distance-based catch-up speed while returning to t
 ## Implemented twenty-second slice — role-prioritized escort threat selection
 
 Transport escorts now select nearby threats using ordered priorities specific to their role instead of treating all preferred target classes equally. Fighters prioritize enemy fighters, then helicopters, then transports; gunships prioritize tanks, then artillery, then infantry. Within each threat class the nearest living enemy inside the protection radius is selected. Existing player-issued attack/building orders and escort auto-target release behavior remain intact. Regression assertions verify that fighters choose a farther enemy fighter over a closer helicopter and gunships choose a farther tank over closer infantry. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented follow-up — defensive leash for air escorts
+
+Automatic air escort pursuit is now bounded by two defensive checks: the enemy must remain within 220 world units of the protected transport, and the escort itself must remain within 260 world units of that transport. When either boundary is crossed, the existing auto-target cleanup releases the target and the escort returns to its assigned formation slot. The rule applies only to escort-generated automatic targets; explicit player attack orders are not tagged as auto-targets and are not altered by this leash. Regression assertions cover inside-bubble retention, escort overextension, and enemies leaving the protected radius. Tests are authored only; Godot execution, CI, and Android validation remain pending.
