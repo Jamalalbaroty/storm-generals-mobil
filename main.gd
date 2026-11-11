@@ -1981,6 +1981,22 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 		return false
 	var preferred_pos: Vector2 = unit.get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
 	var target_index := _select_enemy_ground_assault_target(unit.pos, preferred_pos)
+	# When the nearest hostile is far from the frontline, secure income first.
+	# This gives the enemy a meaningful objective between major engagements.
+	if target_index >= 0 and unit.pos.distance_to(units[target_index].pos) > 360.0:
+		target_index = -1
+	if target_index < 0:
+		var supply_objective_index := _enemy_best_supply_objective(unit.pos)
+		if supply_objective_index >= 0:
+			unit.erase("attack_target")
+			unit.erase("attack_focus_pos")
+			var supply_objective_pos: Vector2 = supply_points[supply_objective_index].pos
+			var objective_distance: float = unit.pos.distance_to(supply_objective_pos)
+			if objective_distance > 48.0:
+				var objective_speed := 22.0 if unit_kind == "artillery" else (55.0 if unit_kind == "infantry" else 36.0)
+				var objective_direction := _ground_navigation_direction(unit, unit_index, supply_objective_pos, delta, objective_speed)
+				unit.pos += objective_direction * delta * objective_speed
+			return true
 	var target_pos: Vector2 = base_pos
 	if target_index >= 0:
 		target_pos = units[target_index].pos
