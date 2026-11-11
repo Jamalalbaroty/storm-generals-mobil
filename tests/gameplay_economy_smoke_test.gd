@@ -1297,10 +1297,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 	game.set("selected", group_selection)
 	var group_destination := Vector2(active_viewport.x * 0.58, clampf(active_viewport.y * 0.72, 240.0, 285.0))
-	print("GROUP_MOVE_DIAGNOSTIC viewport=", active_viewport, " destination=", group_destination, " tab_rect=", game.call("_command_tab_rect", 2, active_viewport), " button_rect=", game.call("_button_rect", 0, active_viewport), " mode_rect=", game.call("_transport_ai_mode_rect", active_viewport))
 	game.call("_handle_pointer", group_destination, true)
 	game.call("_handle_pointer", group_destination, false)
-	print("GROUP_MOVE_AFTER selected=", game.get("selected"), " build_mode=", game.get("build_mode"), " dragging=", game.get("dragging"), " notice=", game.get("notice"), " unit_targets=", game.get("units").map(func(unit): return {"kind": unit.get("kind", ""), "target": unit.get("target", null), "pos": unit.get("pos", Vector2.ZERO), "transport_pending": unit.get("transport_order_pending", false)}))
 	var group_origin := Vector2.ZERO
 	for group_index in group_selection:
 		group_origin += game.get("units")[group_index].pos
@@ -1310,9 +1308,10 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var formation_targets: Array[Vector2] = []
 	for group_index in group_selection:
 		var group_unit: Dictionary = game.get("units")[group_index]
-		var has_group_target := group_unit.has("target")
+		var is_transport_unit := String(group_unit.get("kind", "")) == "transport_helicopter"
+		var has_group_target := group_unit.has("transport_target_pos") if is_transport_unit else group_unit.has("target")
 		_expect(has_group_target, "Every selected unit should receive a formation destination on a ground move")
-		var group_target: Vector2 = group_unit.get("target", group_destination)
+		var group_target: Vector2 = group_unit.get("transport_target_pos", group_destination) if is_transport_unit else group_unit.get("target", group_destination)
 		if has_group_target:
 			_expect(group_target.x >= 24.0 and group_target.x <= 1128.0 and group_target.y >= 24.0 and group_target.y <= 624.0, "Formation destinations should remain inside the battlefield")
 		for prior_target in formation_targets:
@@ -1321,7 +1320,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var artillery_projection: float = (Vector2(game.get("units")[0].get("target", group_destination)) - group_destination).dot(group_forward)
 	var tank_projection: float = (Vector2(game.get("units")[3].get("target", group_destination)) - group_destination).dot(group_forward)
 	var helicopter_projection: float = (Vector2(game.get("units")[5].get("target", group_destination)) - group_destination).dot(group_forward)
-	var transport_projection: float = (Vector2(game.get("units")[6].get("target", group_destination)) - group_destination).dot(group_forward)
+	var transport_projection: float = (Vector2(game.get("units")[6].get("transport_target_pos", group_destination)) - group_destination).dot(group_forward)
 	var infantry_left_lateral: float = (Vector2(game.get("units")[1].get("target", group_destination)) - group_destination).dot(group_right)
 	var infantry_right_lateral: float = (Vector2(game.get("units")[2].get("target", group_destination)) - group_destination).dot(group_right)
 	_expect(tank_projection > artillery_projection + 20.0, "Tanks should form ahead of artillery in a mixed group move")
@@ -1347,8 +1346,10 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for group_index in group_selection:
 		var moving_unit: Dictionary = game.get("units")[group_index]
 		_expect(not moving_unit.has("attack_target") and not moving_unit.has("attack_focus_pos"), "A new group move should clear stale attack orders")
-		var moving_target: Vector2 = moving_unit.get("target", second_group_destination)
-		_expect(moving_unit.has("target"), "Each unit should retain a movement target after a second group move")
+		var moving_is_transport := String(moving_unit.get("kind", "")) == "transport_helicopter"
+		var moving_has_target := moving_unit.has("transport_target_pos") if moving_is_transport else moving_unit.has("target")
+		var moving_target: Vector2 = moving_unit.get("transport_target_pos", second_group_destination) if moving_is_transport else moving_unit.get("target", second_group_destination)
+		_expect(moving_has_target, "Each unit should retain a movement target after a second group move")
 		_expect(moving_target.distance_to(second_group_destination) < 180.0, "Each unit should reform around the new group destination")
 		for prior_target in second_formation_targets:
 			_expect(moving_target.distance_to(prior_target) > 10.0, "A second group move should preserve distinct formation slots")
