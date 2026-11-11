@@ -41,8 +41,11 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(200.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 100}]})
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(250.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 90}]})
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
-	var group_landing_ordered: bool = game.call("_transport_ai_order_group_ground_insertions", Vector2(600.0, 250.0), [0, 1, 2])
-	_expect(group_landing_ordered, "A transport group should receive a complete set of safe ground insertion sites")
+	for transport_index in range(3):
+		game.get("units")[transport_index]["transport_order_pending"] = true
+	game.get("selected").append_array([0, 1, 2])
+	var group_landing_ordered: bool = game.call("_issue_transport_rooftop_order", Vector2(600.0, 250.0))
+	_expect(group_landing_ordered, "A transport group should accept a complete set of safe ground insertion sites")
 	var group_site_a: Vector2 = game.get("units")[0].get("transport_target_pos", Vector2.ZERO)
 	var group_site_b: Vector2 = game.get("units")[1].get("transport_target_pos", Vector2.ZERO)
 	var group_site_c: Vector2 = game.get("units")[2].get("transport_target_pos", Vector2.ZERO)
