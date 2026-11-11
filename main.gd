@@ -291,6 +291,7 @@ func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	unit.erase("airfield_sortie_ready")
 	unit.erase("airfield_sortie_launch")
 	unit.erase("airfield_sortie_airfield_id")
+	unit.erase("airfield_sortie_launch_wait")
 	unit.erase("airfield_resume_order")
 
 
@@ -996,6 +997,7 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
+						unit.erase("airfield_sortie_launch_wait")
 						_restore_aircraft_resume_order(unit)
 					continue
 			if unit.team == "player":
