@@ -117,3 +117,7 @@ A static scan of branch `feature/transport-ai-tactical-director` at the start of
 `tests/battle_two_side_targeting_characterization_test.gd` locks the current nearest-target contract before production targeting is changed: player/enemy ownership filters, dead-unit exclusion, air-only filtering, ground-role filtering, neutral-side exclusion, and the strict maximum-distance boundary. It also records an important current behavior: generic nearest-enemy targeting does not filter retreating units, while the ground-only helper does. This behavior is characterized, not silently redesigned.
 
 The new script is part of the Godot Regression workflow. The next migration step remains blocked on this test and the full existing suite passing on the same commit. This phase adds no gameplay behavior changes.
+
+### Additional Phase A capture coverage
+
+`tests/battle_two_side_capture_characterization_test.gd` records the current capture contract: only living player infantry receive a capture order; the order clears stale combat/stance commands; a nearby living enemy guard resets progress; an uncontested capture completes at three seconds; and the building transfers from `enemy_buildings` to `buildings` while retaining health and a captured marker. This is characterization only; no capture gameplay code was changed.
