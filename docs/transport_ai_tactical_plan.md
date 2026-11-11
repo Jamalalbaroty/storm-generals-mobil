@@ -153,3 +153,8 @@ Safety locks prevent changing the control mode while a transport is inbound, des
 ## Implemented tenth slice — physical boarding and extraction safety
 
 The manual reload interaction now enforces battlefield proximity and aircraft state. A transport can accept selected infantry only while idle or already loaded, and only when each passenger is within 76 world units of the landed aircraft. Airborne, inbound, descending, and landing-assessment transports reject boarding without removing infantry from the battlefield. Capacity remains eight; selected troops outside pickup range remain in the field. Regression coverage checks nearby boarding, distant-unit preservation, and rejection while inbound. Godot CI and Android playtesting remain pending.
+
+
+## Implemented eleventh slice — infantry rendezvous for extraction
+
+When the player issues boarding with a landed transport and selected infantry outside pickup range, the infantry now receive deterministic movement targets around the aircraft inside the 76-unit boarding radius. They remain on the battlefield and keep their normal movement behavior; the player confirms boarding again after they arrive. The command still rejects airborne/descending transports, and actual boarding still enforces the eight-soldier capacity. Regression coverage checks that distant infantry receive a rendezvous target without being removed. Automated Godot execution and Android playtesting are still pending.
