@@ -4266,6 +4266,7 @@ func _transport_ai_process_pending_landing(transport: Dictionary) -> void:
 	var landing: Dictionary = decision.get("landing", {})
 	transport["transport_target_pos"] = landing.get("pos", objective_pos)
 	transport["transport_landing_type"] = String(landing.get("landing_type", "ground"))
+	_transport_ai_assign_route(transport, transport["transport_target_pos"])
 	if String(transport["transport_landing_type"]) == "rooftop":
 		transport["transport_target_building_kind"] = String(landing.get("building_kind", ""))
 	else:
@@ -4308,12 +4309,67 @@ func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void
 		return
 	transport["transport_target_pos"] = replacement.get("pos", current_target)
 	transport["transport_landing_type"] = String(replacement.get("landing_type", "ground"))
+	_transport_ai_assign_route(transport, transport["transport_target_pos"])
 	if String(transport["transport_landing_type"]) == "rooftop":
 		transport["transport_target_building_kind"] = String(replacement.get("building_kind", ""))
 	else:
 		transport.erase("transport_target_building_kind")
 	transport["transport_ai_last_site_id"] = String(replacement.get("site_id", ""))
 	transport["transport_ai_replanned"] = int(transport.get("transport_ai_replanned", 0)) + 1
+
+
+func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
+	# Deterministic, coarse route risk estimate; it never overrides player-directed flight.
+	var exposure := 0.0
+	for segment_index in range(points.size() - 1):
+		var segment_start: Vector2 = points[segment_index]
+		var segment_end: Vector2 = points[segment_index + 1]
+		for sample_index in range(1, 6):
+			var sample_pos := segment_start.lerp(segment_end, float(sample_index) / 6.0)
+			for hostile_building in enemy_buildings:
+				if String(hostile_building.get("kind", "")) != "anti_air" or int(hostile_building.get("hp", 0)) <= 0:
+					continue
+				var threat_distance: float = sample_pos.distance_to(hostile_building.pos)
+				if threat_distance < 320.0:
+					exposure += (320.0 - threat_distance) / 320.0
+	return exposure
+
+
+func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Array[Vector2]:
+	# Compare a direct corridor with deterministic perpendicular detours around known AA.
+	var routes: Array[Array] = []
+	routes.append([landing_pos])
+	var direction := landing_pos - start_pos
+	if direction.length() > 1.0:
+		var perpendicular := Vector2(-direction.normalized().y, direction.normalized().x)
+		for offset in [150.0, -150.0, 260.0, -260.0]:
+			var waypoint := start_pos.lerp(landing_pos, 0.5) + perpendicular * offset
+			var safe_bounds := _transport_landing_bounds(false)
+			waypoint.x = clampf(waypoint.x, safe_bounds.position.x, safe_bounds.end.x)
+			waypoint.y = clampf(waypoint.y, safe_bounds.position.y, safe_bounds.end.y)
+			routes.append([waypoint, landing_pos])
+	var best_route: Array[Vector2] = [landing_pos]
+	var best_cost := INF
+	for route_variant in routes:
+		var candidate_route: Array[Vector2] = [start_pos]
+		for route_point in route_variant:
+			candidate_route.append(route_point)
+		var distance_cost := 0.0
+		for segment_index in range(candidate_route.size() - 1):
+			distance_cost += candidate_route[segment_index].distance_to(candidate_route[segment_index + 1])
+		var cost := _transport_ai_route_exposure(candidate_route) * 180.0 + distance_cost * 0.025
+		if cost < best_cost:
+			best_cost = cost
+			best_route.clear()
+			for route_point in route_variant:
+				best_route.append(route_point)
+	return best_route
+
+
+func _transport_ai_assign_route(transport: Dictionary, landing_pos: Vector2) -> void:
+	var route := _transport_ai_build_route(transport.get("pos", landing_pos), landing_pos)
+	transport["transport_ai_route_points"] = route
+	transport["transport_ai_route_index"] = 0
 
 
 func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
@@ -4480,10 +4536,17 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 	if state == "inbound":
 		_transport_ai_reassess_inbound(transport, delta)
 		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
-		if transport.pos.distance_to(landing_pos) > 14.0:
-			transport.pos += (landing_pos - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (landing_pos - transport.pos).angle()
-		else:
+		var route_points: Array = transport.get("transport_ai_route_points", [])
+		var route_index := int(transport.get("transport_ai_route_index", 0))
+		var flight_target: Vector2 = landing_pos
+		if bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size():
+			flight_target = route_points[route_index]
+		if transport.pos.distance_to(flight_target) > 14.0:
+			transport.pos += (flight_target - transport.pos).normalized() * delta * 72.0
+			transport["facing"] = (flight_target - transport.pos).angle()
+		elif bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size() - 1:
+			transport["transport_ai_route_index"] = route_index + 1
+		elif transport.pos.distance_to(landing_pos) <= 14.0:
 			transport.pos = landing_pos
 			transport["transport_state"] = "descending"
 			transport["transport_drop_timer"] = 0.0
