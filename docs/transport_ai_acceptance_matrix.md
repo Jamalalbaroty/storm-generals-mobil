@@ -225,3 +225,11 @@ GitHub Actions for this exact commit:
 - Verified repeated victory resolution does not duplicate career statistics or campaign rewards; repeated defeat resolution does not duplicate defeat statistics.
 - Verified defeat does not advance campaign progress or award campaign funds. The test restores the pre-test commander profile after assertions.
 - Tested code commit `2a64a0eed886655e29582ca1ce83e43a40869b15`: Regression #766 success and Validation #843 success. All regression steps passed, including battle save/restore, transport, combined-arms, coordinated attacks, 2D/3D bridge, and endurance. Android APK export remained skipped.
+
+### Strategic supply-point integrity and capture regression — 2026-11-11
+
+- Save-store validation now checks optional saved `supply_points`: each point must have finite coordinates, a recognized owner (`player`, `enemy`, `neutral`), a recognized type (`supply`, `port`, `bridge`), and finite non-negative income/supply payout timers.
+- Added malformed-save cases for unknown ownership, non-finite objective coordinates, and negative payout timers; valid snapshots now round-trip two distinct supply objectives.
+- Added live gameplay regression for a contested neutral point remaining neutral, uncontested player capture generating income, and enemy recapture generating enemy income.
+- Tested code commit `181176cd5ebc109202670de88626901ac6daff6e`: Regression run #? success and Validation run #? success. All steps passed, including battle save store, live battle save/restore, transport lifecycle, formation, coordinated attack, 2D/3D bridge, and endurance.
+- Physical Android touch/performance and process-relaunch checks remain open. APK export remains disabled until the project-wide 80% gate is honestly measured.
