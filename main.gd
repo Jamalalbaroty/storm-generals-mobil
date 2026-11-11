@@ -4230,6 +4230,47 @@ func _transport_ai_landing_decision(transport: Dictionary, objective_pos: Vector
 	}
 
 
+func _transport_ai_request_landing(transport: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# Entry point for the tactical director. Manual orders are never replaced.
+	var mode := _transport_ai_control_mode(transport)
+	if Array(transport.get("transport_cargo", [])).is_empty():
+		return {"accepted": false, "reason": "empty_cargo", "mode": mode}
+	if bool(transport.get("transport_ai_player_override", false)) or mode == "MANUAL":
+		return {"accepted": false, "reason": "player_control", "mode": mode}
+	var decision := _transport_ai_landing_decision(transport, objective_pos)
+	if not bool(decision.get("valid", false)):
+		return {"accepted": false, "reason": String(decision.get("reason", "no_safe_landing_site")), "mode": mode}
+	var landing: Dictionary = decision.get("landing", {})
+	transport["transport_ai_recommendation"] = landing.duplicate(true)
+	transport["transport_ai_objective_pos"] = objective_pos
+	if mode == "ASSISTED":
+		return {"accepted": true, "reason": "recommendation_ready", "mode": mode, "landing": landing}
+	transport["transport_state"] = "ai_assessing"
+	return {"accepted": true, "reason": "autonomous_order_queued", "mode": mode, "landing": landing}
+
+
+func _transport_ai_process_pending_landing(transport: Dictionary) -> void:
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", transport.pos)
+	var decision := _transport_ai_landing_decision(transport, objective_pos)
+	if not bool(decision.get("valid", false)) or not bool(decision.get("can_execute", false)):
+		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+		transport.erase("transport_ai_objective_pos")
+		return
+	var landing: Dictionary = decision.get("landing", {})
+	transport["transport_target_pos"] = landing.get("pos", objective_pos)
+	transport["transport_landing_type"] = String(landing.get("landing_type", "ground"))
+	if String(transport["transport_landing_type"]) == "rooftop":
+		transport["transport_target_building_kind"] = String(landing.get("building_kind", ""))
+	else:
+		transport.erase("transport_target_building_kind")
+	transport["transport_drop_index"] = 0
+	transport["transport_drop_timer"] = 0.0
+	transport["transport_state"] = "inbound"
+	transport["transport_ai_last_site_id"] = String(landing.get("site_id", ""))
+	transport.erase("transport_ai_objective_pos")
+	transport.erase("target")
+
+
 func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
 	var candidates := _transport_ai_build_landing_candidates(objective_pos)
 	return _transport_ai_choose_landing_site(candidates, objective_pos)
@@ -4378,6 +4419,8 @@ func _cancel_transport_order() -> void:
 
 
 func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
+	if String(transport.get("transport_state", "")) == "ai_assessing":
+		_transport_ai_process_pending_landing(transport)
 	var state := String(transport.get("transport_state", "idle"))
 	_update_transport_passenger_fire(transport, delta)
 	if state == "inbound":
