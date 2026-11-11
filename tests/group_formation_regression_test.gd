@@ -82,7 +82,8 @@ func _run() -> void:
 		push_error("Dead units must not reserve a group formation slot")
 		quit(1)
 		return
-	if game._group_move_destination(3, [3], destination) != destination:
+	var single_selection: Array[int] = [3]
+	if game._group_move_destination(3, single_selection, destination) != destination:
 		push_error("A single selected unit must move directly to the commanded point")
 		quit(1)
 		return
