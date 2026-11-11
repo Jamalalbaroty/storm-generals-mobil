@@ -1987,7 +1987,7 @@ func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_bef
 
 
 func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
-	if String(unit.get("team", "")) != "player" or damage_dealt <= 0:
+	if String(unit.get("team", "")) not in ["player", "enemy"] or damage_dealt <= 0:
 		return
 	var old_rank := int(unit.get("veterancy", 0))
 	var xp := float(unit.get("combat_xp", 0.0)) + float(damage_dealt) * 0.5
@@ -1995,9 +1995,10 @@ func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
 	var new_rank := 2 if xp >= 250.0 else (1 if xp >= 100.0 else 0)
 	if new_rank > old_rank:
 		unit["veterancy"] = new_rank
-		var rank_name := "نخبة" if new_rank == 2 else "مخضرم"
-		notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
-		notice_time = 2.8
+		if String(unit.get("team", "")) == "player":
+			var rank_name := "نخبة" if new_rank == 2 else "مخضرم"
+			notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
+			notice_time = 2.8
 
 
 func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
@@ -3124,7 +3125,7 @@ func _draw() -> void:
 		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (250.0 if u.kind == "transport_helicopter" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		var veterancy := int(u.get("veterancy", 0))
-		if u.team == "player" and veterancy > 0:
+		if veterancy > 0:
 			var rank_color := Color("#f0c85a") if veterancy == 1 else Color("#8be4ff")
 			draw_circle(u.pos + Vector2(18, -19), 5.0, rank_color)
 			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else "★★", HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
