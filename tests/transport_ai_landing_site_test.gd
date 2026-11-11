@@ -206,6 +206,17 @@ func _run() -> void:
 	_expect(game.get("units").size() == 2, "Infantry outside the pickup radius must remain on the battlefield")
 	_expect(String(game.get("units")[1].get("kind", "")) == "infantry", "The distant infantry should remain a live field unit")
 
+	# Distant selected infantry receive rendezvous movement orders and remain on the field.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(520.0, 300.0)})
+	game.get("selected").append_array([0, 1])
+	game.call("_load_selected_infantry_into_transport")
+	_expect(game.get("units").size() == 2, "Rendezvous orders must not remove infantry before they reach the transport")
+	_expect(game.get("units")[1].has("target"), "Distant infantry should receive a movement target near the transport")
+	_expect(Vector2(game.get("units")[1].get("target", Vector2.ZERO)).distance_to(Vector2(300.0, 300.0)) <= 76.0, "The rendezvous target should lie inside the boarding radius")
+
 	game.get("units").clear()
 	game.get("selected").clear()
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "inbound", "transport_cargo": []})
