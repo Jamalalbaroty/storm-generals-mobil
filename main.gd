@@ -1746,22 +1746,24 @@ func _load_battle_snapshot() -> bool:
 	return true
 
 
-func _campaign_secondary_objective_met() -> bool:
+func _campaign_secondary_objective_status() -> Dictionary:
+	# Derive progress from live match state so the HUD, save/restore, and reward
+	# resolution all agree without maintaining a second mutable counter.
 	match campaign_mission_index:
 		0:
-			return player_base_hp >= 500
+			return {"current": clampi(player_base_hp, 0, 500), "required": 500, "met": player_base_hp >= 500}
 		1:
 			var controlled_points := 0
 			for point in supply_points:
 				if String(point.get("owner", "")) == "player":
 					controlled_points += 1
-			return controlled_points >= 2
+			return {"current": mini(controlled_points, 2), "required": 2, "met": controlled_points >= 2}
 		2:
 			var completed_buildings := 0
 			for building in buildings:
 				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
 					completed_buildings += 1
-			return completed_buildings >= 4
+			return {"current": mini(completed_buildings, 4), "required": 4, "met": completed_buildings >= 4}
 		3:
 			var has_air := false
 			var has_armour := false
@@ -1772,10 +1774,15 @@ func _campaign_secondary_objective_met() -> bool:
 					has_air = true
 				if String(unit.get("kind", "")) in ["tank", "artillery"]:
 					has_armour = true
-			return has_air and has_armour
+			var combined_count := int(has_air) + int(has_armour)
+			return {"current": combined_count, "required": 2, "met": has_air and has_armour}
 		4:
-			return player_base_hp >= 600
-	return false
+			return {"current": clampi(player_base_hp, 0, 600), "required": 600, "met": player_base_hp >= 600}
+	return {"current": 0, "required": 1, "met": false}
+
+
+func _campaign_secondary_objective_met() -> bool:
+	return bool(_campaign_secondary_objective_status().get("met", false))
 
 
 func _record_battle_result() -> void:
