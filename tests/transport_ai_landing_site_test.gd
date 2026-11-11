@@ -277,6 +277,29 @@ func _run() -> void:
 	_expect(Array(critical_transport.get("transport_cargo", [])).size() == 2, "A critical-damage hold must retain all passengers")
 	game.get("units").clear()
 
+	# A new threat during rope descent must divert before the next passenger leaves the aircraft.
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	var exposed_drop_zone := Vector2(760.0, 300.0)
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": exposed_drop_zone})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 80, "pos": exposed_drop_zone, "transport_rope_drop": true})
+	var threatened_descent: Dictionary = {
+		"team": "player", "kind": "transport_helicopter", "hp": 180,
+		"pos": Vector2(740.0, 300.0), "transport_state": "descending",
+		"transport_target_pos": exposed_drop_zone, "transport_landing_type": "ground",
+		"transport_cargo": [{"kind": "infantry", "hp": 60}, {"kind": "infantry", "hp": 90}],
+		"transport_ai_mode": "AUTONOMOUS", "transport_ai_autonomous_active": true,
+		"transport_ai_objective_pos": exposed_drop_zone, "transport_drop_timer": 0.65
+	}
+	game.call("_transport_ai_reassess_descending", threatened_descent)
+	_expect(String(threatened_descent.get("transport_state", "")) == "inbound", "A new immediate threat during rope descent should divert the transport to a safer landing site")
+	_expect(Vector2(threatened_descent.get("transport_target_pos", Vector2.ZERO)).distance_to(exposed_drop_zone) > 240.0, "The replacement landing site must be outside the hostile tank threat radius")
+	_expect(Array(threatened_descent.get("transport_cargo", [])).size() == 2, "Threat-triggered diversion must preserve every passenger not yet deployed")
+	_expect(game.get("units").size() == 2, "Threat-triggered diversion must not duplicate or remove units already on the ground")
+	_expect(is_equal_approx(float(threatened_descent.get("transport_drop_timer", -1.0)), 0.0), "Diverting during descent must reset the rope cycle before resuming insertion")
+
+	game.get("units").clear()
+
 	# Autonomous passengers with no prior orders establish a defensive perimeter after touchdown.
 	var fresh_passenger: Dictionary = {"kind": "infantry", "team": "player", "pos": Vector2(700.0, 400.0)}
 	var autonomous_transport: Dictionary = {"transport_ai_mode": "AUTONOMOUS", "transport_ai_post_drop_doctrine": "DEFEND"}
