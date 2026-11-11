@@ -1265,6 +1265,82 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var enemy_closed_on_nearby_tank := enemy_distance_after_combat < enemy_distance_before_combat - 1.0
 	_expect(enemy_damaged_nearby_tank or enemy_closed_on_nearby_tank, "Enemy armor should engage nearby threat; strategy=%s enemy_before=%s enemy_after=%s player_pos=%s distance_before=%.2f distance_after=%.2f player_hp=%d" % [String(game.get("enemy_strategy")), str(enemy_before_combat), str(enemy_after_combat), str(game.get("units")[nearby_player_index]["pos"]), enemy_distance_before_combat, enemy_distance_after_combat, int(game.get("units")[nearby_player_index]["hp"])])
 
+	# Player group movement should create distinct mixed-unit formation slots.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("supply_points").clear()
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("enemy_base_hp", 1000)
+	game.set("player_base_hp", 1000)
+	var group_records: Array[Dictionary] = [
+		{"kind": "artillery", "team": "player", "faction": "الأمريكي", "hp": 100, "pos": Vector2(180.0, 180.0)},
+		{"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(190.0, 190.0)},
+		{"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(200.0, 200.0)},
+		{"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": Vector2(210.0, 210.0)},
+		{"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 150, "pos": Vector2(220.0, 220.0)},
+		{"kind": "helicopter", "team": "player", "faction": "الأمريكي", "hp": 160, "pos": Vector2(230.0, 230.0)},
+		{"kind": "transport_helicopter", "team": "player", "faction": "الأمريكي", "hp": 220, "pos": Vector2(240.0, 240.0)},
+		{"kind": "fighter", "team": "player", "faction": "الأمريكي", "hp": 120, "pos": Vector2(250.0, 250.0)}
+	]
+	for group_record in group_records:
+		game.get("units").append(group_record)
+	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
+	game.set("selected", group_selection)
+	var group_destination := Vector2(650.0, 320.0)
+	game.call("_handle_pointer", group_destination, true)
+	game.call("_handle_pointer", group_destination, false)
+	var group_origin := Vector2.ZERO
+	for group_index in group_selection:
+		group_origin += game.get("units")[group_index].pos
+	group_origin /= float(group_selection.size())
+	var group_forward := (group_destination - group_origin).normalized()
+	var group_right := Vector2(-group_forward.y, group_forward.x)
+	var formation_targets: Array[Vector2] = []
+	for group_index in group_selection:
+		var group_unit: Dictionary = game.get("units")[group_index]
+		var group_target: Vector2 = group_unit.get("target", Vector2(-1000000.0, -1000000.0))
+		_expect(group_unit.has("target"), "Every selected unit should receive a formation destination on a ground move")
+		_expect(group_target.x >= 24.0 and group_target.x <= 1128.0 and group_target.y >= 24.0 and group_target.y <= 624.0, "Formation destinations should remain inside the battlefield")
+		for prior_target in formation_targets:
+			_expect(group_target.distance_to(prior_target) > 10.0, "Mixed-unit group movement should not stack selected units on one destination")
+		formation_targets.append(group_target)
+	var artillery_projection: float = (game.get("units")[0].target - group_destination).dot(group_forward)
+	var tank_projection: float = (game.get("units")[3].target - group_destination).dot(group_forward)
+	var helicopter_projection: float = (game.get("units")[5].target - group_destination).dot(group_forward)
+	var transport_projection: float = (game.get("units")[6].target - group_destination).dot(group_forward)
+	var infantry_left_lateral: float = (game.get("units")[1].target - group_destination).dot(group_right)
+	var infantry_right_lateral: float = (game.get("units")[2].target - group_destination).dot(group_right)
+	_expect(tank_projection > artillery_projection + 20.0, "Tanks should form ahead of artillery in a mixed group move")
+	_expect(infantry_left_lateral * infantry_right_lateral < 0.0, "Infantry should spread across opposite flanks of the armor")
+	_expect(helicopter_projection > tank_projection and transport_projection > helicopter_projection, "Aircraft and transport should occupy separate forward support lanes")
+
+	# A direct attack click should synchronize the selected group on one enemy target.
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": Vector2(700.0, 320.0)})
+	var group_enemy_index := game.get("units").size() - 1
+	var group_enemy_position: Vector2 = game.get("units")[group_enemy_index].pos
+	game.call("_handle_pointer", group_enemy_position, true)
+	game.call("_handle_pointer", group_enemy_position, false)
+	for group_index in group_selection:
+		var attacking_unit: Dictionary = game.get("units")[group_index]
+		_expect(int(attacking_unit.get("attack_target", -1)) == group_enemy_index, "All selected units should receive the same direct attack target")
+		_expect(attacking_unit.get("attack_focus_pos", Vector2.ZERO).distance_to(group_enemy_position) < 0.1, "All selected units should preserve the player's chosen attack focus")
+
+	# A fresh move order should clear the old attack and re-form the group at its new destination.
+	var second_group_destination := Vector2(420.0, 420.0)
+	game.call("_handle_pointer", second_group_destination, true)
+	game.call("_handle_pointer", second_group_destination, false)
+	var second_formation_targets: Array[Vector2] = []
+	for group_index in group_selection:
+		var moving_unit: Dictionary = game.get("units")[group_index]
+		_expect(not moving_unit.has("attack_target") and not moving_unit.has("attack_focus_pos"), "A new group move should clear stale attack orders")
+		_expect(moving_unit.get("target", Vector2.ZERO).distance_to(second_group_destination) < 180.0, "Each unit should reform around the new group destination")
+		for prior_target in second_formation_targets:
+			_expect(moving_unit.target.distance_to(prior_target) > 10.0, "A second group move should preserve distinct formation slots")
+		second_formation_targets.append(moving_unit.target)
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()
