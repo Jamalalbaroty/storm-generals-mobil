@@ -60,6 +60,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
 	_expect(covered_actions.size() == 31, "The five compact command tabs should retain access to all 31 gameplay actions")
+	var command_viewports: Array[Vector2] = [Vector2(1280.0, 720.0), Vector2(800.0, 480.0), Vector2(360.0, 800.0), Vector2(320.0, 568.0)]
+	for command_viewport in command_viewports:
+		var save_action_rect: Rect2 = game.call("_button_rect", 6, command_viewport)
+		var load_action_rect: Rect2 = game.call("_button_rect", 7, command_viewport)
+		_expect(save_action_rect.position.x >= 0.0 and save_action_rect.position.y >= 0.0 and save_action_rect.end.x <= command_viewport.x and save_action_rect.end.y <= command_viewport.y, "Save action must fit the mobile command deck on viewport %s" % command_viewport)
+		_expect(load_action_rect.position.x >= 0.0 and load_action_rect.position.y >= 0.0 and load_action_rect.end.x <= command_viewport.x and load_action_rect.end.y <= command_viewport.y, "Restore action must fit the mobile command deck on viewport %s" % command_viewport)
+		_expect(not save_action_rect.intersects(load_action_rect), "Save and restore touch targets must not overlap on viewport %s" % command_viewport)
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
