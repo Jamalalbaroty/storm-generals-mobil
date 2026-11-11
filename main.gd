@@ -2796,7 +2796,8 @@ func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int
 		var distance: float = from_pos.distance_to(candidate.pos)
 		if distance > 760.0:
 			continue
-		var score: float = distance * 0.35 + _player_air_defense_risk(candidate.pos) * 165.0
+		# Air-defense exposure must outweigh a modest command-focus bonus when a safer target is available.
+		var score: float = distance * 0.35 + _player_air_defense_risk(candidate.pos) * 400.0
 		if candidate_index == ground_focus_index:
 			score -= 120.0
 		if score < best_score:
