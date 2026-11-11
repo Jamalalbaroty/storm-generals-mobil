@@ -4024,17 +4024,22 @@ func _capture_selected_building() -> void:
 		return
 	var assigned := 0
 	var target: Vector2 = enemy_buildings[selected_enemy_building].pos
-	for unit in units:
-		if unit.team == "player" and unit.kind == "infantry" and unit.get("hp", 0) > 0:
-			unit.target = target
-			unit.erase("attack_base")
-			unit.erase("attack_target")
-			unit.erase("attack_building")
-			assigned += 1
+	# Capture orders are issued only to infantry explicitly selected by the player.
+	for selected_index in selected:
+		if selected_index < 0 or selected_index >= units.size():
+			continue
+		var unit: Dictionary = units[selected_index]
+		if unit.team != "player" or unit.kind != "infantry" or int(unit.get("hp", 0)) <= 0:
+			continue
+		unit.target = target
+		unit.erase("attack_base")
+		unit.erase("attack_target")
+		unit.erase("attack_building")
+		assigned += 1
 	if assigned == 0:
-		notice = "تحتاج مشاة أحياء للسيطرة على المبنى"
+		notice = "حدد مشاة أحياء أولاً للسيطرة على المبنى"
 	else:
-		notice = "تتقدم قوات المشاة للاستيلاء — أمّن المنطقة!"
+		notice = "تتقدم المشاة المحددة للاستيلاء — أمّن المنطقة!"
 	notice_time = 3.0
 
 func _order_destroy_selected_building() -> void:
@@ -4043,17 +4048,24 @@ func _order_destroy_selected_building() -> void:
 		notice_time = 2.0
 		return
 	var assigned := 0
-	for unit in units:
-		if unit.team == "player" and unit.get("hp", 0) > 0 and (unit.kind == "tank" or unit.kind == "artillery" or unit.kind == "infantry"):
-			unit.attack_building = selected_enemy_building
-			unit.erase("attack_base")
-			unit.erase("attack_target")
-			unit.erase("target")
-			assigned += 1
+	# Only the player's selected combat units receive the demolition order.
+	for selected_index in selected:
+		if selected_index < 0 or selected_index >= units.size():
+			continue
+		var unit: Dictionary = units[selected_index]
+		if unit.team != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		if unit.kind not in ["tank", "artillery", "infantry", "fighter", "helicopter"]:
+			continue
+		unit.attack_building = selected_enemy_building
+		unit.erase("attack_base")
+		unit.erase("attack_target")
+		unit.erase("target")
+		assigned += 1
 	if assigned == 0:
-		notice = "أنت بحاجة إلى قوات برية لتدمير المبنى"
+		notice = "حدد قوات قتالية برية أو جوية لتدمير المبنى"
 	else:
-		notice = "صدرت أوامر تدمير المبنى المحدد!"
+		notice = "صدرت أوامر تدمير المبنى للقوات المحددة!"
 	notice_time = 3.0
 
 func _draw_building_health(p: Vector2, hp: int, max_hp: int = 400) -> void:
