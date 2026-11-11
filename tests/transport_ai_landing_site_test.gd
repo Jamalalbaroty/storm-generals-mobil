@@ -297,6 +297,23 @@ func _run() -> void:
 	_expect(Array(returning_transport.get("transport_cargo", [])).size() == 1, "Return-to-base must preserve all passengers")
 	_expect(returning_transport.has("transport_ai_route_points"), "Return-to-base should assign the existing threat-aware flight route")
 
+	# A group return assigns every selected loaded transport its own nearest friendly airfield.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(200.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(900.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 75}]})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(100.0, 300.0)})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(1000.0, 300.0)})
+	game.get("selected").append_array([0, 1])
+	game.call("_order_transport_return_to_base")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "returning" and String(game.get("units")[1].get("transport_state", "")) == "returning", "A group return order should dispatch every selected transport")
+	_expect(Vector2(game.get("units")[0].get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(100.0, 300.0)) < 1.0, "The first transport should choose its nearest friendly airfield")
+	_expect(Vector2(game.get("units")[1].get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(1000.0, 300.0)) < 1.0, "The second transport should choose its own nearest friendly airfield")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1 and Array(game.get("units")[1].get("transport_cargo", [])).size() == 1, "Group return must preserve every transport cargo manifest")
+	_expect(game.get("units")[0].has("transport_ai_route_points") and game.get("units")[1].has("transport_ai_route_points"), "Every aircraft in the group should receive a threat-aware route")
+
 	# If the selected recovery airfield is destroyed or loses power in flight, replan to another valid friendly field.
 	game.get("units").clear()
 	game.get("buildings").clear()
