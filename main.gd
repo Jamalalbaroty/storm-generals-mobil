@@ -4169,22 +4169,22 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			var had_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
 			if not had_player_order:
 				restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
-		# Resolve a fresh hostile target from its saved position after array changes.
-		if passenger.has("attack_focus_pos"):
-			var focus_pos: Vector2 = passenger["attack_focus_pos"]
-			var reacquired_target := -1
-			var closest_focus_distance := 120.0
-			for enemy_index in range(units.size()):
-				var enemy_candidate: Dictionary = units[enemy_index]
-				if String(enemy_candidate.get("team", "")) != "enemy" or int(enemy_candidate.get("hp", 0)) <= 0:
-					continue
-				var focus_distance: float = enemy_candidate.pos.distance_to(focus_pos)
-				if focus_distance < closest_focus_distance:
-					closest_focus_distance = focus_distance
-					reacquired_target = enemy_index
-			if reacquired_target >= 0:
-				restored_passenger["attack_target"] = reacquired_target
-		units.append(restored_passenger)
+			# Resolve a fresh hostile target from its saved position after array changes.
+			if passenger.has("attack_focus_pos"):
+				var focus_pos: Vector2 = passenger["attack_focus_pos"]
+				var reacquired_target := -1
+				var closest_focus_distance := 120.0
+				for enemy_index in range(units.size()):
+					var enemy_candidate: Dictionary = units[enemy_index]
+					if String(enemy_candidate.get("team", "")) != "enemy" or int(enemy_candidate.get("hp", 0)) <= 0:
+						continue
+					var focus_distance: float = enemy_candidate.pos.distance_to(focus_pos)
+					if focus_distance < closest_focus_distance:
+						closest_focus_distance = focus_distance
+						reacquired_target = enemy_index
+				if reacquired_target >= 0:
+					restored_passenger["attack_target"] = reacquired_target
+			units.append(restored_passenger)
 			transport["transport_cargo"] = cargo
 			transport["transport_drop_index"] = drop_index + 1
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
