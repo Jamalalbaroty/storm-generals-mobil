@@ -3194,6 +3194,99 @@ func _begin_campaign_battle(size: Vector2) -> void:
 	queue_redraw()
 
 
+func _group_formation_role_for_kind(unit_kind: String) -> int:
+	if unit_kind == "artillery":
+		return 0 # Fire support holds the rear line.
+	if unit_kind in ["infantry", "builder", "marine"]:
+		return 1 # Infantry screens the two outer flanks.
+	if unit_kind in ["tank", "destroyer", "carrier", "submarine", "landing_craft"]:
+		return 2 # Armor and direct-combat vehicles hold the center line.
+	if unit_kind in ["fighter", "helicopter"]:
+		return 3 # Aircraft move as a forward support layer.
+	return 4 # Transport and utility units stay in a separate support lane.
+
+
+func _group_formation_columns(role: int, unit_count: int) -> int:
+	if role == 1:
+		return 2
+	return mini(4, maxi(1, int(ceil(sqrt(float(maxi(1, unit_count)))))))
+
+
+func _group_formation_spacing(selected_indices: Array[int]) -> float:
+	var spacing := 24.0
+	for unit_index in selected_indices:
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var unit_kind := String(units[unit_index].get("kind", "tank"))
+		var unit_spacing := 36.0
+		if unit_kind in ["infantry", "builder", "marine"]:
+			unit_spacing = 24.0
+		elif unit_kind == "artillery":
+			unit_spacing = 48.0
+		elif unit_kind in ["fighter", "helicopter"]:
+			unit_spacing = 50.0
+		elif unit_kind == "transport_helicopter":
+			unit_spacing = 54.0
+		spacing = maxf(spacing, unit_spacing)
+	return spacing
+
+
+func _group_move_destination(unit_index: int, selected_indices: Array[int], center: Vector2) -> Vector2:
+	var valid_indices: Array[int] = []
+	var group_center := Vector2.ZERO
+	for candidate_index in selected_indices:
+		if candidate_index < 0 or candidate_index >= units.size() or valid_indices.has(candidate_index):
+			continue
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		valid_indices.append(candidate_index)
+		group_center += candidate.pos
+	if not valid_indices.has(unit_index):
+		return center
+	if valid_indices.size() <= 1:
+		return center
+	group_center /= float(valid_indices.size())
+	var forward := center - group_center
+	if forward.length_squared() < 0.0001:
+		forward = Vector2.RIGHT
+	else:
+		forward = forward.normalized()
+	var right := Vector2(-forward.y, forward.x)
+	var spacing := _group_formation_spacing(valid_indices)
+	var role_counts: Array[int] = [0, 0, 0, 0, 0]
+	var role := _group_formation_role_for_kind(String(units[unit_index].get("kind", "tank")))
+	var role_index := 0
+	for candidate_index in valid_indices:
+		var candidate_role := _group_formation_role_for_kind(String(units[candidate_index].get("kind", "tank")))
+		if candidate_index == unit_index:
+			role_index = role_counts[candidate_role]
+		role_counts[candidate_role] += 1
+	var preceding_rows := 0
+	var total_rows := 0
+	for role_index_value in range(role_counts.size()):
+		var role_columns := _group_formation_columns(role_index_value, role_counts[role_index_value])
+		var role_rows := int(ceil(float(role_counts[role_index_value]) / float(role_columns))) if role_counts[role_index_value] > 0 else 0
+		total_rows += role_rows
+		if role_index_value < role:
+			preceding_rows += role_rows
+	var columns := _group_formation_columns(role, role_counts[role])
+	var row := int(role_index / columns)
+	var column := role_index % columns
+	var lane_row := preceding_rows + row
+	var depth := (float(lane_row) - (float(total_rows) - 1.0) * 0.5) * spacing
+	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
+	if role == 1:
+		var flank := -1.0 if column == 0 else 1.0
+		lateral = flank * (spacing * 1.25 + float(row) * spacing * 0.55)
+	var destination := center + forward * depth + right * lateral
+	var viewport_size := get_viewport_rect().size
+	var margin := 24.0
+	destination.x = clampf(destination.x, margin, viewport_size.x - margin)
+	destination.y = clampf(destination.y, margin, viewport_size.y - margin)
+	return destination
+
+
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	var size = get_viewport_rect().size
 	if pressed:
@@ -3501,12 +3594,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				else:
 					selected.append(found)
 			else:
-				for idx in selected:
-					if idx < units.size():
-						if units[idx].team == "player":
-							_cancel_airfield_recovery(units[idx])
-						units[idx].target = pos
-						# A direct move order overrides previous combat and stance orders.
+				var move_group_indices: Array[int] = selected.duplicate()
+				for idx in move_group_indices:
+					if idx >= 0 and idx < units.size() and units[idx].team == "player":
+						_cancel_airfield_recovery(units[idx])
+						units[idx].target = _group_move_destination(idx, move_group_indices, pos)
+						# A direct group move overrides previous combat and stance orders.
 						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
 							units[idx].erase(order_key)
 	queue_redraw()
