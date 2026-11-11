@@ -556,6 +556,24 @@ func _run() -> void:
 	game.get("units").clear()
 	game.get("selected").clear()
 
+	# Escort distribution should favor a transport under nearby air threat before distance/load balancing ties.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(500.0, 300.0)})
+	var threatened_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(500.0, 300.0), "transport_state": "inbound", "transport_target_pos": Vector2(500.0, 300.0)}
+	var safe_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(800.0, 300.0), "transport_state": "inbound", "transport_target_pos": Vector2(800.0, 300.0)}
+	_expect(float(game.call("_transport_ai_transport_threat_score", threatened_transport)) > float(game.call("_transport_ai_transport_threat_score", safe_transport)), "A transport inside an enemy fighter threat envelope should receive a higher escort priority")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(500.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(500.0, 300.0), "3d_sync_id": 81, "transport_state": "inbound"})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(800.0, 300.0), "3d_sync_id": 82, "transport_state": "inbound"})
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(650.0, 300.0), "3d_sync_id": 83})
+	game.get("selected").clear()
+	game.get("selected").append(2)
+	var priority_assigned := int(game.call("_transport_ai_assign_selected_air_escorts", [0, 1]))
+	_expect(priority_assigned == 1 and int(game.get("units")[2].get("escort_target_id", -1)) == 81, "The selected escort should protect the more threatened transport when travel distance is comparable")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
