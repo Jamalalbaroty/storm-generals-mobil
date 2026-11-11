@@ -4133,6 +4133,9 @@ func _transport_ai_evaluate_landing_site(candidate: Dictionary, objective_pos: V
 			if int(structure.get("hp", 0)) > 0 and structure.pos.distance_to(site_pos) < 54.0:
 				return {"valid": false, "score": -1.0, "reason": "structure_blocking"}
 	for occupant in units:
+		# Friendly transport aircraft can hover over the candidate and must not block their own landing search.
+		if String(occupant.get("team", "")) == "player" and String(occupant.get("kind", "")) == "transport_helicopter":
+			continue
 		if int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(site_pos) < (24.0 if is_rooftop else 42.0):
 			return {"valid": false, "score": -1.0, "reason": "landing_footprint_occupied"}
 	var threat_penalty := 0.0
