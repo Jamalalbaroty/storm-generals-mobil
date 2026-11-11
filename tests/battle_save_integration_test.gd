@@ -242,6 +242,16 @@ func _run_battle_save_integration_test() -> void:
 			"attack_building_pos": Vector2(980.0, 320.0)
 		}
 	})
+	game.get("units").append({
+		"unit_id": "unit_00000058", "kind": "fighter", "team": "player", "faction": "وطن",
+		"hp": 180, "pos": Vector2(660.0, 350.0), "airfield_sortie_ready": true,
+		"airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 0.0
+	})
+	game.get("units").append({
+		"unit_id": "unit_00000059", "kind": "fighter", "team": "player", "faction": "وطن",
+		"hp": 180, "pos": Vector2(670.0, 350.0), "airfield_sortie_ready": true,
+		"airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 1.5
+	})
 	game.get("buildings").append({"kind": "airfield", "hp": 390, "pos": Vector2(650.0, 320.0), "production_id": 4})
 	game.get("enemy_buildings").append({"kind": "factory", "hp": 240, "pos": Vector2(980.0, 320.0), "production_id": 9})
 	game.get("production_orders").append({"producer_id": 4, "producer_pos": Vector2(650.0, 320.0), "producer_kind": "airfield", "kind": "fighter", "remaining": 8.5, "duration": 20.0})
@@ -263,8 +273,8 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.get("credits")) == 1840 and int(game.get("player_base_hp")) == 760, "Economy and base health should be restored")
 	_expect(is_equal_approx(float(game.get("enemy_missile_timer")), 6.75), "Enemy missile attack cadence should be restored")
 	_expect(game.get("supply_points").size() == 1 and String(game.get("supply_points")[0].get("owner", "")) == "player", "Supply ownership should be restored")
-	_expect(game.get("units").size() == 6, "All field units must be restored with their original order indexes")
-	if game.get("units").size() == 6:
+	_expect(game.get("units").size() == 8, "All field units must be restored with their original order indexes")
+	if game.get("units").size() == 8:
 		var transport: Dictionary = game.get("units")[0]
 		var mover: Dictionary = game.get("units")[1]
 		var attacker: Dictionary = game.get("units")[2]
@@ -291,6 +301,10 @@ func _run_battle_save_integration_test() -> void:
 		game.call("_restore_aircraft_resume_order", sortie_probe)
 		_expect(not sortie_probe.has("airfield_resume_order") and Array(sortie_probe.get("air_patrol_points", [])).size() == 3 and int(sortie_probe.get("air_patrol_index", -1)) == 1, "Launching after rearm must restore the saved patrol mission and waypoint")
 		_expect(int(sortie_probe.get("attack_building", -1)) == 0 and not sortie_probe.has("attack_target"), "Airfield sortie must reacquire the intended factory by stable production ID, not stale array index")
+		var first_queued_sortie: Dictionary = game.get("units")[6]
+		var second_queued_sortie: Dictionary = game.get("units")[7]
+		_expect(String(first_queued_sortie.get("unit_id", "")) == "unit_00000058" and bool(first_queued_sortie.get("airfield_sortie_launch", false)) and is_equal_approx(float(first_queued_sortie.get("airfield_sortie_launch_wait", -1.0)), 0.0), "First ready aircraft must retain its immediate takeoff slot after save/restore")
+		_expect(String(second_queued_sortie.get("unit_id", "")) == "unit_00000059" and bool(second_queued_sortie.get("airfield_sortie_launch", false)) and int(second_queued_sortie.get("airfield_sortie_airfield_id", -1)) == 4 and is_equal_approx(float(second_queued_sortie.get("airfield_sortie_launch_wait", -1.0)), 1.5), "Second aircraft must retain its airfield identity and staggered takeoff delay after save/restore")
 	_expect(game.get("buildings").size() == 1 and game.get("enemy_buildings").size() == 1, "Both armies' building states should be restored")
 	_expect(game.get("production_orders").size() == 1 and game.get("missiles").size() == 1, "Production and active missile state should be restored")
 
