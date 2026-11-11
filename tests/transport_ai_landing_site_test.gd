@@ -155,6 +155,21 @@ func _run() -> void:
 	var preserved_order: bool = game.call("_transport_ai_apply_post_drop_doctrine", ordered_passenger, autonomous_transport, Vector2(720.0, 420.0))
 	_expect(not preserved_order and ordered_passenger.has("target") and not ordered_passenger.has("guard_active"), "A pre-existing player movement order must never be replaced by post-drop doctrine")
 
+	var attack_move_passenger: Dictionary = {"kind": "infantry", "team": "player"}
+	var attack_move_transport: Dictionary = {
+		"transport_ai_mode": "AUTONOMOUS",
+		"transport_ai_post_drop_doctrine": "ATTACK_MOVE",
+		"transport_ai_objective_pos": Vector2(980.0, 360.0)
+	}
+	var attack_move_applied: bool = game.call("_transport_ai_apply_post_drop_doctrine", attack_move_passenger, attack_move_transport, Vector2(720.0, 420.0))
+	_expect(attack_move_applied and bool(attack_move_passenger.get("attack_move_active", false)), "ATTACK_MOVE doctrine should activate the existing attack-move combat behavior")
+	_expect(Vector2(attack_move_passenger.get("target", Vector2.ZERO)).distance_to(Vector2(980.0, 360.0)) < 1.0, "ATTACK_MOVE doctrine should direct infantry toward the saved sortie objective")
+
+	var no_objective_passenger: Dictionary = {"kind": "infantry", "team": "player"}
+	var no_objective_transport: Dictionary = {"transport_ai_mode": "AUTONOMOUS", "transport_ai_post_drop_doctrine": "ATTACK_MOVE"}
+	var no_objective_result: bool = game.call("_transport_ai_apply_post_drop_doctrine", no_objective_passenger, no_objective_transport, Vector2(720.0, 420.0))
+	_expect(not no_objective_result and not no_objective_passenger.has("attack_move_active"), "ATTACK_MOVE must safely decline when no mission objective was saved")
+
 	var manual_passenger: Dictionary = {"kind": "infantry", "team": "player"}
 	var manual_transport: Dictionary = {"transport_ai_mode": "MANUAL"}
 	var manual_doctrine: bool = game.call("_transport_ai_apply_post_drop_doctrine", manual_passenger, manual_transport, Vector2(720.0, 420.0))
