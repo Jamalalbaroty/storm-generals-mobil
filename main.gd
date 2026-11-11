@@ -3933,7 +3933,7 @@ func _load_selected_infantry_into_transport() -> void:
 	var load_count := mini(available, infantry_indices.size())
 	for n in range(load_count):
 		var passenger: Dictionary = units[infantry_indices[n]]
-		cargo.append({"faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0))})
+		cargo.append({"faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0)), "cargo_attack_cd": randf_range(0.0, 0.35)})
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
 	var transport_record: Dictionary = transport
@@ -4039,6 +4039,7 @@ func _cancel_transport_order() -> void:
 
 func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 	var state := String(transport.get("transport_state", "idle"))
+	_update_transport_passenger_fire(transport, delta)
 	if state == "inbound":
 		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
 		if transport.pos.distance_to(landing_pos) > 14.0:
@@ -4102,6 +4103,60 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 		else:
 			transport.erase("target")
 
+
+
+
+func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> void:
+	# Loaded infantry fire from the transport's side doors at nearby hostile ground units.
+	var cargo: Array = transport.get("transport_cargo", [])
+	if cargo.is_empty():
+		return
+	var state := String(transport.get("transport_state", "idle"))
+	if state == "descending":
+		return
+	var target_index := -1
+	var target_distance := 158.0
+	for index in range(units.size()):
+		var enemy: Dictionary = units[index]
+		if String(enemy.get("team", "")) != "enemy" or int(enemy.get("hp", 0)) <= 0:
+			continue
+		if String(enemy.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine"]:
+			continue
+		var distance: float = transport.pos.distance_to(enemy.pos)
+		if distance < target_distance:
+			target_distance = distance
+			target_index = index
+	if target_index < 0:
+		for passenger in cargo:
+			passenger["cargo_attack_cd"] = maxf(0.0, float(passenger.get("cargo_attack_cd", 0.0)) - delta)
+		transport["transport_cargo"] = cargo
+		return
+	var target: Dictionary = units[target_index]
+	var fired := false
+	for passenger_index in range(cargo.size()):
+		var passenger: Dictionary = cargo[passenger_index]
+		var cooldown := maxf(0.0, float(passenger.get("cargo_attack_cd", 0.0)) - delta)
+		if cooldown <= 0.0 and int(target.get("hp", 0)) > 0:
+			var base_damage := 4 + int(passenger.get("veterancy", 0)) * 1
+			var damage := _unit_damage_with_veterancy(passenger, base_damage)
+			var hp_before := int(target.get("hp", 0))
+			target["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(target, damage))
+			passenger["combat_xp"] = float(passenger.get("combat_xp", 0.0)) + float(hp_before - int(target["hp"])) * 0.35
+			passenger["cargo_attack_cd"] = 0.95
+			fired = true
+			if int(target["hp"]) <= 0:
+				passenger["combat_kills"] = int(passenger.get("combat_kills", 0)) + 1
+		else:
+			passenger["cargo_attack_cd"] = cooldown
+		cargo[passenger_index] = passenger
+	if fired:
+		var side_offset := Vector2(0.0, -9.0 if int(transport.get("cargo_fire_side", 0)) % 2 == 0 else 9.0)
+		transport["cargo_fire_side"] = int(transport.get("cargo_fire_side", 0)) + 1
+		var muzzle_pos: Vector2 = transport.pos + side_offset.rotated(float(transport.get("facing", 0.0)))
+		_add_visual_effect("tracer", muzzle_pos, target.pos, Color("#ffe2a6"), 0.16, 0.0)
+		_add_visual_effect("flash", target.pos, target.pos, Color("#ffbd65"), 0.12, 5.0)
+	transport["transport_cargo"] = cargo
+	transport["attack_target_pos"] = target.pos if int(target.get("hp", 0)) > 0 else Vector2.ZERO
 
 
 
