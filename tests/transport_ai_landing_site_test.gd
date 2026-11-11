@@ -304,6 +304,21 @@ func _run() -> void:
 	_expect(Vector2(replanned_transport.get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(900.0, 300.0)) < 1.0, "A returning transport should replan to the next powered friendly airfield")
 	_expect(Array(replanned_transport.get("transport_cargo", [])).size() == 1, "Airfield loss must never discard the transport's passengers")
 
+	# Arrival at a valid airfield enters a short service cycle before the transport can be reused.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 80, "pos": Vector2(700.0, 300.0), "transport_state": "returning", "transport_return_pos": Vector2(700.0, 300.0), "transport_cargo": [{"kind": "infantry", "hp": 80}], "transport_ai_autonomous_active": true})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)})
+	game.call("_update_transport_helicopter", game.get("units")[0], 0.1)
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "rearming", "A returning transport should enter airfield servicing on arrival")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Airfield servicing must preserve the passenger manifest")
+	game.call("_update_transport_helicopter", game.get("units")[0], 5.1)
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "A serviced transport with cargo should become ready for its next mission")
+	_expect(int(game.get("units")[0].get("hp", 0)) == int(game.call("_unit_repair_max_hp", game.get("units")[0])), "Airfield servicing should restore transport health")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Rearming must not unload passengers automatically")
+
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
 	game.get("units").clear()
 	game.get("buildings").clear()
