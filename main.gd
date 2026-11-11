@@ -4067,10 +4067,34 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
 			_add_visual_effect("dust", drop_pos, drop_pos, Color("#c5b28b"), 0.42, 8.0)
 			if cargo.is_empty():
-				transport["transport_state"] = "idle"
 				transport.erase("transport_target_pos")
-				notice = "اكتمل الإنزال الجوي — الجنود على سطح المبنى"
-				notice_time = 2.5
+				var nearest_airfield := Vector2.ZERO
+				var airfield_found := false
+				var nearest_distance := INF
+				for airfield in buildings:
+					if String(airfield.get("kind", "")) != "airfield" or int(airfield.get("hp", 0)) <= 0 or float(airfield.get("build_progress", 1.0)) < 1.0:
+						continue
+					var airfield_distance: float = transport.pos.distance_to(airfield.pos)
+					if airfield_distance < nearest_distance:
+						nearest_distance = airfield_distance
+						nearest_airfield = airfield.pos
+						airfield_found = true
+				if airfield_found:
+					transport["transport_return_pos"] = nearest_airfield
+					transport["transport_state"] = "returning"
+				else:
+					transport["transport_state"] = "idle"
+				notice = "اكتمل الإنزال الجوي — الجنود على السطح، والمروحية عائدة للمطار" if airfield_found else "اكتمل الإنزال الجوي — لا يوجد مطار صالح للعودة إليه"
+				notice_time = 3.0
+	elif state == "returning":
+		var return_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
+		if transport.pos.distance_to(return_pos) > 14.0:
+			transport.pos += (return_pos - transport.pos).normalized() * delta * 72.0
+			transport["facing"] = (return_pos - transport.pos).angle()
+		else:
+			transport.pos = return_pos
+			transport.erase("transport_return_pos")
+			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
 	elif transport.has("target"):
 		var move_target: Vector2 = transport.target
 		if transport.pos.distance_to(move_target) > 12.0:
