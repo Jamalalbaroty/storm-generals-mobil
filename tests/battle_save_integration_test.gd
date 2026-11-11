@@ -66,6 +66,16 @@ func _run_battle_save_integration_test() -> void:
 	var reinforcement_handled: bool = game.call("_update_enemy_supply_reinforcement", game.get("units")[0], 0, 0.1)
 	_expect(reinforcement_handled, "An eligible enemy defender must respond to a threatened enemy-held supply point")
 	_expect(bool(game.get("units")[0].get("supply_reinforcement_active", false)), "The dispatched defender must retain its supply reinforcement assignment")
+	# Nearby mobile defenders must not mutually suppress the nearest reinforcement.
+	game.get("units").assign([
+		{"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(350.0, 300.0)},
+		{"kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2(380.0, 300.0)},
+		{"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(430.0, 300.0)}
+	])
+	var farther_guard_handled: bool = game.call("_update_enemy_supply_reinforcement", game.get("units")[0], 0, 0.1)
+	var nearest_guard_handled: bool = game.call("_update_enemy_supply_reinforcement", game.get("units")[1], 1, 0.1)
+	_expect(not farther_guard_handled, "A farther defender must not duplicate the nearest defender's reinforcement assignment")
+	_expect(nearest_guard_handled, "The nearest defender must reinforce even when another mobile defender is nearby")
 	game.get("units").clear()
 	game.get("supply_points").clear()
 
