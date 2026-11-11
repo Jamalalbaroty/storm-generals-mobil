@@ -102,6 +102,11 @@ func _run_battle_save_integration_test() -> void:
 	_expect(assigned_guard_count == 2, "Eight enemy ground units must retain a compact two-unit defensive reserve")
 	_expect(protects_base, "Enemy defense director must preserve a guard around the main base")
 	_expect(protects_silo, "Enemy defense director must assign a guard to the high-value missile silo")
+	# A forward guard must fall back to the main base when its assigned asset is destroyed.
+	game.get("units").assign([{"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(480.0, 300.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 300.0)}])
+	game.get("enemy_buildings").assign([{"kind": "missile_silo", "hp": 0, "build_progress": 1.0, "pos": Vector2(500.0, 300.0)}])
+	game.call("_update_enemy_defense_guard", game.get("units")[0], 0, 0.1)
+	_expect((game.get("units")[0].get("defense_anchor", Vector2.ZERO) as Vector2).distance_to(game.get("enemy_base")) < 1.0, "A guard must abandon a destroyed forward asset and return to base defense")
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
 
