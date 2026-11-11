@@ -179,3 +179,19 @@ GitHub Actions for this exact commit:
 - The snapshot keeps unit-array order so legacy array-index combat references remain consistent at restore time; a full conversion of all live target/escort references to stable IDs remains future work.
 
 This implementation is CI-green for the covered headless scenarios, but it is not yet a complete mobile release certification.
+
+### Battle snapshot storage and gameplay integration — 2026-11-11
+
+Implemented on development commit `1db6f2a1175121741ef8fb237dec2e311d66eb22`:
+- Added versioned battle snapshot storage under `user://storm_generals_battle.save`, using a verified temporary payload, backup promotion, and recovery from the last verified backup.
+- Integrated save and staged restore into the live gameplay scene and exposed both actions in the mobile Strategy command tab.
+- Snapshot includes faction/map/campaign state, both economies and bases, supply ownership, stable-ID units and transport manifests, both building arrays, production orders, active missiles, and the enemy missile attack timer.
+- Restore validates and stages the snapshot before replacing live arrays; transient UI selection, touch state, particles, and audio are intentionally rebuilt/reset rather than serialized.
+- Regression coverage includes round-trip storage, corrupt/unsupported/duplicate-ID rejection, backup recovery, and a live-scene save/restore integration covering transport cargo and enemy missile cadence.
+
+GitHub Actions for this exact commit:
+- Godot Regression Tests run `43074102799` (#752): success; all regression steps completed, including battle save store and live gameplay save/restore integration.
+- Godot Validation run `43074102637` (#829): success; project import, active scene, isolated 3D battlefield, live bridge, gameplay recovery, and endurance checks completed.
+- Android APK export remained skipped, as requested until the overall project reaches the separately verified 80% threshold.
+
+**Remaining release gates:** real Android device touch/performance and app-close/relaunch verification are not covered by headless CI. The save schema currently captures the defined match state; it still needs a device lifecycle test before being treated as release-ready.
