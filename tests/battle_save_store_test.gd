@@ -76,6 +76,17 @@ func _run_battle_save_store_test() -> void:
 	var recovered: Dictionary = store.load_snapshot()
 	_expect(not recovered.is_empty() and int(recovered["match"].get("credits", 0)) == 1840, "A verified backup should recover when the primary save is missing")
 
+	# Simulate a torn/corrupted primary file while retaining a known-good backup.
+	var corrupt_primary := FileAccess.open(SaveStore.SAVE_PATH, FileAccess.WRITE)
+	_expect(corrupt_primary != null, "Test should be able to create a corrupted primary save")
+	if corrupt_primary != null:
+		corrupt_primary.store_buffer(PackedByteArray([0x53, 0x54, 0x4F, 0x52, 0x4D, 0xFF, 0x00]))
+		corrupt_primary.flush()
+		corrupt_primary.close()
+	var recovered_from_corruption: Dictionary = store.load_snapshot()
+	_expect(not recovered_from_corruption.is_empty() and int(recovered_from_corruption["match"].get("credits", 0)) == 1840, "A valid backup must recover when the primary save is corrupted")
+	_expect(store.load_snapshot().size() > 0, "Recovered backup should be promoted to a readable primary save")
+
 	var unsupported_snapshot: Dictionary = snapshot.duplicate(true)
 	unsupported_snapshot["schema_version"] = 999
 	_expect(not store.save_snapshot(unsupported_snapshot), "Unsupported save schema versions must be rejected")
