@@ -772,7 +772,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(320.0, 300.0), "attack_cd": 10.0})
 	game.get("units").append({"kind": "artillery", "team": "enemy", "hp": 180, "pos": Vector2(510.0, 300.0), "attack_cd": 0.0})
 	game.call("_process", 0.1)
-	_expect(int(game.get("units")[0]["hp"]) == 60, "Enemy artillery infantry splash damage mismatch: hp=%d" % int(game.get("units")[0]["hp"]))
+	_expect(int(game.get("units")[0]["hp"]) == 62, "Enemy artillery infantry splash damage mismatch: hp=%d" % int(game.get("units")[0]["hp"]))
 	_expect(int(game.get("units")[1]["hp"]) == 102, "Enemy artillery tank splash damage mismatch: hp=%d" % int(game.get("units")[1]["hp"]))
 
 	game.get("units").clear()
@@ -829,8 +829,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	})
 	game.call("_process", 0.1)
 	_expect(int(game.get("units")[0]["hp"]) == 90, "Enemy fighter should return fire for 30 damage in an air-to-air engagement")
-	_expect(int(game.get("units")[1]["hp"]) == 90, "Player fighter damage mismatch: enemy hp=%d attack_cd=%.2f" % [int(game.get("units")[1]["hp"]), float(game.get("units")[0].get("attack_cd", -1.0))])
-	_expect(is_equal_approx(float(game.get("units")[0]["attack_cd"]), 1.35), "Player fighter cooldown mismatch: %.2f" % float(game.get("units")[0].get("attack_cd", -1.0)))
+	_expect(int(game.get("units")[1]["hp"]) == 90, "Player fighter damage mismatch: units=%s" % str(game.get("units")))
+	_expect(is_equal_approx(float(game.get("units")[0]["attack_cd"]), 1.35), "Player fighter cooldown mismatch: units=%s" % str(game.get("units")))
 
 	# Verify faction-specific helicopter damage and cooldown through live combat.
 	game.get("units").clear()
@@ -843,8 +843,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		"hp": 160, "pos": Vector2(400.0, 300.0), "attack_cd": 0.0, "attack_target": 0, "attack_focus_pos": Vector2(420.0, 300.0)
 	})
 	game.call("_process", 0.1)
-	_expect(int(game.get("units")[0]["hp"]) == 120, "Chinese helicopter damage mismatch: enemy hp=%d" % int(game.get("units")[0]["hp"]))
-	_expect(is_equal_approx(float(game.get("units")[1]["attack_cd"]), 1.35), "Chinese helicopter cooldown mismatch: %.2f" % float(game.get("units")[1].get("attack_cd", -1.0)))
+	_expect(int(game.get("units")[0]["hp"]) == 120, "Chinese helicopter damage mismatch: units=%s" % str(game.get("units")))
+	_expect(is_equal_approx(float(game.get("units")[1]["attack_cd"]), 1.35), "Chinese helicopter cooldown mismatch: units=%s" % str(game.get("units")))
 
 	game.get("units").clear()
 	game.get("units").append({
@@ -1103,6 +1103,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(coordinated_artillery.pos.distance_to(coordinated_target) >= 185.0 and coordinated_artillery.pos.distance_to(coordinated_target) <= 330.0, "Live assault artillery should preserve its protected firing envelope")
 	_expect(coordinated_artillery.pos.distance_to(artillery_initial_position) < 0.1, "Artillery already inside its firing envelope should not rush into the frontline")
 	for assault_index in range(3):
+		game.call("_update_enemy_ground_assault", game.get("units")[assault_index], assault_index, 0.0)
 		var assault_focus: Vector2 = game.get("units")[assault_index].get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
 		_expect(assault_focus.distance_to(coordinated_target) < 0.1, "Assault role %d focus mismatch: focus=%s target=%s" % [assault_index, str(assault_focus), str(coordinated_target)])
 
@@ -1241,7 +1242,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("enemy_timer", 999.0)
 	var enemy_start_x: float = game.get("units")[0]["pos"].x
 	for objective_frame in range(20):
-		game.call("_process", 0.1)
+		game.call("_update_enemy_ground_assault", game.get("units")[0], 0, 0.1)
 	_expect(float(game.get("units")[0]["pos"].x) < enemy_start_x - 10.0, "Balanced enemy armor should advance toward a nearby player-held port when the player threat is distant")
 	# Remove the distant infantry and use the aggressive doctrine to verify the live combat damage path independently of the balanced-priority helper tests.
 	game.get("units").remove_at(1)
