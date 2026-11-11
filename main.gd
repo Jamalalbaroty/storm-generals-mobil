@@ -2222,7 +2222,10 @@ func _enemy_helicopter_cached_target(unit: Dictionary, self_index: int, delta: f
 	var target_index := int(unit.get("air_target_index", -1))
 	var target_id := String(unit.get("air_target_unit_id", ""))
 	var mode := String(unit.get("air_target_mode", ""))
-	if refresh_timer > 0.0 and _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos):
+	var cache_valid := mode == "none" and target_index < 0
+	if mode != "none":
+		cache_valid = _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos)
+	if refresh_timer > 0.0 and cache_valid:
 		unit["air_target_refresh_timer"] = refresh_timer
 		return target_index
 	var selected_index := _enemy_helicopter_assault_target(unit.pos, ground_focus_index)
