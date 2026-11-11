@@ -147,6 +147,14 @@ func _ready() -> void:
 	queue_redraw()
 
 
+func _notification(what: int) -> void:
+	# Android sends APPLICATION_PAUSED when the app is backgrounded or interrupted.
+	# Desktop sends WM_CLOSE_REQUEST; save synchronously before the scene is torn down.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if game_started and battle_result.is_empty():
+			_save_battle_snapshot()
+
+
 const BATTLEFIELD_3D_SCENE: PackedScene = preload("res://prototype_3d/battlefield_3d.tscn")
 var battlefield_3d: Node3D
 var battlefield_sync_timer := 0.0
