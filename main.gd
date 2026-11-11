@@ -168,6 +168,59 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
+func _save_aircraft_resume_order(unit: Dictionary) -> void:
+	# Preserve the player's current air mission while an aircraft automatically rearms.
+	var resume_order: Dictionary = {}
+	for order_key in ["target", "attack_base", "attack_focus_pos", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+		if unit.has(order_key):
+			resume_order[order_key] = unit[order_key]
+	if unit.has("attack_target"):
+		var target_index := int(unit.get("attack_target", -1))
+		if target_index >= 0 and target_index < units.size():
+			var target_unit: Dictionary = units[target_index]
+			if String(target_unit.get("team", "")) == "enemy" and int(target_unit.get("hp", 0)) > 0:
+				resume_order["attack_focus_pos"] = target_unit.pos
+	if unit.has("attack_building"):
+		var building_index := int(unit.get("attack_building", -1))
+		if building_index >= 0 and building_index < enemy_buildings.size():
+			var target_building: Dictionary = enemy_buildings[building_index]
+			if int(target_building.get("hp", 0)) > 0:
+				resume_order["attack_building_kind"] = String(target_building.get("kind", ""))
+				resume_order["attack_building_id"] = int(target_building.get("production_id", -1))
+				resume_order["attack_building_pos"] = target_building.pos
+	unit["airfield_resume_order"] = resume_order
+
+
+func _restore_aircraft_resume_order(unit: Dictionary) -> void:
+	var resume_order: Dictionary = unit.get("airfield_resume_order", {})
+	unit.erase("airfield_resume_order")
+	if resume_order.is_empty():
+		return
+	for order_key in ["target", "attack_base", "attack_focus_pos", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+		if resume_order.has(order_key):
+			unit[order_key] = resume_order[order_key]
+	# Reacquire a living hostile near the saved focus instead of trusting a stale array index.
+	if resume_order.has("attack_focus_pos"):
+		unit.erase("attack_target")
+	if resume_order.has("attack_building_kind") and resume_order.has("attack_building_pos"):
+		var saved_kind := String(resume_order["attack_building_kind"])
+		var saved_id := int(resume_order.get("attack_building_id", -1))
+		var saved_pos: Vector2 = resume_order["attack_building_pos"]
+		var restored_building := -1
+		for building_index in range(enemy_buildings.size()):
+			var candidate: Dictionary = enemy_buildings[building_index]
+			if int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) != saved_kind:
+				continue
+			if saved_id >= 0 and int(candidate.get("production_id", -2)) == saved_id:
+				restored_building = building_index
+				break
+			if saved_id < 0 and candidate.pos.distance_to(saved_pos) <= 2.0:
+				restored_building = building_index
+				break
+		if restored_building >= 0:
+			unit["attack_building"] = restored_building
+
+
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
 	unit.erase("airfield_returning")
@@ -177,6 +230,7 @@ func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	unit.erase("airfield_sortie_ready")
 	unit.erase("airfield_sortie_launch")
 	unit.erase("airfield_sortie_airfield_id")
+	unit.erase("airfield_resume_order")
 
 
 func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
@@ -717,6 +771,7 @@ func _process(delta: float) -> void:
 							for queued_aircraft in units:
 								if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
 									recovery_slot += 1
+							_save_aircraft_resume_order(unit)
 							unit["airfield_returning"] = true
 							unit["airfield_landed"] = false
 							unit["airfield_rearm_progress"] = 0.0
@@ -738,6 +793,9 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_returning")
 						unit.erase("airfield_landed")
 						unit.erase("airfield_recovery_id")
+						unit.erase("airfield_recovery_slot")
+						unit.erase("airfield_rearm_progress")
+						_restore_aircraft_resume_order(unit)
 					else:
 						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
 						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
@@ -812,6 +870,7 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
+						_restore_aircraft_resume_order(unit)
 					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
