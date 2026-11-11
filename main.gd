@@ -2846,7 +2846,14 @@ func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -
 
 
 func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
-	# Fighters escort the helicopter most exposed to hostile air, not simply the nearest helicopter.
+	# Collect hostile aircraft once; score each escort candidate against this compact list.
+	var hostile_air_positions: Array[Vector2] = []
+	for threat in units:
+		if String(threat.get("team", "")) != "player" or int(threat.get("hp", 0)) <= 0:
+			continue
+		if String(threat.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter"]:
+			hostile_air_positions.append(threat.pos)
+
 	var best_index := -1
 	var best_score := INF
 	var fallback_index := -1
@@ -2859,14 +2866,11 @@ func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
 		if escort_distance < fallback_distance:
 			fallback_distance = escort_distance
 			fallback_index = candidate_index
-		var hostile_air_distance := INF
-		for threat in units:
-			if String(threat.get("team", "")) != "player" or int(threat.get("hp", 0)) <= 0:
-				continue
-			if String(threat.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter"]:
-				continue
-			hostile_air_distance = minf(hostile_air_distance, helicopter.pos.distance_to(threat.pos))
-		if hostile_air_distance <= FIGHTER_TARGET_RANGE:
+		var hostile_air_distance_squared := INF
+		for threat_pos in hostile_air_positions:
+			hostile_air_distance_squared = minf(hostile_air_distance_squared, helicopter.pos.distance_squared_to(threat_pos))
+		if hostile_air_distance_squared <= FIGHTER_TARGET_RANGE * FIGHTER_TARGET_RANGE:
+			var hostile_air_distance: float = sqrt(hostile_air_distance_squared)
 			var score: float = escort_distance * 0.55 + hostile_air_distance * 0.85
 			if score < best_score:
 				best_score = score
