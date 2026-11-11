@@ -192,6 +192,7 @@ func _run_battle_save_integration_test() -> void:
 	game.get("supply_points").clear()
 	_expect(bool(game.call("_load_battle_snapshot")), "A valid saved battle should restore through the gameplay integration")
 	_expect(String(game.get("faction")) == "وطن" and String(game.get("map_type")) == "الساحل الجبلي", "Faction and map should be restored")
+	_expect(int(game.get("campaign_mission_index")) == 2 and bool(game.get("game_started")), "Active campaign mission identity and match state should survive save/restore")
 	_expect(int(game.get("credits")) == 1840 and int(game.get("player_base_hp")) == 760, "Economy and base health should be restored")
 	_expect(is_equal_approx(float(game.get("enemy_missile_timer")), 6.75), "Enemy missile attack cadence should be restored")
 	_expect(game.get("supply_points").size() == 1 and String(game.get("supply_points")[0].get("owner", "")) == "player", "Supply ownership should be restored")
