@@ -37,6 +37,9 @@ jobs:
       - name: Run economy, AI, artillery, and production regressions
         run: timeout 240s godot --headless --path . --script tests/production_queue_regression_test.gd
 
+      - name: Run four-faction combat and economy balance regression
+        run: timeout 90s godot --headless --path . --script tests/faction_balance_regression_test.gd
+
       - name: Run gameplay economy and enemy recovery smoke test
         run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
 
