@@ -562,6 +562,9 @@ func _run() -> void:
 	var threatened_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(500.0, 300.0), "transport_state": "inbound", "transport_target_pos": Vector2(500.0, 300.0)}
 	var safe_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(800.0, 300.0), "transport_state": "inbound", "transport_target_pos": Vector2(800.0, 300.0)}
 	_expect(float(game.call("_transport_ai_transport_threat_score", threatened_transport)) > float(game.call("_transport_ai_transport_threat_score", safe_transport)), "A transport inside an enemy fighter threat envelope should receive a higher escort priority")
+	var damaged_loaded_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 80, "pos": Vector2(900.0, 500.0), "transport_state": "inbound", "transport_cargo": [{}, {}, {}, {}]}
+	var healthy_empty_transport: Dictionary = {"team": "player", "kind": "transport_helicopter", "hp": 250, "pos": Vector2(900.0, 500.0), "transport_state": "idle", "transport_cargo": []}
+	_expect(float(game.call("_transport_ai_transport_threat_score", damaged_loaded_transport)) > float(game.call("_transport_ai_transport_threat_score", healthy_empty_transport)), "Escort priority should favor a damaged transport carrying passengers on an active mission")
 	game.get("units").clear()
 	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(500.0, 300.0)})
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(500.0, 300.0), "3d_sync_id": 81, "transport_state": "inbound"})
