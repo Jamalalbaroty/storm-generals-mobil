@@ -278,7 +278,10 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			move_destination.y = clampf(move_destination.y, 24.0, map_size.y - 24.0)
 			source_unit["air_formation_slot"] = formation_slot
 			source_unit["air_formation_center"] = air_formation_last_center
-		source_unit["target"] = move_destination
+		if String(source_unit.get("kind", "")) == "transport_helicopter":
+			_transport_ai_issue_manual_move(source_unit, move_destination)
+		else:
+			source_unit["target"] = move_destination
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
 		source_unit.erase("guard_radius")
@@ -3803,7 +3806,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				for idx in move_group_indices:
 					if idx >= 0 and idx < units.size() and units[idx].team == "player":
 						_cancel_airfield_recovery(units[idx])
-						units[idx].target = _group_move_destination(idx, move_group_indices, pos)
+						var move_destination: Vector2 = _group_move_destination(idx, move_group_indices, pos)
+						if String(units[idx].get("kind", "")) == "transport_helicopter":
+							_transport_ai_issue_manual_move(units[idx], move_destination)
+						else:
+							units[idx].target = move_destination
 						# A direct group move overrides previous combat and stance orders.
 						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
 							units[idx].erase(order_key)
@@ -4586,6 +4593,26 @@ func _transport_ai_process_pending_landing(transport: Dictionary) -> void:
 	transport["transport_ai_last_site_id"] = String(landing.get("site_id", ""))
 	transport["transport_ai_autonomous_active"] = true
 	transport.erase("target")
+
+
+func _transport_ai_issue_manual_move(transport: Dictionary, destination: Vector2) -> void:
+	# A direct player move becomes the authoritative transport destination.
+	# Clear every stale tactical route so autonomous reassessment cannot pull the aircraft away.
+	var map_size := get_viewport_rect().size
+	var safe_destination := Vector2(
+		clampf(destination.x, 24.0, map_size.x - 24.0),
+		clampf(destination.y, 24.0, map_size.y - 48.0)
+	)
+	transport["transport_ai_player_override"] = true
+	transport["transport_ai_autonomous_active"] = false
+	transport["transport_target_pos"] = safe_destination
+	transport["transport_landing_type"] = "ground"
+	transport["transport_state"] = "inbound"
+	transport["transport_drop_index"] = 0
+	transport["transport_drop_timer"] = 0.0
+	transport["transport_ai_reassess_timer"] = 0.0
+	for stale_key in ["transport_ai_objective_pos", "transport_ai_recommendation", "transport_ai_route_points", "transport_ai_route_index", "transport_return_pos", "transport_pickup_waiting", "transport_order_pending", "target"]:
+		transport.erase(stale_key)
 
 
 func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void:
