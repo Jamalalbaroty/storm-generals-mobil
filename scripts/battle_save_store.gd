@@ -107,6 +107,12 @@ func _validate_snapshot(snapshot: Dictionary) -> bool:
 	if not snapshot["units"] is Array or not snapshot["buildings"] is Array or not snapshot["enemy_buildings"] is Array or not snapshot["production_orders"] is Array or not snapshot["missiles"] is Array:
 		return false
 	var match_state: Dictionary = snapshot["match"]
+	if match_state.has("supply_points"):
+		if not match_state["supply_points"] is Array:
+			return false
+		for point_variant in match_state["supply_points"]:
+			if not point_variant is Dictionary or not _validate_supply_point(point_variant):
+				return false
 	for numeric_key in ["credits", "supplies", "enemy_supplies", "income_timer", "enemy_credits", "enemy_income_timer", "enemy_timer", "enemy_missile_timer", "player_base_hp", "enemy_base_hp", "next_unit_identity", "next_building_production_id"]:
 		if match_state.has(numeric_key) and not _is_finite_number(match_state[numeric_key]):
 			return false
@@ -169,6 +175,19 @@ func _validate_unit_identity(unit: Dictionary, seen_ids: Dictionary) -> bool:
 	if not unit.has("pos") or not _is_valid_position(unit["pos"]):
 		return false
 	seen_ids[unit_id] = true
+	return true
+
+
+func _validate_supply_point(point: Dictionary) -> bool:
+	if not _is_valid_position(point.get("pos", null)):
+		return false
+	if String(point.get("owner", "")) not in ["player", "enemy", "neutral"]:
+		return false
+	if String(point.get("kind", "supply")) not in ["supply", "port", "bridge"]:
+		return false
+	for payout_key in ["payout", "supply_payout"]:
+		if point.has(payout_key) and (not _is_finite_number(point[payout_key]) or float(point[payout_key]) < 0.0):
+			return false
 	return true
 
 
