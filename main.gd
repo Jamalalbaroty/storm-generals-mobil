@@ -4230,6 +4230,17 @@ func _transport_ai_rescue_threat_pressure(infantry_pos: Vector2) -> float:
 	return pressure
 
 
+func _transport_ai_rescue_isolation_score(infantry_pos: Vector2) -> float:
+	# Higher score means fewer nearby living friendly infantry and therefore greater isolation.
+	var nearby_friendlies := 0
+	for ally in units:
+		if String(ally.get("team", "")) != "player" or String(ally.get("kind", "")) != "infantry" or int(ally.get("hp", 0)) <= 0:
+			continue
+		if infantry_pos.distance_to(ally.get("pos", infantry_pos)) <= 160.0:
+			nearby_friendlies += 1
+	return 1.0 / float(maxi(1, nearby_friendlies))
+
+
 func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_pos: Vector2) -> Array[int]:
 	# Zero Hour-style casualty triage: critical wounds first, then higher local threat, then proximity.
 	var ordered: Array[int] = infantry_indices.duplicate()
@@ -4251,11 +4262,16 @@ func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_
 			var best_pos: Vector2 = best_unit.get("pos", transport_pos)
 			var current_pressure := _transport_ai_rescue_threat_pressure(current_pos)
 			var best_pressure := _transport_ai_rescue_threat_pressure(best_pos)
+			var current_isolation := _transport_ai_rescue_isolation_score(current_pos)
+			var best_isolation := _transport_ai_rescue_isolation_score(best_pos)
 			var current_distance: float = current_pos.distance_to(transport_pos)
 			var best_distance: float = best_pos.distance_to(transport_pos)
 			var higher_threat := current_pressure > best_pressure and not is_equal_approx(current_pressure, best_pressure)
+			var more_isolated := current_isolation > best_isolation and not is_equal_approx(current_isolation, best_isolation)
 			var nearer := current_distance < best_distance and not is_equal_approx(current_distance, best_distance)
-			if current_hp < best_hp or (current_hp == best_hp and (higher_threat or (is_equal_approx(current_pressure, best_pressure) and nearer))):
+			var equal_threat := is_equal_approx(current_pressure, best_pressure)
+			var equal_isolation := is_equal_approx(current_isolation, best_isolation)
+			if current_hp < best_hp or (current_hp == best_hp and (higher_threat or (equal_threat and (more_isolated or (equal_isolation and nearer))))):
 				best_index = compare_index
 		if best_index != sort_index:
 			var swap_index := ordered[sort_index]
