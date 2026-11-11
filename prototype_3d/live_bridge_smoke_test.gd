@@ -1179,6 +1179,54 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+	# Switching between 2D and 3D is presentation-only: preserve live selection,
+	# authoritative simulation state, and stable visual proxies across repeated toggles.
+	var preserved_infantry := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
+	var preserved_artillery := bridge.game_unit_nodes.get("player|2|artillery") as Node3D
+	var preserved_enemy := bridge.game_unit_nodes.get("enemy|4|fighter") as Node3D
+	if preserved_infantry == null or preserved_artillery == null or preserved_enemy == null:
+		push_error("Could not locate units for 2D/3D view-switch preservation validation")
+		quit(1)
+		return
+	var preserved_selection: Array[Node3D] = [preserved_infantry, preserved_artillery]
+	bridge.call("_set_live_selection", preserved_selection)
+	bridge.set("attack_target", preserved_enemy)
+	bridge.set("has_selected_destination", true)
+	bridge.set("selected_destination", preserved_infantry.position + Vector3(4.0, 0.0, 0.0))
+	game.set("credits", 875)
+	game.set("player_base_hp", 640)
+	var preserved_unit_position: Vector2 = (game.get("units") as Array)[0].pos
+	var preserved_unit_health: float = float((game.get("units") as Array)[0].hp)
+	for toggle_cycle in range(3):
+		game.call("_set_3d_view_enabled", false)
+		if bridge.visible or bridge.process_mode != Node.PROCESS_MODE_DISABLED:
+			push_error("3D presentation must remain hidden and paused during a 2D toggle cycle")
+			quit(1)
+			return
+		game.call("_set_3d_view_enabled", true)
+		if not bridge.visible or bridge.process_mode == Node.PROCESS_MODE_DISABLED:
+			push_error("3D presentation did not reactivate after a view toggle cycle")
+			quit(1)
+			return
+		var selected_after_toggle: Array = bridge.get("selected_live_units")
+		if selected_after_toggle.size() != 2 or not selected_after_toggle.has(preserved_infantry) or not selected_after_toggle.has(preserved_artillery) or bridge.get("selected_tank") != preserved_infantry:
+			push_error("2D/3D view switching changed the selected friendly unit roster")
+			quit(1)
+			return
+		if bridge.get("attack_target") != preserved_enemy or not bool(bridge.get("has_selected_destination")):
+			push_error("2D/3D view switching discarded the active visual attack target or destination marker state")
+			quit(1)
+			return
+		if bridge.game_unit_nodes.get("player|1|infantry") != preserved_infantry or bridge.game_unit_nodes.get("player|2|artillery") != preserved_artillery:
+			push_error("2D/3D view switching recreated stable live unit proxies")
+			quit(1)
+			return
+		var current_units: Array = game.get("units")
+		if int(game.get("credits")) != 875 or int(game.get("player_base_hp")) != 640 or current_units[0].pos != preserved_unit_position or absf(float(current_units[0].hp) - preserved_unit_health) > 0.001:
+			push_error("Presentation switching mutated authoritative RTS economy, base health, or unit state")
+			quit(1)
+			return
+
 	# Removing a selected live unit must also clear selection and stale attack targets.
 	var selected_before_cleanup := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
 	if selected_before_cleanup == null:
