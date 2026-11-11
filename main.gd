@@ -4277,6 +4277,7 @@ func _unit_repair_max_hp(unit: Dictionary) -> int:
 		"artillery": return 100
 		"fighter": return 120
 		"helicopter": return 180
+		"transport_helicopter": return 250
 		"destroyer": return 260
 		"carrier": return 520
 		"submarine": return 210
@@ -4331,7 +4332,7 @@ func _update_field_repairs(delta: float) -> void:
 		if float(airfield.get("build_progress", 1.0)) < 1.0 or int(airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
 			continue
 		for aircraft in units:
-			if String(aircraft.get("team", "")) != "player" or String(aircraft.get("kind", "")) not in ["fighter", "helicopter"]:
+			if String(aircraft.get("team", "")) != "player" or String(aircraft.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter"]:
 				continue
 			if bool(aircraft.get("carrier_home", false)):
 				continue
