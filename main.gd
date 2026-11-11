@@ -997,7 +997,7 @@ func _process(delta: float) -> void:
 								var air_escort_offset: Vector2 = unit.get("escort_offset", Vector2(42.0, -38.0))
 								var air_escort_position: Vector2 = air_escort_target.pos + air_escort_offset
 								if unit.pos.distance_to(air_escort_position) > 18.0:
-									unit.pos += (air_escort_position - unit.pos).normalized() * delta * (FIGHTER_SPEED if unit.kind == "fighter" else 78.0)
+									unit.pos += (air_escort_position - unit.pos).normalized() * delta * _transport_ai_escort_catchup_speed(String(unit.kind), unit.pos.distance_to(air_escort_position))
 								continue
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
@@ -4719,6 +4719,13 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 		transport["transport_drop_timer"] = 0.0
 		transport.erase("target")
 	return true
+
+
+func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float) -> float:
+	var base_speed := FIGHTER_SPEED if unit_kind == "fighter" else 78.0
+	var distance := maxf(0.0, slot_distance)
+	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
+	return base_speed * catchup_factor
 
 
 func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
