@@ -863,7 +863,9 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		if not is_instance_valid(unit_variant):
 			continue
 		var unit := unit_variant as Node3D
-		var target_variant = unit.get_meta("gameplay_visual_target", unit.global_position)
+		var target_variant: Variant = unit.global_position
+		if unit.has_meta("gameplay_visual_target"):
+			target_variant = unit.get_meta("gameplay_visual_target")
 		var aircraft_kind := String(unit.get_meta("gameplay_unit_kind", unit.get_meta("unit_type", "")))
 		var is_aircraft := aircraft_kind in ["fighter", "helicopter", "transport_helicopter"]
 		var horizontal_travel := 0.0
@@ -3882,7 +3884,9 @@ func _update_infantry_animation(delta: float) -> void:
 				part.rotation.y = lerpf(part.rotation.y, idle_scan, clampf(delta * 2.8, 0.0, 1.0))
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
-			var visual_target = squad.get_meta("gameplay_visual_target", null)
+			var visual_target: Variant = null
+			if squad.has_meta("gameplay_visual_target"):
+				visual_target = squad.get_meta("gameplay_visual_target")
 			if visual_target is Vector3:
 				var remaining_motion := Vector2(visual_target.x - squad.global_position.x, visual_target.z - squad.global_position.z).length()
 				desired_gait = clampf((remaining_motion - 0.025) / 0.22, 0.0, 1.0)
