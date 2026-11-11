@@ -213,6 +213,14 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_terrain_adjusted_damage", exposed_tank, 100)) == 100, "Bunker cover must not protect friendly units outside its radius")
 	game.get("buildings").clear()
 
+	# Ground units use distinct, Zero Hour-style ranges and damage against structures.
+	_expect(is_equal_approx(float(game.call("_ground_building_attack_range", "artillery")), 350.0), "Artillery must attack structures from long standoff range")
+	_expect(is_equal_approx(float(game.call("_ground_building_attack_range", "tank")), 75.0), "Tanks must close to direct-fire structure range")
+	_expect(int(game.call("_ground_building_attack_damage", {"kind": "artillery", "veterancy": 0})) == 48, "Artillery structure damage must preserve its heavy-shell baseline")
+	_expect(int(game.call("_ground_building_attack_damage", {"kind": "tank", "veterancy": 0})) == 32, "Tank structure damage must preserve its direct-fire baseline")
+	_expect(int(game.call("_ground_building_attack_damage", {"kind": "infantry", "veterancy": 0})) == 8, "Infantry structure damage must remain deliberately limited")
+	_expect(int(game.call("_ground_building_attack_damage", {"kind": "tank", "veterancy": 1})) == 35, "Veteran tank crews must gain the established structure-damage bonus")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
