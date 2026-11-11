@@ -3880,8 +3880,12 @@ func _input(event: InputEvent) -> void:
 			drag_end = event.position
 			queue_redraw()
 		return
-	# Ignore emulated mouse events while a finger owns the pointer.
+	# Suppress emulated mouse events while a finger owns the pointer. In 3D
+	# mode the child handles unhandled input, so returning alone would still let
+	# a synthetic mouse click become a second world command.
 	if active_touch_index != -1:
+		if event is InputEventMouseButton or event is InputEventMouseMotion:
+			get_viewport().set_input_as_handled()
 		return
 	if use_3d_view:
 		if battle_result != "":
