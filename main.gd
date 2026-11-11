@@ -3957,17 +3957,22 @@ func _load_selected_infantry_into_transport() -> void:
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
 	var transport_record: Dictionary = transport
-	infantry_indices.sort()
-	infantry_indices.reverse()
-	for remove_index in infantry_indices:
-		if remove_index >= 0 and remove_index < units.size():
-			units.remove_at(remove_index)
+	# Remove only passengers that actually boarded; excess selected infantry stay on the field.
+	var loaded_indices: Array = infantry_indices.slice(0, load_count)
+	loaded_indices.sort()
+	loaded_indices.reverse()
+	for remove_index in loaded_indices:
+		if int(remove_index) >= 0 and int(remove_index) < units.size():
+			units.remove_at(int(remove_index))
 	var updated_transport_index := units.find(transport_record)
 	selected.clear()
 	if updated_transport_index >= 0:
 		selected.append(updated_transport_index)
+	var remaining_infantry := infantry_indices.size() - load_count
 	notice = "تم تحميل %d جندي — الحمولة %d / 8" % [load_count, cargo.size()]
-	notice_time = 2.4
+	if remaining_infantry > 0:
+		notice += " — بقي %d جندي على الأرض" % remaining_infantry
+	notice_time = 2.8
 
 
 func _prepare_transport_rooftop_landing() -> void:
