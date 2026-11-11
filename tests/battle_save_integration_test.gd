@@ -269,6 +269,27 @@ func _run_battle_save_integration_test() -> void:
 
 	game.get("units").clear()
 
+	# Enemy retreat must use a safe rally point, pause recovery under pressure, and rejoin only after rebuilding combat strength.
+	game.set("enemy_base", Vector2.ZERO)
+	game.get("enemy_buildings").clear()
+	game.get("units").assign([
+		{"kind": "tank", "team": "enemy", "hp": 30, "pos": Vector2(300.0, 0.0)},
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(1000.0, 0.0)}
+	])
+	var retreating_tank: Dictionary = game.get("units")[0]
+	_expect(bool(game.call("_update_enemy_retreat", retreating_tank, 1.0)), "Critically damaged enemy armor must enter retreat instead of continuing its assault")
+	_expect(bool(retreating_tank.get("retreating", false)) and retreating_tank["pos"].x < 300.0, "Retreating armor must move toward its safe rally point")
+	retreating_tank["pos"] = Vector2.ZERO
+	retreating_tank["hp"] = 30
+	_expect(bool(game.call("_update_enemy_retreat", retreating_tank, 1.0)) and int(retreating_tank["hp"]) == 40, "Enemy armor must recover at a safe rally point before returning to combat")
+	game.get("units")[1]["pos"] = Vector2(40.0, 0.0)
+	var hp_under_pressure := int(retreating_tank["hp"])
+	_expect(bool(game.call("_update_enemy_retreat", retreating_tank, 1.0)) and int(retreating_tank["hp"]) == hp_under_pressure, "Enemy troops must not regenerate while hostile forces threaten the rally point")
+	game.get("units")[1]["pos"] = Vector2(1000.0, 0.0)
+	retreating_tank["hp"] = 90
+	_expect(not bool(game.call("_update_enemy_retreat", retreating_tank, 1.0)) and not bool(retreating_tank.get("retreating", false)), "Recovered enemy armor must leave retreat state and rejoin the battle at the established recovery threshold")
+	game.get("units").clear()
+
 	# Zero Hour-style armor facing: rear/side exposure takes more damage than a frontal hit.
 	var armored_target: Dictionary = {"kind": "tank", "team": "enemy", "hp": 300, "pos": Vector2.ZERO, "facing": 0.0}
 	var frontal_hit := int(game.call("_player_armor_penetration_damage", armored_target, 100, Vector2(100.0, 0.0)))
