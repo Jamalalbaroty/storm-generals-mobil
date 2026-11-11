@@ -4144,6 +4144,10 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			restored_passenger["facing"] = float(passenger.get("facing", 0.0))
 			restored_passenger["turret_facing"] = float(passenger.get("turret_facing", restored_passenger["facing"]))
 			restored_passenger.erase("attack_target")
+			# Units without a previous player order walk into a safe squad slot after touching down.
+			var had_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
+			if not had_player_order:
+				restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
 		# Resolve a fresh hostile target from its saved position after array changes.
 		if passenger.has("attack_focus_pos"):
 			var focus_pos: Vector2 = passenger["attack_focus_pos"]
@@ -4257,6 +4261,44 @@ func _find_transport_drop_position(center: Vector2, drop_index: int, transport: 
 		if not blocked:
 			return candidate
 	return null
+
+
+func _transport_formation_slot(center: Vector2, drop_index: int, transport: Dictionary, fallback: Vector2) -> Vector2:
+	# Spread the squad into a compact eight-point perimeter after touchdown.
+	var formation_offsets: Array[Vector2] = [
+		Vector2(-66, -38), Vector2(0, -76), Vector2(66, -38), Vector2(76, 28),
+		Vector2(0, 76), Vector2(-76, 28), Vector2(-42, 0), Vector2(42, 0)
+	]
+	var is_rooftop := String(transport.get("transport_landing_type", "ground")) == "rooftop"
+	var safe_rect := _transport_landing_bounds(is_rooftop)
+	for attempt in range(formation_offsets.size()):
+		var candidate: Vector2 = center + formation_offsets[(drop_index + attempt) % formation_offsets.size()]
+		if not safe_rect.has_point(candidate):
+			continue
+		var blocked := false
+		if not is_rooftop:
+			for building in buildings:
+				if int(building.get("hp", 0)) > 0 and building.pos.distance_to(candidate) < 48.0:
+					blocked = true
+					break
+			if not blocked:
+				for building in enemy_buildings:
+					if int(building.get("hp", 0)) > 0 and building.pos.distance_to(candidate) < 48.0:
+						blocked = true
+						break
+		if blocked:
+			continue
+		for occupant in units:
+			if int(occupant.get("hp", 0)) <= 0:
+				continue
+			if String(occupant.get("kind", "")) == "transport_helicopter" and String(occupant.get("team", "")) == "player" and occupant.pos.distance_to(transport.pos) < 2.0:
+				continue
+			if occupant.pos.distance_to(candidate) < 23.0:
+				blocked = true
+				break
+		if not blocked:
+			return candidate
+	return fallback
 
 
 func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> void:
