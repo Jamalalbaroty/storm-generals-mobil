@@ -193,6 +193,30 @@ func _run() -> void:
 	game.get("selected").clear()
 	game.get("units").clear()
 
+	# Boarding requires a landed aircraft and infantry within the physical pickup radius.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(340.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(520.0, 300.0)})
+	game.get("selected").append_array([0, 1, 2])
+	game.call("_load_selected_infantry_into_transport")
+	var boarded_transport: Dictionary = game.get("units")[0]
+	_expect(Array(boarded_transport.get("transport_cargo", [])).size() == 1, "Only nearby selected infantry should board the landed transport")
+	_expect(game.get("units").size() == 2, "Infantry outside the pickup radius must remain on the battlefield")
+	_expect(String(game.get("units")[1].get("kind", "")) == "infantry", "The distant infantry should remain a live field unit")
+
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "inbound", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(320.0, 300.0)})
+	game.get("selected").append_array([0, 1])
+	game.call("_load_selected_infantry_into_transport")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).is_empty(), "An airborne transport must not accept new passengers")
+	_expect(game.get("units").size() == 2, "Rejected boarding must not remove infantry from the battlefield")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
