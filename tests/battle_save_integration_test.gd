@@ -49,6 +49,15 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_next_airfield_recovery_slot", 4)) == 2, "Recovery slot allocator must choose the next free slot when lower slots are occupied")
 	game.get("units").clear()
 
+	# Returning aircraft choose the nearest surviving, completed and powered friendly airfield.
+	game.get("buildings").assign([
+		{"kind": "airfield", "team": "player", "hp": 0, "build_progress": 1.0, "production_id": 4, "pos": Vector2(10.0, 0.0)},
+		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 1.0, "production_id": 9, "pos": Vector2(100.0, 0.0)},
+		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 0.5, "production_id": 10, "pos": Vector2(5.0, 0.0)}
+	])
+	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 1, "Aircraft must bypass a destroyed nearest airfield and select the nearest surviving completed powered field")
+	game.get("buildings").clear()
+
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
 	game.get("units").assign([
 		{"unit_id": "queue_enemy", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
