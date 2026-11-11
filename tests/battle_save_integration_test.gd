@@ -221,6 +221,15 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_ground_building_attack_damage", {"kind": "infantry", "veterancy": 0})) == 8, "Infantry structure damage must remain deliberately limited")
 	_expect(int(game.call("_ground_building_attack_damage", {"kind": "tank", "veterancy": 1})) == 35, "Veteran tank crews must gain the established structure-damage bonus")
 
+	# Aircraft retain distinct structure engagement envelopes and faction-specific attack strength.
+	_expect(is_equal_approx(float(game.call("_air_building_attack_range", "fighter")), 245.0), "Fighters must retain their approved structure attack radius")
+	_expect(is_equal_approx(float(game.call("_air_building_attack_range", "helicopter")), 225.0), "Attack helicopters must retain their closer structure attack radius")
+	_expect(int(game.call("_air_building_attack_damage", {"kind": "fighter"})) == 26, "Fighter structure damage must preserve its baseline")
+	for army_name in ["الصيني", "الأمريكي", "الجيش العربي", "وطن"]:
+		var aircraft_fixture: Dictionary = {"kind": "helicopter", "faction": String(army_name)}
+		_expect(int(game.call("_air_building_attack_damage", aircraft_fixture)) == int(air_profile_contract[army_name]["helicopter_damage"]), "Helicopter structure damage must match its faction profile for " + String(army_name))
+	_expect(int(game.call("_air_building_attack_damage", {"kind": "transport_helicopter"})) == 0, "Transport helicopters must not gain an attack role against structures")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
