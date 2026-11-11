@@ -51,17 +51,19 @@ func _run_battle_save_integration_test() -> void:
 
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
 	game.get("units").assign([
-		{"unit_id": "queue_4", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_enemy", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_2", "kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9}
+		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_other", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9}
 	])
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 1.5), "Takeoff queue must be isolated per airfield")
 	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_1", 4)), "First aircraft in an airfield queue must be allowed to taxi immediately")
 	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "A following aircraft must wait until its same-airfield predecessor clears the launch lane")
-	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 9)), "An aircraft at another airfield must not block this runway")
-	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_4", 4)), "Enemy aircraft must not block the player's airfield queue")
+	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 4)), "A third aircraft must remain behind the second aircraft in the same queue")
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_other", 9)), "An aircraft at another airfield must not block this runway")
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_enemy", 4)), "Enemy aircraft must not block the player's airfield queue")
 	# Losing or depowering the assigned airfield must release recovery and launch queue state.
 	var stranded_aircraft: Dictionary = {
 		"unit_id": "stranded_fighter", "kind": "fighter", "team": "player", "hp": 150,
@@ -72,6 +74,15 @@ func _run_battle_save_integration_test() -> void:
 		"airfield_resume_order": {"air_patrol_points": [Vector2(210.0, 180.0), Vector2(480.0, 210.0)], "air_patrol_index": 1, "air_patrol_resume": true}
 	}
 	game.call("_abandon_airfield_recovery", stranded_aircraft)
+	var lost_airfield_leader: Dictionary = {
+		"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 150,
+		"airfield_sortie_launch": true, "airfield_sortie_ready": true,
+		"airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 0.0,
+		"airfield_resume_order": {"air_patrol_points": [Vector2(100.0, 100.0)], "air_patrol_index": 0, "air_patrol_resume": true}
+	}
+	game.call("_abandon_airfield_recovery", lost_airfield_leader)
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "When the lead aircraft loses its airfield, the second aircraft must become the next queue leader")
+	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 4)), "After promotion, the third aircraft must still wait behind the new queue leader")
 	_expect(not stranded_aircraft.has("airfield_returning") and not stranded_aircraft.has("airfield_landed") and not stranded_aircraft.has("airfield_recovery_id") and not stranded_aircraft.has("airfield_recovery_slot") and not stranded_aircraft.has("airfield_rearm_progress"), "Abandoned recovery must release landing state and its reserved slot")
 	_expect(not stranded_aircraft.has("airfield_sortie_launch") and not stranded_aircraft.has("airfield_sortie_ready") and not stranded_aircraft.has("airfield_sortie_airfield_id") and not stranded_aircraft.has("airfield_sortie_launch_wait"), "Abandoned recovery must release all stale takeoff queue state")
 	_expect(not stranded_aircraft.has("airfield_resume_order") and Array(stranded_aircraft.get("air_patrol_points", [])).size() == 2 and int(stranded_aircraft.get("air_patrol_index", -1)) == 1 and bool(stranded_aircraft.get("air_patrol_resume", false)), "Aircraft must resume its saved patrol mission when the assigned airfield is lost")
