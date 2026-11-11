@@ -121,3 +121,10 @@ The first Godot 4.4 regression run confirmed project import and the existing eco
 ## Implemented sixth slice — in-flight landing reassessment
 
 Autonomous transports now re-evaluate their landing site every 1.25 seconds while inbound, provided the aircraft remains more than 80 pixels from touchdown and no player override is active. The evaluator checks the current destination against live occupancy and threat conditions, then compares it with a fresh plan. It switches targets only when the current site becomes invalid or the alternative scores at least 14 points better and is meaningfully separated, avoiding constant oscillation. Rooftop/ground metadata is updated together with the target. The objective is retained during flight and cleared when insertion completes or the task is cancelled. A regression case places a hostile tank on the current landing footprint and verifies the transport chooses a new site. Godot CI validation for this slice is pending.
+
+
+## Implemented sixth slice — threat-aware autonomous waypoint routing
+
+Autonomous transport sorties now compare a direct flight corridor with four deterministic lateral detours. Each candidate route is sampled along its segments and scored against known living enemy anti-air buildings; route distance adds a small tie-breaking cost so a clear battlefield retains the direct route. The selected waypoint sequence is stored on the transport and consumed by the existing inbound movement loop. If landing-site reassessment changes the destination, the route is rebuilt from the aircraft's current position. Manual player-directed sorties do not receive or follow these AI waypoints.
+
+Regression coverage compares direct and detour exposure around a known anti-air battery and verifies that an unobstructed route remains direct. This code and test have been committed, but this slice must not be marked verified until the GitHub Actions run completes. The route planner is intentionally a first tactical layer: it currently models known anti-air buildings, not terrain occlusion, moving threat prediction, or full graph-based pathfinding.
