@@ -454,6 +454,12 @@ func _run_battle_save_integration_test() -> void:
 		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 0.5, "production_id": 10, "pos": Vector2(5.0, 0.0)}
 	])
 	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 1, "Aircraft must bypass a destroyed nearest airfield and select the nearest surviving completed powered field")
+	var cached_aircraft: Dictionary = {"airfield_cached_index": 1}
+	_expect(int(game.call("_valid_player_airfield_index", cached_aircraft, 9)) == 1, "Aircraft must reuse a cached index while its assigned powered airfield remains valid")
+	game.get("buildings").insert(0, {"kind": "turret", "team": "player", "hp": 300, "build_progress": 1.0, "production_id": 90, "pos": Vector2.ZERO})
+	_expect(int(game.call("_valid_player_airfield_index", cached_aircraft, 9)) == 2 and int(cached_aircraft.get("airfield_cached_index", -1)) == 2, "Aircraft airfield cache must recover safely when building indices shift")
+	game.get("buildings").remove_at(0)
+	_expect(int(game.call("_valid_player_airfield_index", cached_aircraft, 9)) == 1, "Aircraft airfield cache must recover when the building list shifts back")
 	var rerouted_aircraft: Dictionary = {
 		"unit_id": "reroute_1", "kind": "fighter", "team": "player", "hp": 120, "pos": Vector2.ZERO,
 		"airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 2,
