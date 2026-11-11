@@ -574,7 +574,8 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(650.0, 300.0), "3d_sync_id": 83})
 	game.get("selected").clear()
 	game.get("selected").append(2)
-	var priority_assigned := int(game.call("_transport_ai_assign_selected_air_escorts", [0, 1]))
+	var priority_transport_indices: Array[int] = [0, 1]
+	var priority_assigned := int(game.call("_transport_ai_assign_selected_air_escorts", priority_transport_indices))
 	_expect(priority_assigned == 1 and int(game.get("units")[2].get("escort_target_id", -1)) == 81, "The selected escort should protect the more threatened transport when travel distance is comparable")
 	# A live escort should transfer only when another transport is materially more threatened.
 	game.get("units").clear()
