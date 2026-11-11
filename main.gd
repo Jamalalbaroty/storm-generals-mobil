@@ -259,7 +259,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var ny := clampf((world_position.z + world_limit) / (world_limit * 2.0), 0.0, 1.0)
 		_cancel_airfield_recovery(source_unit)
 		var move_destination := Vector2(nx * map_size.x, ny * map_size.y)
-		if order_type == "move" and String(source_unit.get("kind", "")) in ["fighter", "helicopter"]:
+		if order_type == "move" and String(source_unit.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter"]:
 			# Legacy 2D move orders allocate air slots here; 3D formation_move
 			# orders already contain their final per-unit destinations.
 			if air_formation_order_clock <= 0.0 or air_formation_last_center.distance_to(move_destination) > 8.0:
@@ -924,7 +924,7 @@ func _process(delta: float) -> void:
 					if unit.has("air_patrol_points") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 						var patrol_points: Array = unit.get("air_patrol_points", [])
 						if patrol_points.size() >= 2:
-							var patrol_threat_kinds := ["fighter", "helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+							var patrol_threat_kinds := ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
 						var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
 						if patrol_threat >= 0:
 							unit["attack_target"] = patrol_threat
@@ -1129,7 +1129,7 @@ func _process(delta: float) -> void:
 					unit.pos += base_direction * delta * base_speed
 				continue
 			var enemy_target := int(unit.get("attack_target", -1))
-			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or String(units[enemy_target].get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
+			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or String(units[enemy_target].get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 				if unit.has("attack_focus_pos"):
 					enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
 				if enemy_target < 0:
@@ -1228,7 +1228,7 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 	var snapshot_count := mini(units.size(), previous_positions.size())
 	for unit_index in range(snapshot_count):
 		var unit: Dictionary = units[unit_index]
-		if int(unit.get("hp", 0)) <= 0 or String(unit.get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
+		if int(unit.get("hp", 0)) <= 0 or String(unit.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 			continue
 		var previous: Vector2 = previous_positions[unit_index]
 		var resolved: Vector2 = unit.pos
@@ -1263,7 +1263,7 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 
 func _resolve_ground_unit_spacing() -> void:
 	# Keep friendly ground formations readable without changing orders or combat ranges.
-	var excluded_kinds := ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
+	var excluded_kinds := ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
 	for pass_index in range(2):
 		for first_index in range(units.size()):
 			var first: Dictionary = units[first_index]
@@ -1483,7 +1483,7 @@ func _campaign_secondary_objective_met() -> bool:
 			for unit in units:
 				if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
 					continue
-				if String(unit.get("kind", "")) in ["fighter", "helicopter"]:
+				if String(unit.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter"]:
 					has_air = true
 				if String(unit.get("kind", "")) in ["tank", "artillery"]:
 					has_armour = true
@@ -1529,7 +1529,7 @@ func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_bef
 	var air_kills := int(attacker.get("air_kills", 0))
 	var armor_kills := int(attacker.get("armor_kills", 0))
 	var naval_kills := int(attacker.get("naval_kills", 0))
-	if target_kind in ["fighter", "helicopter"]:
+	if target_kind in ["fighter", "helicopter", "transport_helicopter"]:
 		air_kills += 1
 		attacker["air_kills"] = air_kills
 	elif target_kind in ["tank", "artillery"]:
@@ -1559,7 +1559,7 @@ func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_bef
 		notice_time = 3.0
 	var profile_kinds := {
 		"total_kills": 1,
-		"air_kills": 1 if target_kind in ["fighter", "helicopter"] else 0,
+		"air_kills": 1 if target_kind in ["fighter", "helicopter", "transport_helicopter"] else 0,
 		"armor_kills": 1 if target_kind in ["tank", "artillery"] else 0,
 		"naval_kills": 1 if _is_naval_kind(target_kind) else 0
 	}
@@ -1720,7 +1720,7 @@ func _landing_craft_air_threat_target(from_pos: Vector2, team: String) -> int:
 			var threat: Dictionary = units[target_index]
 			if threat.team != opposing_team or threat.get("hp", 0) <= 0:
 				continue
-			if threat.kind not in ["fighter", "helicopter"]:
+			if threat.kind not in ["fighter", "helicopter", "transport_helicopter"]:
 				continue
 			var craft_distance: float = craft.pos.distance_to(threat.pos)
 			if craft_distance > 270.0:
@@ -2399,7 +2399,7 @@ func _nearest_enemy_ground_unit(from_pos: Vector2, max_distance: float) -> int:
 		var candidate: Dictionary = units[i]
 		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
 			continue
-		if String(candidate.get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
+		if String(candidate.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 			continue
 		var distance := from_pos.distance_to(candidate.pos)
 		if distance < best_distance:
@@ -2687,7 +2687,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
 			for passenger_marker in range(int(u.get("passengers", 0))):
 				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
-		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0)))))))
+		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (250.0 if u.kind == "transport_helicopter" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		var veterancy := int(u.get("veterancy", 0))
 		if u.team == "player" and veterancy > 0:
@@ -4953,7 +4953,7 @@ func _update_combat_alerts() -> void:
 			continue
 		var kind := String(contact.get("kind", ""))
 		var distance: float = contact.pos.distance_to(base_pos)
-		if kind in ["fighter", "helicopter"] and distance <= 460.0:
+		if kind in ["fighter", "helicopter", "transport_helicopter"] and distance <= 460.0:
 			hostile_air += 1
 		elif kind in ["tank", "artillery", "infantry"] and distance <= 260.0:
 			hostile_ground += 1
@@ -5172,7 +5172,7 @@ func _enemy_ai_turn() -> void:
 		if player_unit.team != "player" or player_unit.get("hp", 0) <= 0:
 			continue
 		var unit_kind := String(player_unit.get("kind", ""))
-		var is_air_threat := unit_kind == "fighter" or unit_kind == "helicopter"
+		var is_air_threat := unit_kind in ["fighter", "helicopter", "transport_helicopter"]
 		var is_heavy_threat := unit_kind == "tank" or unit_kind == "artillery"
 		var is_infantry_threat := unit_kind == "infantry"
 		if is_air_threat:
