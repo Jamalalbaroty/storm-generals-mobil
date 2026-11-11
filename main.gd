@@ -2166,23 +2166,81 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 
 
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
-	# Anti-air batteries intercept fighters first, then helicopters, without chasing ground units.
-	for preferred_kind in ["fighter", "helicopter"]:
-		var best_index := -1
-		var best_distance := max_distance
-		for candidate_index in range(units.size()):
-			var candidate: Dictionary = units[candidate_index]
-			if String(candidate.get("team", "")) != target_team or int(candidate.get("hp", 0)) <= 0:
+	# Select aircraft that threaten valuable installations, while retaining fighter-first priority.
+	var protected_assets: Array = buildings if target_team == "enemy" else enemy_buildings
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != target_team or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var candidate_kind := String(candidate.get("kind", ""))
+		if candidate_kind not in ["fighter", "helicopter"]:
+			continue
+		var defense_distance: float = from_pos.distance_to(candidate.pos)
+		if defense_distance > max_distance:
+			continue
+		var asset_threat_distance := 520.0
+		var asset_priority := 0.0
+		for asset in protected_assets:
+			if int(asset.get("hp", 0)) <= 0:
 				continue
-			if String(candidate.get("kind", "")) != preferred_kind:
+			var asset_kind := String(asset.get("kind", ""))
+			if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
 				continue
-			var distance: float = from_pos.distance_to(candidate.pos)
-			if distance < best_distance:
-				best_distance = distance
-				best_index = candidate_index
-		if best_index >= 0:
-			return best_index
-	return -1
+			var threat_distance: float = candidate.pos.distance_to(asset.pos)
+			if threat_distance < asset_threat_distance:
+				asset_threat_distance = threat_distance
+				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
+		var kind_priority := 34.0 if candidate_kind == "fighter" else 0.0
+		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
+
+func _enemy_air_defense_build_position() -> Vector2:
+	# Place new batteries around strategic installations and keep them spread apart.
+	var protected_assets: Array = []
+	for building in enemy_buildings:
+		if int(building.get("hp", 0)) > 0 and String(building.get("kind", "")) in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
+			protected_assets.append(building)
+	if protected_assets.is_empty():
+		return _enemy_build_position()
+	var arena_size := get_viewport_rect().size
+	var best_position := Vector2(-1.0, -1.0)
+	var best_score := INF
+	for asset in protected_assets:
+		for attempt in range(10):
+			var angle := randf_range(0.0, TAU)
+			var radius := randf_range(105.0, 145.0)
+			var candidate: Vector2 = asset.pos + Vector2(cos(angle), sin(angle)) * radius
+			candidate.x = clampf(candidate.x, arena_size.x * 0.52, arena_size.x - 65.0)
+			candidate.y = clampf(candidate.y, 105.0, arena_size.y - 105.0)
+			if candidate.distance_to(enemy_base) < 90.0:
+				continue
+			var occupied := false
+			var nearest_battery := INF
+			for existing in enemy_buildings:
+				var existing_kind := String(existing.get("kind", ""))
+				var separation: float = candidate.distance_to(existing.pos)
+				if separation < 82.0:
+					occupied = true
+					break
+				if existing_kind == "anti_air" and int(existing.get("hp", 0)) > 0:
+					nearest_battery = minf(nearest_battery, separation)
+			if occupied:
+				continue
+			var asset_distance: float = candidate.distance_to(asset.pos)
+			var spacing_penalty := maxf(0.0, 145.0 - nearest_battery) * 2.0
+			var score: float = asset_distance + spacing_penalty
+			if score < best_score:
+				best_score = score
+				best_position = candidate
+	if best_position.x < 0.0:
+		return _enemy_build_position()
+	return best_position
 
 
 func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
@@ -4651,14 +4709,16 @@ func _enemy_ai_turn() -> void:
 		return
 	# Prioritize a second anti-air position immediately when the player fields
 	# a substantial air force; do not wait for every optional base structure.
-	if player_air_threat >= 3 and build_pos.x >= 0.0 and enemy_credits >= _building_cost("anti_air"):
+	if player_air_threat >= 3 and enemy_credits >= _building_cost("anti_air"):
 		var live_anti_air_count := 0
 		for existing_building in enemy_buildings:
 			if String(existing_building.get("kind", "")) == "anti_air" and int(existing_building.get("hp", 1)) > 0:
 				live_anti_air_count += 1
 		if live_anti_air_count < 2:
-			enemy_credits -= _building_cost("anti_air")
-			_enemy_add_building("anti_air", build_pos, 380)
+			var air_defense_pos := _enemy_air_defense_build_position()
+			if air_defense_pos.x >= 0.0:
+				enemy_credits -= _building_cost("anti_air")
+				_enemy_add_building("anti_air", air_defense_pos, 380)
 			notice = "العدو يعزز دفاعه بمضاد طائرات عاجل"
 			notice_time = 2.0
 			return
@@ -4703,9 +4763,11 @@ func _enemy_ai_turn() -> void:
 		notice_time = 2.0
 		return
 	# Enemy naval expansion is intentionally disabled in the land-and-air release.
-	if build_pos.x >= 0.0 and not _enemy_has_any_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
-		enemy_credits -= _building_cost("anti_air")
-		_enemy_add_building("anti_air", build_pos, 380)
+	if not _enemy_has_any_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
+		var air_defense_pos := _enemy_air_defense_build_position()
+		if air_defense_pos.x >= 0.0:
+			enemy_credits -= _building_cost("anti_air")
+			_enemy_add_building("anti_air", air_defense_pos, 380)
 		notice = "العدو نشر دفاعاً مضاداً للطائرات"
 		notice_time = 2.0
 		return
