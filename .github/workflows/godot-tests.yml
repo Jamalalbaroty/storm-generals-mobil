@@ -44,7 +44,7 @@ jobs:
         run: timeout 180s godot --headless --path . --script tests/transport_airlift_regression_test.gd
 
       - name: Run combined-arms group formation regression test
-        run: timeout 180s godot --headless --path . --script tests/group_formation_regression_test.gd
+        run: timeout 60s godot --headless --path . --script tests/group_formation_regression_test.gd
 
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
