@@ -1140,7 +1140,7 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 				elif kind == "wall_gate":
 					# The gate keeps a clear central passage; only its two guard pillars block ground traffic.
 					for gate_side in [-1.0, 1.0]:
-						var pillar_center := fortification.pos + Vector2(gate_side * 28.0, 0.0)
+						var pillar_center := fortification.pos + Vector2(gate_side * 38.0, 0.0)
 						resolved = _fortification_resolve_segment(resolved, previous, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), collision_radius + 6.0)
 				elif kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
 					# Ground vehicles and infantry cannot pass through solid defensive structures.
@@ -4756,12 +4756,12 @@ func _draw_building(p: Vector2, kind: String, is_enemy: bool = false, is_capture
 			draw_line(p + Vector2(-31, -10), p + Vector2(10, -10), accent, 4)
 			draw_line(p + Vector2(10, -10), p + Vector2(10, 32), accent, 4)
 		"wall_gate":
-			draw_rect(Rect2(p + Vector2(-34, -18), Vector2(12, 36)), dark)
-			draw_rect(Rect2(p + Vector2(22, -18), Vector2(12, 36)), dark)
-			draw_rect(Rect2(p + Vector2(-31, -16), Vector2(7, 32)), shell)
-			draw_rect(Rect2(p + Vector2(24, -16), Vector2(7, 32)), shell)
-			draw_line(p + Vector2(-28, -17), p + Vector2(28, -17), accent, 4)
-			draw_line(p + Vector2(-18, 10), p + Vector2(18, 10), Color("#d6c18a"), 3)
+			draw_rect(Rect2(p + Vector2(-44, -18), Vector2(12, 36)), dark)
+			draw_rect(Rect2(p + Vector2(32, -18), Vector2(12, 36)), dark)
+			draw_rect(Rect2(p + Vector2(-41, -16), Vector2(7, 32)), shell)
+			draw_rect(Rect2(p + Vector2(34, -16), Vector2(7, 32)), shell)
+			draw_line(p + Vector2(-38, -17), p + Vector2(38, -17), accent, 4)
+			draw_line(p + Vector2(-24, 10), p + Vector2(24, 10), Color("#d6c18a"), 3)
 		"shipyard":
 			draw_rect(Rect2(p + Vector2(-27, -14), Vector2(54, 29)), Color("#354e5a"))
 			draw_rect(Rect2(p + Vector2(-21, -9), Vector2(42, 19)), shell)
@@ -5061,7 +5061,7 @@ func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, prod
 					resolved = _fortification_resolve_segment(candidate, candidate, structure.pos + Vector2(10.0, 0.0), structure.pos + Vector2(10.0, 40.0), unit_radius + 7.0)
 			elif structure_kind == "wall_gate":
 				for gate_side in [-1.0, 1.0]:
-					var pillar_center := structure.pos + Vector2(gate_side * 28.0, 0.0)
+					var pillar_center := structure.pos + Vector2(gate_side * 38.0, 0.0)
 					resolved = _fortification_resolve_segment(resolved, candidate, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), unit_radius + 6.0)
 			elif structure_kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
 				var defense_radius := 22.0 if structure_kind in ["bunker", "missile_silo"] else (19.0 if structure_kind == "missile_defense" else 16.0)
