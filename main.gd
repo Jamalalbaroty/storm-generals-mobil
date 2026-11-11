@@ -4706,6 +4706,7 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 	if transport_indices.is_empty():
 		return 0
 	var escort_counts: Dictionary = {}
+	var escort_members: Dictionary = {}
 	var assigned := 0
 	for selected_index in selected:
 		if selected_index < 0 or selected_index >= units.size() or transport_indices.has(selected_index):
@@ -4751,7 +4752,15 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 		for order_key in ["target", "guard_active", "guard_position", "guard_radius", "attack_move_active", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
 			escort.erase(order_key)
 		escort_counts[best_transport_index] = int(escort_counts.get(best_transport_index, 0)) + 1
+		var members: Array = escort_members.get(best_transport_index, [])
+		members.append(selected_index)
+		escort_members[best_transport_index] = members
 		assigned += 1
+	for transport_index in escort_members.keys():
+		var formation_size := int(escort_counts.get(transport_index, 0))
+		for escort_index in escort_members[transport_index]:
+			if escort_index >= 0 and escort_index < units.size():
+				units[escort_index]["escort_formation_size"] = formation_size
 	return assigned
 
 
