@@ -294,6 +294,15 @@ func _run() -> void:
 	_expect(game.get("units")[1].has("target"), "Distant infantry should receive a movement target near the transport")
 	_expect(Vector2(game.get("units")[1].get("target", Vector2.ZERO)).distance_to(Vector2(300.0, 300.0)) <= 76.0, "The rendezvous target should lie inside the boarding radius")
 
+	# Rescue triage orders casualties by health, then pickup distance for equal-health soldiers.
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(390.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(315.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 25, "pos": Vector2(500.0, 300.0)})
+	var triage_order: Array[int] = game.call("_transport_ai_sort_rescue_infantry", [0, 1, 2], Vector2(300.0, 300.0))
+	_expect(triage_order == [2, 1, 0], "Rescue triage should prioritize the most wounded first, then the nearest casualty at equal health")
+	game.get("units").clear()
+
 	# Wounded infantry board first when capacity is limited.
 	game.get("units").clear()
 	game.get("selected").clear()
