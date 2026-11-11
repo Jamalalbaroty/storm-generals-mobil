@@ -9,12 +9,13 @@ const CAMPAIGN_MISSIONS := [
 	{"name": "حصار المدينة", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية لاختراق دفاعات العدو وتدمير مركز قيادته", "reward": 550, "secondary": "امتلك وحدة جوية ووحدة مدرعة حية على الأقل", "bonus": 200},
 	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750, "secondary": "أنه المعركة مع بقاء 60٪ من صحة قاعدتك", "bonus": 300}
 ]
-const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "التحصينات"]
+const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "التحصينات", "الإنزال الجوي"]
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
-	[23, 24, 25, 26, 27, 28]
+	[23, 24, 25, 26, 27],
+	[28, 29, 30]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -879,12 +880,7 @@ func _process(delta: float) -> void:
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
 				if unit.kind == "transport_helicopter":
-					if unit.has("target"):
-						var transport_move_target: Vector2 = unit.target
-						if unit.pos.distance_to(transport_move_target) > 12.0:
-							unit.pos += (transport_move_target - unit.pos).normalized() * delta * 72.0
-						else:
-							unit.erase("target")
+					_update_transport_helicopter(unit, delta)
 					continue
 				if unit.kind in ["fighter", "helicopter"]:
 					if unit.has("attack_building"):
@@ -2586,7 +2582,10 @@ func _draw() -> void:
 			draw_circle(_unit_rotated_point(u.pos, Vector2(1, -2), heli_angle), 10 if u.kind == "transport_helicopter" else 8, heli_color)
 			if u.kind == "transport_helicopter":
 				draw_rect(Rect2(u.pos + Vector2(-9, -5), Vector2(17, 10)), Color("#5c665e"))
-				draw_line(_unit_rotated_point(u.pos, Vector2(0, 7), heli_angle), _unit_rotated_point(u.pos, Vector2(0, 16), heli_angle), Color("#d7c69b"), 2.0)
+				if String(u.get("transport_state", "")) == "descending":
+					var rope_target: Vector2 = u.get("transport_target_pos", u.pos + Vector2(0, 40))
+					for rope_side in [-5.0, 5.0]:
+						draw_line(_unit_rotated_point(u.pos, Vector2(rope_side, 8), heli_angle), rope_target + Vector2(rope_side, 0), Color("#e1d5b5"), 1.6)
 			draw_colored_polygon(_unit_polygon_points(u.pos, PackedVector2Array([Vector2(8, -4), Vector2(30, -1), Vector2(9, 4)]), heli_angle), heli_color)
 			draw_line(_unit_rotated_point(u.pos, Vector2(-19, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(18, -14), heli_angle), Color("#252b2b"), 4)
 			draw_line(_unit_rotated_point(u.pos, Vector2(0, -14), heli_angle), _unit_rotated_point(u.pos, Vector2(0, -23), heli_angle), Color("#252b2b"), 2)
@@ -2953,7 +2952,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3350,6 +3349,10 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				notice_time = 3.0
 			elif i == 28:
 				_enqueue_unit("transport_helicopter")
+			elif i == 29:
+				_load_selected_infantry_into_transport()
+			elif i == 30:
+				_prepare_transport_rooftop_landing()
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -3370,6 +3373,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			return
 	if build_mode != "":
 		_place_building(pos)
+		queue_redraw()
+		return
+	if _issue_transport_rooftop_order(pos):
 		queue_redraw()
 		return
 	if drag_start.distance_to(pos) > 24.0:
@@ -3883,6 +3889,160 @@ func _sell_selected_building() -> void:
 	notice = "تم بيع المنشأة واسترداد %d من الموارد" % refund
 	notice_time = 2.5
 	queue_redraw()
+
+
+
+func _load_selected_infantry_into_transport() -> void:
+	var transport_index := -1
+	var infantry_indices: Array[int] = []
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var candidate: Dictionary = units[index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) == "transport_helicopter":
+			if transport_index >= 0:
+				notice = "اختر طائرة نقل واحدة فقط"
+				notice_time = 2.0
+				return
+			transport_index = index
+		elif String(candidate.get("kind", "")) == "infantry":
+			infantry_indices.append(index)
+	if transport_index < 0 or infantry_indices.is_empty():
+		notice = "حدد طائرة نقل ومجموعة مشاة لتحميلهم"
+		notice_time = 2.2
+		return
+	var transport: Dictionary = units[transport_index]
+	var cargo: Array = transport.get("transport_cargo", [])
+	var available := 8 - cargo.size()
+	if available <= 0:
+		notice = "طائرة النقل ممتلئة — السعة 8 جنود"
+		notice_time = 2.0
+		return
+	var load_count := mini(available, infantry_indices.size())
+	for n in range(load_count):
+		var passenger: Dictionary = units[infantry_indices[n]]
+		cargo.append({"faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0))})
+	transport["transport_cargo"] = cargo
+	transport["transport_state"] = "loaded"
+	var transport_record: Dictionary = transport
+	infantry_indices.sort()
+	infantry_indices.reverse()
+	for remove_index in infantry_indices:
+		if remove_index >= 0 and remove_index < units.size():
+			units.remove_at(remove_index)
+	var updated_transport_index := units.find(transport_record)
+	selected.clear()
+	if updated_transport_index >= 0:
+		selected.append(updated_transport_index)
+	notice = "تم تحميل %d جندي — الحمولة %d / 8" % [load_count, cargo.size()]
+	notice_time = 2.4
+
+
+func _prepare_transport_rooftop_landing() -> void:
+	var found_transport := false
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		if Array(transport.get("transport_cargo", [])).is_empty():
+			notice = "حمّل الجنود أولاً قبل إصدار أمر الإنزال"
+			notice_time = 2.0
+			return
+		transport["transport_order_pending"] = true
+		found_transport = true
+	if found_transport:
+		notice = "اختر مبنى مكتملاً ليكون سطح الإنزال"
+	else:
+		notice = "حدد طائرة نقل محمّلة بالجنود أولاً"
+	notice_time = 2.4
+
+
+func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("kind", "")) != "transport_helicopter" or not bool(transport.get("transport_order_pending", false)):
+			continue
+		var target_pos := Vector2.ZERO
+		var target_found := false
+		for building in buildings:
+			if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
+				target_pos = building.pos
+				target_found = true
+				break
+		if not target_found:
+			for building in enemy_buildings:
+				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
+					target_pos = building.pos
+					target_found = true
+					break
+		if not target_found:
+			notice = "اختر سطح مبنى مكتملاً وصالحاً للإنزال"
+			notice_time = 2.0
+			return true
+		for occupant in units:
+			if occupant.team == "enemy" and int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(target_pos) < 22.0:
+				notice = "سطح المبنى غير آمن — اختر مبنى آخر"
+				notice_time = 2.2
+				return true
+		transport["transport_target_pos"] = target_pos
+		transport["transport_state"] = "inbound"
+		transport["transport_order_pending"] = false
+		transport["transport_drop_index"] = 0
+		transport["transport_drop_timer"] = 0.0
+		transport.erase("target")
+		notice = "انطلقت طائرة النقل لتنفيذ الإنزال على السطح"
+		notice_time = 2.5
+		return true
+	return false
+
+
+func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
+	var state := String(transport.get("transport_state", "idle"))
+	if state == "inbound":
+		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
+		if transport.pos.distance_to(landing_pos) > 14.0:
+			transport.pos += (landing_pos - transport.pos).normalized() * delta * 72.0
+			transport["facing"] = (landing_pos - transport.pos).angle()
+		else:
+			transport.pos = landing_pos
+			transport["transport_state"] = "descending"
+			transport["transport_drop_timer"] = 0.0
+	elif state == "descending":
+		var cargo: Array = transport.get("transport_cargo", [])
+		if cargo.is_empty():
+			transport["transport_state"] = "idle"
+			transport.erase("transport_target_pos")
+			return
+		transport["transport_drop_timer"] = float(transport.get("transport_drop_timer", 0.0)) + delta
+		if float(transport["transport_drop_timer"]) >= 0.72:
+			transport["transport_drop_timer"] = 0.0
+			var passenger: Dictionary = cargo.pop_front()
+			var drop_index := int(transport.get("transport_drop_index", 0))
+			var offsets := [Vector2(-18, -12), Vector2(18, -12), Vector2(-18, 12), Vector2(18, 12), Vector2(0, -22), Vector2(0, 22), Vector2(-26, 0), Vector2(26, 0)]
+			var drop_pos: Vector2 = transport.get("transport_target_pos", transport.pos) + offsets[drop_index % offsets.size()]
+			units.append({"pos": drop_pos, "team": "player", "kind": "infantry", "faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "attack_cd": 0.0, "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0)), "combat_medals": [], "facing": 0.0, "turret_facing": 0.0})
+			transport["transport_cargo"] = cargo
+			transport["transport_drop_index"] = drop_index + 1
+			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
+			_add_visual_effect("dust", drop_pos, drop_pos, Color("#c5b28b"), 0.42, 8.0)
+			if cargo.is_empty():
+				transport["transport_state"] = "idle"
+				transport.erase("transport_target_pos")
+				notice = "اكتمل الإنزال الجوي — الجنود على سطح المبنى"
+				notice_time = 2.5
+	elif transport.has("target"):
+		var move_target: Vector2 = transport.target
+		if transport.pos.distance_to(move_target) > 12.0:
+			transport.pos += (move_target - transport.pos).normalized() * delta * 72.0
+		else:
+			transport.erase("target")
+
 
 
 
