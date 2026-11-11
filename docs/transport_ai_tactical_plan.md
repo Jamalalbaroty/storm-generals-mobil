@@ -326,3 +326,8 @@ Added a large-delta return-flight case: a transport 230 world units from its air
 ## Large-frame arrival fix
 
 The new boundary regression exposed a one-tick delay: bounded movement reached the final airfield waypoint during a long frame, but the return-state transition was deferred until the next update. The returning transport now checks final-waypoint arrival immediately after its movement step, snaps to the airfield, clears route state, and enters rearming in the same tick. Intermediate detour waypoints still advance normally and cannot skip the remaining route.
+
+
+## Implemented follow-up — critical-damage recovery
+
+Autonomous inbound transports now compare current health with the established 30% aircraft-repair threshold before continuing toward an insertion point. At or below that threshold, the tactical director cancels the drop, clears the stale objective, and routes the aircraft to the nearest valid friendly airfield. If no airfield exists, it stops autonomous flight in a safe loaded/idle state. Passenger records remain aboard in both cases, and the decision reason is recorded as `critical_damage`. Regression cases cover both recovery and no-airfield hold. Android packaging remains deferred until the overall game reaches 80%; this slice must pass the current Godot CI run before it is counted as validated.
