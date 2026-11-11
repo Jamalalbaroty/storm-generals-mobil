@@ -710,6 +710,13 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
 		var altitude := 5.2 if kind in ["helicopter", "transport_helicopter"] else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
+		if kind in ["infantry", "builder", "marine"]:
+			# Drive the combat pose from the authoritative RTS order, not the showcase selection.
+			var has_live_target := record.has("attack_target") and int(record.get("attack_target", -1)) >= 0
+			var has_saved_focus := record.get("attack_focus_pos", null) is Vector2
+			var has_building_target := record.has("attack_building") and int(record.get("attack_building", -1)) >= 0
+			var has_base_target := record.has("attack_base") and int(record.get("attack_base", -1)) >= 0
+			unit.set_meta("gameplay_is_aiming", has_live_target or has_saved_focus or has_building_target or has_base_target)
 		if kind == "transport_helicopter":
 			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
 			altitude += _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0
@@ -3844,7 +3851,9 @@ func _update_infantry_animation(delta: float) -> void:
 			continue
 		var legs: Array = infantry_leg_pairs[soldier_variant]
 		var squad := soldier.get_parent() as Node3D
-		var is_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
+		var showcase_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
+		var gameplay_aiming := is_instance_valid(squad) and bool(squad.get_meta("gameplay_is_aiming", false))
+		var is_aiming := showcase_aiming or gameplay_aiming
 		var crouch_target := 0.12 if is_aiming else 0.0
 		var crouch_blend := clampf(delta * 7.0, 0.0, 1.0)
 		for part_name in ["InfantryBody", "InfantryHead", "InfantryHelmet"]:
