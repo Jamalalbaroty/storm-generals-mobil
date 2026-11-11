@@ -128,7 +128,7 @@ func _run() -> void:
 	for stage_count in [8, 16, 24]:
 		for team in ["player", "enemy"]:
 			for stage_index in range(8):
-				var unit_number := (stage_count - 8) + stage_index
+				var unit_number: int = int(stage_count) - 8 + stage_index
 				var unit_kind := "tank"
 				if unit_number % 4 == 2:
 					unit_kind = "fighter"
