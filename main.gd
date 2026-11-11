@@ -4186,6 +4186,7 @@ func _load_selected_infantry_into_transport() -> void:
 			var rendezvous_unit: Dictionary = units[rendezvous_index]
 			var rendezvous_pos: Vector2 = transport.pos + rendezvous_offsets[n % rendezvous_offsets.size()]
 			rendezvous_unit["target"] = Vector2(clampf(rendezvous_pos.x, 24.0, map_size.x - 24.0), clampf(rendezvous_pos.y, 24.0, map_size.y - 48.0))
+			rendezvous_unit["transport_pickup_rendezvous"] = true
 		notice = "تتحرك فرقة المشاة إلى نقطة الإخلاء — أعد أمر التحميل عند وصولها"
 		notice_time = 3.0
 		return
@@ -4205,6 +4206,10 @@ func _load_selected_infantry_into_transport() -> void:
 		cargo_entry["kind"] = "infantry"
 		cargo_entry["hp"] = int(passenger.get("hp", 100))
 		cargo_entry["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
+		# Do not replay the temporary rendezvous movement after the soldier is redeployed.
+		if bool(passenger.get("transport_pickup_rendezvous", false)):
+			cargo_entry.erase("target")
+			cargo_entry.erase("transport_pickup_rendezvous")
 		cargo_entry["cargo_attack_cd"] = randf_range(0.0, 0.35)
 		# Array indices are not stable while passengers are removed; preserve the target position instead.
 		cargo_entry.erase("attack_target")
