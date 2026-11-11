@@ -4278,7 +4278,7 @@ func _load_selected_infantry_into_transport() -> void:
 			Vector2(-68.0, 0.0), Vector2(68.0, 0.0), Vector2(0.0, -58.0), Vector2(0.0, 58.0)
 		]
 		for n in range(selected_infantry_indices.size()):
-			var rendezvous_index := selected_infantry_indices[n]
+			var rendezvous_index: int = int(selected_infantry_indices[n])
 			if rendezvous_index < 0 or rendezvous_index >= units.size():
 				continue
 			var rendezvous_unit: Dictionary = units[rendezvous_index]
@@ -4612,7 +4612,7 @@ func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Arra
 	if direction.length() > 1.0:
 		var perpendicular := Vector2(-direction.normalized().y, direction.normalized().x)
 		for offset in [150.0, -150.0, 380.0, -380.0]:
-			var waypoint := start_pos.lerp(landing_pos, 0.5) + perpendicular * offset
+			var waypoint: Vector2 = start_pos.lerp(landing_pos, 0.5) + perpendicular * float(offset)
 			var safe_bounds := _transport_landing_bounds(false)
 			waypoint.x = clampf(waypoint.x, safe_bounds.position.x, safe_bounds.end.x)
 			waypoint.y = clampf(waypoint.y, safe_bounds.position.y, safe_bounds.end.y)
@@ -4905,7 +4905,7 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 			var other: Dictionary = units[other_index]
 			if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == candidate_id and int(other.get("hp", 0)) > 0:
 				assigned_count += 1
-		var cost := escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0
+		var cost: float = escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0
 		if cost < best_cost:
 			best_cost = cost
 			best_transport_index = transport_index
@@ -4959,7 +4959,7 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 			if sync_id < 0 or String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
 				continue
 			var assigned_count := int(escort_counts.get(transport_index, 0))
-			var cost := escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0
+			var cost: float = escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0
 			if cost < best_cost:
 				best_cost = cost
 				best_transport_index = transport_index
