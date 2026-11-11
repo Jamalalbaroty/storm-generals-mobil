@@ -4862,6 +4862,14 @@ func _update_showcase_combat(delta: float) -> void:
 	var pivot := showcase_turrets[tank_index]
 	var target_position := attack_target.global_position + Vector3.UP * 1.0
 	pivot.look_at(target_position, Vector3.UP)
+	if str(selected_tank.get_meta("unit_type", "tank")) == "infantry":
+		# Aim each soldier's own weapon without rotating the squad formation.
+		for soldier_variant in selected_tank.get_children():
+			if not soldier_variant is Node3D:
+				continue
+			var weapon_variant = soldier_variant.get_node_or_null("InfantryWeapon")
+			if weapon_variant is Node3D:
+				(weapon_variant as Node3D).look_at(target_position, Vector3.UP)
 	attack_cooldown -= delta
 	if attack_cooldown > 0.0:
 		return
