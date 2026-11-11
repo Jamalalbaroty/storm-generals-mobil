@@ -224,14 +224,18 @@ func _redirect_aircraft_recovery(unit: Dictionary, failed_airfield_id: int) -> b
 		unit.erase(state_key)
 	unit["airfield_returning"] = true
 	unit["airfield_recovery_id"] = alternate_id
-	unit["airfield_recovery_slot"] = _next_airfield_recovery_slot(alternate_id)
 	unit["airfield_rearm_progress"] = float(unit.get("airfield_rearm_progress", 0.0))
-	# Persist the redirected state in the live unit array before the next aircraft reserves a slot.
+	# Publish the new field assignment before calculating a slot, so subsequent aircraft see it.
 	var redirected_unit_id := String(unit.get("unit_id", ""))
+	var redirected_unit_index := -1
 	for unit_index in range(units.size()):
 		if String(units[unit_index].get("unit_id", "")) == redirected_unit_id:
+			redirected_unit_index = unit_index
 			units[unit_index] = unit
 			break
+	unit["airfield_recovery_slot"] = _next_airfield_recovery_slot(alternate_id)
+	if redirected_unit_index >= 0:
+		units[redirected_unit_index] = unit
 	return true
 
 
