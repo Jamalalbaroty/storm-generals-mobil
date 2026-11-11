@@ -4592,7 +4592,9 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			# Units without a previous player order walk into a safe squad slot after touching down.
 			var had_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
 			if not had_player_order:
-				restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
+				var doctrine_applied := _transport_ai_apply_post_drop_doctrine(restored_passenger, transport, landing_center)
+				if not doctrine_applied:
+					restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
 			# Resolve a fresh hostile target from its saved position after array changes.
 			if passenger.has("attack_focus_pos"):
 				var focus_pos: Vector2 = passenger["attack_focus_pos"]
@@ -4708,6 +4710,28 @@ func _find_transport_drop_position(center: Vector2, drop_index: int, transport: 
 		if not blocked:
 			return candidate
 	return null
+
+
+func _transport_ai_apply_post_drop_doctrine(passenger: Dictionary, transport: Dictionary, landing_center: Vector2) -> bool:
+	# Autonomous sorties default to a local defensive perimeter; player orders always win.
+	if _transport_ai_control_mode(transport) != "AUTONOMOUS":
+		return false
+	var has_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
+	if has_player_order:
+		return false
+	var doctrine := String(transport.get("transport_ai_post_drop_doctrine", "DEFEND")).to_upper()
+	if doctrine != "DEFEND":
+		return false
+	passenger["guard_position"] = landing_center
+	passenger["guard_radius"] = 155.0
+	passenger["guard_active"] = true
+	passenger.erase("target")
+	passenger.erase("attack_target")
+	passenger.erase("attack_focus_pos")
+	passenger.erase("attack_building")
+	passenger.erase("attack_base")
+	passenger.erase("attack_move_active")
+	return true
 
 
 func _transport_formation_slot(center: Vector2, drop_index: int, transport: Dictionary, fallback: Vector2) -> Vector2:
