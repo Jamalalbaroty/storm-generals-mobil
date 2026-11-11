@@ -978,7 +978,21 @@ func _process(delta: float) -> void:
 									unit.erase("attack_focus_pos")
 								unit.erase("escort_auto_target")
 						else:
-							var air_escort_target: Dictionary = units[air_escort_index]
+							# Re-evaluate transport protection periodically; the reassigner applies hysteresis and respects player orders.
+							if String(unit.get("escort_target_kind", "")) == "transport_helicopter":
+								var rebalance_timer := float(unit.get("escort_rebalance_timer", 0.0)) - delta
+								if rebalance_timer <= 0.0:
+									unit["escort_rebalance_timer"] = 2.5
+									if _transport_ai_reassign_air_escort(i):
+										air_escort_id = int(unit.get("escort_target_id", -1))
+										air_escort_index = -1
+										for refreshed_index in range(units.size()):
+											var refreshed_transport: Dictionary = units[refreshed_index]
+											if String(refreshed_transport.get("team", "")) == "player" and String(refreshed_transport.get("kind", "")) == "transport_helicopter" and int(refreshed_transport.get("hp", 0)) > 0 and int(refreshed_transport.get("3d_sync_id", -1)) == air_escort_id:
+												air_escort_index = refreshed_index
+												break
+							if air_escort_index >= 0:
+								var air_escort_target: Dictionary = units[air_escort_index]
 							var escort_anchor_pos := _transport_ai_escort_anchor_position(air_escort_target)
 							var escort_enemy_index := int(unit.get("attack_target", -1))
 							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, escort_anchor_pos, units[escort_enemy_index].pos)):
@@ -4935,6 +4949,11 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 		return false
 	if String(escort.get("escort_target_kind", "")) != "transport_helicopter":
 		return false
+	# Never redirect a player-issued attack or base-strike order during automatic balancing.
+	if escort.has("attack_building") or bool(escort.get("attack_base", false)) or (escort.has("attack_target") and not bool(escort.get("escort_auto_target", false))):
+		return false
+	var current_target_id := int(escort.get("escort_target_id", -1))
+	var current_cost := INF
 	var best_transport_index := -1
 	var best_cost := INF
 	for transport_index in range(units.size()):
@@ -4953,10 +4972,17 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 				assigned_count += 1
 		var threat_priority := _transport_ai_transport_threat_score(candidate) * 45.0
 		var cost: float = escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0 - threat_priority
+		if candidate_id == current_target_id:
+			current_cost = cost
 		if cost < best_cost:
 			best_cost = cost
 			best_transport_index = transport_index
 	if best_transport_index < 0:
+		return false
+	# Hysteresis prevents oscillation: transfer only for a meaningful improvement.
+	if current_cost < INF and int(units[best_transport_index].get("3d_sync_id", -1)) == current_target_id:
+		return false
+	if current_cost < INF and best_cost + 70.0 >= current_cost:
 		return false
 	var new_target: Dictionary = units[best_transport_index]
 	var new_target_id := int(new_target.get("3d_sync_id", -1))
