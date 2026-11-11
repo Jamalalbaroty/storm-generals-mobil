@@ -55,6 +55,12 @@ func _run() -> void:
 	_expect(String(first_choice.get("site_id", "")) == "alpha", "Equal-score and equal-distance sites must use stable lexical ID tie-break")
 	_expect(String(first_choice.get("site_id", "")) == String(second_choice.get("site_id", "")), "Identical inputs must produce identical landing decisions")
 
+	var hovering_transport := {"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(600.0, 250.0)}
+	game.get("units").append(hovering_transport)
+	var transport_clearance: Dictionary = game.call("_transport_ai_evaluate_landing_site", {"id": "under_own_transport", "pos": Vector2(600.0, 250.0), "landing_type": "ground"}, objective)
+	_expect(bool(transport_clearance.get("valid", false)), "A friendly transport helicopter must not block its own landing-site evaluation")
+	game.get("units").clear()
+
 	# The tactical director must be able to derive candidates from the live map.
 	var generated_candidates: Array = game.call("_transport_ai_build_landing_candidates", objective)
 	_expect(not generated_candidates.is_empty(), "Candidate generation should produce ground landing options on a normal map")
