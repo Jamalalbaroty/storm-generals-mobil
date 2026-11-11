@@ -106,6 +106,17 @@ func _validate_snapshot(snapshot: Dictionary) -> bool:
 		return false
 	if not snapshot["units"] is Array or not snapshot["buildings"] is Array or not snapshot["enemy_buildings"] is Array or not snapshot["production_orders"] is Array or not snapshot["missiles"] is Array:
 		return false
+	var match_state: Dictionary = snapshot["match"]
+	for numeric_key in ["credits", "supplies", "enemy_supplies", "income_timer", "enemy_credits", "enemy_income_timer", "enemy_timer", "enemy_missile_timer", "player_base_hp", "enemy_base_hp", "next_unit_identity", "next_building_production_id"]:
+		if match_state.has(numeric_key) and not _is_finite_number(match_state[numeric_key]):
+			return false
+	for position_key in ["base_pos", "enemy_base"]:
+		if match_state.has(position_key) and not _is_valid_position(match_state[position_key]):
+			return false
+	if int(match_state.get("credits", 0)) < 0 or int(match_state.get("enemy_credits", 0)) < 0 or int(match_state.get("supplies", 0)) < 0 or int(match_state.get("enemy_supplies", 0)) < 0:
+		return false
+	if int(match_state.get("player_base_hp", 0)) < 0 or int(match_state.get("enemy_base_hp", 0)) < 0:
+		return false
 	var seen_ids: Dictionary = {}
 	for unit_variant in snapshot["units"]:
 		if not unit_variant is Dictionary:
@@ -123,21 +134,77 @@ func _validate_snapshot(snapshot: Dictionary) -> bool:
 				return false
 	for building_array_key in ["buildings", "enemy_buildings"]:
 		for building_variant in snapshot[building_array_key]:
-			if not building_variant is Dictionary:
+			if not building_variant is Dictionary or not _validate_building(building_variant):
 				return false
 	for order_variant in snapshot["production_orders"]:
-		if not order_variant is Dictionary:
+		if not order_variant is Dictionary or not _validate_production_order(order_variant):
+			return false
+	for missile_variant in snapshot["missiles"]:
+		if not missile_variant is Dictionary or not _validate_missile(missile_variant):
 			return false
 	return true
 
 
+func _is_finite_number(value: Variant) -> bool:
+	if not (value is int or value is float):
+		return false
+	return is_finite(float(value))
+
+
+func _is_valid_position(value: Variant) -> bool:
+	if not value is Vector2:
+		return false
+	var position: Vector2 = value
+	return is_finite(position.x) and is_finite(position.y)
+
+
 func _validate_unit_identity(unit: Dictionary, seen_ids: Dictionary) -> bool:
 	var unit_id := String(unit.get("unit_id", ""))
-	if unit_id.is_empty() or seen_ids.has(unit_id):
+	var kind := String(unit.get("kind", ""))
+	var team := String(unit.get("team", ""))
+	if unit_id.is_empty() or seen_ids.has(unit_id) or kind.is_empty() or team not in ["player", "enemy"]:
 		return false
-	if not unit.has("kind") or not unit.has("team") or not unit.has("hp") or not unit.has("pos"):
+	if not unit.has("hp") or not _is_finite_number(unit["hp"]) or float(unit["hp"]) < 0.0:
 		return false
-	if not unit["pos"] is Vector2:
+	if not unit.has("pos") or not _is_valid_position(unit["pos"]):
 		return false
 	seen_ids[unit_id] = true
+	return true
+
+
+func _validate_building(building: Dictionary) -> bool:
+	if String(building.get("kind", "")).is_empty():
+		return false
+	if not building.has("hp") or not _is_finite_number(building["hp"]) or float(building["hp"]) < 0.0:
+		return false
+	if not building.has("pos") or not _is_valid_position(building["pos"]):
+		return false
+	if building.has("build_progress"):
+		if not _is_finite_number(building["build_progress"]) or float(building["build_progress"]) < 0.0 or float(building["build_progress"]) > 1.0:
+			return false
+	return true
+
+
+func _validate_production_order(order: Dictionary) -> bool:
+	if String(order.get("kind", "")).is_empty() or not _is_valid_position(order.get("producer_pos", null)):
+		return false
+	for numeric_key in ["remaining", "duration"]:
+		if not order.has(numeric_key) or not _is_finite_number(order[numeric_key]) or float(order[numeric_key]) < 0.0:
+			return false
+	if float(order["duration"]) <= 0.0 or float(order["remaining"]) > float(order["duration"]):
+		return false
+	if order.has("producer_id") and not (order["producer_id"] is int):
+		return false
+	return true
+
+
+func _validate_missile(missile: Dictionary) -> bool:
+	if not _is_valid_position(missile.get("pos", null)) or not _is_valid_position(missile.get("target", null)):
+		return false
+	if String(missile.get("team", "")) not in ["player", "enemy"]:
+		return false
+	if not missile.has("damage") or not _is_finite_number(missile["damage"]) or float(missile["damage"]) <= 0.0:
+		return false
+	if missile.has("life") and (not _is_finite_number(missile["life"]) or float(missile["life"]) < 0.0):
+		return false
 	return true
