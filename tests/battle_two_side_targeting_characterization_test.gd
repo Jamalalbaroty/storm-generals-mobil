@@ -26,7 +26,7 @@ func _run() -> void:
 		{"team": "player", "kind": "helicopter", "hp": 120, "pos": Vector2(300.0, 100.0)}
 	])
 
-	_expect(int(game.call("_nearest_player_unit", Vector2(0.0, 100.0))) == 0, "Enemy target search must select the nearest living player unit")
+	_expect(int(game.call("_nearest_player_unit", Vector2(100.0, 100.0))) == 0, "Enemy target search must select the nearest living player unit")
 	_expect(int(game.call("_nearest_enemy_unit", Vector2(0.0, 100.0), 200.0)) == 2, "Player target search must select the nearest living enemy, including air units")
 	_expect(int(game.call("_nearest_enemy_unit", Vector2(0.0, 100.0), 200.0, true)) == 2, "Air-only target search must retain fighter targets")
 	_expect(int(game.call("_nearest_enemy_ground_unit", Vector2(0.0, 100.0), 200.0)) == 1, "Ground target search must ignore aircraft, dead units, and retreating units")
