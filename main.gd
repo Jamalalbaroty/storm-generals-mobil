@@ -1934,7 +1934,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 				_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 				_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-				_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
+				_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
 				unit["attack_cd"] = 2.4
 			else:
 				var hp_before := int(threat.get("hp", 0))
@@ -4605,7 +4605,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 					_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 					_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 					_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-					_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
+					_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
 					unit["attack_cd"] = 2.4
 				else:
 					var hp_before := int(threat.get("hp", 0))
