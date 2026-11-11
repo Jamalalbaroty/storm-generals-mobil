@@ -5617,6 +5617,7 @@ func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_thr
 	# A small hysteresis margin prevents doctrine flicker when unit counts fluctuate.
 	var threat_scores := {
 		"air_control": float(air_threat) * 3.0,
+		"naval_control": float(naval_threat) * 4.0,
 		"armor_breaker": float(heavy_ground_threat) * 2.5,
 		"area_denial": float(infantry_threat) * 1.1
 	}
