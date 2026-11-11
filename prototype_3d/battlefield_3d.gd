@@ -3819,26 +3819,27 @@ func _update_infantry_animation(delta: float) -> void:
 			continue
 		var legs: Array = infantry_leg_pairs[soldier_variant]
 		var squad := soldier.get_parent() as Node3D
-		var is_walking := false
+		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
 			if visual_target is Vector3:
 				var remaining_motion := Vector2(visual_target.x - squad.global_position.x, visual_target.z - squad.global_position.z).length()
-				is_walking = remaining_motion > 0.045
-			else:
-				is_walking = squad == selected_showcase_squad
-		var phase := infantry_gait_clock * 9.0 + float(soldier.get_instance_id() % 7)
+				desired_gait = clampf((remaining_motion - 0.025) / 0.22, 0.0, 1.0)
+			elif squad == selected_showcase_squad:
+				desired_gait = 1.0
+		var gait_intensity := float(soldier.get_meta("infantry_gait_intensity", 0.0))
+		gait_intensity = move_toward(gait_intensity, desired_gait, delta * 5.0)
+		soldier.set_meta("infantry_gait_intensity", gait_intensity)
+		var phase := infantry_gait_clock * lerpf(6.0, 9.0, gait_intensity) + float(soldier.get_instance_id() % 7)
 		for leg_index in range(legs.size()):
 			var leg_variant = legs[leg_index]
 			if not is_instance_valid(leg_variant):
 				continue
 			var leg := leg_variant as Node3D
 			if is_instance_valid(leg):
-				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * (0.52 if is_walking else 0.025)
-		if is_walking:
-			soldier.position.y = sin(phase * 2.0) * 0.025
-		else:
-			soldier.position.y = 0.0
+				var stride := lerpf(0.025, 0.52, gait_intensity)
+				leg.rotation.x = sin(phase + (PI if leg_index == 1 else 0.0)) * stride
+		soldier.position.y = sin(phase * 2.0) * 0.025 * gait_intensity
 
 func _add_placeholder_tank(at: Vector3, faction_color: Color, faction_id: String) -> void:
 	var tank := Node3D.new()
