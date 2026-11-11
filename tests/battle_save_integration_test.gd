@@ -81,6 +81,16 @@ func _run_battle_save_integration_test() -> void:
 	game.get("units").clear()
 	game.get("units").clear()
 	game.get("buildings").clear()
+	var stranded_aircraft: Dictionary = {
+		"unit_id": "reroute_no_field", "kind": "fighter", "team": "player", "hp": 120, "pos": Vector2.ZERO,
+		"airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 2,
+		"airfield_resume_order": {"air_patrol_points": [Vector2(120.0, 140.0)], "air_patrol_index": 0, "air_patrol_resume": true}
+	}
+	game.get("units").assign([stranded_aircraft])
+	_expect(not bool(game.call("_redirect_aircraft_recovery", stranded_aircraft, 4)), "Aircraft must abandon recovery when no powered alternate airfield exists")
+	_expect(not stranded_aircraft.has("airfield_returning") and not stranded_aircraft.has("airfield_recovery_slot"), "Failed rerouting must release all stale recovery state")
+	_expect(stranded_aircraft.has("air_patrol_points") and bool(stranded_aircraft.get("air_patrol_resume", false)), "Failed rerouting must restore the aircraft original patrol order")
+	game.get("units").clear()
 
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
 	game.get("units").assign([
