@@ -37,6 +37,15 @@ func _run() -> void:
 	_expect(String(chosen.get("site_id", "")) == "safe", "Prefer the site with lower known anti-air exposure")
 
 	game.get("enemy_buildings").clear()
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(600.0, 250.0)})
+	var mobile_threat_candidates: Array[Dictionary] = [
+		{"id": "near_hostiles", "pos": Vector2(500.0, 250.0), "landing_type": "ground"},
+		{"id": "outside_hostile_range", "pos": Vector2(900.0, 250.0), "landing_type": "ground"}
+	]
+	var mobile_threat_choice: Dictionary = game.call("_transport_ai_choose_landing_site", mobile_threat_candidates, Vector2(700.0, 250.0))
+	_expect(String(mobile_threat_choice.get("site_id", "")) == "outside_hostile_range", "Prefer landing sites outside nearby mobile enemy threat range")
+	game.get("units").clear()
+
 	var tied_candidates: Array[Dictionary] = [
 		{"id": "bravo", "pos": Vector2(400.0, 250.0), "landing_type": "ground"},
 		{"id": "alpha", "pos": Vector2(800.0, 250.0), "landing_type": "ground"}
