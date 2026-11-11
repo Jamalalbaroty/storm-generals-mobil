@@ -3440,6 +3440,16 @@ func _input(event: InputEvent) -> void:
 	# Track one finger for the full press/drag/release cycle. Secondary fingers
 	# must not steal a selection or accidentally activate a different command.
 	if event is InputEventScreenTouch:
+		# Android may cancel an active touch when the app is interrupted or the
+		# system takes focus. Abort the gesture instead of treating it as a tap.
+		if event.canceled:
+			if event.index != active_touch_index:
+				return
+			dragging = false
+			active_touch_index = -1
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+			return
 		if event.pressed:
 			if active_touch_index != -1:
 				return
