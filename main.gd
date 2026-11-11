@@ -218,6 +218,8 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 				restored_building = building_index
 				break
 		if restored_building >= 0:
+			unit.erase("attack_target")
+			unit.erase("attack_focus_pos")
 			unit["attack_building"] = restored_building
 
 
@@ -860,6 +862,7 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
+						_restore_aircraft_resume_order(unit)
 					else:
 						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
 						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
