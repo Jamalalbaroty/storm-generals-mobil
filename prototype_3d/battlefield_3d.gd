@@ -3808,7 +3808,7 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 
 func _update_infantry_animation(delta: float) -> void:
 	infantry_gait_clock += delta
-	var moving_squad: Node3D = selected_tank if has_selected_destination and is_instance_valid(selected_tank) else null
+	var selected_showcase_squad: Node3D = selected_tank if has_selected_destination and is_instance_valid(selected_tank) else null
 	for soldier_variant in infantry_leg_pairs.keys():
 		if not is_instance_valid(soldier_variant):
 			infantry_leg_pairs.erase(soldier_variant)
@@ -3818,7 +3818,15 @@ func _update_infantry_animation(delta: float) -> void:
 			infantry_leg_pairs.erase(soldier_variant)
 			continue
 		var legs: Array = infantry_leg_pairs[soldier_variant]
-		var is_walking := soldier.get_parent() == moving_squad
+		var squad := soldier.get_parent() as Node3D
+		var is_walking := false
+		if is_instance_valid(squad):
+			var visual_target = squad.get_meta("gameplay_visual_target", null)
+			if visual_target is Vector3:
+				var remaining_motion := Vector2(visual_target.x - squad.global_position.x, visual_target.z - squad.global_position.z).length()
+				is_walking = remaining_motion > 0.045
+			else:
+				is_walking = squad == selected_showcase_squad
 		var phase := infantry_gait_clock * 9.0 + float(soldier.get_instance_id() % 7)
 		for leg_index in range(legs.size()):
 			var leg_variant = legs[leg_index]
