@@ -2985,10 +2985,10 @@ func _draw_hud(size: Vector2) -> void:
 		var doctrine_rect := _transport_ai_doctrine_rect(size_for_transport)
 		var mode_label := _selected_transport_mode_label()
 		var doctrine_label := _selected_transport_doctrine_label()
-		draw_rect(mode_rect, Color("#173b4b", 0.96), true)
+		draw_rect(mode_rect, Color(0.07, 0.18, 0.23, 0.96), true)
 		draw_rect(mode_rect, Color("#83d9f4"), false, 1.2)
 		draw_string(ThemeDB.fallback_font, mode_rect.position + Vector2(5, 21), mode_label, HORIZONTAL_ALIGNMENT_CENTER, mode_rect.size.x - 10, 11, Color.WHITE)
-		draw_rect(doctrine_rect, Color("#3b3421", 0.96), true)
+		draw_rect(doctrine_rect, Color(0.23, 0.20, 0.13, 0.96), true)
 		draw_rect(doctrine_rect, Color("#d8b75e"), false, 1.2)
 		draw_string(ThemeDB.fallback_font, doctrine_rect.position + Vector2(5, 21), doctrine_label, HORIZONTAL_ALIGNMENT_CENTER, doctrine_rect.size.x - 10, 11, Color.WHITE)
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
