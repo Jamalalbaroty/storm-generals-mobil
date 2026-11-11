@@ -773,17 +773,22 @@ func _process(delta: float) -> void:
 			var building: Dictionary = enemy_buildings[defense_index]
 			if not _is_enemy_building_powered(defense_index):
 				continue
-			if building.kind == "turret" or building.kind == "anti_air":
+			if building.kind == "turret" or building.kind == "anti_air" or building.kind == "bunker":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var target := _priority_air_target(building.pos, "player", 320.0) if building.kind == "anti_air" else _nearest_player_unit(building.pos)
-				var max_range := 320.0 if building.kind == "anti_air" else 230.0
+				var is_enemy_bunker := String(building.get("kind", "")) == "bunker"
+				var enemy_bunker_level := maxi(1, int(building.get("level", 1))) if is_enemy_bunker else 1
+				var enemy_bunker_range := 185.0 + float(enemy_bunker_level - 1) * 30.0
+				var target := _nearest_player_ground_unit(building.pos, enemy_bunker_range) if is_enemy_bunker else (_priority_air_target(building.pos, "player", 320.0) if building.kind == "anti_air" else _nearest_player_unit(building.pos))
+				var max_range := enemy_bunker_range if is_enemy_bunker else (320.0 if building.kind == "anti_air" else 230.0)
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
 					building["defense_target_pos"] = units[target].pos
-					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], 34 if building.kind == "anti_air" else 16))
+					var enemy_defense_damage := 22 + (enemy_bunker_level - 1) * 5 if is_enemy_bunker else (34 if building.kind == "anti_air" else 18)
+					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], enemy_defense_damage))
+					var enemy_defense_color := Color("#c8b58a") if is_enemy_bunker else (Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb66f"))
 					var enemy_defense_effect_kind := "air_missile" if building.kind == "anti_air" else "tracer"
-					_add_visual_effect(enemy_defense_effect_kind, building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.22 if building.kind == "anti_air" else 0.16, 0.0)
-					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
-					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
+					_add_visual_effect(enemy_defense_effect_kind, building.pos, units[target].pos, enemy_defense_color, 0.22 if building.kind == "anti_air" else 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, enemy_defense_color, 0.22, 13.0)
+					building.attack_cd = maxf(0.85, 1.15 - float(enemy_bunker_level - 1) * 0.10) if is_enemy_bunker else (0.65 if building.kind == "anti_air" else 0.8)
 		var enemy_ground_focus := _select_enemy_ground_assault_target()
 		var wall_collision_origins: Array[Vector2] = []
 		for movement_snapshot in units:
