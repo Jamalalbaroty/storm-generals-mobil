@@ -52,6 +52,7 @@ func _run() -> void:
 	_expect(group_site_a.distance_to(group_site_b) >= 96.0 and group_site_a.distance_to(group_site_c) >= 96.0 and group_site_b.distance_to(group_site_c) >= 96.0, "Group insertion sites must remain spatially separated")
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "inbound" and String(game.get("units")[1].get("transport_state", "")) == "inbound" and String(game.get("units")[2].get("transport_state", "")) == "inbound", "Every selected transport should receive an inbound order")
 	game.get("units").clear()
+	game.get("selected").clear()
 	game.get("enemy_buildings").clear()
 	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(600.0, 250.0)})
 	var mobile_threat_candidates: Array[Dictionary] = [
