@@ -423,6 +423,17 @@ func _run() -> void:
 	game.get("units")[1]["hp"] = 0
 	game.call("_on_3d_gameplay_order_issued", "player|41|fighter", "escort", Vector3.ZERO, "player|52|transport_helicopter")
 	_expect(not game.get("units")[0].has("escort_active"), "An air escort must reject a destroyed transport")
+	# If a protected transport is destroyed, its surviving escorts transfer to the nearest available transport and take a free slot.
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(480.0, 300.0), "3d_sync_id": 71, "escort_active": true, "escort_target_id": 52, "escort_target_kind": "transport_helicopter", "escort_auto_target": true, "attack_target": 8})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 0, "pos": Vector2(500.0, 300.0), "3d_sync_id": 52})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(540.0, 300.0), "3d_sync_id": 64, "transport_state": "loaded"})
+	game.get("units").append({"team": "player", "kind": "helicopter", "hp": 120, "pos": Vector2(530.0, 280.0), "3d_sync_id": 72, "escort_active": true, "escort_target_id": 64, "escort_target_kind": "transport_helicopter", "escort_formation_slot": 0, "escort_formation_size": 1})
+	var reassigned_escort: bool = game.call("_transport_ai_reassign_air_escort", 0)
+	_expect(reassigned_escort, "A surviving escort should transfer to another living friendly transport")
+	_expect(int(game.get("units")[0].get("escort_target_id", -1)) == 64 and int(game.get("units")[0].get("escort_formation_slot", -1)) == 1, "A reassigned escort should join the nearest transport in its next free formation slot")
+	_expect(not game.get("units")[0].has("attack_target") and not game.get("units")[0].has("escort_auto_target"), "Reassignment should clear stale automatic combat targets from the lost transport")
+	_expect(int(game.get("units")[0].get("escort_formation_size", 0)) == 2 and int(game.get("units")[3].get("escort_formation_size", 0)) == 2, "The replacement transport formation should update all escort members")
 	game.get("units").clear()
 
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
