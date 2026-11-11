@@ -51,10 +51,10 @@ func _run_battle_save_integration_test() -> void:
 
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
 	game.get("units").assign([
+		{"unit_id": "queue_4", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_2", "kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9},
-		{"unit_id": "queue_4", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4}
+		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9}
 	])
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 1.5), "Takeoff queue must be isolated per airfield")
