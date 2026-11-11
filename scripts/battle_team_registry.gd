@@ -64,7 +64,8 @@ func living_team_ids() -> Array[String]:
 func get_team(team_id: String) -> Dictionary:
 	if not _teams.has(team_id):
 		return {}
-	return (_teams[team_id] as Dictionary).duplicate(true)
+	var team: Dictionary = _teams[team_id]
+	return team.duplicate(true)
 
 
 func set_base_health(team_id: String, health: int) -> bool:
