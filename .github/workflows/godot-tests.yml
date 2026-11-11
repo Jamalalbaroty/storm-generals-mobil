@@ -43,6 +43,12 @@ jobs:
       - name: Run versioned battle save store regression test
         run: timeout 60s godot --headless --path . --script tests/battle_save_store_test.gd
 
+      - name: Run battle save and restore integration test
+        run: timeout 120s godot --headless --path . --script tests/battle_save_integration_test.gd
+
+      - name: Run versioned battle save store regression test
+        run: timeout 60s godot --headless --path . --script tests/battle_save_store_test.gd
+
       - name: Run transport airlift regression test
         run: timeout 180s godot --headless --path . --script tests/transport_airlift_regression_test.gd
  
