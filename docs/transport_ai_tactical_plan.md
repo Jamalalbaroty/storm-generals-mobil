@@ -106,3 +106,8 @@ Added `_transport_ai_request_landing` as the tactical-director entry point and `
 ## Player override lifecycle
 
 Explicit player landing orders now mark the current sortie as player-overridden and discard stale AI recommendations. Cancelling a transport task also clears queued AI objectives and blocks an immediate autonomous restart. Loading a fresh group of passengers resets that sortie-scoped override, allowing a later tactical-director request to be considered. This preserves player authority without permanently disabling autonomy for future sorties.
+
+
+## Landing clearance correction
+
+The live unit-occupancy filter now ignores friendly transport helicopters while checking landing footprints. This prevents a transport from treating its own current hover position as an occupied ground landing zone during tactical planning. A regression case was added for a friendly transport hovering exactly over a candidate site. Other friendly ground units and hostile units continue to block the landing footprint.
