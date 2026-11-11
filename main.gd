@@ -8314,7 +8314,7 @@ func _update_production_queues(delta: float) -> void:
 		if not producer_ready:
 			continue
 		# Reuse the resolved producer instead of scanning the building list again.
-		var producer_level := maxi(1, int(buildings[matched_producer_index].get("level", 1))) if matched_producer_index >= 0 else 1
+		var producer_level := maxi(1, int(buildings[matched_producer_index].get("level", 1))) if expected_producer_id >= 0 and matched_producer_index >= 0 else 1
 		var production_speed := 1.0 + float(producer_level - 1) * 0.15
 		order.remaining = maxf(0.0, float(order.remaining) - delta * production_speed)
 		production_orders[i] = order
