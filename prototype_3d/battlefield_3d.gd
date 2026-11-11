@@ -717,6 +717,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			var has_building_target := record.has("attack_building") and int(record.get("attack_building", -1)) >= 0
 			var has_base_target := record.has("attack_base") and int(record.get("attack_base", -1)) >= 0
 			unit.set_meta("gameplay_is_aiming", has_live_target or has_saved_focus or has_building_target or has_base_target)
+			unit.set_meta("gameplay_is_guarding", bool(record.get("guard_active", false)))
 		if kind == "transport_helicopter":
 			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
 			altitude += _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0
@@ -3853,8 +3854,9 @@ func _update_infantry_animation(delta: float) -> void:
 		var squad := soldier.get_parent() as Node3D
 		var showcase_aiming := is_instance_valid(squad) and squad == selected_tank and is_instance_valid(attack_target) and str(squad.get_meta("unit_type", "")) == "infantry"
 		var gameplay_aiming := is_instance_valid(squad) and bool(squad.get_meta("gameplay_is_aiming", false))
+		var gameplay_guarding := is_instance_valid(squad) and bool(squad.get_meta("gameplay_is_guarding", false))
 		var is_aiming := showcase_aiming or gameplay_aiming
-		var crouch_target := 0.12 if is_aiming else 0.0
+		var crouch_target := 0.12 if is_aiming else (0.055 if gameplay_guarding else 0.0)
 		var crouch_blend := clampf(delta * 7.0, 0.0, 1.0)
 		for part_name in ["InfantryBody", "InfantryHead", "InfantryHelmet"]:
 			var part := soldier.get_node_or_null(part_name) as Node3D
@@ -3863,6 +3865,8 @@ func _update_infantry_animation(delta: float) -> void:
 				var drop := crouch_target * (0.55 if part_name == "InfantryBody" else 1.0)
 				var breath_phase := infantry_gait_clock * 1.65 + float(soldier.get_meta("infantry_slot_index", 0)) * 0.7
 				var breath_strength := 0.008 if not is_aiming else 0.002
+				if gameplay_guarding:
+					breath_strength = 0.004
 				var breath_offset := sin(breath_phase) * breath_strength
 				if part_name == "InfantryHelmet":
 					breath_offset *= 0.45
@@ -3870,9 +3874,11 @@ func _update_infantry_animation(delta: float) -> void:
 				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
 				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
 				var idle_scan := 0.0
-				if part_name in ["InfantryHead", "InfantryHelmet"] and not is_aiming and gait_intensity < 0.12:
-					var scan_phase := infantry_gait_clock * 0.72 + float(soldier.get_meta("infantry_slot_index", 0)) * 1.9
-					idle_scan = sin(scan_phase) * 0.085
+				if part_name in ["InfantryHead", "InfantryHelmet"] and not is_aiming:
+					var scan_rate := 1.05 if gameplay_guarding else 0.72
+					var scan_angle := 0.12 if gameplay_guarding else 0.085
+					var scan_phase := infantry_gait_clock * scan_rate + float(soldier.get_meta("infantry_slot_index", 0)) * 1.9
+					idle_scan = sin(scan_phase) * scan_angle
 				part.rotation.y = lerpf(part.rotation.y, idle_scan, clampf(delta * 2.8, 0.0, 1.0))
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
