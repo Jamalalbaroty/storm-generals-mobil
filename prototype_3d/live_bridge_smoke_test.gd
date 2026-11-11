@@ -998,6 +998,8 @@ func _initialize() -> void:
 	game.set("enemy_timer", 0.0)
 	game.set("enemy_income_timer", 0.0)
 	game.set("enemy_base", Vector2(1100.0, 330.0))
+	game.set("enemy_base_hp", 1000)
+	game.set("player_base_hp", 1000)
 	game.set("enemy_buildings", retreat_assets)
 	game.set("buildings", no_buildings)
 	game.set("supply_points", no_supply_points)
