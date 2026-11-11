@@ -1153,7 +1153,7 @@ func spawn_game_unit_destruction_effect(source_pos: Vector2, map_rect: Rect2, ki
 	# Called only by the authoritative combat cleanup when a gameplay unit reaches zero HP.
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return
-	var is_aircraft := kind == "fighter" or kind == "helicopter"
+	var is_aircraft := kind in ["fighter", "helicopter", "transport_helicopter"]
 	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, 0.08)
 	var wreck_source := Node3D.new()
 	wreck_source.global_position = world_pos
@@ -1188,8 +1188,8 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 		"fighter":
 			wreck_mesh.size = Vector3(1.05, 0.12, 0.68)
 			wreck.position.y += 0.08
-		"helicopter":
-			wreck_mesh.size = Vector3(0.78, 0.16, 0.58)
+		"helicopter", "transport_helicopter":
+			wreck_mesh.size = Vector3(1.12, 0.18, 0.82) if unit_kind == "transport_helicopter" else Vector3(0.78, 0.16, 0.58)
 			wreck.position.y += 0.08
 		"destroyer", "carrier", "submarine", "landing_craft":
 			wreck_mesh.size = Vector3(1.35, 0.16, 0.62)
@@ -1202,11 +1202,11 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 	wreck_material.roughness = 1.0
 	wreck_chunk.material_override = wreck_material
 	wreck.add_child(wreck_chunk)
-	if unit_kind == "fighter" or unit_kind == "helicopter":
+	if unit_kind in ["fighter", "helicopter", "transport_helicopter"]:
 		# A second low-poly fragment makes aircraft losses readable without physics.
 		var fragment := MeshInstance3D.new()
 		var fragment_mesh := BoxMesh.new()
-		fragment_mesh.size = Vector3(0.42, 0.09, 0.18) if unit_kind == "fighter" else Vector3(0.52, 0.08, 0.12)
+		fragment_mesh.size = Vector3(0.42, 0.09, 0.18) if unit_kind == "fighter" else (Vector3(0.72, 0.10, 0.16) if unit_kind == "transport_helicopter" else Vector3(0.52, 0.08, 0.12))
 		fragment.mesh = fragment_mesh
 		fragment.position = Vector3(0.28, 0.10, -0.20)
 		fragment.rotation.y = 0.48
