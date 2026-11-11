@@ -4274,8 +4274,46 @@ func _transport_ai_process_pending_landing(transport: Dictionary) -> void:
 	transport["transport_drop_timer"] = 0.0
 	transport["transport_state"] = "inbound"
 	transport["transport_ai_last_site_id"] = String(landing.get("site_id", ""))
-	transport.erase("transport_ai_objective_pos")
+	transport["transport_ai_autonomous_active"] = true
 	transport.erase("target")
+
+
+func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void:
+	if not bool(transport.get("transport_ai_autonomous_active", false)) or bool(transport.get("transport_ai_player_override", false)):
+		return
+	var elapsed := float(transport.get("transport_ai_reassess_timer", 0.0)) + delta
+	if elapsed < 1.25:
+		transport["transport_ai_reassess_timer"] = elapsed
+		return
+	transport["transport_ai_reassess_timer"] = 0.0
+	var current_target: Vector2 = transport.get("transport_target_pos", transport.pos)
+	if transport.pos.distance_to(current_target) <= 80.0:
+		return
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", current_target)
+	var current_candidate := {
+		"id": "current_inbound_target",
+		"pos": current_target,
+		"landing_type": String(transport.get("transport_landing_type", "ground")),
+		"building_kind": String(transport.get("transport_target_building_kind", ""))
+	}
+	var current_score := _transport_ai_evaluate_landing_site(current_candidate, objective_pos)
+	var replacement := _transport_ai_plan_landing(objective_pos)
+	if not bool(replacement.get("valid", false)):
+		return
+	var current_valid := bool(current_score.get("valid", false))
+	var should_replan := not current_valid
+	if current_valid:
+		should_replan = float(replacement.get("score", 0.0)) >= float(current_score.get("score", 0.0)) + 14.0
+	if not should_replan or Vector2(replacement.get("pos", current_target)).distance_to(current_target) < 80.0:
+		return
+	transport["transport_target_pos"] = replacement.get("pos", current_target)
+	transport["transport_landing_type"] = String(replacement.get("landing_type", "ground"))
+	if String(transport["transport_landing_type"]) == "rooftop":
+		transport["transport_target_building_kind"] = String(replacement.get("building_kind", ""))
+	else:
+		transport.erase("transport_target_building_kind")
+	transport["transport_ai_last_site_id"] = String(replacement.get("site_id", ""))
+	transport["transport_ai_replanned"] = int(transport.get("transport_ai_replanned", 0)) + 1
 
 
 func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
@@ -4386,6 +4424,7 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					return true
 		# A fresh player-issued destination takes priority over any pending AI recommendation.
 		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = false
 		transport.erase("transport_ai_objective_pos")
 		transport.erase("transport_ai_recommendation")
 		transport["transport_target_pos"] = target_pos
@@ -4419,6 +4458,7 @@ func _cancel_transport_order() -> void:
 		transport.erase("transport_order_pending")
 		transport.erase("transport_ai_objective_pos")
 		transport.erase("transport_ai_recommendation")
+		transport["transport_ai_autonomous_active"] = false
 		transport["transport_ai_player_override"] = true
 		transport.erase("target")
 		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
@@ -4438,6 +4478,7 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 	var state := String(transport.get("transport_state", "idle"))
 	_update_transport_passenger_fire(transport, delta)
 	if state == "inbound":
+		_transport_ai_reassess_inbound(transport, delta)
 		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
 		if transport.pos.distance_to(landing_pos) > 14.0:
 			transport.pos += (landing_pos - transport.pos).normalized() * delta * 72.0
