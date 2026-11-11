@@ -2798,7 +2798,7 @@ func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int
 			continue
 		var score: float = distance * 0.35 + _player_air_defense_risk(candidate.pos) * 165.0
 		if candidate_index == ground_focus_index:
-			score -= 75.0
+			score -= 120.0
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
@@ -2890,7 +2890,7 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 			if threat_distance < asset_threat_distance:
 				asset_threat_distance = threat_distance
 				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
-		var kind_priority := 34.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
+		var kind_priority := 70.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
 		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
 		if score < best_score:
 			best_score = score
