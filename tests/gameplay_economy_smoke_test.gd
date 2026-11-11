@@ -48,7 +48,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
-		[10, 11, 12, 13, 14, 15],
+		[10, 11, 12, 13, 14, 15, 34, 35],
 		[23, 24, 25, 26, 27],
 		[28, 29, 30, 31, 32, 33]
 	]
@@ -59,7 +59,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 29, "The five compact command tabs should retain access to all 29 gameplay actions")
+	_expect(covered_actions.size() == 31, "The five compact command tabs should retain access to all 31 gameplay actions")
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
