@@ -203,6 +203,18 @@ func _run_battle_save_integration_test() -> void:
 		"unit_id": "unit_00000056", "kind": "fighter", "team": "enemy",
 		"hp": 180, "pos": Vector2(760.0, 250.0)
 	})
+	game.get("units").append({
+		"unit_id": "unit_00000057", "kind": "fighter", "team": "player", "faction": "وطن",
+		"hp": 142, "pos": Vector2(650.0, 350.0), "aircraft_ammo": 0,
+		"airfield_returning": true, "airfield_landed": true, "airfield_rearm_progress": 2.25,
+		"airfield_recovery_id": 4, "airfield_recovery_slot": 1,
+		"airfield_resume_order": {
+			"air_patrol_points": [Vector2(300.0, 180.0), Vector2(520.0, 210.0), Vector2(700.0, 190.0)],
+			"air_patrol_index": 1, "air_patrol_resume": true,
+			"attack_building_kind": "factory", "attack_building_id": 9,
+			"attack_building_pos": Vector2(980.0, 320.0)
+		}
+	})
 	game.get("buildings").append({"kind": "airfield", "hp": 390, "pos": Vector2(650.0, 320.0), "production_id": 4})
 	game.get("enemy_buildings").append({"kind": "factory", "hp": 240, "pos": Vector2(980.0, 320.0), "production_id": 9})
 	game.get("production_orders").append({"producer_id": 4, "producer_pos": Vector2(650.0, 320.0), "producer_kind": "airfield", "kind": "fighter", "remaining": 8.5, "duration": 20.0})
@@ -224,8 +236,8 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.get("credits")) == 1840 and int(game.get("player_base_hp")) == 760, "Economy and base health should be restored")
 	_expect(is_equal_approx(float(game.get("enemy_missile_timer")), 6.75), "Enemy missile attack cadence should be restored")
 	_expect(game.get("supply_points").size() == 1 and String(game.get("supply_points")[0].get("owner", "")) == "player", "Supply ownership should be restored")
-	_expect(game.get("units").size() == 5, "All field units must be restored with their original order indexes")
-	if game.get("units").size() == 5:
+	_expect(game.get("units").size() == 6, "All field units must be restored with their original order indexes")
+	if game.get("units").size() == 6:
 		var transport: Dictionary = game.get("units")[0]
 		var mover: Dictionary = game.get("units")[1]
 		var attacker: Dictionary = game.get("units")[2]
@@ -243,6 +255,15 @@ func _run_battle_save_integration_test() -> void:
 		_expect(String(attacker.get("unit_id", "")) == "unit_00000054" and int(attacker.get("attack_target", -1)) == 4, "Attack order must retain its target unit index after restore")
 		_expect(String(game.get("units")[4].get("unit_id", "")) == "unit_00000056" and String(game.get("units")[4].get("team", "")) == "enemy", "The restored attack target must still identify the same enemy unit")
 		_expect(String(guard.get("unit_id", "")) == "unit_00000055" and bool(guard.get("guard_active", false)), "Guard stance must survive save/restore")
+		var rearming_fighter: Dictionary = game.get("units")[5]
+		_expect(String(rearming_fighter.get("unit_id", "")) == "unit_00000057" and bool(rearming_fighter.get("airfield_returning", false)) and bool(rearming_fighter.get("airfield_landed", false)), "Aircraft landing and recovery lifecycle must survive save/restore")
+		_expect(int(rearming_fighter.get("airfield_recovery_id", -1)) == 4 and int(rearming_fighter.get("airfield_recovery_slot", -1)) == 1 and is_equal_approx(float(rearming_fighter.get("airfield_rearm_progress", -1.0)), 2.25), "Airfield identity, queue slot, and partial rearm progress must survive restore")
+		var restored_resume_order: Dictionary = rearming_fighter.get("airfield_resume_order", {})
+		_expect(Array(restored_resume_order.get("air_patrol_points", [])).size() == 3 and int(restored_resume_order.get("air_patrol_index", -1)) == 1 and bool(restored_resume_order.get("air_patrol_resume", false)), "Air patrol route and current waypoint must remain queued while the aircraft rearms")
+		var sortie_probe: Dictionary = rearming_fighter.duplicate(true)
+		game.call("_restore_aircraft_resume_order", sortie_probe)
+		_expect(not sortie_probe.has("airfield_resume_order") and Array(sortie_probe.get("air_patrol_points", [])).size() == 3 and int(sortie_probe.get("air_patrol_index", -1)) == 1, "Launching after rearm must restore the saved patrol mission and waypoint")
+		_expect(int(sortie_probe.get("attack_building", -1)) == 0 and not sortie_probe.has("attack_target"), "Airfield sortie must reacquire the intended factory by stable production ID, not stale array index")
 	_expect(game.get("buildings").size() == 1 and game.get("enemy_buildings").size() == 1, "Both armies' building states should be restored")
 	_expect(game.get("production_orders").size() == 1 and game.get("missiles").size() == 1, "Production and active missile state should be restored")
 
