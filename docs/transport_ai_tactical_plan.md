@@ -158,3 +158,8 @@ The manual reload interaction now enforces battlefield proximity and aircraft st
 ## Implemented eleventh slice — infantry rendezvous for extraction
 
 When the player issues boarding with a landed transport and selected infantry outside pickup range, the infantry now receive deterministic movement targets around the aircraft inside the 76-unit boarding radius. They remain on the battlefield and keep their normal movement behavior; the player confirms boarding again after they arrive. The command still rejects airborne/descending transports, and actual boarding still enforces the eight-soldier capacity. Regression coverage checks that distant infantry receive a rendezvous target without being removed. Automated Godot execution and Android playtesting are still pending.
+
+
+## Implemented twelfth slice — wounded-first extraction and rendezvous correction
+
+Boarding selection is now ordered by ascending current health, so the most wounded selected infantry are evacuated first when aircraft capacity is limited. A code review also found and corrected a rendezvous-list handling error: the nearby-only subset had replaced the full selected squad before rendezvous orders were assigned. The full squad is now preserved separately, so distant infantry actually receive their movement targets. Regression tests cover rendezvous movement and wounded-first boarding. Godot execution and device validation are still pending.
