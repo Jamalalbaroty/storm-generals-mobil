@@ -4196,6 +4196,40 @@ func _transport_ai_build_landing_candidates(objective_pos: Vector2) -> Array[Dic
 	return candidates
 
 
+func _transport_ai_control_mode(transport: Dictionary) -> String:
+	# Default to MANUAL so existing player-controlled transport behavior never changes silently.
+	var mode := String(transport.get("transport_ai_mode", "MANUAL")).to_upper()
+	if mode not in ["MANUAL", "ASSISTED", "AUTONOMOUS"]:
+		return "MANUAL"
+	return mode
+
+
+func _transport_ai_landing_decision(transport: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# This is a decision contract only: it does not move the aircraft or mutate player orders.
+	if Array(transport.get("transport_cargo", [])).is_empty():
+		return {"valid": false, "reason": "empty_cargo", "mode": _transport_ai_control_mode(transport)}
+	var mode := _transport_ai_control_mode(transport)
+	var landing := _transport_ai_plan_landing(objective_pos)
+	if not bool(landing.get("valid", false)):
+		return {"valid": false, "reason": "no_safe_landing_site", "mode": mode}
+	var player_override := bool(transport.get("transport_ai_player_override", false))
+	var action := "recommend"
+	if player_override or mode == "MANUAL":
+		action = "manual_control"
+	elif mode == "ASSISTED":
+		action = "recommend"
+	elif mode == "AUTONOMOUS":
+		action = "authorize_autonomous"
+	return {
+		"valid": true,
+		"reason": "player_override" if player_override else "site_selected",
+		"mode": mode,
+		"action": action,
+		"can_execute": action == "authorize_autonomous",
+		"landing": landing
+	}
+
+
 func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
 	var candidates := _transport_ai_build_landing_candidates(objective_pos)
 	return _transport_ai_choose_landing_site(candidates, objective_pos)
