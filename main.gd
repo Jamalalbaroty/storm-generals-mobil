@@ -3941,7 +3941,7 @@ func _load_selected_infantry_into_transport() -> void:
 	var load_count := mini(available, infantry_indices.size())
 	for n in range(load_count):
 		var passenger: Dictionary = units[infantry_indices[n]]
-		cargo.append({
+		var cargo_entry: Dictionary = {
 			"team": "player",
 			"faction": String(passenger.get("faction", faction)),
 			"hp": int(passenger.get("hp", 100)),
@@ -3953,7 +3953,18 @@ func _load_selected_infantry_into_transport() -> void:
 			"naval_kills": int(passenger.get("naval_kills", 0)),
 			"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
 			"cargo_attack_cd": randf_range(0.0, 0.35)
-		})
+		}
+		# Preserve safe player movement/stance orders; never store array indices that can go stale.
+		for order_key in ["target", "attack_base", "attack_focus_pos", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
+			if passenger.has(order_key):
+				cargo_entry[order_key] = passenger[order_key]
+		if passenger.has("attack_target"):
+			var passenger_target_index := int(passenger.get("attack_target", -1))
+			if passenger_target_index >= 0 and passenger_target_index < units.size():
+				var passenger_target: Dictionary = units[passenger_target_index]
+				if String(passenger_target.get("team", "")) == "enemy" and int(passenger_target.get("hp", 0)) > 0:
+					cargo_entry["attack_focus_pos"] = passenger_target.pos
+		cargo.append(cargo_entry)
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
 	var transport_record: Dictionary = transport
@@ -4113,7 +4124,7 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport["transport_drop_timer"] = 0.0
 			var drop_pos: Vector2 = drop_pos_value
 			var passenger: Dictionary = cargo.pop_front()
-			units.append({
+			var restored_passenger: Dictionary = {
 				"pos": drop_pos,
 				"team": "player",
 				"kind": "infantry",
@@ -4129,7 +4140,26 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 				"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
 				"facing": 0.0,
 				"turret_facing": 0.0
-			})
+			}
+		for order_key in ["target", "attack_base", "attack_focus_pos", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
+			if passenger.has(order_key):
+				restored_passenger[order_key] = passenger[order_key]
+		# Resolve a fresh hostile target from its saved position after array changes.
+		if passenger.has("attack_focus_pos"):
+			var focus_pos: Vector2 = passenger["attack_focus_pos"]
+			var reacquired_target := -1
+			var closest_focus_distance := 120.0
+			for enemy_index in range(units.size()):
+				var enemy_candidate: Dictionary = units[enemy_index]
+				if String(enemy_candidate.get("team", "")) != "enemy" or int(enemy_candidate.get("hp", 0)) <= 0:
+					continue
+				var focus_distance: float = enemy_candidate.pos.distance_to(focus_pos)
+				if focus_distance < closest_focus_distance:
+					closest_focus_distance = focus_distance
+					reacquired_target = enemy_index
+			if reacquired_target >= 0:
+				restored_passenger["attack_target"] = reacquired_target
+		units.append(restored_passenger)
 			transport["transport_cargo"] = cargo
 			transport["transport_drop_index"] = drop_index + 1
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
