@@ -4107,6 +4107,76 @@ func _load_selected_infantry_into_transport() -> void:
 	notice_time = 2.8
 
 
+func _transport_ai_evaluate_landing_site(candidate: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# Deterministic, simulation-known scoring for the first tactical-director slice.
+	# Hard safety rejection always takes precedence over the numeric score.
+	var site_pos: Vector2 = candidate.get("pos", Vector2(-1.0, -1.0))
+	var is_rooftop := String(candidate.get("landing_type", "ground")) == "rooftop"
+	var bounds := _transport_landing_bounds(is_rooftop)
+	if not bounds.has_point(site_pos):
+		return {"valid": false, "score": -1.0, "reason": "outside_map"}
+	if is_rooftop:
+		var roof_kind := String(candidate.get("building_kind", ""))
+		var roof_found := false
+		for structure in buildings + enemy_buildings:
+			if String(structure.get("kind", "")) == roof_kind and int(structure.get("hp", 0)) > 0 and float(structure.get("build_progress", 1.0)) >= 1.0 and structure.pos.distance_to(site_pos) <= 3.0:
+				roof_found = true
+				break
+		if not roof_found:
+			return {"valid": false, "score": -1.0, "reason": "invalid_rooftop"}
+	else:
+		for structure in buildings + enemy_buildings:
+			if int(structure.get("hp", 0)) > 0 and structure.pos.distance_to(site_pos) < 54.0:
+				return {"valid": false, "score": -1.0, "reason": "structure_blocking"}
+	for occupant in units:
+		if int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(site_pos) < (24.0 if is_rooftop else 42.0):
+			return {"valid": false, "score": -1.0, "reason": "landing_footprint_occupied"}
+	var threat_penalty := 0.0
+	for hostile_structure in enemy_buildings:
+		if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+			continue
+		var threat_distance: float = hostile_structure.pos.distance_to(site_pos)
+		if threat_distance <= 320.0:
+			threat_penalty = maxf(threat_penalty, 35.0 * (1.0 - threat_distance / 420.0))
+	var route_penalty := 0.0
+	var route_midpoint := (site_pos + objective_pos) * 0.5
+	for hostile_structure in enemy_buildings:
+		if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+			continue
+		if hostile_structure.pos.distance_to(route_midpoint) <= 320.0:
+			route_penalty = maxf(route_penalty, 20.0)
+	var objective_distance := site_pos.distance_to(objective_pos)
+	var objective_score := 15.0 * (1.0 - clampf(objective_distance / 900.0, 0.0, 1.0))
+	var friendly_support := 0.0
+	for friendly in units:
+		if String(friendly.get("team", "")) == "player" and int(friendly.get("hp", 0)) > 0 and friendly.pos.distance_to(site_pos) <= 260.0:
+			friendly_support = maxf(friendly_support, 10.0)
+	var escape_score := 10.0 if threat_penalty < 12.0 else 3.0
+	var score := clampf(35.0 - threat_penalty + 20.0 - route_penalty + objective_score + friendly_support + 10.0 + escape_score, 0.0, 100.0)
+	return {"valid": true, "score": score, "reason": "ranked", "site_id": String(candidate.get("id", "")), "distance": objective_distance}
+
+
+func _transport_ai_choose_landing_site(candidates: Array[Dictionary], objective_pos: Vector2) -> Dictionary:
+	var best: Dictionary = {}
+	for candidate in candidates:
+		var evaluation := _transport_ai_evaluate_landing_site(candidate, objective_pos)
+		if not bool(evaluation.get("valid", false)):
+			continue
+		var score := float(evaluation.get("score", -1.0))
+		var distance := float(evaluation.get("distance", INF))
+		var best_score := float(best.get("score", -1.0))
+		var best_distance := float(best.get("distance", INF))
+		var candidate_id := String(candidate.get("id", ""))
+		var best_id := String(best.get("site_id", ""))
+		var wins_tie := is_equal_approx(score, best_score) and (distance < best_distance or (is_equal_approx(distance, best_distance) and candidate_id < best_id))
+		if score > best_score or wins_tie:
+			best = evaluation.duplicate(true)
+			best["pos"] = candidate.get("pos", Vector2.ZERO)
+			best["landing_type"] = String(candidate.get("landing_type", "ground"))
+			best["building_kind"] = String(candidate.get("building_kind", ""))
+	return best
+
+
 func _prepare_transport_rooftop_landing() -> void:
 	var found_transport := false
 	for index in selected:
