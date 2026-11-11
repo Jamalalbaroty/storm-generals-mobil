@@ -365,7 +365,7 @@ func _run() -> void:
 		"transport_cargo": [{"kind": "infantry", "hp": 100}]
 	})
 	game.get("selected").append(0)
-	var manual_destination := Vector2(900.0, 520.0)
+	var manual_destination: Vector2 = game.get_viewport_rect().size * Vector2(0.78, 0.60)
 	game.call("_handle_pointer", manual_destination, true)
 	game.call("_handle_pointer", manual_destination, false)
 	var manually_ordered_transport: Dictionary = game.get("units")[0]
