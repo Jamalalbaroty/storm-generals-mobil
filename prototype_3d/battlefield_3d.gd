@@ -471,7 +471,7 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 		"fighter":
 			_add_placeholder_fighter(at, tint, faction_id)
 			unit = showcase_tanks.back()
-		"helicopter":
+		"helicopter", "transport_helicopter":
 			_add_placeholder_helicopter(at, tint, faction_id)
 			unit = showcase_tanks.back()
 		"infantry", "builder", "marine":
@@ -639,6 +639,8 @@ func _gameplay_max_health_for_kind(kind: String) -> float:
 			return 220.0
 		"helicopter":
 			return 180.0
+		"transport_helicopter":
+			return 250.0
 		"fighter":
 			return 120.0
 		"destroyer":
@@ -660,7 +662,7 @@ func _sync_gameplay_unit_orientation(unit: Node3D, record: Dictionary) -> void:
 		var previous_facing := float(unit.get_meta("gameplay_source_facing", source_facing))
 		var turn_delta := wrapf(source_facing - previous_facing, -PI, PI)
 		var kind := String(record.get("kind", "tank"))
-		var is_aircraft := kind in ["fighter", "helicopter"]
+		var is_aircraft := kind in ["fighter", "helicopter", "transport_helicopter"]
 		var bank_target := clampf(-turn_delta * 1.8, -0.34, 0.34) if is_aircraft else 0.0
 		unit.set_meta("gameplay_flight_bank_target", bank_target)
 		unit.set_meta("gameplay_source_facing", source_facing)
@@ -695,7 +697,7 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		active_keys[key] = true
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
-		var altitude := 5.2 if kind == "helicopter" else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
+		var altitude := 5.2 if kind in ["helicopter", "transport_helicopter"] else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
 		if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
 			altitude = 0.45
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
