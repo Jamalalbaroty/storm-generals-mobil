@@ -47,8 +47,28 @@ func _run() -> void:
 			result = left_faction
 		elif right_ttk < left_ttk:
 			result = right_faction
-		matchup_rows.append("%s × %s | TTK %.2fs : %.2fs | cost %d : %d | edge %s" % [
+		matchup_rows.append("%s × %s | helicopter TTK %.2fs : %.2fs | cost %d : %d | edge %s" % [
 			left_faction, right_faction, left_ttk, right_ttk, left_cost, right_cost, result
+		])
+
+		var left_missile_damage: int = int(game.call("_missile_damage", left_faction))
+		var right_missile_damage: int = int(game.call("_missile_damage", right_faction))
+		var left_missile_cooldown: float = float(game.call("_missile_cooldown", left_faction))
+		var right_missile_cooldown: float = float(game.call("_missile_cooldown", right_faction))
+		var left_missile_cost: int = int(game.call("_missile_cost", left_faction))
+		var right_missile_cost: int = int(game.call("_missile_cost", right_faction))
+		_expect(left_missile_damage > 0 and right_missile_damage > 0, "Both factions must have positive missile damage")
+		_expect(left_missile_cooldown > 0.0 and right_missile_cooldown > 0.0, "Both factions must have positive missile cooldown")
+		_expect(left_missile_cost > 0 and right_missile_cost > 0, "Both factions must have positive missile cost")
+		var left_missile_ttk: float = float(int(ceil(1000.0 / float(left_missile_damage))) - 1) * left_missile_cooldown
+		var right_missile_ttk: float = float(int(ceil(1000.0 / float(right_missile_damage))) - 1) * right_missile_cooldown
+		var missile_edge := "تعادل"
+		if left_missile_ttk < right_missile_ttk:
+			missile_edge = left_faction
+		elif right_missile_ttk < left_missile_ttk:
+			missile_edge = right_faction
+		matchup_rows.append("  missile TTK %.2fs : %.2fs | cost %d : %d | edge %s" % [
+			left_missile_ttk, right_missile_ttk, left_missile_cost, right_missile_cost, missile_edge
 		])
 
 	# Compare equal-budget air reinforcement efficiency without changing live balance values.
@@ -63,9 +83,20 @@ func _run() -> void:
 		var missile_count: int = int(floor(float(air_budget) / float(missile_cost)))
 		_expect(fighter_count > 0 and helicopter_count > 0 and missile_count > 0, "%s must be able to field at least one air unit or missile within the test budget" % army)
 
+		for ground_kind in ["infantry", "tank", "builder", "artillery"]:
+			var ground_cost: int = int(game.call("_unit_cost", ground_kind, army))
+			var ground_supply: int = int(game.call("_unit_supply_cost", ground_kind))
+			_expect(ground_cost > 0, "%s must have a positive %s reinforcement cost" % [army, ground_kind])
+			_expect(ground_supply >= 0, "%s %s supply demand cannot be negative" % [army, ground_kind])
+			var affordable_count: int = int(floor(float(air_budget) / float(ground_cost)))
+			_expect(affordable_count > 0, "%s must be able to field %s within the comparison budget" % [army, ground_kind])
+			print("ECONOMY: %s %s | cost %d | supply %d | budget count %d" % [army, ground_kind, ground_cost, ground_supply, affordable_count])
+
+		print("AIR ECONOMY: %s | fighter %d | helicopter %d | missile %d | budget %d" % [army, fighter_count, helicopter_count, missile_count, air_budget])
+
 	for row in matchup_rows:
 		print("MATCHUP: " + row)
-	print("PASS: all six pairwise helicopter duels and equal-budget air reinforcement checks completed for four factions.")
+	print("PASS: all six pairwise helicopter and missile duels plus land-and-air reinforcement economy checks completed for four factions.")
 	_cleanup_audio(game)
 	game.queue_free()
 	await process_frame
