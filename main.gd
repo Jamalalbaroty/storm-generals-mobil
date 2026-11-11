@@ -4597,6 +4597,30 @@ func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void
 		return
 	transport["transport_ai_reassess_timer"] = 0.0
 	var current_target: Vector2 = transport.get("transport_target_pos", transport.pos)
+	var max_transport_hp := maxi(1, _unit_repair_max_hp(transport))
+	var current_transport_hp := clampi(int(transport.get("hp", max_transport_hp)), 0, max_transport_hp)
+	if current_transport_hp <= int(floor(float(max_transport_hp) * 0.30)):
+		# Critical damage takes priority over insertion: preserve cargo and recover before the aircraft is lost.
+		var emergency_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+		transport["transport_ai_last_decision_reason"] = "critical_damage"
+		transport.erase("transport_target_pos")
+		transport.erase("transport_ai_objective_pos")
+		if not emergency_airfield.is_empty():
+			var emergency_return_pos: Vector2 = emergency_airfield.pos
+			transport["transport_return_pos"] = emergency_return_pos
+			_transport_ai_assign_route(transport, emergency_return_pos)
+			transport["transport_ai_route_index"] = 0
+			transport["transport_ai_autonomous_active"] = true
+			transport["transport_state"] = "returning"
+			notice = "ضرر حرج — أُلغيت المهمة والطائرة تعود فوراً إلى القاعدة"
+		else:
+			transport.erase("transport_ai_route_points")
+			transport.erase("transport_ai_route_index")
+			transport["transport_ai_autonomous_active"] = false
+			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "ضرر حرج ولا يوجد مطار صالح — توقف آمن مع الحفاظ على الحمولة"
+		notice_time = 3.0
+		return
 	if transport.pos.distance_to(current_target) <= 80.0:
 		return
 	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", current_target)
