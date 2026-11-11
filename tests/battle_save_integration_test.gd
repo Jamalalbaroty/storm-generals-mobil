@@ -262,13 +262,14 @@ func _run_battle_save_integration_test() -> void:
 	])
 	_expect(int(game.call("_enemy_helicopter_assault_target", Vector2.ZERO, 1)) == 1, "Enemy attack helicopters must reinforce the ground assault command focus instead of independently chasing a closer low-priority unit")
 	# Air assault may override the command focus when it is covered by a concentrated air-defense screen.
+	var saved_air_defense_test_buildings: Array = game.get("buildings").duplicate(true)
 	game.get("units").assign([
 		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(220.0, 0.0)},
 		{"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(140.0, 0.0)}
 	])
 	game.get("buildings").assign([{"kind": "anti_air", "hp": 450, "build_progress": 1.0, "pos": Vector2(220.0, 0.0)}])
 	_expect(int(game.call("_enemy_helicopter_assault_target", Vector2.ZERO, 0)) == 1, "Enemy attack helicopters must prefer an exposed ground target over a command focus protected by anti-air defenses")
-	game.get("buildings").clear()
+	game.get("buildings").assign(saved_air_defense_test_buildings)
 	game.get("units")[1]["hp"] = 0
 	_expect(int(game.call("_enemy_helicopter_assault_target", Vector2.ZERO, 1)) == 0, "Enemy attack helicopters must reacquire a living ground target when the coordinated focus is destroyed")
 	# Enemy combined-arms assault formations must keep armor forward, infantry in support, and artillery at standoff range.
