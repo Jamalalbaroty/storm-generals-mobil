@@ -321,3 +321,8 @@ Inbound and return flight movement now uses bounded Vector2.move_toward steps, p
 ## Final flight-boundary regression
 
 Added a large-delta return-flight case: a transport 230 world units from its airfield receives a single ten-second simulation step and must clamp exactly to the destination, entering rearming without overshoot. This specifically guards against route oscillation under frame stalls or low-frame-rate simulation. The test is authored and awaits the current Godot regression workflow.
+
+
+## Large-frame arrival fix
+
+The new boundary regression exposed a one-tick delay: bounded movement reached the final airfield waypoint during a long frame, but the return-state transition was deferred until the next update. The returning transport now checks final-waypoint arrival immediately after its movement step, snaps to the airfield, clears route state, and enters rearming in the same tick. Intermediate detour waypoints still advance normally and cannot skip the remaining route.
