@@ -298,3 +298,11 @@ Automatic escort allocation and escort recovery now account for the live threat 
 ## Implemented thirty-third slice — live escort rebalancing
 
 Transport escorts now periodically reassess their protected aircraft during the mission instead of waiting for the assigned transport to be destroyed. The same bounded threat score used at initial assignment is compared against distance and existing escort coverage. A 70-point hysteresis margin prevents frequent back-and-forth transfers, and the reassessment interval is 2.5 seconds per escort. Transfers are blocked while a player-issued attack, building attack, or base-strike order is active. If a transfer occurs, the escort rejoins the new transport's synchronized formation and clears only its own automatic pursuit state. Regression assertions cover a transfer toward a materially more threatened transport and preservation of a player-issued attack. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+### Live-rebalance acceptance checks
+
+- Reassessment is throttled per escort to one evaluation every 2.5 seconds.
+- A new assignment must improve the combined travel/load/threat cost by more than the 70-point hysteresis margin while the current transport remains valid.
+- A destroyed or invalid protected transport can still trigger immediate recovery assignment.
+- Player-issued attack, building-attack, and base-strike orders are never replaced by automatic reassignment.
