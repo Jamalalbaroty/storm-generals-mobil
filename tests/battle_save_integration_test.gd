@@ -167,6 +167,17 @@ func _run_battle_save_integration_test() -> void:
 	])
 	_expect(int(game.call("_nearest_enemy_ground_unit", Vector2.ZERO, 185.0)) == 2, "Player bunker targeting must ignore enemy aircraft and destroyed units while selecting artillery")
 	game.get("units").clear()
+	# Zero Hour-style role targeting: attack helicopters seek armor/ground support, fighters seek hostile aircraft.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2(20.0, 0.0)},
+		{"kind": "helicopter", "team": "enemy", "hp": 160, "pos": Vector2(35.0, 0.0)},
+		{"kind": "tank", "team": "enemy", "hp": 300, "pos": Vector2(90.0, 0.0)},
+		{"kind": "artillery", "team": "enemy", "hp": 220, "pos": Vector2(130.0, 0.0)}
+	])
+	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 760.0, "enemy", ["tank", "artillery", "infantry"])) == 2, "Attack helicopters must prioritize ground armor over closer air contacts")
+	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 320.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == 0, "Fighters must prioritize hostile aircraft over closer ground targets")
+	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 19.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == -1, "Role-based target selection must never acquire targets outside its engagement radius")
+	game.get("units").clear()
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
