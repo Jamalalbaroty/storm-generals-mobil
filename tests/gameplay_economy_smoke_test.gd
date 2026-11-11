@@ -1296,7 +1296,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.get("units").append(group_record)
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 	game.set("selected", group_selection)
-	var group_destination := Vector2(650.0, 320.0)
+	var group_destination := Vector2(active_viewport.x * 0.58, active_viewport.y * 0.46)
 	game.call("_handle_pointer", group_destination, true)
 	game.call("_handle_pointer", group_destination, false)
 	var group_origin := Vector2.ZERO
@@ -1327,7 +1327,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(helicopter_projection > tank_projection and transport_projection > helicopter_projection, "Aircraft and transport should occupy separate forward support lanes")
 
 	# A direct attack click should synchronize the selected group on one enemy target.
-	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": Vector2(700.0, 320.0)})
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": group_destination + Vector2(42.0, 0.0)})
 	var group_enemy_index: int = game.get("units").size() - 1
 	var group_enemy_position: Vector2 = game.get("units")[group_enemy_index].pos
 	game.call("_handle_pointer", group_enemy_position, true)
@@ -1338,7 +1338,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(attacking_unit.get("attack_focus_pos", Vector2.ZERO).distance_to(group_enemy_position) < 0.1, "All selected units should preserve the player's chosen attack focus")
 
 	# A fresh move order should clear the old attack and re-form the group at its new destination.
-	var second_group_destination := Vector2(420.0, 420.0)
+	var second_group_destination := Vector2(active_viewport.x * 0.36, active_viewport.y * 0.52)
 	game.call("_handle_pointer", second_group_destination, true)
 	game.call("_handle_pointer", second_group_destination, false)
 	var second_formation_targets: Array[Vector2] = []
