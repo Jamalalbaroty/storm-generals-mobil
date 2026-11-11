@@ -46,6 +46,13 @@ func _run() -> void:
 	_expect(String(first_choice.get("site_id", "")) == "alpha", "Equal-score and equal-distance sites must use stable lexical ID tie-break")
 	_expect(String(first_choice.get("site_id", "")) == String(second_choice.get("site_id", "")), "Identical inputs must produce identical landing decisions")
 
+	# The tactical director must be able to derive candidates from the live map.
+	var generated_candidates: Array = game.call("_transport_ai_build_landing_candidates", objective)
+	_expect(not generated_candidates.is_empty(), "Candidate generation should produce ground landing options on a normal map")
+	var planned_landing: Dictionary = game.call("_transport_ai_plan_landing", objective)
+	_expect(bool(planned_landing.get("valid", false)), "The planner should return a valid landing site when the map has safe ground")
+	_expect(planned_landing.has("pos") and planned_landing.has("landing_type"), "The planner should return the complete landing destination contract")
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
