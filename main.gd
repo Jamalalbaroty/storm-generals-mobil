@@ -270,19 +270,15 @@ func _airfield_sortie_launch_delay(airfield_id: int) -> float:
 
 
 func _airfield_sortie_has_launch_predecessor(unit_id: String, airfield_id: int) -> bool:
-	var aircraft_index := -1
-	for index in range(units.size()):
-		if String(units[index].get("unit_id", "")) == unit_id:
-			aircraft_index = index
-			break
-	if aircraft_index <= 0:
-		return false
-	for index in range(aircraft_index):
-		var queued_aircraft: Dictionary = units[index]
+	# Resolve the aircraft and its earlier same-runway queue in one ordered pass.
+	var has_predecessor := false
+	for queued_aircraft in units:
+		if String(queued_aircraft.get("unit_id", "")) == unit_id:
+			return has_predecessor
 		if String(queued_aircraft.get("team", "")) != "player" or not bool(queued_aircraft.get("airfield_sortie_launch", false)):
 			continue
 		if int(queued_aircraft.get("airfield_sortie_airfield_id", -2)) == airfield_id:
-			return true
+			has_predecessor = true
 	return false
 
 
