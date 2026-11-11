@@ -26,6 +26,7 @@ func _run_battle_save_integration_test() -> void:
 	game.set("supplies", 7)
 	game.set("enemy_supplies", 4)
 	game.set("enemy_credits", 920)
+	game.set("enemy_missile_timer", 6.75)
 	game.set("player_base_hp", 760)
 	game.set("enemy_base_hp", 510)
 	game.set("campaign_mission_index", 2)
@@ -56,6 +57,7 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_save_battle_snapshot")), "Active battle should save through the gameplay integration")
 	game.set("credits", 1)
 	game.set("player_base_hp", 1)
+	game.set("enemy_missile_timer", 0.0)
 	game.get("units").clear()
 	game.get("buildings").clear()
 	game.get("enemy_buildings").clear()
@@ -65,6 +67,7 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_load_battle_snapshot")), "A valid saved battle should restore through the gameplay integration")
 	_expect(String(game.get("faction")) == "وطن" and String(game.get("map_type")) == "الساحل الجبلي", "Faction and map should be restored")
 	_expect(int(game.get("credits")) == 1840 and int(game.get("player_base_hp")) == 760, "Economy and base health should be restored")
+	_expect(is_equal_approx(float(game.get("enemy_missile_timer")), 6.75), "Enemy missile attack cadence should be restored")
 	_expect(game.get("supply_points").size() == 1 and String(game.get("supply_points")[0].get("owner", "")) == "player", "Supply ownership should be restored")
 	_expect(game.get("units").size() == 1, "Field units should be restored")
 	if not game.get("units").is_empty():
