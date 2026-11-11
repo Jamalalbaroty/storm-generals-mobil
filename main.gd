@@ -2979,6 +2979,18 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
+	if _has_selected_transport():
+		var size_for_transport := get_viewport_rect().size
+		var mode_rect := _transport_ai_mode_rect(size_for_transport)
+		var doctrine_rect := _transport_ai_doctrine_rect(size_for_transport)
+		var mode_label := _selected_transport_mode_label()
+		var doctrine_label := _selected_transport_doctrine_label()
+		draw_rect(mode_rect, Color("#173b4b", 0.96), true)
+		draw_rect(mode_rect, Color("#83d9f4"), false, 1.2)
+		draw_string(ThemeDB.fallback_font, mode_rect.position + Vector2(5, 21), mode_label, HORIZONTAL_ALIGNMENT_CENTER, mode_rect.size.x - 10, 11, Color.WHITE)
+		draw_rect(doctrine_rect, Color("#3b3421", 0.96), true)
+		draw_rect(doctrine_rect, Color("#d8b75e"), false, 1.2)
+		draw_string(ThemeDB.fallback_font, doctrine_rect.position + Vector2(5, 21), doctrine_label, HORIZONTAL_ALIGNMENT_CENTER, doctrine_rect.size.x - 10, 11, Color.WHITE)
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
@@ -3313,6 +3325,82 @@ func _issue_group_attack_order(target_index: int) -> void:
 		notice_time = 1.8
 
 
+func _has_selected_transport() -> bool:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("team", "")) == "player" and String(units[index].get("kind", "")) == "transport_helicopter":
+			return true
+	return false
+
+
+func _transport_ai_mode_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(10.0, 257.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+
+
+func _transport_ai_doctrine_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(16.0 + (size.x - 26.0) * 0.5, 257.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+
+
+func _selected_transport_mode() -> String:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("kind", "")) == "transport_helicopter":
+			return _transport_ai_control_mode(units[index])
+	return "MANUAL"
+
+
+func _selected_transport_doctrine() -> String:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("kind", "")) == "transport_helicopter":
+			return String(units[index].get("transport_ai_post_drop_doctrine", "DEFEND")).to_upper()
+	return "DEFEND"
+
+
+func _selected_transport_mode_label() -> String:
+	var mode := _selected_transport_mode()
+	var labels := {"MANUAL": "تحكم يدوي", "ASSISTED": "مساعد ذكي", "AUTONOMOUS": "ذاتي"}
+	return "التحكم: %s" % String(labels.get(mode, "تحكم يدوي"))
+
+
+func _selected_transport_doctrine_label() -> String:
+	return "بعد الإنزال: هجوم" if _selected_transport_doctrine() == "ATTACK_MOVE" else "بعد الإنزال: دفاع"
+
+
+func _set_selected_transport_mode(mode: String) -> int:
+	var normalized := mode.to_upper()
+	if normalized not in ["MANUAL", "ASSISTED", "AUTONOMOUS"]:
+		return 0
+	var changed := 0
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		if String(transport.get("transport_state", "idle")) in ["inbound", "descending", "ai_assessing"]:
+			continue
+		transport["transport_ai_mode"] = normalized
+		transport["transport_ai_player_override"] = false
+		changed += 1
+	return changed
+
+
+func _set_selected_transport_doctrine(doctrine: String) -> int:
+	var normalized := doctrine.to_upper()
+	if normalized not in ["DEFEND", "ATTACK_MOVE"]:
+		return 0
+	var changed := 0
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		if String(transport.get("transport_state", "idle")) not in ["idle", "loaded"]:
+			continue
+		transport["transport_ai_post_drop_doctrine"] = normalized
+		changed += 1
+	return changed
+
+
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	var size = get_viewport_rect().size
 	if pressed:
@@ -3367,6 +3455,23 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		return
 	if paused:
 		return
+	if game_started and _has_selected_transport():
+		if _transport_ai_mode_rect(size).has_point(pos):
+			var current_mode := _selected_transport_mode()
+			var next_mode := "ASSISTED" if current_mode == "MANUAL" else ("AUTONOMOUS" if current_mode == "ASSISTED" else "MANUAL")
+			var changed := _set_selected_transport_mode(next_mode)
+			notice = "نمط طائرات النقل: %s" % next_mode if changed > 0 else "لا يمكن تغيير نمط التحكم أثناء تنفيذ مهمة النقل"
+			notice_time = 2.0
+			queue_redraw()
+			return
+		if _transport_ai_doctrine_rect(size).has_point(pos):
+			var current_doctrine := _selected_transport_doctrine()
+			var next_doctrine := "ATTACK_MOVE" if current_doctrine == "DEFEND" else "DEFEND"
+			var changed := _set_selected_transport_doctrine(next_doctrine)
+			notice = "عقيدة ما بعد الإنزال: %s" % ("هجوم أثناء الحركة" if next_doctrine == "ATTACK_MOVE" else "دفاع عن منطقة الإنزال") if changed > 0 else "غيّر العقيدة والطائرة محمّلة أو متوقفة"
+			notice_time = 2.0
+			queue_redraw()
+			return
 	if not game_started:
 		if campaign_briefing:
 			if _campaign_back_rect(size).has_point(pos):
