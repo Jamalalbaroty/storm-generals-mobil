@@ -213,6 +213,41 @@ func _run() -> void:
 	_expect(Vector2(reassessment_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(Vector2(600.0, 250.0)) >= 80.0, "Replanned destination should move away from the newly occupied landing site")
 	game.get("units").clear()
 
+	# If every replacement site becomes unsafe, the director must abort insertion and recover.
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	var blocked_objective := Vector2(720.0, 300.0)
+	var blocked_candidates: Array = game.call("_transport_ai_build_landing_candidates", blocked_objective)
+	for blocked_candidate in blocked_candidates:
+		game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": blocked_candidate.pos})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(1040.0, 540.0)})
+	var unsafe_inbound: Dictionary = {
+		"team": "player", "kind": "transport_helicopter", "hp": 180,
+		"pos": Vector2(500.0, 300.0), "transport_state": "inbound",
+		"transport_target_pos": blocked_candidates[0].pos,
+		"transport_landing_type": "ground",
+		"transport_cargo": [{"kind": "infantry", "hp": 75}],
+		"transport_ai_mode": "AUTONOMOUS",
+		"transport_ai_autonomous_active": true,
+		"transport_ai_objective_pos": blocked_objective,
+		"transport_ai_reassess_timer": 0.0
+	}
+	game.call("_transport_ai_reassess_inbound", unsafe_inbound, 1.3)
+	_expect(String(unsafe_inbound.get("transport_state", "")) == "returning", "When all landing sites are unsafe, an autonomous transport should abort insertion and return to a friendly airfield")
+	_expect(Vector2(unsafe_inbound.get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(1040.0, 540.0)) < 1.0, "Emergency recovery should select the nearest valid friendly airfield")
+	_expect(Array(unsafe_inbound.get("transport_cargo", [])).size() == 1, "Aborting an unsafe insertion must preserve every passenger")
+
+	# Without a friendly airfield, hold safely with cargo instead of continuing toward a rejected site.
+	game.get("buildings").clear()
+	unsafe_inbound["transport_state"] = "inbound"
+	unsafe_inbound["transport_target_pos"] = blocked_candidates[0].pos
+	unsafe_inbound["transport_ai_reassess_timer"] = 0.0
+	game.call("_transport_ai_reassess_inbound", unsafe_inbound, 1.3)
+	_expect(String(unsafe_inbound.get("transport_state", "")) == "loaded", "With no safe landing or recovery airfield, the transport should hold rather than force insertion")
+	_expect(not bool(unsafe_inbound.get("transport_ai_autonomous_active", true)), "A no-site hold should stop the autonomous flight loop")
+	_expect(Array(unsafe_inbound.get("transport_cargo", [])).size() == 1, "A no-site hold must retain the complete passenger manifest")
+	game.get("units").clear()
+
 	# Autonomous passengers with no prior orders establish a defensive perimeter after touchdown.
 	var fresh_passenger: Dictionary = {"kind": "infantry", "team": "player", "pos": Vector2(700.0, 400.0)}
 	var autonomous_transport: Dictionary = {"transport_ai_mode": "AUTONOMOUS", "transport_ai_post_drop_doctrine": "DEFEND"}
