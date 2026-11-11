@@ -451,6 +451,14 @@ func _run() -> void:
 	_expect(not bool(game.call("_transport_ai_escort_should_release_target", Vector2(650.0, 300.0), Vector2(500.0, 300.0), Vector2(620.0, 300.0))), "Escorts should retain targets while both remain inside the transport defense bubble")
 	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(770.0, 300.0), Vector2(500.0, 300.0), Vector2(620.0, 300.0))), "Escorts should abandon automatic pursuit when they drift beyond 260 units from their transport")
 	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(600.0, 300.0), Vector2(500.0, 300.0), Vector2(730.0, 300.0))), "Escorts should release enemies that leave the 220-unit protected radius")
+	# Escorts assigned to one transport should distribute automatic targets instead of dogpiling.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(510.0, 300.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(550.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(505.0, 300.0), "escort_active": true, "escort_target_id": 77, "escort_auto_target": true, "attack_target": 0})
+	_expect(int(game.call("_transport_ai_select_group_escort_threat", 77, Vector2(500.0, 300.0), "fighter", 220.0)) == 1, "A second escort should choose an unclaimed enemy near the same transport")
+	_expect(int(game.call("_transport_ai_select_group_escort_threat", 88, Vector2(500.0, 300.0), "fighter", 220.0)) == 0, "Escorts protecting another transport should not reserve this group's target")
+	game.get("units").clear()
 	# Escort target priorities are role-specific, not simply nearest-enemy selection.
 	game.get("units").clear()
 	game.get("units").append({"team": "enemy", "kind": "helicopter", "hp": 100, "pos": Vector2(510.0, 300.0)})
