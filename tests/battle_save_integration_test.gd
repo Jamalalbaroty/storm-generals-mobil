@@ -89,6 +89,20 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_missile_damage", "الصيني")) == 185 and int(game.call("_missile_cost", "الصيني")) == 650, "Chinese strategic missiles must retain the lower-cost, lower-damage profile")
 	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")) and int(game.call("_unit_cost", "tank", "الصيني")) < int(game.call("_unit_cost", "tank", "الأمريكي")), "Elite Watan and efficient Chinese armor must remain distinct from the American baseline")
 
+	# Shared construction economy remains consistent across all four factions.
+	var building_cost_contract := {
+		"barracks": 250, "factory": 450, "turret": 350, "airfield": 600,
+		"anti_air": 400, "missile_silo": 800, "missile_defense": 700,
+		"shipyard": 700, "power_plant": 450, "bunker": 520, "supply_depot": 550,
+		"wall": 90, "wall_corner": 120, "wall_gate": 150
+	}
+	for building_kind in building_cost_contract:
+		var expected_building_cost := int(building_cost_contract[building_kind])
+		_expect(int(game.call("_building_cost", String(building_kind))) == expected_building_cost, "All armies must use the approved shared construction cost for " + String(building_kind))
+	for army_name in ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]:
+		_expect(int(game.call("_unit_cost", "transport_helicopter", String(army_name))) == (1200 if army_name == "وطن" else 950), "Transport helicopter cost must preserve the Watan premium and shared baseline for " + String(army_name))
+		_expect(int(game.call("_unit_supply_cost", "tank")) == 1 and int(game.call("_unit_supply_cost", "carrier")) == 8, "Unit supply requirements must remain consistent across factions")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
