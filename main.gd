@@ -1787,6 +1787,27 @@ func _campaign_secondary_objective_met() -> bool:
 	return bool(_campaign_secondary_objective_status().get("met", false))
 
 
+func _campaign_objective_hud_state(viewport_size: Vector2) -> Dictionary:
+	if not game_started or campaign_mission_index < 0 or campaign_mission_index >= CAMPAIGN_MISSIONS.size():
+		return {"visible": false}
+	var mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
+	var status: Dictionary = _campaign_secondary_objective_status()
+	var current := int(status.get("current", 0))
+	var required := maxi(1, int(status.get("required", 1)))
+	var complete := bool(status.get("met", false))
+	var y := 203.0 if selected.is_empty() else 255.0
+	return {
+		"visible": true,
+		"rect": Rect2(Vector2(10.0, y), Vector2(maxf(0.0, viewport_size.x - 20.0), 39.0)),
+		"title": String(mission.get("secondary", "الهدف الإضافي")),
+		"current": current,
+		"required": required,
+		"progress": clampf(float(current) / float(required), 0.0, 1.0),
+		"met": complete,
+		"state": "مكتمل" if complete else "%d / %d" % [current, required]
+	}
+
+
 func _record_battle_result() -> void:
 	if battle_result == "" or commander_profile_saved_result == battle_result:
 		return
@@ -3215,23 +3236,17 @@ func _draw_hud(size: Vector2) -> void:
 		var bar_rect := Rect2(production_rect.position + Vector2(9, 25), Vector2(size.x - 38, 8))
 		draw_rect(bar_rect, Color("#26383d"), true)
 		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
-	# Live campaign objective card: the exact same derived state is used by reward resolution.
-	if game_started and campaign_mission_index >= 0 and campaign_mission_index < CAMPAIGN_MISSIONS.size():
-		var objective_mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
-		var objective: Dictionary = _campaign_secondary_objective_status()
-		var objective_current := int(objective.get("current", 0))
-		var objective_required := maxi(1, int(objective.get("required", 1)))
-		var objective_progress := clampf(float(objective_current) / float(objective_required), 0.0, 1.0)
-		var objective_y := 203.0 if selected.is_empty() else 255.0
-		var objective_rect := Rect2(Vector2(10, objective_y), Vector2(size.x - 20, 39))
+	# Draw from the same deterministic HUD state that integration tests inspect.
+	var objective_hud: Dictionary = _campaign_objective_hud_state(size)
+	if bool(objective_hud.get("visible", false)):
+		var objective_rect: Rect2 = objective_hud.rect
+		var objective_met := bool(objective_hud.met)
 		draw_rect(objective_rect, Color("#10232b", 0.94), true)
-		draw_rect(objective_rect, Color("#a8e6b0") if bool(objective.get("met", false)) else Color("#d8b75e"), false, 1.0)
-		var objective_name := String(objective_mission.get("secondary", "الهدف الإضافي"))
-		var objective_state := "مكتمل" if bool(objective.get("met", false)) else "%d / %d" % [objective_current, objective_required]
-		draw_string(ThemeDB.fallback_font, objective_rect.position + Vector2(8, 15), "الهدف الإضافي: %s  |  %s" % [objective_name, objective_state], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 11, Color("#f2e8ca"))
+		draw_rect(objective_rect, Color("#a8e6b0") if objective_met else Color("#d8b75e"), false, 1.0)
+		draw_string(ThemeDB.fallback_font, objective_rect.position + Vector2(8, 15), "الهدف الإضافي: %s  |  %s" % [String(objective_hud.title), String(objective_hud.state)], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 11, Color("#f2e8ca"))
 		var objective_bar := Rect2(objective_rect.position + Vector2(8, 24), Vector2(size.x - 36, 7))
 		draw_rect(objective_bar, Color("#293b40"), true)
-		draw_rect(Rect2(objective_bar.position, Vector2(objective_bar.size.x * objective_progress, objective_bar.size.y)), Color("#8bd5a0") if bool(objective.get("met", false)) else Color("#d8b75e"), true)
+		draw_rect(Rect2(objective_bar.position, Vector2(objective_bar.size.x * float(objective_hud.progress), objective_bar.size.y)), Color("#8bd5a0") if objective_met else Color("#d8b75e"), true)
 	# Selected-unit field dossier: rank, accumulated combat XP and progress to the next promotion.
 	var selected_player_units: Array[Dictionary] = []
 	for selected_index in selected:
