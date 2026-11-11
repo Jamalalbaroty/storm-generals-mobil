@@ -173,3 +173,8 @@ The airlift command tab now includes a pickup-recall action. With one player tra
 ## Implemented fourteenth slice — pickup rendezvous hold state
 
 A transport recalled for field extraction now carries an explicit pickup-wait marker. When it reaches the planned landing site empty, the descent/update loop transitions it to `pickup_waiting` and holds position instead of dropping into ordinary `idle`. The boarding command accepts this landed waiting state; successful boarding clears the marker and returns the aircraft to `loaded`. Manual landing orders and cancellation clear stale pickup state. Regression coverage checks the waiting transition, boarding from the waiting state, cargo transfer, and marker cleanup. This remains player-confirmed boarding; no automatic squad pickup has been introduced. CI and Godot/device execution results are pending.
+
+
+## Implemented fifteenth slice — clear temporary pickup movement on boarding
+
+Infantry sent to the aircraft by the extraction rendezvous command now carry a dedicated temporary-order marker. When they board, that temporary movement target is removed from the cargo record so the soldiers do not resume walking back to the pickup point after a later redeployment. Other pre-existing player movement/combat orders remain preserved. A regression assertion covers this cleanup alongside the pickup-wait boarding flow. Runtime validation is pending.
