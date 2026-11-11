@@ -311,3 +311,8 @@ Transport escorts now periodically reassess their protected aircraft during the 
 ## Implemented thirty-fourth slice — mission-critical air protection
 
 The unified escort-priority score now combines nearby hostile pressure with transport vulnerability, passenger value, and mission phase. Damaged aircraft receive a bounded vulnerability credit based on their transport repair maximum; each passenger adds a small bounded cargo credit; inbound, descending, and landing-assessment missions receive a modest urgency bonus. The total score is capped to preserve the existing distance and escort-load balancing behavior. This makes the director protect the most mission-critical transport rather than reacting only to proximity. A regression assertion compares a damaged, loaded, active transport with a healthy empty idle transport. Tests are authored only until the updated branch commit is run through Godot CI.
+
+
+## Regression correction — exact flight arrival and airfield service lifecycle
+
+Inbound and return flight movement now uses bounded Vector2.move_toward steps, preventing a large frame delta from overshooting a landing or airfield waypoint and oscillating around it. The airlift regression now validates the actual lifecycle: the aircraft reaches the airfield, enters rearming, remains at the exact destination, and becomes idle only after the five-second service interval. This updates the older test expectation that incorrectly treated arrival as immediate readiness. The regression is now aligned with the implemented rearm mechanic.
