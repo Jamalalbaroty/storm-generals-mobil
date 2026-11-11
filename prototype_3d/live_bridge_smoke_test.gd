@@ -1230,7 +1230,7 @@ func _initialize() -> void:
 
 	# A fresh 3D move order after view switching must still reach the authoritative 2D unit record.
 	var post_toggle_order_units: Array = game.get("units")
-	var expected_post_toggle_target := Vector2(get_viewport().get_visible_rect().size.x * 0.5, get_viewport().get_visible_rect().size.y * 0.5)
+	var expected_post_toggle_target := game.get_viewport().get_visible_rect().size * 0.5
 	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "move", Vector3.ZERO, "")
 	post_toggle_order_units = game.get("units")
 	if not post_toggle_order_units[0].has("target") or (post_toggle_order_units[0].target as Vector2).distance_to(expected_post_toggle_target) > 1.0:
