@@ -2867,6 +2867,8 @@ func _draw_hud(size: Vector2) -> void:
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150"]
+	if not selected.is_empty() and not _has_selected_player_building():
+		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
 		labels[10] = "إصلاح المنشأة"
 		labels[11] = "بيع المنشأة"
@@ -3345,8 +3347,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					found = i
 					break
 			if found >= 0:
-				if not selected.has(found):
-					selected = [found]
+				# Mobile-friendly additive selection: tap to add a unit, tap it again to remove it.
+				# Drag-selection still replaces the current selection with the units inside the box.
+				if selected.has(found):
+					selected.erase(found)
+				else:
+					selected.append(found)
 			else:
 				for idx in selected:
 					if idx < units.size():
