@@ -4155,8 +4155,10 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			restored_passenger["transport_rope_drop"] = true
 			if String(transport.get("transport_landing_type", "ground")) == "rooftop":
 				restored_passenger["transport_rooftop_kind"] = String(transport.get("transport_target_building_kind", ""))
+				restored_passenger["transport_rooftop_center"] = landing_center
 			else:
 				restored_passenger.erase("transport_rooftop_kind")
+				restored_passenger.erase("transport_rooftop_center")
 			restored_passenger["faction"] = String(passenger.get("faction", faction))
 			restored_passenger["hp"] = int(passenger.get("hp", 100))
 			restored_passenger["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
