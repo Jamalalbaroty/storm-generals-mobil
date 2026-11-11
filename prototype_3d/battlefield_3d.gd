@@ -747,11 +747,17 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("gameplay_aircraft_rearm_progress", float(record.get("airfield_rearm_progress", 0.0)))
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
 		if kind == "transport_helicopter":
+			var descending_now := String(record.get("transport_state", "")) == "descending"
 			var fast_ropes := unit.get_node_or_null("FastRopes")
 			if fast_ropes is Node3D:
-				fast_ropes.visible = String(record.get("transport_state", "")) == "descending"
+				fast_ropes.visible = descending_now
+			var rope_troops := unit.get_node_or_null("RopeTroops")
+			if rope_troops is Node3D:
+				rope_troops.visible = descending_now and not Array(record.get("transport_cargo", [])).is_empty()
 			var cargo_count := Array(record.get("transport_cargo", [])).size()
 			unit.set_meta("transport_cargo_count", cargo_count)
+			unit.set_meta("transport_drop_progress", clampf(float(record.get("transport_drop_timer", 0.0)) / 0.72, 0.0, 1.0))
+			unit.set_meta("transport_drop_index", int(record.get("transport_drop_index", 0)))
 			var transport_is_firing := bool(record.get("transport_firing", false))
 			unit.set_meta("transport_firing", transport_is_firing)
 			var transport_aim_pos: Vector2 = record.get("attack_target_pos", Vector2.ZERO)
@@ -837,6 +843,17 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		else:
 			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
 		if aircraft_kind == "transport_helicopter":
+			var rope_troops := unit.get_node_or_null("RopeTroops") as Node3D
+			var fast_ropes := unit.get_node_or_null("FastRopes") as Node3D
+			var drop_progress := clampf(float(unit.get_meta("transport_drop_progress", 0.0)), 0.0, 1.0)
+			var drop_index := int(unit.get_meta("transport_drop_index", 0))
+			if is_instance_valid(rope_troops):
+				var descending_soldier := rope_troops.get_node_or_null("DescendingSoldier") as Node3D
+				if is_instance_valid(descending_soldier):
+					descending_soldier.position = Vector3(-0.48 if drop_index % 2 == 0 else 0.48, lerpf(-0.55, -4.15, drop_progress), 0.48)
+					descending_soldier.rotation.z = sin(float(Time.get_ticks_msec()) * 0.006) * 0.035
+			if is_instance_valid(fast_ropes):
+				fast_ropes.rotation.z = sin(float(Time.get_ticks_msec()) * 0.004) * 0.018 if fast_ropes.visible else lerpf(fast_ropes.rotation.z, 0.0, clampf(delta * 5.0, 0.0, 1.0))
 			var door_gunners := unit.get_node_or_null("DoorGunners") as Node3D
 			if is_instance_valid(door_gunners) and unit.has_meta("transport_aim_yaw_target"):
 				var aim_world_yaw := float(unit.get_meta("transport_aim_yaw_target", body_yaw))
@@ -2610,6 +2627,35 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 			rope.position = Vector3(rope_side, -2.55, 0.48)
 			rope.material_override = _make_armour_material(Color(0.78, 0.70, 0.52))
 			rope_group.add_child(rope)
+		var rope_troops := Node3D.new()
+		rope_troops.name = "RopeTroops"
+		rope_troops.visible = false
+		helicopter.add_child(rope_troops)
+		var descending_soldier := Node3D.new()
+		descending_soldier.name = "DescendingSoldier"
+		rope_troops.add_child(descending_soldier)
+		var descending_body := MeshInstance3D.new()
+		var descending_body_mesh := CapsuleMesh.new()
+		descending_body_mesh.radius = 0.15
+		descending_body_mesh.height = 0.52
+		descending_body.mesh = descending_body_mesh
+		descending_body.material_override = _make_armour_material(Color(0.18, 0.22, 0.17))
+		descending_soldier.add_child(descending_body)
+		var descending_head := MeshInstance3D.new()
+		var descending_head_mesh := SphereMesh.new()
+		descending_head_mesh.radius = 0.105
+		descending_head_mesh.height = 0.18
+		descending_head.mesh = descending_head_mesh
+		descending_head.position.y = 0.30
+		descending_head.material_override = _make_armour_material(Color(0.48, 0.39, 0.27))
+		descending_soldier.add_child(descending_head)
+		var descending_gear := MeshInstance3D.new()
+		var descending_gear_mesh := BoxMesh.new()
+		descending_gear_mesh.size = Vector3(0.25, 0.32, 0.16)
+		descending_gear.mesh = descending_gear_mesh
+		descending_gear.position = Vector3(0.0, 0.0, 0.20)
+		descending_gear.material_override = _make_armour_material(Color(0.12, 0.16, 0.12))
+		descending_soldier.add_child(descending_gear)
 	var sensor := MeshInstance3D.new()
 	var sensor_mesh := SphereMesh.new()
 	sensor_mesh.radius = 0.16
