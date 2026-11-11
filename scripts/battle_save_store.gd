@@ -84,12 +84,12 @@ func _remove_if_exists(path: String) -> void:
 func _validate_snapshot(snapshot: Dictionary) -> bool:
 	if int(snapshot.get("schema_version", -1)) != SCHEMA_VERSION:
 		return false
-	for required_key in ["match", "units", "buildings", "enemy_buildings", "production_orders"]:
+	for required_key in ["match", "units", "buildings", "enemy_buildings", "production_orders", "missiles"]:
 		if not snapshot.has(required_key):
 			return false
 	if not snapshot["match"] is Dictionary:
 		return false
-	if not snapshot["units"] is Array or not snapshot["buildings"] is Array or not snapshot["enemy_buildings"] is Array or not snapshot["production_orders"] is Array:
+	if not snapshot["units"] is Array or not snapshot["buildings"] is Array or not snapshot["enemy_buildings"] is Array or not snapshot["production_orders"] is Array or not snapshot["missiles"] is Array:
 		return false
 	var seen_ids: Dictionary = {}
 	for unit_variant in snapshot["units"]:
