@@ -37,6 +37,19 @@ func _run() -> void:
 	_expect(String(chosen.get("site_id", "")) == "safe", "Prefer the site with lower known anti-air exposure")
 
 	game.get("enemy_buildings").clear()
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(200.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 100}]})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(250.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 90}]})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 250.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	var group_landing_ordered: bool = game.call("_transport_ai_order_group_ground_insertions", Vector2(600.0, 250.0), [0, 1, 2])
+	_expect(group_landing_ordered, "A transport group should receive a complete set of safe ground insertion sites")
+	var group_site_a: Vector2 = game.get("units")[0].get("transport_target_pos", Vector2.ZERO)
+	var group_site_b: Vector2 = game.get("units")[1].get("transport_target_pos", Vector2.ZERO)
+	var group_site_c: Vector2 = game.get("units")[2].get("transport_target_pos", Vector2.ZERO)
+	_expect(group_site_a.distance_to(group_site_b) >= 96.0 and group_site_a.distance_to(group_site_c) >= 96.0 and group_site_b.distance_to(group_site_c) >= 96.0, "Group insertion sites must remain spatially separated")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "inbound" and String(game.get("units")[1].get("transport_state", "")) == "inbound" and String(game.get("units")[2].get("transport_state", "")) == "inbound", "Every selected transport should receive an inbound order")
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
 	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(600.0, 250.0)})
 	var mobile_threat_candidates: Array[Dictionary] = [
 		{"id": "near_hostiles", "pos": Vector2(500.0, 250.0), "landing_type": "ground"},
