@@ -156,3 +156,26 @@ GitHub Actions for this exact commit:
 - Godot Validation run `43072452185` (#811): success, including project import, active scene, 3D scene, live bridge, gameplay recovery and endurance checks.
 
 **Scope boundary:** this establishes runtime identity and verifies duplicate repair. It does not yet implement battle serialization, persist the identity counter, replace all array-index target references with ID-based references, or prove IDs survive an application restart. Battle save/load remains incomplete and unverified.
+
+### Battle save/load implementation and CI verification — 2026-11-11
+
+Implemented on commit `4c40adb19f54a354ab52ff138885beb61d9f0fbe`:
+- Added `scripts/battle_save_store.gd` with schema version 1, safe Variant serialization (object deserialization disabled), temporary-file write, read-back verification, backup promotion, and recovery from a verified backup when the primary file is missing or invalid.
+- Added validation for schema version, required state arrays, unit/passenger identity uniqueness, unit core fields and Vector2 positions, and the eight-passenger transport capacity. Rejected snapshots leave the previous valid save intact.
+- Integrated `_build_battle_snapshot()`, `_save_battle_snapshot()`, and staged `_load_battle_snapshot()` into `main.gd`. The snapshot includes both economies, supply ownership, base health, unit/building arrays, production orders, active missiles, transport state/cargo, and identity counters.
+- Added mobile command-deck actions `حفظ المعركة` and `استعادة المعركة` in the strategy tab. The three-row layout preserves 44px touch targets and has viewport-fit assertions for common phone sizes.
+- Added storage round-trip, invalid-save preservation, backup-recovery, and live-scene restore integration tests.
+
+GitHub Actions for this exact commit:
+- Godot Regression Tests run `43073552882` (#750): success. Both new battle save tests and the updated mobile command-deck geometry assertions passed, along with the full existing regression suite.
+- Godot Validation run `43073552614` (#827): success.
+- Android APK export was skipped as required by the 80% release gate.
+
+### Remaining release gates
+
+- Battle snapshot save/restore is manually triggered from the strategy command tab; autosave and multiple save slots are not implemented.
+- The current schema is version 1; migration from future schemas is intentionally rejected. Cross-version migration has not been implemented.
+- Android device testing across app force-stop/relaunch, low-storage conditions, and real touch interaction remains outstanding. CI headless tests do not replace device certification.
+- The snapshot keeps unit-array order so legacy array-index combat references remain consistent at restore time; a full conversion of all live target/escort references to stable IDs remains future work.
+
+This implementation is CI-green for the covered headless scenarios, but it is not yet a complete mobile release certification.
