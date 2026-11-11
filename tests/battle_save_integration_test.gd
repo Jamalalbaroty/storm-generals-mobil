@@ -107,6 +107,19 @@ func _run_battle_save_integration_test() -> void:
 	game.get("enemy_buildings").assign([{"kind": "missile_silo", "hp": 0, "build_progress": 1.0, "pos": Vector2(500.0, 300.0)}])
 	game.call("_update_enemy_defense_guard", game.get("units")[0], 0, 0.1)
 	_expect((game.get("units")[0].get("defense_anchor", Vector2.ZERO) as Vector2).distance_to(game.get("enemy_base")) < 1.0, "A guard must abandon a destroyed forward asset and return to base defense")
+	# Base guards must not chase attackers beyond their local defensive perimeter.
+	game.get("units").assign([
+		{"kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2(700.0, 300.0), "defense_guard": true, "defense_anchor": Vector2(700.0, 300.0)},
+		{"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(925.0, 300.0)}
+	])
+	game.get("enemy_buildings").clear()
+	var outside_perimeter_hp := int(game.get("units")[1].get("hp", 0))
+	game.call("_update_enemy_defense_guard", game.get("units")[0], 0, 1.0)
+	_expect((game.get("units")[0].pos as Vector2).distance_to(Vector2(700.0, 300.0)) < 1.0, "A base guard must hold position when the attacker is outside its 210-unit perimeter")
+	_expect(int(game.get("units")[1].get("hp", 0)) == outside_perimeter_hp, "A base guard must not attack an enemy outside its defensive perimeter")
+	game.get("units")[1].pos = Vector2(890.0, 300.0)
+	game.call("_update_enemy_defense_guard", game.get("units")[0], 0, 1.0)
+	_expect(game.get("units")[0].pos.x > 700.0 and game.get("units")[0].pos.x <= 736.1, "A base guard must approach a threat inside its perimeter without abandoning its post")
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
 	# Counterattack reserve mobilization is capped at two units around a breached critical asset.
