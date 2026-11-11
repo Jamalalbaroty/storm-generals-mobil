@@ -4715,13 +4715,13 @@ func _enemy_ai_turn() -> void:
 			if String(existing_building.get("kind", "")) == "anti_air" and int(existing_building.get("hp", 1)) > 0:
 				live_anti_air_count += 1
 		if live_anti_air_count < 2:
-			var air_defense_pos := _enemy_air_defense_build_position()
-			if air_defense_pos.x >= 0.0:
+			var urgent_air_defense_pos := _enemy_air_defense_build_position()
+			if urgent_air_defense_pos.x >= 0.0:
 				enemy_credits -= _building_cost("anti_air")
-				_enemy_add_building("anti_air", air_defense_pos, 380)
-			notice = "العدو يعزز دفاعه بمضاد طائرات عاجل"
-			notice_time = 2.0
-			return
+				_enemy_add_building("anti_air", urgent_air_defense_pos, 380)
+				notice = "العدو يعزز دفاعه بمضاد طائرات عاجل"
+				notice_time = 2.0
+				return
 	# Repair critical damage before spending on optional base expansion.
 	if _enemy_repair_damaged_building():
 		return
@@ -4764,13 +4764,13 @@ func _enemy_ai_turn() -> void:
 		return
 	# Enemy naval expansion is intentionally disabled in the land-and-air release.
 	if not _enemy_has_any_building("anti_air") and enemy_credits >= _building_cost("anti_air"):
-		var air_defense_pos := _enemy_air_defense_build_position()
-		if air_defense_pos.x >= 0.0:
+		var initial_air_defense_pos := _enemy_air_defense_build_position()
+		if initial_air_defense_pos.x >= 0.0:
 			enemy_credits -= _building_cost("anti_air")
-			_enemy_add_building("anti_air", air_defense_pos, 380)
-		notice = "العدو نشر دفاعاً مضاداً للطائرات"
-		notice_time = 2.0
-		return
+			_enemy_add_building("anti_air", initial_air_defense_pos, 380)
+			notice = "العدو نشر دفاعاً مضاداً للطائرات"
+			notice_time = 2.0
+			return
 	var enemy_tanks := 0
 	var enemy_infantry := 0
 	var enemy_artillery := 0
