@@ -752,7 +752,14 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 				fast_ropes.visible = String(record.get("transport_state", "")) == "descending"
 			var cargo_count := Array(record.get("transport_cargo", [])).size()
 			unit.set_meta("transport_cargo_count", cargo_count)
-			unit.set_meta("transport_firing", bool(record.get("transport_firing", false)))
+			var transport_is_firing := bool(record.get("transport_firing", false))
+			unit.set_meta("transport_firing", transport_is_firing)
+			var transport_aim_pos: Vector2 = record.get("attack_target_pos", Vector2.ZERO)
+			if transport_aim_pos != Vector2.ZERO:
+				var transport_aim_direction: Vector2 = transport_aim_pos - source_pos
+				unit.set_meta("transport_aim_yaw_target", -transport_aim_direction.angle() + PI * 0.5)
+			else:
+				unit.remove_meta("transport_aim_yaw_target")
 			var door_gunners := unit.get_node_or_null("DoorGunners")
 			if door_gunners is Node3D:
 				door_gunners.visible = cargo_count > 0
@@ -829,6 +836,31 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			unit.rotation.x = lerpf(unit.rotation.x, pitch_target, clampf(delta * 3.0, 0.0, 1.0))
 		else:
 			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
+		if aircraft_kind == "transport_helicopter":
+			var door_gunners := unit.get_node_or_null("DoorGunners") as Node3D
+			if is_instance_valid(door_gunners) and unit.has_meta("transport_aim_yaw_target"):
+				var aim_world_yaw := float(unit.get_meta("transport_aim_yaw_target", body_yaw))
+				var aim_local_yaw := clampf(wrapf(aim_world_yaw - unit.rotation.y, -PI, PI), -1.15, 1.15)
+				door_gunners.rotation.y = lerp_angle(door_gunners.rotation.y, aim_local_yaw, clampf(delta * 7.0, 0.0, 1.0))
+			var firing_now := bool(unit.get_meta("transport_firing", false))
+			var firing_phase := float(unit.get_meta("transport_firing_phase", 0.0))
+			if firing_now:
+				firing_phase += delta * 34.0
+			else:
+				firing_phase = lerpf(firing_phase, 0.0, clampf(delta * 8.0, 0.0, 1.0))
+			unit.set_meta("transport_firing_phase", firing_phase)
+			if is_instance_valid(door_gunners):
+				for gunner in door_gunners.get_children():
+					var rifle := gunner.get_node_or_null("Rifle") as Node3D
+					if is_instance_valid(rifle):
+						var recoil := 0.10 * absf(sin(firing_phase)) if firing_now else 0.0
+						rifle.position.z = lerpf(rifle.position.z, -0.38 - recoil, clampf(delta * 18.0, 0.0, 1.0))
+			var door_muzzles := unit.get_node_or_null("DoorMuzzleFlashes") as Node3D
+			if is_instance_valid(door_muzzles) and door_muzzles.visible:
+				var flash_scale := 0.82 + absf(sin(firing_phase)) * 0.42
+				door_muzzles.scale = Vector3.ONE * flash_scale
+			elif is_instance_valid(door_muzzles):
+				door_muzzles.scale = Vector3.ONE
 		var turret_pivot := unit.get_node_or_null("TurretPivot") as Node3D
 		if is_instance_valid(turret_pivot) and unit.has_meta("gameplay_turret_yaw_target"):
 			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
@@ -2538,6 +2570,7 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 			head.material_override = _make_armour_material(Color(0.48, 0.39, 0.27))
 			soldier.add_child(head)
 			var rifle := MeshInstance3D.new()
+			rifle.name = "Rifle"
 			var rifle_mesh := BoxMesh.new()
 			rifle_mesh.size = Vector3(0.07, 0.07, 0.72)
 			rifle.mesh = rifle_mesh
