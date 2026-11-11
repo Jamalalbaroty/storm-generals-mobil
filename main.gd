@@ -4159,7 +4159,7 @@ func _enemy_supply_reinforcement_point(unit_index: int) -> int:
 			var distance: float = other.pos.distance_to(point.pos)
 			if other.team == "player" and distance <= 180.0:
 				player_threat = true
-			elif other.team == "enemy" and distance <= 85.0:
+			elif other.team == "enemy" and other_index != unit_index and distance <= 85.0:
 				enemy_garrisoned = true
 		if not player_threat or enemy_garrisoned:
 			continue
