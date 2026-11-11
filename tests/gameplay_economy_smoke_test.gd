@@ -1145,6 +1145,18 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_unit_cost", "artillery", "الجيش العربي")) < int(game.call("_unit_cost", "artillery", "الأمريكي")), "Arab artillery should retain its affordability advantage")
 	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")), "Watan elite armor should carry a resource premium")
 	_expect(int(game.call("_unit_cost", "fighter", "وطن")) > int(game.call("_unit_cost", "fighter", "الأمريكي")), "Watan elite air units should carry a resource premium")
+	# Validate every purchasable unit class across all four armies, not only the headline ground units.
+	var economy_unit_kinds: Array[String] = ["infantry", "tank", "builder", "artillery", "fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
+	for army_name in faction_names:
+		for unit_kind in economy_unit_kinds:
+			_expect(int(game.call("_unit_cost", unit_kind, army_name)) > 0, "%s %s must have a positive production cost" % [army_name, unit_kind])
+		_expect(int(game.call("_unit_cost", "transport_helicopter", army_name)) > 0, "%s transport helicopter must have a valid cost" % army_name)
+	_expect(int(game.call("_unit_cost", "transport_helicopter", "وطن")) > int(game.call("_unit_cost", "transport_helicopter", "الأمريكي")), "Watan transport aviation should retain its elite reinforcement premium")
+	var economy_building_kinds: Array[String] = ["barracks", "factory", "turret", "airfield", "anti_air", "missile_silo", "missile_defense", "shipyard", "power_plant", "bunker", "supply_depot", "wall", "wall_corner", "wall_gate"]
+	for building_kind in economy_building_kinds:
+		_expect(int(game.call("_building_cost", building_kind)) > 0, "%s must have a positive construction cost" % building_kind)
+	for supply_kind in economy_unit_kinds:
+		_expect(int(game.call("_unit_supply_cost", supply_kind)) >= 0, "%s supply requirement must not be negative" % supply_kind)
 	var watan_helicopter: Dictionary = {"faction": "وطن"}
 	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
 	_expect(int(game.call("_helicopter_damage", watan_helicopter)) > int(game.call("_helicopter_damage", american_helicopter)), "Watan helicopter should retain elite damage")
