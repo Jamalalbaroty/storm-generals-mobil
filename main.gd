@@ -199,6 +199,20 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
+func _nearest_powered_player_airfield_index(origin: Vector2) -> int:
+	var nearest_airfield := -1
+	var nearest_distance := INF
+	for airfield_index in range(buildings.size()):
+		var candidate: Dictionary = buildings[airfield_index]
+		if String(candidate.get("kind", "")) != "airfield" or float(candidate.get("build_progress", 1.0)) < 1.0 or int(candidate.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
+			continue
+		var candidate_distance: float = origin.distance_to(candidate.pos)
+		if candidate_distance < nearest_distance:
+			nearest_distance = candidate_distance
+			nearest_airfield = airfield_index
+	return nearest_airfield
+
+
 func _next_airfield_recovery_slot(recovery_id: int) -> int:
 	# Reuse the lowest free slot; counting aircraft is unsafe when earlier slots become free.
 	var occupied_slots: Dictionary = {}
@@ -902,16 +916,7 @@ func _process(delta: float) -> void:
 					var aircraft_max_hp: int = _unit_repair_max_hp(unit)
 					var aircraft_needs_repair: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
 					if not bool(unit.get("airfield_returning", false)) and (aircraft_ammo <= 0 or (not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_needs_repair)):
-						var nearest_airfield := -1
-						var nearest_airfield_distance := INF
-						for airfield_index in range(buildings.size()):
-							var recovery_airfield: Dictionary = buildings[airfield_index]
-							if String(recovery_airfield.get("kind", "")) != "airfield" or float(recovery_airfield.get("build_progress", 1.0)) < 1.0 or int(recovery_airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
-								continue
-							var recovery_distance: float = unit.pos.distance_to(recovery_airfield.pos)
-							if recovery_distance < nearest_airfield_distance:
-								nearest_airfield_distance = recovery_distance
-								nearest_airfield = airfield_index
+						var nearest_airfield := _nearest_powered_player_airfield_index(unit.pos)
 						if nearest_airfield >= 0:
 							var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
 							var recovery_slot := _next_airfield_recovery_slot(recovery_id)
