@@ -449,8 +449,8 @@ func _run() -> void:
 	_expect(escort_far_speed <= escort_base_speed * 1.4, "Escort catch-up acceleration must remain capped for balance")
 	_expect(escort_helicopter_speed > 78.0 and escort_helicopter_speed <= 78.0 * 1.4, "Gunship catch-up speed should scale independently within the same cap")
 	_expect(not bool(game.call("_transport_ai_escort_should_release_target", Vector2(650.0, 300.0), Vector2(500.0, 300.0), Vector2(620.0, 300.0))), "Escorts should retain targets while both remain inside the transport defense bubble")
-	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(770.0, 300.0), Vector2(500.0, 300.0), Vector2(620.0, 300.0)), "Escorts should abandon automatic pursuit when they drift beyond 260 units from their transport")
-	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(600.0, 300.0), Vector2(500.0, 300.0), Vector2(730.0, 300.0)), "Escorts should release enemies that leave the 220-unit protected radius")
+	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(770.0, 300.0), Vector2(500.0, 300.0), Vector2(620.0, 300.0))), "Escorts should abandon automatic pursuit when they drift beyond 260 units from their transport")
+	_expect(bool(game.call("_transport_ai_escort_should_release_target", Vector2(600.0, 300.0), Vector2(500.0, 300.0), Vector2(730.0, 300.0))), "Escorts should release enemies that leave the 220-unit protected radius")
 	# Escort target priorities are role-specific, not simply nearest-enemy selection.
 	game.get("units").clear()
 	game.get("units").append({"team": "enemy", "kind": "helicopter", "hp": 100, "pos": Vector2(510.0, 300.0)})
