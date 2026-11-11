@@ -10,6 +10,7 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 
+	print("Formation regression: scene ready")
 	var viewport_size: Vector2 = game.get_viewport_rect().size
 	if viewport_size.x < 100.0 or viewport_size.y < 100.0:
 		push_error("Formation regression requires a valid gameplay viewport")
@@ -30,6 +31,7 @@ func _run() -> void:
 	])
 	var selected_indices: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 3]
 	var slots: Array[Vector2] = []
+	print("Formation regression: validating seven live units")
 	for unit_index in range(7):
 		var slot: Vector2 = game._group_move_destination(unit_index, selected_indices, destination)
 		slots.append(slot)
@@ -38,6 +40,7 @@ func _run() -> void:
 			quit(1)
 			return
 
+	print("Formation regression: slots generated")
 	# Every living selected unit gets a distinct slot, even with duplicate/dead indices in the selection.
 	for first_index in range(slots.size()):
 		for second_index in range(first_index + 1, slots.size()):
@@ -59,7 +62,7 @@ func _run() -> void:
 		push_error("Air and transport support must occupy their designated forward/support lanes")
 		quit(1)
 		return
-	if absf((slots[1] - destination).cross(direction)) < 20.0 or absf((slots[2] - destination).cross(direction)) < 20.0:
+	if absf((slots[1] - destination).x * direction.y - (slots[1] - destination).y * direction.x) < 20.0 or absf((slots[2] - destination).x * direction.y - (slots[2] - destination).y * direction.x) < 20.0:
 		push_error("Infantry screen must deploy on the two outer flanks")
 		quit(1)
 		return
@@ -74,5 +77,6 @@ func _run() -> void:
 		quit(1)
 		return
 
+	print("Formation regression: all assertions passed")
 	print("Group formation regression passed: unique slots, viewport bounds, rear artillery, infantry flanks, armor center, air/support lanes, and dead/single-unit handling.")
 	quit(0)
