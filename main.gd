@@ -747,8 +747,8 @@ func _process(delta: float) -> void:
 							var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
 							if unit.pos.distance_to(escort_spot) > 18.0:
 								unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
-						else:
-							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+							else:
+								unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
 						else:
 							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue

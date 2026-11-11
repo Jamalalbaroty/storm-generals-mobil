@@ -1959,7 +1959,6 @@ func _add_base_building(at: Vector3, kind: String, tint: Color, faction_id: Stri
 			var aa_weapon_pivot := building.get_node_or_null("DefenseWeaponPivot") as Node3D
 			if is_instance_valid(aa_weapon_pivot):
 				aa_weapon_pivot.position.y = 3.55
-			var aa_radar_pivot := Node3D.new()
 			aa_radar_pivot.name = "AntiAirRadarPivot"
 			aa_radar_pivot.position = Vector3(0.0, 4.08, 0.62)
 			building.add_child(aa_radar_pivot)
