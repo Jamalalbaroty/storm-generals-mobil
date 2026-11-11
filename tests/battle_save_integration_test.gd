@@ -236,6 +236,37 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 760.0, "enemy", ["tank", "artillery", "infantry"])) == 2, "Attack helicopters must prioritize ground armor over closer air contacts")
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 320.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == 0, "Fighters must prioritize hostile aircraft over closer ground targets")
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 19.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == -1, "Role-based target selection must never acquire targets outside its engagement radius")
+	# Enemy combined-arms assault formations must keep armor forward, infantry in support, and artillery at standoff range.
+	var assault_target_pos := Vector2(500.0, 300.0)
+	var assault_origin_pos := Vector2(100.0, 300.0)
+	var tank_slot: Vector2 = game.call("_enemy_ground_assault_formation_position", "tank", assault_target_pos, assault_origin_pos, 0)
+	var infantry_slot: Vector2 = game.call("_enemy_ground_assault_formation_position", "infantry", assault_target_pos, assault_origin_pos, 0)
+	var artillery_slot: Vector2 = game.call("_enemy_artillery_support_position", assault_target_pos, assault_origin_pos, 0)
+	_expect(tank_slot.distance_to(Vector2(435.0, 278.0)) < 0.1, "Enemy tanks must occupy the forward assault line")
+	_expect(infantry_slot.distance_to(Vector2(400.0, 278.0)) < 0.1, "Enemy infantry must trail the armor instead of crowding the front line")
+	_expect(artillery_slot.distance_to(Vector2(250.0, 230.0)) < 0.1, "Enemy artillery must hold a rear standoff firing position")
+	game.get("units").assign([
+		{"kind": "tank", "team": "enemy", "hp": 300, "pos": Vector2(420.0, 300.0)},
+		{"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(430.0, 300.0)},
+		{"kind": "tank", "team": "enemy", "hp": 300, "defense_guard": true, "pos": Vector2(440.0, 300.0)},
+		{"kind": "artillery", "team": "enemy", "hp": 220, "pos": Vector2(350.0, 300.0)},
+		{"kind": "artillery", "team": "enemy", "hp": 220, "pos": Vector2(330.0, 300.0)}
+	])
+	_expect(int(game.call("_enemy_assault_formation_rank", 3)) == 2, "Assault formation ranks must count active armor and infantry but exclude defensive guards")
+	_expect(int(game.call("_enemy_artillery_formation_rank", 4)) == 1, "Artillery support ranks must separate batteries into independent firing lanes")
+	game.get("units").assign([
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(200.0, 0.0)},
+		{"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(100.0, 0.0)},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(20.0, 0.0)}
+	])
+	game.set("enemy_strategy", "armor_breaker")
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2.ZERO)) == 0, "Armor-breaker doctrine must prioritize a threatening tank over nearer infantry and ignore aircraft")
+	game.set("enemy_strategy", "area_denial")
+	game.get("units")[0]["kind"] = "artillery"
+	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2.ZERO)) == 0, "Area-denial doctrine must prioritize hostile artillery concentrations")
+	game.set("enemy_strategy", "balanced")
+	game.get("units").clear()
+
 	game.get("units").clear()
 
 	# Zero Hour-style armor facing: rear/side exposure takes more damage than a frontal hit.
