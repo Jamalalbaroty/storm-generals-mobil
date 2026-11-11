@@ -919,16 +919,7 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
 					else:
-						var escort_heli_index := -1
-						var escort_heli_distance := 260.0
-						for escort_index in range(units.size()):
-							var escort_candidate: Dictionary = units[escort_index]
-							if String(escort_candidate.get("team", "")) != "enemy" or String(escort_candidate.get("kind", "")) != "helicopter" or int(escort_candidate.get("hp", 0)) <= 0:
-								continue
-							var escort_distance: float = unit.pos.distance_to(escort_candidate.pos)
-							if escort_distance < escort_heli_distance:
-								escort_heli_distance = escort_distance
-								escort_heli_index = escort_index
+						var escort_heli_index := _enemy_fighter_escort_helicopter_index(unit.pos)
 						if escort_heli_index >= 0:
 							var escort_heli: Dictionary = units[escort_heli_index]
 							var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
@@ -2771,6 +2762,35 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 		if best_index >= 0:
 			return best_index
 	return -1
+
+
+func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
+	# Fighters escort the helicopter most exposed to hostile air, not simply the nearest helicopter.
+	var best_index := -1
+	var best_score := INF
+	var fallback_index := -1
+	var fallback_distance := INF
+	for candidate_index in range(units.size()):
+		var helicopter: Dictionary = units[candidate_index]
+		if String(helicopter.get("team", "")) != "enemy" or String(helicopter.get("kind", "")) != "helicopter" or int(helicopter.get("hp", 0)) <= 0:
+			continue
+		var escort_distance: float = from_pos.distance_to(helicopter.pos)
+		if escort_distance < fallback_distance:
+			fallback_distance = escort_distance
+			fallback_index = candidate_index
+		var hostile_air_distance := INF
+		for threat in units:
+			if String(threat.get("team", "")) != "player" or int(threat.get("hp", 0)) <= 0:
+				continue
+			if String(threat.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter"]:
+				continue
+			hostile_air_distance = minf(hostile_air_distance, helicopter.pos.distance_to(threat.pos))
+		if hostile_air_distance <= FIGHTER_TARGET_RANGE:
+			var score: float = escort_distance * 0.55 + hostile_air_distance * 0.85
+			if score < best_score:
+				best_score = score
+				best_index = candidate_index
+	return best_index if best_index >= 0 else fallback_index
 
 
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
