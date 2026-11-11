@@ -51,13 +51,17 @@ func _run_battle_save_integration_test() -> void:
 
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
 	game.get("units").assign([
-		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9},
-		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4}
+		{"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_2", "kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9},
+		{"unit_id": "queue_4", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4}
 	])
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 1.5), "Takeoff queue must be isolated per airfield")
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_1", 4)), "First aircraft in an airfield queue must be allowed to taxi immediately")
+	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "A following aircraft must wait until its same-airfield predecessor clears the launch lane")
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 9)), "An aircraft at another airfield must not block this runway")
+	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_4", 4)), "Enemy aircraft must not block the player's airfield queue")
 	game.get("units").clear()
 
 	# Strategic supply points remain neutral while contested and change hands when uncontested.
