@@ -5032,7 +5032,15 @@ func _transport_ai_transport_threat_score(transport: Dictionary) -> float:
 			"artillery":
 				weight = 1.6
 		score += weight * clampf(1.0 - distance / 240.0, 0.0, 1.0)
-	return minf(score, 4.0)
+	# Protect vulnerable aircraft and valuable live cargo, not only the nearest threat.
+	var max_hp := maxi(1, _unit_repair_max_hp(transport))
+	var hp_ratio := clampf(float(transport.get("hp", max_hp)) / float(max_hp), 0.0, 1.0)
+	var vulnerability_priority := (1.0 - hp_ratio) * 0.75
+	var cargo_count := Array(transport.get("transport_cargo", [])).size()
+	var cargo_priority := minf(float(cargo_count), 8.0) * 0.065
+	var mission_state := String(transport.get("transport_state", "idle"))
+	var mission_priority := 0.35 if mission_state in ["inbound", "descending", "ai_assessing"] else (0.12 if mission_state == "returning" else 0.0)
+	return minf(score + vulnerability_priority + cargo_priority + mission_priority, 5.6)
 
 
 func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
