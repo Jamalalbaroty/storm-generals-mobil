@@ -108,3 +108,34 @@ GitHub Actions results for this exact commit:
 The automated coverage now exercises deterministic landing selection and tie-breaking, invalid/occupied sites, threat-aware route/site choices, MANUAL/ASSISTED/AUTONOMOUS authorization, explicit player override, inbound reassessment, critical-damage recovery, no-safe-site cargo preservation, threat response during rope descent, post-drop DEFEND/ATTACK_MOVE behavior, multi-transport rescue and escort assignment/rebalancing, passenger capacity/preservation, rooftop insertion, and airfield return/service.
 
 This CI result verifies the headless scenarios in the checked-in scripts only. It does **not** close every acceptance item above: save/load during each mission state is not demonstrated by this run; visual/touch behavior and performance still require a real Android device; and a complete end-to-end sortie in all three policies still needs manual device verification. Therefore the transport tactical AI is **CI-green, not release-certified or 100% complete**.
+
+## Save/load audit — 2026-11-11
+
+### Current verified state
+
+The current `main.gd` contains `_load_commander_profile()` and `_save_commander_profile()`, backed by `user://storm_generals_profile.cfg`. That file stores career/profile data (battle counts, kills, medals, campaign progress and campaign funds). It is **not** a battle save: it does not capture the live match state.
+
+A targeted scan of the current gameplay smoke and transport regression scripts found no save/load or serialization regression. Therefore AIRAI-015 remains **not implemented / not verified**. Do not describe campaign profile persistence as save-game support.
+
+### Battle snapshot contract before implementation
+
+Persist a versioned match snapshot containing:
+- Match identity and phase: schema version, faction, map, campaign mission index, started/paused/result state.
+- Economy and objectives: player/enemy credits, supplies, income timers, supply-point ownership, base health, enemy strategy and mission timers.
+- World state: player/enemy units, player/enemy buildings, production queues, missiles and any active gameplay objective state.
+- Transport integrity: each aircraft's state, passenger manifest (full passenger dictionaries), remaining cargo, target/return positions, route points, policy, doctrine, escort assignments and rescue/pickup mission state.
+- Stable identity: persistent unit/building IDs and references by ID; never persist transient array indices as authoritative target references.
+
+Rebuildable presentation state should be regenerated after load, not serialized: audio players/streams, touch/drag ownership, viewport state, transient particles and visual-only effects. Reacquire combat targets from stable IDs or saved focus positions and validate every restored destination against the current map.
+
+### Required safeguards and tests
+
+1. Version the schema and reject unsupported/corrupt snapshots without overwriting the last valid save.
+2. Write to a temporary file, verify the write, then replace the active snapshot safely.
+3. Validate required keys, value types, collection sizes, unit IDs, cargo capacity, and transport state/cargo consistency before mutating the live match.
+4. Restore into a staged state first; commit only after the entire snapshot passes validation.
+5. Add round-trip tests for an ordinary ground battle, active production, damaged buildings, a loaded transport, inbound/descending transport with remaining cargo, returning/rearming transport, escorts, and a campaign mission.
+6. Add corruption/older-version tests and verify a failed load leaves the current match unchanged.
+7. Confirm on Android that saving and loading works across app termination/relaunch and that the restored touch UI remains usable.
+
+**Implementation status:** audit and contract only. No battle save/load code has been added yet, and no persistence test has been claimed as passing. The next engineering task is to implement this contract in small, testable steps, beginning with stable entity IDs and a versioned snapshot codec.
