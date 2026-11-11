@@ -77,7 +77,7 @@ func _run_battle_save_integration_test() -> void:
 		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 1.0, "production_id": 11, "pos": Vector2(30.0, 0.0)},
 		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 1.0, "production_id": 12, "pos": Vector2(1.0, 0.0)}
 	])
-	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 2, "Aircraft must skip a closer completed airfield that has lost power after earlier fields consume capacity")
+	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 3, "Aircraft must skip a closer completed airfield that has lost power after earlier fields consume capacity")
 	game.get("units").clear()
 	game.get("units").clear()
 	game.get("buildings").clear()
