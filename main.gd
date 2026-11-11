@@ -3977,7 +3977,7 @@ func _prepare_transport_rooftop_landing() -> void:
 		transport["transport_order_pending"] = true
 		found_transport = true
 	if found_transport:
-		notice = "اختر مبنى مكتملاً ليكون سطح الإنزال"
+		notice = "اختر سطح مبنى أو نقطة أرضية آمنة لنقل الجنود إليها"
 	else:
 		notice = "حدد طائرة نقل محمّلة بالجنود أولاً"
 	notice_time = 2.4
@@ -3990,39 +3990,60 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		var transport: Dictionary = units[index]
 		if String(transport.get("kind", "")) != "transport_helicopter" or not bool(transport.get("transport_order_pending", false)):
 			continue
-		var target_pos := Vector2.ZERO
-		var target_found := false
+		var target_pos := world_pos
+		var rooftop_found := false
+		var target_building: Dictionary = {}
 		for building in buildings:
 			if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 				target_pos = building.pos
-				target_found = true
+				target_building = building
+				rooftop_found = true
 				break
-		if not target_found:
+		if not rooftop_found:
 			for building in enemy_buildings:
 				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 					target_pos = building.pos
-					target_found = true
+					target_building = building
+					rooftop_found = true
 					break
-		if not target_found:
-			notice = "اختر سطح مبنى مكتملاً وصالحاً للإنزال"
-			notice_time = 2.0
-			return true
-		for occupant in units:
-			if occupant.team == "enemy" and int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(target_pos) < 22.0:
-				notice = "سطح المبنى غير آمن — اختر مبنى آخر"
+		if rooftop_found:
+			for occupant in units:
+				if String(occupant.get("team", "")) == "enemy" and int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(target_pos) < 22.0:
+					notice = "سطح المبنى غير آمن — اختر مبنى آخر"
+					notice_time = 2.2
+					return true
+		else:
+			var safe_map_rect := Rect2(Vector2(36.0, 36.0), get_viewport_rect().size - Vector2(72.0, 72.0))
+			if not safe_map_rect.has_point(target_pos):
+				notice = "اختر نقطة إنزال داخل حدود الخريطة وبعيدة عن الحواف"
 				notice_time = 2.2
 				return true
+			for building in buildings:
+				if int(building.get("hp", 0)) > 0 and building.pos.distance_to(target_pos) < 54.0:
+					notice = "نقطة الإنزال قريبة من منشأة — اختر مساحة مفتوحة"
+					notice_time = 2.2
+					return true
+			for building in enemy_buildings:
+				if int(building.get("hp", 0)) > 0 and building.pos.distance_to(target_pos) < 54.0:
+					notice = "نقطة الإنزال قريبة من مبنى معادٍ — اختر مساحة آمنة"
+					notice_time = 2.2
+					return true
+			for occupant in units:
+				if int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(target_pos) < 42.0:
+					notice = "الموقع مزدحم — اختر مساحة مفتوحة للإنزال"
+					notice_time = 2.2
+					return true
 		transport["transport_target_pos"] = target_pos
+		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
 		transport["transport_state"] = "inbound"
 		transport["transport_order_pending"] = false
 		transport["transport_drop_index"] = 0
 		transport["transport_drop_timer"] = 0.0
 		transport.erase("target")
-		notice = "انطلقت طائرة النقل لتنفيذ الإنزال على السطح"
+		notice = "انطلقت المروحية للإنزال على السطح" if rooftop_found else "انطلقت المروحية لنقل الجنود إلى الموقع المحدد"
 		notice_time = 2.5
 		return true
 	return false
-
 
 func _cancel_transport_order() -> void:
 	var cancelled := 0
