@@ -148,3 +148,8 @@ Regression cases cover activation, objective targeting, and the missing-objectiv
 A compact touch panel is now shown when the player selects one or more friendly transport helicopters. It exposes a cycle button for MANUAL → ASSISTED → AUTONOMOUS → MANUAL and a post-drop doctrine toggle between DEFEND and ATTACK_MOVE. The panel writes settings to the selected aircraft records; it does not silently launch a sortie.
 
 Safety locks prevent changing the control mode while a transport is inbound, descending, or assessing a landing, and prevent changing post-drop doctrine unless the aircraft is idle or loaded. Selection is restricted to player-owned transport helicopters. Regression tests cover visibility eligibility, mode/doctrine persistence, and both in-flight locks. These tests are authored but still require a successful Godot CI run and Android touch-device validation.
+
+
+## Implemented tenth slice — physical boarding and extraction safety
+
+The manual reload interaction now enforces battlefield proximity and aircraft state. A transport can accept selected infantry only while idle or already loaded, and only when each passenger is within 76 world units of the landed aircraft. Airborne, inbound, descending, and landing-assessment transports reject boarding without removing infantry from the battlefield. Capacity remains eight; selected troops outside pickup range remain in the field. Regression coverage checks nearby boarding, distant-unit preservation, and rejection while inbound. Godot CI and Android playtesting remain pending.
