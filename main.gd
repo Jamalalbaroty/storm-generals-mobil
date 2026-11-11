@@ -224,6 +224,7 @@ func _redirect_aircraft_recovery(unit: Dictionary, failed_airfield_id: int) -> b
 		unit.erase(state_key)
 	unit["airfield_returning"] = true
 	unit["airfield_recovery_id"] = alternate_id
+	unit.erase("airfield_recovery_slot")
 	unit["airfield_rearm_progress"] = float(unit.get("airfield_rearm_progress", 0.0))
 	# Publish the new field assignment before calculating a slot, so subsequent aircraft see it.
 	var redirected_unit_id := String(unit.get("unit_id", ""))
