@@ -991,8 +991,7 @@ func _process(delta: float) -> void:
 											if String(refreshed_transport.get("team", "")) == "player" and String(refreshed_transport.get("kind", "")) == "transport_helicopter" and int(refreshed_transport.get("hp", 0)) > 0 and int(refreshed_transport.get("3d_sync_id", -1)) == air_escort_id:
 												air_escort_index = refreshed_index
 												break
-							if air_escort_index >= 0:
-								var air_escort_target: Dictionary = units[air_escort_index]
+							var air_escort_target: Dictionary = units[air_escort_index]
 							var escort_anchor_pos := _transport_ai_escort_anchor_position(air_escort_target)
 							var escort_enemy_index := int(unit.get("attack_target", -1))
 							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, escort_anchor_pos, units[escort_enemy_index].pos)):
