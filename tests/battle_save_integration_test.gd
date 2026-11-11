@@ -33,6 +33,48 @@ func _run_battle_save_integration_test() -> void:
 	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000001", "Stable identity must survive unit-array compaction")
 	game.get("units").clear()
 
+	# Android single-finger drag selection: secondary touches must not steal the active gesture.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("use_3d_view", false)
+	game.get("units").assign([
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(110.0, 110.0)},
+		{"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(135.0, 125.0)}
+	])
+	var primary_touch := InputEventScreenTouch.new()
+	primary_touch.index = 1
+	primary_touch.position = Vector2(75.0, 75.0)
+	primary_touch.pressed = true
+	game.call("_input", primary_touch)
+	var secondary_touch := InputEventScreenTouch.new()
+	secondary_touch.index = 2
+	secondary_touch.position = Vector2(350.0, 350.0)
+	secondary_touch.pressed = true
+	game.call("_input", secondary_touch)
+	var primary_drag := InputEventScreenDrag.new()
+	primary_drag.index = 1
+	primary_drag.position = Vector2(165.0, 155.0)
+	game.call("_input", primary_drag)
+	var primary_release := InputEventScreenTouch.new()
+	primary_release.index = 1
+	primary_release.position = Vector2(165.0, 155.0)
+	primary_release.pressed = false
+	game.call("_input", primary_release)
+	_expect(game.get("selected").size() == 2 and game.get("selected").has(0) and game.get("selected").has(1), "Android drag selection must retain its primary finger when a secondary finger touches the screen")
+	_expect(int(game.get("active_touch_index")) == -1 and not bool(game.get("dragging")), "Android touch release must clear pointer ownership and finish the selection gesture")
+	var canceled_touch := InputEventScreenTouch.new()
+	canceled_touch.index = 3
+	canceled_touch.position = Vector2(90.0, 90.0)
+	canceled_touch.pressed = true
+	game.call("_input", canceled_touch)
+	canceled_touch.canceled = true
+	canceled_touch.pressed = false
+	game.call("_input", canceled_touch)
+	_expect(int(game.get("active_touch_index")) == -1 and not bool(game.get("dragging")), "Android system-canceled touch must safely abort the active gesture")
+	game.get("units").clear()
+	game.set("game_started", false)
+
 	# Zero Hour-style combat veterancy: promotion thresholds, damage bonuses, and faction ownership.
 	var veteran_test_unit: Dictionary = {"unit_id": "veterancy_test", "kind": "tank", "team": "player", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
 	game.call("_award_unit_experience", veteran_test_unit, 199)
