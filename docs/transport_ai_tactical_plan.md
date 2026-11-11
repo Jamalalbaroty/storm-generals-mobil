@@ -233,3 +233,8 @@ Air escorts assigned to a transport now retain the protected target kind and can
 ## Implemented twenty-second slice — compact escort formations after losses
 
 Air escort formations now have a shared synchronization helper that rebuilds the living members' deterministic slots, offsets, and formation-size metadata for a protected target. Manual escort assignment and automatic reassignment after transport loss both invoke the helper, so a destroyed or detached escort cannot leave a permanent gap in the formation when the next aircraft joins. The helper ignores dead, non-player, and detached units and preserves the existing stable target ID model. Regression assertions cover slot compaction, updated formation size, and restoration of the deterministic offset. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented twenty-second slice — adaptive escort formation catch-up
+
+Air escorts now use a bounded distance-based catch-up speed while returning to their assigned moving formation slot. The base speed remains unchanged inside the normal formation tolerance; speed increases progressively with separation and is capped at 1.4x the unit's own base speed. Fighter and gunship movement retain their distinct base speeds. Regression assertions cover acceleration beyond the formation tolerance and the upper speed cap for both aircraft classes. Tests are authored only; Godot execution, CI, and Android validation remain pending.
