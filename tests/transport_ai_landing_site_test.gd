@@ -82,6 +82,26 @@ func _run() -> void:
 	var empty_decision: Dictionary = game.call("_transport_ai_landing_decision", empty_transport, objective)
 	_expect(not bool(empty_decision.get("valid", true)) and String(empty_decision.get("reason", "")) == "empty_cargo", "The tactical director must reject empty transports")
 
+	var manual_request := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "MANUAL", "transport_state": "loaded", "pos": Vector2(300.0, 300.0)}
+	var manual_request_result: Dictionary = game.call("_transport_ai_request_landing", manual_request, objective)
+	_expect(not bool(manual_request_result.get("accepted", true)) and String(manual_request.get("transport_state", "")) == "loaded", "MANUAL requests must not change the transport state")
+
+	var assisted_request := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "ASSISTED", "transport_state": "loaded", "pos": Vector2(300.0, 300.0)}
+	var assisted_request_result: Dictionary = game.call("_transport_ai_request_landing", assisted_request, objective)
+	_expect(bool(assisted_request_result.get("accepted", false)) and String(assisted_request_result.get("reason", "")) == "recommendation_ready", "ASSISTED requests should return a landing recommendation")
+	_expect(String(assisted_request.get("transport_state", "")) == "loaded" and assisted_request.has("transport_ai_recommendation"), "ASSISTED recommendations must not move the aircraft")
+
+	var autonomous_request := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "AUTONOMOUS", "transport_state": "loaded", "pos": Vector2(300.0, 300.0)}
+	var autonomous_request_result: Dictionary = game.call("_transport_ai_request_landing", autonomous_request, objective)
+	_expect(bool(autonomous_request_result.get("accepted", false)) and String(autonomous_request.get("transport_state", "")) == "ai_assessing", "AUTONOMOUS requests should queue a landing assessment")
+	game.call("_update_transport_helicopter", autonomous_request, 0.016)
+	_expect(String(autonomous_request.get("transport_state", "")) == "inbound", "The transport update loop should turn an authorized AI request into inbound flight")
+	_expect(autonomous_request.has("transport_target_pos") and autonomous_request.has("transport_ai_last_site_id"), "Autonomous execution should store the selected landing destination")
+
+	var overridden_request := {"transport_cargo": [{"kind": "infantry"}], "transport_ai_mode": "AUTONOMOUS", "transport_ai_player_override": true, "transport_state": "loaded", "pos": Vector2(300.0, 300.0)}
+	var overridden_result: Dictionary = game.call("_transport_ai_request_landing", overridden_request, objective)
+	_expect(not bool(overridden_result.get("accepted", true)) and String(overridden_request.get("transport_state", "")) == "loaded", "Player override must reject autonomous task requests")
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
