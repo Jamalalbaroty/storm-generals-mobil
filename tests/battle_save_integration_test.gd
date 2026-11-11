@@ -175,6 +175,22 @@ func _run_battle_save_integration_test() -> void:
 			"pos": Vector2(420.0, 210.0)
 		}]
 	})
+	game.get("units").append({
+		"unit_id": "unit_00000053", "kind": "infantry", "team": "player", "faction": "وطن",
+		"hp": 60, "pos": Vector2(450.0, 220.0), "target": Vector2(720.0, 240.0)
+	})
+	game.get("units").append({
+		"unit_id": "unit_00000054", "kind": "tank", "team": "player", "faction": "وطن",
+		"hp": 150, "pos": Vector2(470.0, 230.0), "attack_target": 4
+	})
+	game.get("units").append({
+		"unit_id": "unit_00000055", "kind": "artillery", "team": "player", "faction": "وطن",
+		"hp": 120, "pos": Vector2(490.0, 240.0), "guard_active": true
+	})
+	game.get("units").append({
+		"unit_id": "unit_00000056", "kind": "fighter", "team": "enemy",
+		"hp": 180, "pos": Vector2(760.0, 250.0)
+	})
 	game.get("buildings").append({"kind": "airfield", "hp": 390, "pos": Vector2(650.0, 320.0), "production_id": 4})
 	game.get("enemy_buildings").append({"kind": "factory", "hp": 240, "pos": Vector2(980.0, 320.0), "production_id": 9})
 	game.get("production_orders").append({"producer_id": 4, "producer_pos": Vector2(650.0, 320.0), "producer_kind": "airfield", "kind": "fighter", "remaining": 8.5, "duration": 20.0})
@@ -196,12 +212,19 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.get("credits")) == 1840 and int(game.get("player_base_hp")) == 760, "Economy and base health should be restored")
 	_expect(is_equal_approx(float(game.get("enemy_missile_timer")), 6.75), "Enemy missile attack cadence should be restored")
 	_expect(game.get("supply_points").size() == 1 and String(game.get("supply_points")[0].get("owner", "")) == "player", "Supply ownership should be restored")
-	_expect(game.get("units").size() == 1, "Field units should be restored")
-	if not game.get("units").is_empty():
+	_expect(game.get("units").size() == 5, "All field units must be restored with their original order indexes")
+	if game.get("units").size() == 5:
 		var transport: Dictionary = game.get("units")[0]
+		var mover: Dictionary = game.get("units")[1]
+		var attacker: Dictionary = game.get("units")[2]
+		var guard: Dictionary = game.get("units")[3]
 		_expect(String(transport.get("unit_id", "")) == "unit_00000051", "Transport identity should be restored")
 		_expect(String(transport.get("transport_state", "")) == "loaded", "Transport mission state should be restored")
 		_expect(Array(transport.get("transport_cargo", [])).size() == 1, "Transport cargo should be restored")
+		_expect(String(mover.get("unit_id", "")) == "unit_00000053" and mover.get("target", Vector2.ZERO) == Vector2(720.0, 240.0), "Movement destination order must survive save/restore")
+		_expect(String(attacker.get("unit_id", "")) == "unit_00000054" and int(attacker.get("attack_target", -1)) == 4, "Attack order must retain its target unit index after restore")
+		_expect(String(game.get("units")[4].get("unit_id", "")) == "unit_00000056" and String(game.get("units")[4].get("team", "")) == "enemy", "The restored attack target must still identify the same enemy unit")
+		_expect(String(guard.get("unit_id", "")) == "unit_00000055" and bool(guard.get("guard_active", false)), "Guard stance must survive save/restore")
 	_expect(game.get("buildings").size() == 1 and game.get("enemy_buildings").size() == 1, "Both armies' building states should be restored")
 	_expect(game.get("production_orders").size() == 1 and game.get("missiles").size() == 1, "Production and active missile state should be restored")
 
