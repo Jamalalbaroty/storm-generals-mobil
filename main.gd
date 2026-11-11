@@ -3369,8 +3369,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 						if units[idx].team == "player":
 							_cancel_airfield_recovery(units[idx])
 						units[idx].target = pos
-						units[idx].erase("attack_target")
-						units[idx].erase("attack_base")
+						# A direct move order overrides previous combat and stance orders.
+						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+							units[idx].erase(order_key)
 	queue_redraw()
 
 func _initialize_supply_points(size: Vector2) -> void:
