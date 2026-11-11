@@ -458,6 +458,8 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(505.0, 300.0), "escort_active": true, "escort_target_id": 77, "escort_auto_target": true, "attack_target": 0})
 	_expect(int(game.call("_transport_ai_select_group_escort_threat", 77, Vector2(500.0, 300.0), "fighter", 220.0)) == 1, "A second escort should choose an unclaimed enemy near the same transport")
 	_expect(int(game.call("_transport_ai_select_group_escort_threat", 88, Vector2(500.0, 300.0), "fighter", 220.0)) == 0, "Escorts protecting another transport should not reserve this group's target")
+	_expect(int(game.call("_transport_ai_select_emergency_escort_threat", 77, 3, Vector2(500.0, 300.0), 150.0)) == 1, "Emergency defense should select the nearest unclaimed attacker near the transport")
+	_expect(int(game.call("_transport_ai_select_emergency_escort_threat", 88, 3, Vector2(500.0, 300.0), 150.0)) == 0, "Emergency target reservations should remain isolated between transports")
 	game.get("units").clear()
 	# Escort target priorities are role-specific, not simply nearest-enemy selection.
 	game.get("units").clear()
