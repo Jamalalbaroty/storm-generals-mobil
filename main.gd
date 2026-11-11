@@ -4486,6 +4486,25 @@ func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
 				var threat_distance: float = sample_pos.distance_to(hostile_building.pos)
 				if threat_distance < 320.0:
 					exposure += (320.0 - threat_distance) / 320.0
+			# Mobile enemy aircraft can intercept transports even when no static AA is nearby.
+			for hostile_unit in units:
+				if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
+					continue
+				var hostile_kind := String(hostile_unit.get("kind", ""))
+				if hostile_kind not in ["fighter", "helicopter"]:
+					continue
+				var mobile_threat_distance: float = sample_pos.distance_to(hostile_unit.pos)
+				var mobile_threat_radius := 300.0 if hostile_kind == "fighter" else 255.0
+				if mobile_threat_distance < mobile_threat_radius:
+					var threat_weight := 1.15 if hostile_kind == "fighter" else 0.85
+					exposure += ((mobile_threat_radius - mobile_threat_distance) / mobile_threat_radius) * threat_weight
+			# Mobile anti-air vehicles are supported when represented by the canonical anti_air kind.
+			for hostile_unit in units:
+				if String(hostile_unit.get("team", "")) != "enemy" or String(hostile_unit.get("kind", "")) != "anti_air" or int(hostile_unit.get("hp", 0)) <= 0:
+					continue
+				var mobile_aa_distance: float = sample_pos.distance_to(hostile_unit.pos)
+				if mobile_aa_distance < 280.0:
+					exposure += (280.0 - mobile_aa_distance) / 280.0
 	return exposure
 
 
