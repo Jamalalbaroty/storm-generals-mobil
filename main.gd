@@ -5099,9 +5099,114 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		return true
 	return false
 
+func _transport_ai_order_group_pickups(infantry_indices: Array[int], transport_indices: Array[int]) -> Dictionary:
+	# Plan a complete rescue dispatch before changing any aircraft or escort orders.
+	if infantry_indices.is_empty() or transport_indices.size() < 2:
+		return {}
+	var available_transports: Array[int] = []
+	for transport_index in transport_indices:
+		if transport_index < 0 or transport_index >= units.size():
+			return {}
+		var transport: Dictionary = units[transport_index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			return {}
+		if not Array(transport.get("transport_cargo", [])).is_empty() or String(transport.get("transport_state", "idle")) not in ["idle", "loaded"]:
+			return {}
+		available_transports.append(transport_index)
+	var triage_origin: Vector2 = units[available_transports[0]].get("pos", Vector2.ZERO)
+	var ordered_infantry := _transport_ai_sort_rescue_infantry(infantry_indices, triage_origin)
+	var passenger_groups: Dictionary = {}
+	for transport_index in available_transports:
+		passenger_groups[transport_index] = []
+	for infantry_index in ordered_infantry:
+		if infantry_index < 0 or infantry_index >= units.size():
+			continue
+		var infantry: Dictionary = units[infantry_index]
+		if String(infantry.get("team", "")) != "player" or String(infantry.get("kind", "")) != "infantry" or int(infantry.get("hp", 0)) <= 0:
+			continue
+		var best_transport := -1
+		var best_cost := INF
+		for transport_index in available_transports:
+			var group: Array = passenger_groups[transport_index]
+			if group.size() >= 8:
+				continue
+			var transport: Dictionary = units[transport_index]
+			var cost: float = infantry.get("pos", Vector2.ZERO).distance_to(transport.get("pos", Vector2.ZERO)) + float(group.size()) * 220.0
+			if cost < best_cost:
+				best_cost = cost
+				best_transport = transport_index
+		if best_transport >= 0:
+			var assigned_group: Array = passenger_groups[best_transport]
+			assigned_group.append(infantry_index)
+			passenger_groups[best_transport] = assigned_group
+	var candidates_by_transport: Dictionary = {}
+	var reserved_sites: Array[Vector2] = []
+	var assignments: Array[Dictionary] = []
+	var total_passengers := 0
+	for transport_index in available_transports:
+		var group: Array = passenger_groups[transport_index]
+		if group.is_empty():
+			continue
+		var center := Vector2.ZERO
+		for infantry_index in group:
+			center += units[int(infantry_index)].get("pos", Vector2.ZERO)
+		center /= float(group.size())
+		var candidates := _transport_ai_build_landing_candidates(center)
+		var best_site: Dictionary = {}
+		for candidate in candidates:
+			var candidate_pos: Vector2 = candidate.get("pos", Vector2.ZERO)
+			if candidate_pos.distance_to(center) > 240.0:
+				continue
+			var separated := true
+			for reserved_pos in reserved_sites:
+				if candidate_pos.distance_to(reserved_pos) < 96.0:
+					separated = false
+					break
+			if not separated:
+				continue
+			var evaluation := _transport_ai_evaluate_landing_site(candidate, center)
+			if not bool(evaluation.get("valid", false)):
+				continue
+			var score := float(evaluation.get("score", -1.0))
+			if best_site.is_empty() or score > float(best_site.get("score", -1.0)) or (is_equal_approx(score, float(best_site.get("score", -1.0))) and String(candidate.get("id", "")) < String(best_site.get("site_id", ""))):
+				best_site = evaluation.duplicate(true)
+				best_site["pos"] = candidate_pos
+				best_site["site_id"] = String(candidate.get("id", ""))
+		if best_site.is_empty():
+			return {}
+		reserved_sites.append(best_site.pos)
+		assignments.append({"unit_index": transport_index, "landing": best_site, "passengers": group})
+		total_passengers += group.size()
+	if assignments.is_empty():
+		return {}
+	var dispatched_transports: Array[int] = []
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var landing: Dictionary = assignment.landing
+		var pickup_pos: Vector2 = landing.pos
+		transport["transport_target_pos"] = pickup_pos
+		transport["transport_landing_type"] = String(landing.get("landing_type", "ground"))
+		if String(transport["transport_landing_type"]) == "rooftop":
+			transport["transport_target_building_kind"] = String(landing.get("building_kind", ""))
+		else:
+			transport.erase("transport_target_building_kind")
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = true
+		transport["transport_pickup_waiting"] = true
+		_transport_ai_assign_route(transport, pickup_pos)
+		transport["transport_state"] = "inbound"
+		transport["transport_drop_index"] = 0
+		transport["transport_drop_timer"] = 0.0
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		dispatched_transports.append(int(assignment.unit_index))
+	var escort_count := _transport_ai_assign_selected_air_escorts(dispatched_transports)
+	return {"transport_count": dispatched_transports.size(), "passenger_count": total_passengers, "overflow_count": maxi(0, infantry_indices.size() - total_passengers), "escort_count": escort_count}
+
+
 func _order_transport_pickup() -> void:
-	var transport: Dictionary = {}
-	var infantry_positions: Array[Vector2] = []
+	var transport_indices: Array[int] = []
+	var infantry_indices: Array[int] = []
 	for index in selected:
 		if index < 0 or index >= units.size():
 			continue
@@ -5109,17 +5214,23 @@ func _order_transport_pickup() -> void:
 		if String(candidate.get("team", "")) != "player":
 			continue
 		if String(candidate.get("kind", "")) == "transport_helicopter":
-			if not transport.is_empty():
-				notice = "اختر طائرة نقل واحدة فقط مع فرقة المشاة"
-				notice_time = 2.2
-				return
-			transport = candidate
+			if not transport_indices.has(index):
+				transport_indices.append(index)
 		elif String(candidate.get("kind", "")) == "infantry" and int(candidate.get("hp", 0)) > 0:
-			infantry_positions.append(candidate.get("pos", Vector2.ZERO))
-	if transport.is_empty() or infantry_positions.is_empty():
-		notice = "حدد طائرة نقل ومشاة على الأرض لاستدعاء الإخلاء"
+			infantry_indices.append(index)
+	if transport_indices.is_empty() or infantry_indices.is_empty():
+		notice = "حدد طائرات نقل ومشاة على الأرض لاستدعاء الإخلاء"
 		notice_time = 2.4
 		return
+	if transport_indices.size() > 1:
+		var group_result := _transport_ai_order_group_pickups(infantry_indices, transport_indices)
+		if group_result.is_empty():
+			notice = "تعذر تأمين مواقع إخلاء متباعدة لكل الطائرات — لم تصدر أي مهمة"
+		else:
+			notice = "انطلقت %d طائرات لإنقاذ %d جندياً — بقي %d في الميدان — المرافقة: %d" % [int(group_result.transport_count), int(group_result.passenger_count), int(group_result.overflow_count), int(group_result.escort_count)]
+		notice_time = 3.2
+		return
+	var transport: Dictionary = units[transport_indices[0]]
 	if not Array(transport.get("transport_cargo", [])).is_empty():
 		notice = "أفرغ حمولة الطائرة قبل استدعائها لإخلاء فرقة أخرى"
 		notice_time = 2.4
@@ -5128,6 +5239,9 @@ func _order_transport_pickup() -> void:
 		notice = "الطائرة مشغولة بمهمة أخرى — ألغِ المهمة أو انتظر عودتها"
 		notice_time = 2.4
 		return
+	var infantry_positions: Array[Vector2] = []
+	for infantry_index in infantry_indices:
+		infantry_positions.append(units[infantry_index].get("pos", Vector2.ZERO))
 	var rendezvous_center := Vector2.ZERO
 	for infantry_pos in infantry_positions:
 		rendezvous_center += infantry_pos
@@ -5153,9 +5267,9 @@ func _order_transport_pickup() -> void:
 	transport["transport_drop_timer"] = 0.0
 	transport.erase("transport_ai_objective_pos")
 	transport.erase("transport_ai_recommendation")
-	notice = "انطلقت المروحية إلى موقع الفرقة — قرّب الجنود منها ثم أصدر أمر التحميل"
+	var escort_count := _transport_ai_assign_selected_air_escorts(transport_indices)
+	notice = "انطلقت المروحية إلى موقع الفرقة — قرّب الجنود منها ثم أصدر أمر التحميل — المرافقة: %d" % escort_count
 	notice_time = 3.0
-
 
 func _transport_ai_nearest_friendly_airfield(from_pos: Vector2) -> Dictionary:
 	var nearest: Dictionary = {}
