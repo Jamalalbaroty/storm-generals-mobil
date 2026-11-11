@@ -116,3 +116,8 @@ The live unit-occupancy filter now ignores friendly transport helicopters while 
 ## CI feedback and correction
 
 The first Godot 4.4 regression run confirmed project import and the existing economy, gameplay-smoke, and transport-airlift suites, but the new AI test was rejected by strict Variant-inference warnings on two local variables. Those variables are now explicitly typed as `Dictionary`. The dedicated AI regression suite must be rerun on the corrected commit before this slice is considered validated.
+
+
+## Implemented sixth slice — in-flight landing reassessment
+
+Autonomous transports now re-evaluate their landing site every 1.25 seconds while inbound, provided the aircraft remains more than 80 pixels from touchdown and no player override is active. The evaluator checks the current destination against live occupancy and threat conditions, then compares it with a fresh plan. It switches targets only when the current site becomes invalid or the alternative scores at least 14 points better and is meaningfully separated, avoiding constant oscillation. Rooftop/ground metadata is updated together with the target. The objective is retained during flight and cleared when insertion completes or the task is cancelled. A regression case places a hostile tank on the current landing footprint and verifies the transport chooses a new site. Godot CI validation for this slice is pending.
