@@ -2671,16 +2671,23 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 	return best_index
 
 
-func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
-	# Estimate the defensive screen around a player ground target.
-	# Ground assaults should prefer exposed threats over targets covered by several defenses.
+func _defense_risk_from_snapshot(target_pos: Vector2, defenses: Array, radius: float, falloff: float) -> float:
 	var risk := 0.0
-	for defense in buildings:
-		if int(defense.get("hp", 0)) <= 0 or float(defense.get("build_progress", 1.0)) < 1.0:
+	for defense in defenses:
+		var distance_squared: float = target_pos.distance_squared_to(defense.pos)
+		if distance_squared <= radius * radius:
+			risk += float(defense.weight) * (1.0 - sqrt(distance_squared) / falloff)
+	return risk
+
+
+func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
+	# Keep this standalone helper for callers and regression tests.
+	var defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
 			continue
-		var defense_kind := String(defense.get("kind", ""))
 		var weight := 0.0
-		match defense_kind:
+		match String(building.get("kind", "")):
 			"turret":
 				weight = 1.0
 			"anti_air":
@@ -2688,14 +2695,27 @@ func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
 			"missile_defense":
 				weight = 0.8
 		if weight > 0.0:
-			var distance: float = defense.pos.distance_to(target_pos)
-			if distance <= 240.0:
-				risk += weight * (1.0 - distance / 300.0)
-	return risk
+			defenses.append({"pos": building.pos, "weight": weight})
+	return _defense_risk_from_snapshot(target_pos, defenses, 240.0, 300.0)
 
 
 func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, preferred_pos: Vector2 = Vector2(-1000000.0, -1000000.0)) -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
+	# Snapshot defensive positions once; candidate scoring reuses this local view.
+	var ground_defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var defense_weight := 0.0
+		match String(building.get("kind", "")):
+			"turret":
+				defense_weight = 1.0
+			"anti_air":
+				defense_weight = 0.65
+			"missile_defense":
+				defense_weight = 0.8
+		if defense_weight > 0.0:
+			ground_defenses.append({"pos": building.pos, "weight": defense_weight})
 	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
 	var best_index := -1
 	var best_score := INF
@@ -2733,7 +2753,7 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 					threat_priority += 32.0
 				elif String(candidate.kind) == "infantry":
 					threat_priority += 22.0
-		var defensive_risk := _enemy_ground_target_defense_risk(candidate.pos)
+		var defensive_risk := _defense_risk_from_snapshot(candidate.pos, ground_defenses, 240.0, 300.0)
 		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority
 		if score < best_score:
 			best_score = score
@@ -2775,13 +2795,13 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 
 
 func _player_air_defense_risk(target_pos: Vector2) -> float:
-	# Helicopters avoid diving into concentrated anti-air screens when a safer ground target is available.
-	var risk := 0.0
-	for defense in buildings:
-		if int(defense.get("hp", 0)) <= 0 or float(defense.get("build_progress", 1.0)) < 1.0:
+	# Keep the standalone helper for callers and regression tests.
+	var defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
 			continue
 		var weight := 0.0
-		match String(defense.get("kind", "")):
+		match String(building.get("kind", "")):
 			"anti_air":
 				weight = 1.25
 			"missile_defense":
@@ -2789,13 +2809,26 @@ func _player_air_defense_risk(target_pos: Vector2) -> float:
 			"turret":
 				weight = 0.35
 		if weight > 0.0:
-			var distance: float = defense.pos.distance_to(target_pos)
-			if distance <= 320.0:
-				risk += weight * (1.0 - distance / 360.0)
-	return risk
+			defenses.append({"pos": building.pos, "weight": weight})
+	return _defense_risk_from_snapshot(target_pos, defenses, 320.0, 360.0)
 
 
 func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int) -> int:
+	# Snapshot the anti-air screen once instead of rescanning buildings per candidate.
+	var air_defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var defense_weight := 0.0
+		match String(building.get("kind", "")):
+			"anti_air":
+				defense_weight = 1.25
+			"missile_defense":
+				defense_weight = 0.85
+			"turret":
+				defense_weight = 0.35
+		if defense_weight > 0.0:
+			air_defenses.append({"pos": building.pos, "weight": defense_weight})
 	# Preserve ground-command focus, but let exposed targets win when the focus is protected by air defenses.
 	var best_index := -1
 	var best_score := INF
@@ -2807,7 +2840,7 @@ func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int
 		if distance > 760.0:
 			continue
 		# Air-defense exposure must outweigh a modest command-focus bonus when a safer target is available.
-		var score: float = distance * 0.35 + _player_air_defense_risk(candidate.pos) * 400.0
+		var score: float = distance * 0.35 + _defense_risk_from_snapshot(candidate.pos, air_defenses, 320.0, 360.0) * 400.0
 		if candidate_index == ground_focus_index:
 			score -= 120.0
 		if score < best_score:
