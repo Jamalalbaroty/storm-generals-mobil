@@ -56,7 +56,7 @@ func _run() -> void:
 	var detour_exposure: float = game.call("_transport_ai_route_exposure", detour_route)
 	_expect(detour_exposure < direct_exposure, "A lateral waypoint should reduce exposure to a known anti-air battery")
 	var selected_route: Array = game.call("_transport_ai_build_route", route_start, route_end)
-	_expect(selected_route.size() == 2 and Vector2(selected_route[0]).distance_to(route_end) < 1.0, "Autonomous routing should select a waypoint before the final landing point when it lowers route cost")
+	_expect(selected_route.size() == 2 and Vector2(selected_route[1]).distance_to(route_end) < 1.0 and Vector2(selected_route[0]).distance_to(route_end) >= 80.0, "Autonomous routing should select a waypoint before the final landing point when it lowers route cost")
 	game.get("enemy_buildings").clear()
 	var clear_route: Array = game.call("_transport_ai_build_route", route_start, route_end)
 	_expect(clear_route.size() == 1 and Vector2(clear_route[0]).distance_to(route_end) < 1.0, "With no known anti-air threat, the shortest direct route should remain preferred")
