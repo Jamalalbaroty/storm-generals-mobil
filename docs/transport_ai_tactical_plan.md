@@ -101,3 +101,8 @@ Added a pure decision layer for transport landing recommendations. The mode is r
 ## Implemented fifth slice — autonomous request reaches the transport state machine
 
 Added `_transport_ai_request_landing` as the tactical-director entry point and `_transport_ai_process_pending_landing` as the state-machine bridge. MANUAL and player-override requests are rejected without changing transport state. ASSISTED stores and returns a recommendation while leaving the aircraft loaded and stationary. AUTONOMOUS queues an assessment; the next transport update re-evaluates the landing against the live battlefield and, only when still authorized, writes the selected landing target and transitions to the existing inbound flight state. The established inbound/rope-drop/return flow remains the execution path. Added regression cases for manual rejection, assisted recommendation-only behavior, autonomous transition to inbound, and player override. This is code-level integration; Godot CI and in-game Android validation remain outstanding.
+
+
+## Player override lifecycle
+
+Explicit player landing orders now mark the current sortie as player-overridden and discard stale AI recommendations. Cancelling a transport task also clears queued AI objectives and blocks an immediate autonomous restart. Loading a fresh group of passengers resets that sortie-scoped override, allowing a later tactical-director request to be considered. This preserves player authority without permanently disabling autonomy for future sorties.
