@@ -202,3 +202,10 @@ GitHub Actions for this exact commit:
 - Added a regression that changes the live economy, dispatches the application-paused notification, deliberately mutates the in-memory state, then reloads and verifies the autosaved value.
 - GitHub Actions on commit `d372d3753f2a68ff3b011602d35133531f3fa5fa`: Regression run `43074404381` (#754) success, including lifecycle autosave integration and all existing transport/formation/attack/endurance tests; Validation run `43074404520` (#831) success.
 - APK export remained skipped. CI notification simulation is not a substitute for verifying actual Android process termination/relaunch on a physical device.
+
+### Battle-save recovery and transport lifecycle regression — 2026-11-11
+
+- Expanded the save-store regression to retain a known-good backup while writing a deliberately truncated/corrupt primary payload, then verify recovery promotes the backup back to the primary path.
+- Expanded live-scene save/restore integration coverage across transport `inbound` flight, `descending` rope deployment, `returning` to base, `loaded` standby, and `idle` after a passenger leaves the cargo manifest as a field unit. Destination, route points, drop index, cargo manifest, and passenger identity are asserted.
+- The first corruption fixture failed because it had already consumed the backup during the preceding missing-primary recovery check. The fixture was corrected to recreate the backup+corrupt-primary layout before testing fallback; no production save-store logic change was needed for that test-fixture failure.
+- Corrected code/test commit `7788d3440a3685dec2d6cdaf338ea88db09dd0c3`: Regression #758 success and Validation #835 success. Android APK export remained skipped.
