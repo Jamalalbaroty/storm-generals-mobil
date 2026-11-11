@@ -8284,6 +8284,7 @@ func _update_production_queues(delta: float) -> void:
 		active_producers.append(producer_pos)
 		var producer_exists := false
 		var producer_ready := false
+		var matched_producer_index := -1
 		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
 		var expected_producer_id := int(order.get("producer_id", -1))
 		for producer_index in range(buildings.size()):
@@ -8296,6 +8297,7 @@ func _update_production_queues(delta: float) -> void:
 				matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate.pos.distance_to(producer_pos) < 2.0
 			if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
 				producer_exists = true
+				matched_producer_index = producer_index
 				producer_ready = _is_player_building_powered(producer_index)
 				break
 		if not producer_exists:
@@ -8311,12 +8313,8 @@ func _update_production_queues(delta: float) -> void:
 			return
 		if not producer_ready:
 			continue
-		var producer_level := 1
-		for producer_index in range(buildings.size()):
-			var producer: Dictionary = buildings[producer_index]
-			if int(producer.get("production_id", -2)) == expected_producer_id and expected_producer_id >= 0:
-				producer_level = maxi(1, int(producer.get("level", 1)))
-				break
+		# Reuse the resolved producer instead of scanning the building list again.
+		var producer_level := maxi(1, int(buildings[matched_producer_index].get("level", 1))) if matched_producer_index >= 0 else 1
 		var production_speed := 1.0 + float(producer_level - 1) * 0.15
 		order.remaining = maxf(0.0, float(order.remaining) - delta * production_speed)
 		production_orders[i] = order
@@ -8330,10 +8328,10 @@ func _update_production_queues(delta: float) -> void:
 			# Do not consume a completed order until a ground-unit exit is genuinely clear.
 			if completed_kind not in ["fighter", "helicopter"] and completed_producer_id >= 0:
 				var exit_is_clear := false
-				for producer in buildings:
-					if int(producer.get("production_id", -2)) == completed_producer_id and String(producer.get("kind", "")) == _production_building_for(completed_kind):
-						exit_is_clear = _find_clear_ground_spawn(producer.pos, completed_kind, completed_producer_id).x >= 0.0
-						break
+				if matched_producer_index >= 0 and matched_producer_index < buildings.size():
+					var completed_producer: Dictionary = buildings[matched_producer_index]
+					if int(completed_producer.get("production_id", -2)) == completed_producer_id and String(completed_producer.get("kind", "")) == _production_building_for(completed_kind):
+						exit_is_clear = _find_clear_ground_spawn(completed_producer.pos, completed_kind, completed_producer_id).x >= 0.0
 				if not exit_is_clear:
 					notice = "اكتمل الإنتاج — المخرج مزدحم، تنتظر الوحدة توفر ممر آمن"
 					notice_time = 2.0
