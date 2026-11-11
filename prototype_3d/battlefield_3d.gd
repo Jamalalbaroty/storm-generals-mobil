@@ -223,7 +223,7 @@ func _update_ground_vehicle_effects(delta: float) -> void:
 func _spawn_track_dust(at: Vector3) -> void:
 	# A strict cap keeps movement trails inexpensive with many live RTS vehicles.
 	while ground_dust_nodes.size() >= 32:
-		var oldest := ground_dust_nodes.pop_front()
+		var oldest: Variant = ground_dust_nodes.pop_front()
 		if is_instance_valid(oldest):
 			oldest.queue_free()
 	var puff := MeshInstance3D.new()
@@ -710,14 +710,6 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 		var nx := clampf((source_pos.x - map_rect.position.x) / map_rect.size.x, 0.0, 1.0)
 		var nz := clampf((source_pos.y - map_rect.position.y) / map_rect.size.y, 0.0, 1.0)
 		var altitude := 5.2 if kind in ["helicopter", "transport_helicopter"] else (6.4 if kind == "fighter" else (-0.62 if kind == "submarine" else (0.12 if kind in ["destroyer", "carrier", "landing_craft"] else 0.0)))
-		if kind in ["infantry", "builder", "marine"]:
-			# Drive the combat pose from the authoritative RTS order, not the showcase selection.
-			var has_live_target := record.has("attack_target") and int(record.get("attack_target", -1)) >= 0
-			var has_saved_focus := record.get("attack_focus_pos", null) is Vector2
-			var has_building_target := record.has("attack_building") and int(record.get("attack_building", -1)) >= 0
-			var has_base_target := record.has("attack_base") and int(record.get("attack_base", -1)) >= 0
-			unit.set_meta("gameplay_is_aiming", has_live_target or has_saved_focus or has_building_target or has_base_target)
-			unit.set_meta("gameplay_is_guarding", bool(record.get("guard_active", false)))
 		if kind == "transport_helicopter":
 			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
 			altitude += _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0
@@ -774,6 +766,14 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("faction_id", faction_id)
 			unit.set_meta("source_faction", faction_id)
+		if kind in ["infantry", "builder", "marine"]:
+			# Apply combat pose metadata only after the 3D proxy is guaranteed to exist.
+			var has_live_target := record.has("attack_target") and int(record.get("attack_target", -1)) >= 0
+			var has_saved_focus := record.get("attack_focus_pos", null) is Vector2
+			var has_building_target := record.has("attack_building") and int(record.get("attack_building", -1)) >= 0
+			var has_base_target := record.has("attack_base") and int(record.get("attack_base", -1)) >= 0
+			unit.set_meta("gameplay_is_aiming", has_live_target or has_saved_focus or has_building_target or has_base_target)
+			unit.set_meta("gameplay_is_guarding", bool(record.get("guard_active", false)))
 		if kind == "transport_helicopter":
 			var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
 			unit.set_meta("transport_rooftop_altitude", _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0)
@@ -870,12 +870,13 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		if target_variant is Vector3:
 			horizontal_travel = Vector2(target_variant.x - unit.global_position.x, target_variant.z - unit.global_position.z).length()
 			unit.global_position = unit.global_position.lerp(target_variant, blend)
+		var climb_target := 0.0
 		if is_aircraft:
 			# Small climb under forward movement; helicopters retain a gentle hover motion.
 			var base_altitude := 5.2 if aircraft_kind in ["helicopter", "transport_helicopter"] else 6.4
 			if aircraft_kind == "transport_helicopter":
 				base_altitude += float(unit.get_meta("transport_rooftop_altitude", 0.0))
-			var climb_target := clampf(horizontal_travel * 0.035, 0.0, 0.42)
+			climb_target = clampf(horizontal_travel * 0.035, 0.0, 0.42)
 			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind in ["helicopter", "transport_helicopter"] else 1.15)
 			unit.set_meta("gameplay_hover_phase", hover_phase)
 			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind in ["helicopter", "transport_helicopter"] else 0.035)
@@ -1243,7 +1244,7 @@ func _spawn_light_building_debris(world_pos: Vector3, kind: String) -> void:
 		rubble.add_child(chunk)
 	gameplay_debris_nodes.append(rubble)
 	while gameplay_debris_nodes.size() > 10:
-		var oldest := gameplay_debris_nodes.pop_front()
+		var oldest: Variant = gameplay_debris_nodes.pop_front()
 		if is_instance_valid(oldest):
 			oldest.queue_free()
 	var cleanup := create_tween()
