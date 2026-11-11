@@ -202,6 +202,17 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.get("units")[4]["hp"]) == 300, "Artillery blast must never damage friendly units")
 	game.get("units").clear()
 
+	# Bunker cover must protect nearby friendly ground units without granting map-wide armor.
+	game.get("buildings").assign([
+		{"kind": "bunker", "hp": 650, "level": 1, "build_progress": 1.0, "pos": Vector2.ZERO}
+	])
+	game.get("supply_points").clear()
+	var covered_tank: Dictionary = {"kind": "tank", "team": "player", "hp": 300, "pos": Vector2.ZERO}
+	var exposed_tank: Dictionary = {"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(100.0, 0.0)}
+	_expect(int(game.call("_terrain_adjusted_damage", covered_tank, 100)) == 78, "Friendly ground units inside bunker cover must receive the approved defensive bonus")
+	_expect(int(game.call("_terrain_adjusted_damage", exposed_tank, 100)) == 100, "Bunker cover must not protect friendly units outside its radius")
+	game.get("buildings").clear()
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
