@@ -264,6 +264,16 @@ func _run_battle_save_integration_test() -> void:
 	game.set("enemy_strategy", "area_denial")
 	game.get("units")[0]["kind"] = "artillery"
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2.ZERO)) == 0, "Area-denial doctrine must prioritize hostile artillery concentrations")
+	# Flank selection must avoid defended approach corridors, not merely compare endpoint safety.
+	game.get("buildings").clear()
+	game.get("buildings").append_array([
+		{"kind": "turret", "hp": 400, "build_progress": 1.0, "pos": assault_target_pos},
+		{"kind": "turret", "hp": 400, "build_progress": 1.0, "pos": assault_target_pos},
+		{"kind": "turret", "hp": 400, "build_progress": 1.0, "pos": Vector2(300.0, 242.5)}
+	])
+	var safer_flank: Vector2 = game.call("_enemy_ground_assault_flank_anchor", assault_target_pos, assault_origin_pos, 0)
+	_expect(safer_flank.distance_to(Vector2(500.0, 415.0)) < 0.1, "Enemy armor must choose the flank with the safer approach corridor even when both endpoints are similarly exposed")
+	game.get("buildings").clear()
 	game.set("enemy_strategy", "balanced")
 	game.get("units").clear()
 
