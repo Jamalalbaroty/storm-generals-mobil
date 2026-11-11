@@ -52,6 +52,32 @@ func _run() -> void:
 	_expect(group_site_a.distance_to(group_site_b) >= 96.0 and group_site_a.distance_to(group_site_c) >= 96.0 and group_site_b.distance_to(group_site_c) >= 96.0, "Group insertion sites must remain spatially separated")
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "inbound" and String(game.get("units")[1].get("transport_state", "")) == "inbound" and String(game.get("units")[2].get("transport_state", "")) == "inbound", "Every selected transport should receive an inbound order")
 
+	# Multi-transport rescue dispatch is atomic, triages casualties, caps each load, and assigns air cover.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "3d_sync_id": 71, "hp": 200, "pos": Vector2(540.0, 250.0), "transport_state": "idle", "transport_cargo": []})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "3d_sync_id": 72, "hp": 200, "pos": Vector2(860.0, 250.0), "transport_state": "idle", "transport_cargo": []})
+	for infantry_index in range(18):
+		var casualty_hp := 20 if infantry_index == 0 else 65
+		game.get("units").append({"team": "player", "kind": "infantry", "hp": casualty_hp, "pos": Vector2(650.0 + float(infantry_index % 6) * 18.0, 235.0 + float(infantry_index / 6) * 18.0)})
+	game.get("units").append({"team": "player", "kind": "fighter", "3d_sync_id": 73, "hp": 120, "pos": Vector2(530.0, 220.0)})
+	game.get("selected").append_array(range(game.get("units").size()))
+	var rescue_indices: Array[int] = []
+	for infantry_index in range(2, 20):
+		rescue_indices.append(infantry_index)
+	var rescue_transports: Array[int] = [0, 1]
+	var rescue_result: Dictionary = game.call("_transport_ai_order_group_pickups", rescue_indices, rescue_transports)
+	_expect(int(rescue_result.get("transport_count", 0)) == 2 and int(rescue_result.get("passenger_count", 0)) == 16 and int(rescue_result.get("overflow_count", 0)) == 2, "Group rescue should dispatch two aircraft, load at most sixteen casualties, and leave overflow on the ground")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "inbound" and String(game.get("units")[1].get("transport_state", "")) == "inbound", "Every assigned rescue transport should receive an inbound pickup order")
+	var rescue_site_a: Vector2 = game.get("units")[0].get("transport_target_pos", Vector2.ZERO)
+	var rescue_site_b: Vector2 = game.get("units")[1].get("transport_target_pos", Vector2.ZERO)
+	_expect(rescue_site_a.distance_to(rescue_site_b) >= 96.0, "Group rescue landing sites must be separated to prevent aircraft stacking")
+	_expect(bool(game.get("units")[20].get("escort_active", false)) and int(game.get("units")[20].get("escort_target_id", -1)) in [71, 72], "Selected fighter should be assigned to protect a dispatched rescue transport")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	# Selected fighters and gunships are distributed as air escorts across the transport group.
 	game.get("units").clear()
 	game.get("selected").clear()
