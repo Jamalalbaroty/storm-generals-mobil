@@ -279,6 +279,38 @@ func _run() -> void:
 		quit(1)
 		return
 
+
+	# Legacy production orders without producer IDs must retain the default speed,
+	# even when their matching factory has been upgraded.
+	game.credits = 0
+	game.supplies = 0
+	game.buildings.clear()
+	game.buildings.append({
+		"pos": Vector2(300.0, 300.0),
+		"kind": "factory",
+		"hp": 400,
+		"build_progress": 1.0,
+		"level": 3,
+		"production_id": 44
+	})
+	game.production_orders.assign([{
+		"producer_pos": Vector2(300.0, 300.0),
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}])
+	game._update_production_queues(0.1)
+	if game.production_orders.size() != 1:
+		push_error("Legacy production order should remain queued while incomplete")
+		quit(1)
+		return
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.9):
+		push_error("Legacy production order without producer_id must keep default speed on upgraded factories")
+		quit(1)
+		return
+
+	game.production_orders.clear()
+
 	# Power priority: defensive structures take precedence over production buildings.
 	game.buildings.clear()
 	game.production_orders.clear()
