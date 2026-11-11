@@ -3864,6 +3864,13 @@ func _update_infantry_animation(delta: float) -> void:
 				part.position.y = lerpf(part.position.y, base_y - drop, crouch_blend)
 				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
 				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
+		var weapon_pivot := soldier.get_node_or_null("InfantryWeapon") as Node3D
+		if is_instance_valid(weapon_pivot):
+			# Raise and steady the rifle when the authoritative squad order enters combat.
+			var weapon_pitch := -0.075 if is_aiming else 0.0
+			var weapon_roll := -0.035 if is_aiming else 0.0
+			weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x, weapon_pitch, clampf(delta * 8.0, 0.0, 1.0))
+			weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z, weapon_roll, clampf(delta * 8.0, 0.0, 1.0))
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
