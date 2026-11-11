@@ -615,7 +615,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target = _nearest_unit_by_priority(unit.pos, 99999.0, "player", ["tank", "artillery", "infantry"])
+					var heli_target = _nearest_unit_by_priority(unit.pos, 760.0, "player", ["tank", "artillery", "infantry"])
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -672,7 +672,26 @@ func _process(delta: float) -> void:
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
 					else:
-						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
+						var escort_heli_index := -1
+						var escort_heli_distance := 260.0
+						for escort_index in range(units.size()):
+							var escort_candidate: Dictionary = units[escort_index]
+							if String(escort_candidate.get("team", "")) != "enemy" or String(escort_candidate.get("kind", "")) != "helicopter" or int(escort_candidate.get("hp", 0)) <= 0:
+								continue
+							var escort_distance: float = unit.pos.distance_to(escort_candidate.pos)
+							if escort_distance < escort_heli_distance:
+								escort_heli_distance = escort_distance
+								escort_heli_index = escort_index
+						if escort_heli_index >= 0:
+							var escort_heli: Dictionary = units[escort_heli_index]
+							var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
+							var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
+							if unit.pos.distance_to(escort_spot) > 18.0:
+								unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
+						else:
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+						else:
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind in ["tank", "infantry", "artillery"] and _update_enemy_ground_assault(unit, i, delta):
 					continue
