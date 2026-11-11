@@ -46,6 +46,9 @@ jobs:
       - name: Run isolated four-faction team registry regression
         run: timeout 60s godot --headless --path . --script tests/battle_team_registry_test.gd
 
+      - name: Run legacy two-side team compatibility regression
+        run: timeout 60s godot --headless --path . --script tests/battle_legacy_team_adapter_test.gd
+
       - name: Run gameplay economy and enemy recovery smoke test
         run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
 
