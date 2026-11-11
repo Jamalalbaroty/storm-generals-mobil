@@ -108,6 +108,26 @@ func _run() -> void:
 	var overridden_result: Dictionary = game.call("_transport_ai_request_landing", overridden_request, objective)
 	_expect(not bool(overridden_result.get("accepted", true)) and String(overridden_request.get("transport_state", "")) == "loaded", "Player override must reject autonomous task requests")
 
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(600.0, 250.0)})
+	var reassessment_transport: Dictionary = {
+		"team": "player",
+		"kind": "transport_helicopter",
+		"hp": 200,
+		"pos": Vector2(400.0, 250.0),
+		"transport_cargo": [{"kind": "infantry"}],
+		"transport_ai_mode": "AUTONOMOUS",
+		"transport_ai_autonomous_active": true,
+		"transport_ai_objective_pos": objective,
+		"transport_ai_reassess_timer": 0.0,
+		"transport_state": "inbound",
+		"transport_target_pos": Vector2(600.0, 250.0),
+		"transport_landing_type": "ground"
+	}
+	game.call("_transport_ai_reassess_inbound", reassessment_transport, 1.3)
+	_expect(int(reassessment_transport.get("transport_ai_replanned", 0)) == 1, "Autonomous transport should replan when its landing footprint becomes occupied by an enemy")
+	_expect(Vector2(reassessment_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(Vector2(600.0, 250.0)) >= 80.0, "Replanned destination should move away from the newly occupied landing site")
+	game.get("units").clear()
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
