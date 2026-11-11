@@ -4244,11 +4244,13 @@ func _update_enemy_defense_assignments() -> void:
 					continue
 				var building_priority := 0
 				match String(building.get("kind", "")):
+					"missile_silo":
+						building_priority = 6
 					"factory", "barracks":
 						building_priority = 5
-					"airfield", "missile_silo":
+					"airfield", "power_plant":
 						building_priority = 4
-					"shipyard", "anti_air", "missile_defense":
+					"anti_air", "missile_defense":
 						building_priority = 3
 					"turret":
 						building_priority = 2
