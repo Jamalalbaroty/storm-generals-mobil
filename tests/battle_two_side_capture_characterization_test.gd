@@ -47,7 +47,7 @@ func _run() -> void:
 	game.get("units").assign([
 		{"team": "player", "kind": "infantry", "hp": 80, "pos": Vector2(220.0, 220.0)}
 	])
-	var owned_building_count := game.get("buildings").size()
+	var owned_building_count: int = (game.get("buildings") as Array).size()
 	game.call("_update_building_capture", 1.5)
 	_expect(game.get("enemy_buildings").size() == 1, "Capture should not complete before the three-second threshold")
 	game.call("_update_building_capture", 1.5)
