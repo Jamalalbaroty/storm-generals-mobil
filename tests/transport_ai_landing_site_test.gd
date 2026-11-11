@@ -279,6 +279,8 @@ func _run() -> void:
 	game.get("selected").clear()
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
 	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 0.5, "pos": Vector2(310.0, 300.0)})
+	game.get("buildings").append({"kind": "airfield", "hp": 0, "build_progress": 1.0, "pos": Vector2(340.0, 300.0)})
 	game.get("enemy_buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(320.0, 300.0)})
 	game.get("selected").append(0)
 	game.call("_order_transport_return_to_base")
