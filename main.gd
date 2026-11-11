@@ -4336,16 +4336,54 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 		return
 	var target_index := -1
 	var target_distance := 158.0
-	for index in range(units.size()):
-		var enemy: Dictionary = units[index]
-		if String(enemy.get("team", "")) != "enemy" or int(enemy.get("hp", 0)) <= 0:
-			continue
-		if String(enemy.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine"]:
-			continue
-		var distance: float = transport.pos.distance_to(enemy.pos)
-		if distance < target_distance:
-			target_distance = distance
-			target_index = index
+	# A direct player attack order takes priority over opportunistic door-gunner fire.
+	# Reacquire around the saved focus so array compaction cannot silently retarget the squad.
+	if transport.has("attack_focus_pos"):
+		var focus_pos: Vector2 = transport["attack_focus_pos"]
+		var focus_distance := 96.0
+		for enemy_index in range(units.size()):
+			var focused_enemy: Dictionary = units[enemy_index]
+			if String(focused_enemy.get("team", "")) != "enemy" or int(focused_enemy.get("hp", 0)) <= 0:
+				continue
+			if String(focused_enemy.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine"]:
+				continue
+			var distance_to_focus: float = focused_enemy.pos.distance_to(focus_pos)
+			if distance_to_focus < focus_distance:
+				focus_distance = distance_to_focus
+				target_index = enemy_index
+	if target_index < 0 and transport.has("attack_target"):
+		var commanded_index := int(transport.get("attack_target", -1))
+		if commanded_index >= 0 and commanded_index < units.size():
+			var commanded_enemy: Dictionary = units[commanded_index]
+			if String(commanded_enemy.get("team", "")) == "enemy" and int(commanded_enemy.get("hp", 0)) > 0 and String(commanded_enemy.get("kind", "")) not in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine"]:
+				target_index = commanded_index
+	if target_index >= 0:
+		var commanded_target: Dictionary = units[target_index]
+		target_distance = transport.pos.distance_to(commanded_target.pos)
+		if state in ["idle", "loaded"]:
+			if target_distance > 158.0:
+				transport["target"] = commanded_target.pos
+				transport["transport_firing"] = false
+				transport["attack_target_pos"] = commanded_target.pos
+				for passenger in cargo:
+					passenger["cargo_attack_cd"] = maxf(0.0, float(passenger.get("cargo_attack_cd", 0.0)) - delta)
+				transport["transport_cargo"] = cargo
+				return
+			transport.erase("target")
+	else:
+		# No living commanded target remains; resume defensive fire at nearby ground threats.
+		transport.erase("attack_target")
+		transport.erase("attack_focus_pos")
+		for index in range(units.size()):
+			var enemy: Dictionary = units[index]
+			if String(enemy.get("team", "")) != "enemy" or int(enemy.get("hp", 0)) <= 0:
+				continue
+			if String(enemy.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine"]:
+				continue
+			var distance: float = transport.pos.distance_to(enemy.pos)
+			if distance < target_distance:
+				target_distance = distance
+				target_index = index
 	if target_index < 0:
 		transport["transport_firing"] = false
 		transport["attack_target_pos"] = Vector2.ZERO
