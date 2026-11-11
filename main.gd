@@ -555,31 +555,41 @@ func _play_battle_sound(sound_name: String) -> void:
 			audio_player_cursor = (player_index + 1) % audio_players.size()
 			return
 
-func _claim_stable_unit_identity(unit_record: Dictionary, seen_ids: Dictionary) -> void:
-	var unit_id := String(unit_record.get("unit_id", ""))
-	if unit_id.is_empty() or seen_ids.has(unit_id):
-		unit_id = "unit_%08d" % next_unit_identity
-		next_unit_identity += 1
-		unit_record["unit_id"] = unit_id
-	elif unit_id.begins_with("unit_"):
-		var existing_number := unit_id.trim_prefix("unit_").to_int()
-		next_unit_identity = maxi(next_unit_identity, existing_number + 1)
-	seen_ids[unit_id] = true
-
-
 func _ensure_stable_unit_identities() -> void:
-	# Unit array indices change whenever squads board transports or casualties are removed.
-	# Give field units and carried passengers durable identities before systems reference them.
-	var seen_ids: Dictionary = {}
+	# Reserve every existing identity before assigning new ones. Otherwise an earlier
+	# unassigned spawn could consume the ID of a later unit and force that live unit to change ID.
+	var all_records: Array[Dictionary] = []
 	for unit_variant in units:
 		if not unit_variant is Dictionary:
 			continue
 		var unit_record: Dictionary = unit_variant
-		_claim_stable_unit_identity(unit_record, seen_ids)
+		all_records.append(unit_record)
 		var cargo: Array = unit_record.get("transport_cargo", [])
 		for passenger_variant in cargo:
 			if passenger_variant is Dictionary:
-				_claim_stable_unit_identity(passenger_variant, seen_ids)
+				all_records.append(passenger_variant)
+
+	var seen_ids: Dictionary = {}
+	var records_needing_identity: Array[Dictionary] = []
+	for unit_record in all_records:
+		var unit_id := String(unit_record.get("unit_id", ""))
+		if unit_id.is_empty() or seen_ids.has(unit_id):
+			records_needing_identity.append(unit_record)
+			continue
+		seen_ids[unit_id] = true
+		if unit_id.begins_with("unit_"):
+			var numeric_suffix := unit_id.trim_prefix("unit_")
+			if numeric_suffix.is_valid_int():
+				next_unit_identity = maxi(next_unit_identity, numeric_suffix.to_int() + 1)
+
+	for unit_record in records_needing_identity:
+		var generated_id := "unit_%08d" % next_unit_identity
+		while seen_ids.has(generated_id):
+			next_unit_identity += 1
+			generated_id = "unit_%08d" % next_unit_identity
+		next_unit_identity += 1
+		unit_record["unit_id"] = generated_id
+		seen_ids[generated_id] = true
 
 
 func _process(delta: float) -> void:
