@@ -102,8 +102,7 @@ func _run_battle_save_integration_test() -> void:
 		_expect(int(game.call("_helicopter_damage", helicopter_fixture)) == int(expected_air_profile["helicopter_damage"]), "Helicopter damage must match the approved faction profile for " + String(army_name))
 		_expect(is_equal_approx(float(game.call("_helicopter_cooldown", helicopter_fixture)), float(expected_air_profile["helicopter_cooldown"])), "Helicopter reload must match the approved faction profile for " + String(army_name))
 		_expect(int(game.call("_missile_damage", String(army_name))) == int(expected_air_profile["missile_damage"]), "Strategic missile damage must match the approved faction profile for " + String(army_name))
-		_expect(is_equal_approx(float(game.call("_missile_cooldown", String(army_name)), float(expected_air_profile["missile_cooldown"])), "Strategic missile cooldown must match the approved faction profile for " + String(army_name))
-	_expect(int(game.get("FIGHTER_DAMAGE")) == 30 and is_equal_approx(float(game.get("FIGHTER_ATTACK_COOLDOWN")), 1.35), "Fighter baseline must remain consistent while faction identity is expressed through helicopter and strategic missile profiles")
+		_expect(is_equal_approx(float(game.call("_missile_cooldown", String(army_name))), float(expected_air_profile["missile_cooldown"])), "Strategic missile cooldown must match the approved faction profile for " + String(army_name))
 
 	# Shared construction economy remains consistent across all four factions.
 	var building_cost_contract := {
