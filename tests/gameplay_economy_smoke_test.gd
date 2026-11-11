@@ -67,6 +67,37 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(save_action_rect.position.x >= 0.0 and save_action_rect.position.y >= 0.0 and save_action_rect.end.x <= command_viewport.x and save_action_rect.end.y <= command_viewport.y, "Save action must fit the mobile command deck on viewport %s" % command_viewport)
 		_expect(load_action_rect.position.x >= 0.0 and load_action_rect.position.y >= 0.0 and load_action_rect.end.x <= command_viewport.x and load_action_rect.end.y <= command_viewport.y, "Restore action must fit the mobile command deck on viewport %s" % command_viewport)
 		_expect(not save_action_rect.intersects(load_action_rect), "Save and restore touch targets must not overlap on viewport %s" % command_viewport)
+
+	# Every command slot and tab must stay visible, reachable, and separated
+	# across compact landscape and portrait fallback viewports.
+	var full_command_viewports: Array[Vector2] = [
+		Vector2(1280.0, 720.0),
+		Vector2(800.0, 480.0),
+		Vector2(640.0, 360.0),
+		Vector2(568.0, 320.0),
+		Vector2(360.0, 800.0)
+	]
+	for command_viewport in full_command_viewports:
+		var tab_rects: Array[Rect2] = []
+		for tab_index in range(expected_command_tabs.size()):
+			var tab_rect: Rect2 = game.call("_command_tab_rect", tab_index, command_viewport)
+			_expect(tab_rect.position.x >= 0.0 and tab_rect.position.y >= 0.0 and tab_rect.end.x <= command_viewport.x and tab_rect.end.y <= command_viewport.y, "Every command tab must fit viewport %s" % command_viewport)
+			for previous_tab in tab_rects:
+				_expect(not tab_rect.intersects(previous_tab), "Command tab touch targets must not overlap on viewport %s" % command_viewport)
+			tab_rects.append(tab_rect)
+		for tab_index in range(expected_command_tabs.size()):
+			game.set("command_tab", tab_index)
+			var visible_actions: Array = game.call("_command_action_ids")
+			var action_rects: Array[Rect2] = []
+			for slot in range(visible_actions.size()):
+				var action_rect: Rect2 = game.call("_button_rect", slot, command_viewport)
+				_expect(action_rect.position.x >= 0.0 and action_rect.position.y >= 0.0 and action_rect.end.x <= command_viewport.x and action_rect.end.y <= command_viewport.y, "Command action %d on tab %d must fit viewport %s" % [int(visible_actions[slot]), tab_index, command_viewport])
+				_expect(action_rect.size.x >= 44.0 and action_rect.size.y >= 44.0, "Command action touch targets should remain at least 44 logical pixels on viewport %s" % command_viewport)
+				for previous_action in action_rects:
+					_expect(not action_rect.intersects(previous_action), "Command action touch targets must not overlap on viewport %s" % command_viewport)
+				action_rects.append(action_rect)
+				for tab_rect in tab_rects:
+					_expect(not action_rect.intersects(tab_rect), "Command actions must not overlap the tab strip on viewport %s" % command_viewport)
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
