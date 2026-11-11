@@ -652,6 +652,8 @@ func _process(delta: float) -> void:
 				if unit.kind in ["tank", "infantry", "artillery"]:
 					if _update_enemy_retreat(unit, delta):
 						continue
+					if bool(unit.get("defense_guard", false)) and _update_enemy_defense_guard(unit, i, delta):
+						continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
@@ -4322,6 +4324,57 @@ func _update_combat_alerts() -> void:
 	air_alert_active = hostile_air > 0
 	ground_alert_active = hostile_ground > 0
 	missile_alert_active = incoming_missile
+
+
+func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	# Defensive reserves protect their assigned asset and engage only threats inside its local perimeter.
+	var anchor: Vector2 = unit.get("defense_anchor", enemy_base)
+	var guard_radius := 210.0
+	var threat_index := -1
+	var threat_distance := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["infantry", "tank", "artillery"]:
+			continue
+		var perimeter_distance: float = candidate.pos.distance_to(anchor)
+		if perimeter_distance > guard_radius:
+			continue
+		var distance: float = unit.pos.distance_to(candidate.pos)
+		if distance < threat_distance:
+			threat_distance = distance
+			threat_index = candidate_index
+	var weapon_range := 300.0 if String(unit.get("kind", "")) == "artillery" else (150.0 if String(unit.get("kind", "")) == "tank" else 105.0)
+	if threat_index >= 0:
+		var threat: Dictionary = units[threat_index]
+		if threat_distance > weapon_range and unit.pos.distance_to(anchor) < guard_radius - 18.0:
+			var approach_speed := 22.0 if String(unit.get("kind", "")) == "artillery" else (36.0 if String(unit.get("kind", "")) == "tank" else 55.0)
+			var approach := _ground_navigation_direction(unit, unit_index, threat.pos, delta, approach_speed)
+			unit.pos += approach * delta * approach_speed
+		elif threat_distance <= weapon_range:
+			unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
+			if float(unit.get("attack_cd", 0.0)) <= 0.0:
+				if String(unit.get("kind", "")) == "artillery":
+					_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
+					_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
+					_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
+					_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
+					unit["attack_cd"] = 2.4
+				else:
+					var hp_before := int(threat.get("hp", 0))
+					var damage := _unit_damage_with_veterancy(unit, 20 if String(unit.get("kind", "")) == "tank" else 10)
+					threat["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(threat, damage))
+					_award_unit_experience(unit, hp_before - int(threat["hp"]))
+					_register_unit_kill(unit, threat, hp_before)
+					_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
+					unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
+		return true
+	if unit.pos.distance_to(anchor) > 12.0:
+		var return_speed := 22.0 if String(unit.get("kind", "")) == "artillery" else (36.0 if String(unit.get("kind", "")) == "tank" else 55.0)
+		var return_direction := _ground_navigation_direction(unit, unit_index, anchor, delta, return_speed)
+		unit.pos += return_direction * delta * return_speed
+	return true
 
 
 func _update_enemy_retreat(unit: Dictionary, delta: float) -> bool:
