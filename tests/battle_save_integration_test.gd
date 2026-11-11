@@ -103,6 +103,14 @@ func _run_battle_save_integration_test() -> void:
 		_expect(int(game.call("_unit_cost", "transport_helicopter", String(army_name))) == (1200 if army_name == "وطن" else 950), "Transport helicopter cost must preserve the Watan premium and shared baseline for " + String(army_name))
 		_expect(int(game.call("_unit_supply_cost", "tank")) == 1 and int(game.call("_unit_supply_cost", "carrier")) == 8, "Unit supply requirements must remain consistent across factions")
 
+	# Land and air defensive structures must retain predictable durability and upgrade scaling.
+	_expect(int(game.call("_building_max_hp", {"kind": "turret", "level": 1})) == 400, "Ground turret must retain its baseline durability")
+	_expect(int(game.call("_building_max_hp", {"kind": "anti_air", "level": 1})) == 400, "Anti-air defense must retain its baseline durability")
+	_expect(int(game.call("_building_max_hp", {"kind": "bunker", "level": 1})) == 650, "Bunker must retain its stronger defensive durability")
+	_expect(int(game.call("_building_max_hp", {"kind": "missile_defense", "level": 1})) == 450, "Missile defense must retain its dedicated durability")
+	_expect(int(game.call("_building_max_hp", {"kind": "turret", "level": 2})) == 480, "Level-two ground defenses must gain the established 20 percent durability")
+	_expect(int(game.call("_building_max_hp", {"kind": "anti_air", "level": 3})) == 560, "Level-three anti-air defenses must scale consistently with upgrades")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
