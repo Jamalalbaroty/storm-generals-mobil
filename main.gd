@@ -935,10 +935,12 @@ func _process(delta: float) -> void:
 								unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
 							if rearm_progress >= rearm_duration and float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
 								# Launch only after rearming and field repairs are both complete.
+								var sortie_airfield_id := int(unit.get("airfield_recovery_id", -1))
+								var sortie_launch_wait := _airfield_sortie_launch_delay(sortie_airfield_id)
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
-								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
-								unit["airfield_sortie_launch_wait"] = _airfield_sortie_launch_delay(int(unit.get("airfield_recovery_id", -1)))
+								unit["airfield_sortie_airfield_id"] = sortie_airfield_id
+								unit["airfield_sortie_launch_wait"] = sortie_launch_wait
 								unit.erase("airfield_returning")
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
