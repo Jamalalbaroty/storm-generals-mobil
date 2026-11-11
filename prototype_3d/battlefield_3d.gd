@@ -720,6 +720,12 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("source_faction", faction_id)
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("gameplay_visual_target", world_pos)
+			if kind in ["infantry", "builder", "marine"] and bool(record.get("transport_rope_drop", false)):
+				# The logical infantry record already exists; animate its single 3D proxy down from rope height.
+				unit.set_meta("transport_touchdown_active", true)
+				unit.set_meta("transport_touchdown_elapsed", 0.0)
+				unit.global_position.y = world_pos.y + 1.65
+				_add_transport_touchdown_dust(world_pos)
 			if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
 				unit.set_meta("gameplay_aircraft_takeoff", true)
 			_sync_gameplay_unit_orientation(unit, record)
@@ -848,6 +854,16 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			unit.rotation.x = lerpf(unit.rotation.x, pitch_target, clampf(delta * 3.0, 0.0, 1.0))
 		else:
 			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
+		if not is_aircraft and bool(unit.get_meta("transport_touchdown_active", false)):
+			var touchdown_elapsed := float(unit.get_meta("transport_touchdown_elapsed", 0.0)) + delta
+			unit.set_meta("transport_touchdown_elapsed", touchdown_elapsed)
+			var touchdown_progress := clampf(touchdown_elapsed / 0.38, 0.0, 1.0)
+			var touchdown_target_y := float(target_variant.y) if target_variant is Vector3 else 0.0
+			var touchdown_eased := touchdown_progress * touchdown_progress * (3.0 - 2.0 * touchdown_progress)
+			unit.global_position.y = lerpf(touchdown_target_y + 1.65, touchdown_target_y, touchdown_eased)
+			if touchdown_progress >= 1.0:
+				unit.remove_meta("transport_touchdown_active")
+				unit.remove_meta("transport_touchdown_elapsed")
 		if aircraft_kind == "transport_helicopter":
 			# Damage-induced instability is visual only; gameplay movement remains authoritative.
 			var damage_ratio := clampf(float(unit.get_meta("transport_damage_ratio", 1.0)), 0.0, 1.0)
@@ -911,6 +927,30 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			var turret_world_yaw := float(unit.get_meta("gameplay_turret_yaw_target", body_yaw))
 			var turret_local_yaw := wrapf(turret_world_yaw - unit.rotation.y, -PI, PI)
 			turret_pivot.rotation.y = lerp_angle(turret_pivot.rotation.y, turret_local_yaw, blend)
+
+
+func _add_transport_touchdown_dust(world_pos: Vector3) -> void:
+	# A short-lived dust ring marks the exact touchdown point without creating another unit proxy.
+	var dust := MeshInstance3D.new()
+	dust.name = "TransportTouchdownDust"
+	var dust_mesh := SphereMesh.new()
+	dust_mesh.radius = 0.34
+	dust_mesh.height = 0.12
+	dust_mesh.radial_segments = 12
+	dust_mesh.rings = 6
+	dust.mesh = dust_mesh
+	dust.position = world_pos + Vector3.UP * 0.12
+	var dust_material := StandardMaterial3D.new()
+	dust_material.albedo_color = Color(0.58, 0.53, 0.42, 0.42)
+	dust_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dust_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dust.material_override = dust_material
+	add_child(dust)
+	var dust_tween := create_tween()
+	dust_tween.set_parallel(true)
+	dust_tween.tween_property(dust, "scale", Vector3(2.2, 0.55, 2.2), 0.42)
+	dust_tween.tween_property(dust_material, "albedo_color:a", 0.0, 0.42)
+	dust_tween.chain().tween_callback(dust.queue_free)
 
 
 func _gameplay_effect_world_position(source_pos: Vector2, map_rect: Rect2, height: float = 0.35) -> Vector3:
