@@ -110,6 +110,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("campaign_briefing", false)
 	game.get("units").clear()
 
+	# A system-cancelled touch must abort the gesture, not execute its pending tap.
+	game.set("game_started", false)
+	game.set("campaign_briefing", false)
+	game.set("faction", "")
+	var cancelled_touch := InputEventScreenTouch.new()
+	cancelled_touch.index = 2
+	cancelled_touch.pressed = true
+	cancelled_touch.position = game.call("_faction_rect", 0, active_viewport).get_center()
+	game._input(cancelled_touch)
+	cancelled_touch.pressed = false
+	cancelled_touch.canceled = true
+	game._input(cancelled_touch)
+	_expect(int(game.get("active_touch_index")) == -1 and not bool(game.get("dragging")), "A cancelled touch must release pointer ownership and stop dragging")
+	_expect(not bool(game.get("campaign_briefing")) and String(game.get("faction")) == "", "A cancelled faction-card touch must not trigger its tap action")
+
 	# A second finger must not take ownership of an active touch or change its
 	# drag/release target. This protects command taps from accidental multitouch.
 	var multitouch_first_target: Vector2 = game.call("_faction_rect", 0, active_viewport).get_center()
