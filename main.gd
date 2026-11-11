@@ -4138,6 +4138,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			restored_passenger["pos"] = drop_pos
 			restored_passenger["team"] = "player"
 			restored_passenger["kind"] = "infantry"
+			# One-shot presentation hint for the 3D bridge; this passenger has just touched down.
+			restored_passenger["transport_rope_drop"] = true
 			restored_passenger["faction"] = String(passenger.get("faction", faction))
 			restored_passenger["hp"] = int(passenger.get("hp", 100))
 			restored_passenger["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
