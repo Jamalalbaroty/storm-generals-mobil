@@ -2650,8 +2650,8 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 	var weapon_pivot := Node3D.new()
 	weapon_pivot.position = Vector3(0.0, -0.32, -0.15)
 	helicopter.add_child(weapon_pivot)
-	if not is_transport:
-		showcase_turrets.append(weapon_pivot)
+	# Transport helicopters have no attack turret, but still reserve a stable aim slot.
+	showcase_turrets.append(weapon_pivot)
 	for side in ([-1.0, 1.0] if not is_transport else []):
 		var rocket := MeshInstance3D.new()
 		var rocket_mesh := CylinderMesh.new()
@@ -3627,6 +3627,11 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 	squad.position = at
 	add_child(squad)
 	showcase_tanks.append(squad)
+	# Keep the shared selectable-unit aim arrays index-aligned; infantry uses a squad-level pivot.
+	var squad_aim_pivot := Node3D.new()
+	squad_aim_pivot.name = "SquadAimPivot"
+	squad.add_child(squad_aim_pivot)
+	showcase_turrets.append(squad_aim_pivot)
 	squad.set_meta("health", 100.0)
 	squad.set_meta("unit_type", "infantry")
 	squad.set_meta("faction_id", faction_id)
