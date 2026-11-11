@@ -177,7 +177,7 @@ func _run() -> void:
 		push_error("Long-match endurance test failed with %d assertion(s)." % failure_count)
 		quit(1)
 		return
-	print("Long-match endurance test passed: 98 seconds of live economy, production, AI, combat, and supply simulation.")
+	print("Long-match endurance test passed: 128 seconds of live economy, production, AI, combat, supply, and staged battlefield-density simulation.")
 	quit()
 
 
