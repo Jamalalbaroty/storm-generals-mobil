@@ -4809,48 +4809,51 @@ func _transport_ai_is_friendly_airfield_at(site_pos: Vector2) -> bool:
 
 
 func _order_transport_return_to_base() -> void:
-	var transport: Dictionary = {}
+	var transport_indices: Array[int] = []
+	var assignments: Array[Dictionary] = []
 	for index in selected:
-		if index < 0 or index >= units.size():
+		if index < 0 or index >= units.size() or transport_indices.has(index):
 			continue
 		var candidate: Dictionary = units[index]
 		if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "transport_helicopter":
 			continue
-		if not transport.is_empty():
-			notice = "اختر طائرة نقل واحدة فقط للعودة إلى القاعدة"
-			notice_time = 2.2
-			return
-		transport = candidate
-	if transport.is_empty():
-		notice = "حدد طائرة النقل أولاً"
+		transport_indices.append(index)
+	if transport_indices.is_empty():
+		notice = "حدد طائرة نقل واحدة أو أكثر أولاً"
 		notice_time = 2.0
 		return
-	if Array(transport.get("transport_cargo", [])).is_empty():
-		notice = "لا توجد حمولة داخل الطائرة للعودة بها إلى القاعدة"
-		notice_time = 2.2
-		return
-	if String(transport.get("transport_state", "idle")) not in ["loaded", "pickup_waiting", "idle"]:
-		notice = "لا يمكن تغيير مسار الطائرة أثناء تنفيذ مهمة أخرى"
-		notice_time = 2.2
-		return
-	var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
-	if nearest_airfield.is_empty():
-		notice = "لا توجد قاعدة جوية صديقة مكتملة وصالحة — بقي الجنود داخل الطائرة"
-		notice_time = 2.8
-		return
-	var return_pos: Vector2 = nearest_airfield.pos
-	transport["transport_return_pos"] = return_pos
-	transport["transport_ai_player_override"] = true
-	transport["transport_ai_autonomous_active"] = true
-	transport.erase("transport_pickup_waiting")
-	transport.erase("transport_target_pos")
-	transport.erase("transport_order_pending")
-	transport.erase("transport_ai_objective_pos")
-	transport.erase("transport_ai_recommendation")
-	transport.erase("target")
-	_transport_ai_assign_route(transport, return_pos)
-	transport["transport_state"] = "returning"
-	notice = "الطائرة عائدة إلى أقرب قاعدة جوية صديقة — الحمولة محفوظة حتى إصدار أمر جديد"
+	# Validate the entire group before changing any aircraft: a failed group order is atomic.
+	for transport_index in transport_indices:
+		var transport: Dictionary = units[transport_index]
+		if Array(transport.get("transport_cargo", [])).is_empty():
+			notice = "إحدى طائرات النقل فارغة — لم تتغير أوامر المجموعة"
+			notice_time = 2.4
+			return
+		if String(transport.get("transport_state", "idle")) not in ["loaded", "pickup_waiting", "idle"]:
+			notice = "إحدى طائرات النقل مشغولة بمهمة أخرى — لم تتغير أوامر المجموعة"
+			notice_time = 2.4
+			return
+		var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+		if nearest_airfield.is_empty():
+			notice = "لا توجد قاعدة جوية صديقة صالحة لإحدى الطائرات — بقيت الحمولة كما هي"
+			notice_time = 2.8
+			return
+		assignments.append({"unit_index": transport_index, "return_pos": nearest_airfield.pos})
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var return_pos: Vector2 = assignment.return_pos
+		transport["transport_return_pos"] = return_pos
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = true
+		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_target_pos")
+		transport.erase("transport_order_pending")
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport.erase("target")
+		_transport_ai_assign_route(transport, return_pos)
+		transport["transport_state"] = "returning"
+	notice = "بدأت عودة %d طائرة نقل إلى أقرب القواعد الجوية الصديقة — جميع الحمولات محفوظة" % assignments.size()
 	notice_time = 3.0
 
 
