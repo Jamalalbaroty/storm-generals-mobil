@@ -143,6 +143,23 @@ func _run() -> void:
 	_expect(Vector2(reassessment_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(Vector2(600.0, 250.0)) >= 80.0, "Replanned destination should move away from the newly occupied landing site")
 	game.get("units").clear()
 
+	# Autonomous passengers with no prior orders establish a defensive perimeter after touchdown.
+	var fresh_passenger: Dictionary = {"kind": "infantry", "team": "player", "pos": Vector2(700.0, 400.0)}
+	var autonomous_transport: Dictionary = {"transport_ai_mode": "AUTONOMOUS", "transport_ai_post_drop_doctrine": "DEFEND"}
+	var doctrine_applied: bool = game.call("_transport_ai_apply_post_drop_doctrine", fresh_passenger, autonomous_transport, Vector2(720.0, 420.0))
+	_expect(doctrine_applied and bool(fresh_passenger.get("guard_active", false)), "Unassigned autonomous passengers should receive the defensive landing doctrine")
+	_expect(Vector2(fresh_passenger.get("guard_position", Vector2.ZERO)).distance_to(Vector2(720.0, 420.0)) < 1.0, "Defensive doctrine should anchor to the landing zone")
+	_expect(is_equal_approx(float(fresh_passenger.get("guard_radius", 0.0)), 155.0), "Defensive doctrine should use the infantry guard radius")
+
+	var ordered_passenger: Dictionary = {"kind": "infantry", "team": "player", "target": Vector2(950.0, 420.0)}
+	var preserved_order: bool = game.call("_transport_ai_apply_post_drop_doctrine", ordered_passenger, autonomous_transport, Vector2(720.0, 420.0))
+	_expect(not preserved_order and ordered_passenger.has("target") and not ordered_passenger.has("guard_active"), "A pre-existing player movement order must never be replaced by post-drop doctrine")
+
+	var manual_passenger: Dictionary = {"kind": "infantry", "team": "player"}
+	var manual_transport: Dictionary = {"transport_ai_mode": "MANUAL"}
+	var manual_doctrine: bool = game.call("_transport_ai_apply_post_drop_doctrine", manual_passenger, manual_transport, Vector2(720.0, 420.0))
+	_expect(not manual_doctrine and not manual_passenger.has("guard_active"), "Manual transport mode must not apply autonomous post-drop doctrine")
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
