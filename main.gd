@@ -995,7 +995,8 @@ func _process(delta: float) -> void:
 					var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
 					var sortie_airfield_index := -1
 					for sortie_index in range(buildings.size()):
-						if String(buildings[sortie_index].get("kind", "")) == "airfield" and int(buildings[sortie_index].get("production_id", -2)) == sortie_airfield_id and int(buildings[sortie_index].get("hp", 0)) > 0:
+						var sortie_airfield: Dictionary = buildings[sortie_index]
+						if String(sortie_airfield.get("kind", "")) == "airfield" and int(sortie_airfield.get("production_id", -2)) == sortie_airfield_id and int(sortie_airfield.get("hp", 0)) > 0 and float(sortie_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(sortie_index):
 							sortie_airfield_index = sortie_index
 							break
 					if sortie_airfield_index < 0:
