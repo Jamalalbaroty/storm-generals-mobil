@@ -80,3 +80,9 @@ Declare 100% only after all required tests pass in Godot headless CI and the ful
 The development branch now contains `_transport_ai_evaluate_landing_site` and `_transport_ai_choose_landing_site` in `main.gd`. The evaluator rejects out-of-bounds ground/roof points, unresolved rooftops, blocked ground footprints, and occupied landing footprints; it ranks remaining candidates using known anti-air exposure, route midpoint exposure, objective distance, nearby friendly support, and escape margin. Equal score/distance candidates use a stable site-ID tie-break. A focused headless test script was added at `tests/transport_ai_landing_site_test.gd`.
 
 This is a reusable decision primitive only. It is not yet wired to MANUAL / ASSISTED / AUTONOMOUS mission execution, route movement, periodic threat replanning, or the transport UI. The new test has been authored but has not been executed in this environment; do not count it as passing until CI or a local Godot run confirms it.
+
+## Implemented second slice — live-map candidate generation
+
+`main.gd` now includes `_transport_ai_build_landing_candidates(objective_pos)` to create a deterministic grid of ground candidates inside the safe map bounds and rooftop candidates from completed, living non-wall structures. `_transport_ai_plan_landing(objective_pos)` evaluates that set and returns the best valid destination using the existing deterministic scorer. The landing-site regression script now also checks that candidate generation and planning return a complete valid destination on a normal map.
+
+This remains a planning primitive: it does not yet launch or redirect a transport, and it does not replace the player's explicit manual landing command. Automated candidate generation and scoring must be run through Godot headless before being considered verified.
