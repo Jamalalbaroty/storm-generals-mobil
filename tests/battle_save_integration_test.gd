@@ -388,6 +388,51 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(defeat_profile.get("campaign_progress", {}).get("وطن", 0)) == 1 and int(defeat_profile.get("campaign_funds", 0)) == 350, "Defeat must not unlock missions or award campaign funds")
 	game.call("_resolve_battle_result")
 	_expect(int(defeat_profile.get("battles_played", 0)) == 2 and int(defeat_profile.get("defeats", 0)) == 1, "Repeated defeat resolution must not duplicate career totals")
+
+	# Every campaign mission must award its own base reward and secondary bonus exactly once.
+	var expected_campaign_rewards := [350, 500, 625, 750, 1050]
+	for mission_index in range(expected_campaign_rewards.size()):
+		game.set("campaign_mission_index", mission_index)
+		game.set("faction", "وطن")
+		game.set("campaign_briefing", false)
+		game.set("battle_result", "victory")
+		game.set("commander_profile_saved_result", "")
+		game.set("enemy_base_hp", 0)
+		game.set("player_base_hp", 1000)
+		game.get("supply_points").clear()
+		game.get("buildings").clear()
+		game.get("units").clear()
+		if mission_index == 0:
+			game.set("player_base_hp", 500)
+		elif mission_index == 1:
+			game.get("supply_points").append_array([
+				{"pos": Vector2(300.0, 250.0), "owner": "player"},
+				{"pos": Vector2(500.0, 250.0), "owner": "player"}
+			])
+		elif mission_index == 2:
+			for building_index in range(4):
+				game.get("buildings").append({"pos": Vector2(300.0 + building_index * 100.0, 300.0), "hp": 100, "build_progress": 1.0})
+		elif mission_index == 3:
+			game.get("units").append_array([
+				{"pos": Vector2(300.0, 400.0), "team": "player", "kind": "fighter", "hp": 100},
+				{"pos": Vector2(400.0, 400.0), "team": "player", "kind": "tank", "hp": 100}
+			])
+		elif mission_index == 4:
+			game.set("player_base_hp", 600)
+		game.set("commander_profile", {
+			"battles_played": 0,
+			"victories": 0,
+			"defeats": 0,
+			"campaign_progress": {"وطن": mission_index},
+			"campaign_funds": 0
+		})
+		game.call("_record_battle_result")
+		var mission_profile: Dictionary = game.get("commander_profile")
+		_expect(int(mission_profile.get("campaign_funds", 0)) == expected_campaign_rewards[mission_index], "Campaign mission %d must award its base reward plus its secondary bonus" % (mission_index + 1))
+		_expect(int(mission_profile.get("campaign_progress", {}).get("وطن", -1)) == mission_index + 1, "Campaign mission %d victory must unlock exactly the next mission" % (mission_index + 1))
+		game.call("_record_battle_result")
+		_expect(int(mission_profile.get("campaign_funds", 0)) == expected_campaign_rewards[mission_index], "Campaign mission %d repeated result must not duplicate rewards" % (mission_index + 1))
+
 	game.set("commander_profile", original_commander_profile)
 	game.call("_save_commander_profile")
 
