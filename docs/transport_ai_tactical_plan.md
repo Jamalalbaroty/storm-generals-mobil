@@ -283,3 +283,8 @@ The field-evacuation order now accepts multiple selected empty player transports
 ## Implemented follow-up — threat-aware casualty triage
 
 Rescue sorting now preserves the primary medical rule (lowest HP first) and adds a local exposure tie-break for casualties with equal health. The planner estimates nearby hostile pressure within 180 world units, weighting artillery and tanks above lighter threats and aircraft by their relative battlefield danger. Among equally wounded soldiers, those in the more dangerous pocket board first; distance to the transport remains the final tie-break. The pressure score is advisory triage data only and does not issue combat orders or change enemy behavior. Regression assertions cover threat-priority ordering and pressure falling outside the local threat radius. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented follow-up — isolated-squad rescue priority
+
+The casualty triage sorter now measures friendly infantry support within 160 world units. For soldiers with equal HP and equal hostile pressure, the more isolated casualty is prioritized before distance is considered. The score is based only on living friendly infantry and is advisory; it does not alter movement, formation, or combat orders. Regression assertions cover isolation scoring and tie-break behavior. Tests are authored only; Godot execution, CI, and Android validation remain pending.
