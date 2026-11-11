@@ -3339,6 +3339,13 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					_cancel_airfield_recovery(units[idx])
 					units[idx].attack_base = true
 					units[idx].erase("attack_target")
+					units[idx].erase("attack_focus_pos")
+					units[idx].erase("attack_building")
+					units[idx].erase("attack_move_active")
+					units[idx].erase("guard_active")
+					units[idx].erase("escort_active")
+					units[idx].erase("escort_target_id")
+					units[idx].erase("escort_offset")
 			notice = "هجوم على قاعدة العدو!"
 			notice_time = 1.5
 		elif enemy_found >= 0 and not selected.is_empty():
@@ -3348,6 +3355,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					units[idx].attack_target = enemy_found
 					units[idx].attack_focus_pos = units[enemy_found].pos
 					units[idx].erase("attack_base")
+					units[idx].erase("attack_building")
+					units[idx].erase("attack_move_active")
+					units[idx].erase("guard_active")
+					units[idx].erase("escort_active")
+					units[idx].erase("escort_target_id")
+					units[idx].erase("escort_offset")
 			notice = "أمر هجوم!"
 			notice_time = 1.5
 		else:
