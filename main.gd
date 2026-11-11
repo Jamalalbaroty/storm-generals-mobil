@@ -2716,6 +2716,11 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 				defense_weight = 0.8
 		if defense_weight > 0.0:
 			ground_defenses.append({"pos": building.pos, "weight": defense_weight})
+	# Snapshot live enemy assets once; candidate scoring only needs their positions.
+	var enemy_asset_positions: Array[Vector2] = []
+	for protected_building in enemy_buildings:
+		if int(protected_building.get("hp", 0)) > 0:
+			enemy_asset_positions.append(protected_building.pos)
 	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
 	var best_index := -1
 	var best_score := INF
@@ -2729,10 +2734,8 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
 		var asset_distance: float = candidate.pos.distance_to(enemy_base)
-		for protected_building in enemy_buildings:
-			if int(protected_building.get("hp", 0)) <= 0:
-				continue
-			asset_distance = minf(asset_distance, candidate.pos.distance_to(protected_building.pos) + 35.0)
+		for asset_pos in enemy_asset_positions:
+			asset_distance = minf(asset_distance, candidate.pos.distance_to(asset_pos) + 35.0)
 		var threat_priority := 0.0
 		match String(candidate.kind):
 			"artillery":
