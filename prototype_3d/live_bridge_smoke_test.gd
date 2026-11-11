@@ -140,6 +140,27 @@ func _initialize() -> void:
 		push_error("Tapping a friendly live unit did not select it after an enemy was selected")
 		quit(1)
 		return
+	# A platform-cancelled touch must clear all pointer state and must never issue an attack tap.
+	logical_units = game.get("units")
+	logical_units[0].erase("attack_target")
+	logical_units[0].erase("attack_focus_pos")
+	game.set("units", logical_units)
+	var cancelled_press := InputEventScreenTouch.new()
+	cancelled_press.index = 2
+	cancelled_press.pressed = true
+	cancelled_press.position = enemy_screen
+	bridge.call("_unhandled_input", cancelled_press)
+	var cancelled_release := InputEventScreenTouch.new()
+	cancelled_release.index = 2
+	cancelled_release.pressed = false
+	cancelled_release.canceled = true
+	cancelled_release.position = enemy_screen
+	bridge.call("_unhandled_input", cancelled_release)
+	logical_units = game.get("units")
+	if logical_units[0].has("attack_target") or not (bridge.get("touch_points") as Dictionary).is_empty() or not (bridge.get("touch_start_positions") as Dictionary).is_empty() or not (bridge.get("touch_moved") as Dictionary).is_empty() or bool(bridge.get("touch_multi_gesture")) or float(bridge.get("last_pinch_distance")) != 0.0:
+		push_error("A cancelled Android touch was treated as a command or left stale gesture state")
+		quit(1)
+		return
 	bridge.call("_handle_world_tap", enemy_screen)
 	logical_units = game.get("units")
 	if int(logical_units[0].get("attack_target", -1)) != 1:
