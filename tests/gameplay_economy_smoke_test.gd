@@ -1275,6 +1275,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("battle_result", "")
 	game.set("enemy_base_hp", 1000)
 	game.set("player_base_hp", 1000)
+	# The preceding UI/campaign scenarios may leave a construction command active.
+	# Clear transient input state so this section exercises a ground-move order,
+	# not the building-placement early return in _handle_pointer().
+	game.set("build_mode", "")
+	game.set("dragging", false)
+	game.set("selected_enemy_building", -1)
+	game.set("selected_player_building", -1)
 	var group_records: Array[Dictionary] = [
 		{"kind": "artillery", "team": "player", "faction": "الأمريكي", "hp": 100, "pos": Vector2(180.0, 180.0)},
 		{"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(190.0, 190.0)},
