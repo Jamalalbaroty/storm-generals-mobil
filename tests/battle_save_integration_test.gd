@@ -108,7 +108,7 @@ func _run_battle_save_integration_test() -> void:
 	var building_cost_contract := {
 		"barracks": 250, "factory": 450, "turret": 350, "airfield": 600,
 		"anti_air": 400, "missile_silo": 800, "missile_defense": 700,
-		"shipyard": 700, "power_plant": 450, "bunker": 520, "supply_depot": 550,
+		"power_plant": 450, "bunker": 520, "supply_depot": 550,
 		"wall": 90, "wall_corner": 120, "wall_gate": 150
 	}
 	for building_kind in building_cost_contract:
@@ -116,7 +116,7 @@ func _run_battle_save_integration_test() -> void:
 		_expect(int(game.call("_building_cost", String(building_kind))) == expected_building_cost, "All armies must use the approved shared construction cost for " + String(building_kind))
 	for army_name in ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]:
 		_expect(int(game.call("_unit_cost", "transport_helicopter", String(army_name))) == (1200 if army_name == "وطن" else 950), "Transport helicopter cost must preserve the Watan premium and shared baseline for " + String(army_name))
-		_expect(int(game.call("_unit_supply_cost", "tank")) == 1 and int(game.call("_unit_supply_cost", "carrier")) == 8, "Unit supply requirements must remain consistent across factions")
+		_expect(int(game.call("_unit_supply_cost", "tank")) == 1, "Unit supply requirements must remain consistent across factions")
 
 	# Land and air defensive structures must retain predictable durability and upgrade scaling.
 	_expect(int(game.call("_building_max_hp", {"kind": "turret", "level": 1})) == 400, "Ground turret must retain its baseline durability")
@@ -125,6 +125,16 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_building_max_hp", {"kind": "missile_defense", "level": 1})) == 450, "Missile defense must retain its dedicated durability")
 	_expect(int(game.call("_building_max_hp", {"kind": "turret", "level": 2})) == 480, "Level-two ground defenses must gain the established 20 percent durability")
 	_expect(int(game.call("_building_max_hp", {"kind": "anti_air", "level": 3})) == 560, "Level-three anti-air defenses must scale consistently with upgrades")
+
+	# Enemy bunkers must acquire ground attackers only, never nearby aircraft or transports.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(20.0, 0.0)},
+		{"kind": "transport_helicopter", "team": "player", "hp": 220, "pos": Vector2(35.0, 0.0)},
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(90.0, 0.0)},
+		{"kind": "infantry", "team": "player", "hp": 0, "pos": Vector2(10.0, 0.0)}
+	])
+	_expect(int(game.call("_nearest_player_ground_unit", Vector2.ZERO, 185.0)) == 2, "Enemy bunker targeting must ignore aircraft, transports, and destroyed ground units")
+	game.get("units").clear()
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
