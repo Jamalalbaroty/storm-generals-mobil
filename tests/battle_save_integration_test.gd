@@ -236,6 +236,15 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 760.0, "enemy", ["tank", "artillery", "infantry"])) == 2, "Attack helicopters must prioritize ground armor over closer air contacts")
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 320.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == 0, "Fighters must prioritize hostile aircraft over closer ground targets")
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 19.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == -1, "Role-based target selection must never acquire targets outside its engagement radius")
+	# Enemy fighters must protect the helicopter under hostile air pressure, not blindly follow the nearest one.
+	game.get("units").assign([
+		{"kind": "helicopter", "team": "enemy", "hp": 160, "pos": Vector2(100.0, 0.0)},
+		{"kind": "helicopter", "team": "enemy", "hp": 160, "pos": Vector2(50.0, 0.0)},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(125.0, 0.0)}
+	])
+	_expect(int(game.call("_enemy_fighter_escort_helicopter_index", Vector2.ZERO)) == 0, "Enemy fighter must escort the helicopter threatened by hostile aircraft even when another helicopter is closer")
+	game.get("units")[2]["hp"] = 0
+	_expect(int(game.call("_enemy_fighter_escort_helicopter_index", Vector2.ZERO)) == 1, "Enemy fighter must fall back to the nearest living helicopter when no hostile air threat remains")
 	# Enemy combined-arms assault formations must keep armor forward, infantry in support, and artillery at standoff range.
 	var assault_target_pos := Vector2(500.0, 300.0)
 	var assault_origin_pos := Vector2(100.0, 300.0)
