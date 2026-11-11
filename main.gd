@@ -3287,6 +3287,32 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 	return destination
 
 
+func _issue_group_attack_order(target_index: int) -> void:
+	if target_index < 0 or target_index >= units.size():
+		return
+	var target: Dictionary = units[target_index]
+	if String(target.get("team", "")) != "enemy" or int(target.get("hp", 0)) <= 0:
+		return
+	var shared_focus: Vector2 = target.pos
+	var issued_count := 0
+	for unit_index in selected:
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var attacker: Dictionary = units[unit_index]
+		if String(attacker.get("team", "")) != "player" or int(attacker.get("hp", 0)) <= 0:
+			continue
+		_cancel_airfield_recovery(attacker)
+		attacker["attack_target"] = target_index
+		attacker["attack_focus_pos"] = shared_focus
+		# A focused attack replaces stale movement, patrol, defense, and escort orders.
+		for order_key in ["target", "air_patrol_points", "air_patrol_index", "air_patrol_resume", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset"]:
+			attacker.erase(order_key)
+		issued_count += 1
+	if issued_count > 0:
+		notice = "أمر هجوم جماعي — تركيز النيران على الهدف المحدد"
+		notice_time = 1.8
+
+
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	var size = get_viewport_rect().size
 	if pressed:
@@ -3561,25 +3587,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 			notice = "هجوم على قاعدة العدو!"
 			notice_time = 1.5
 		elif enemy_found >= 0 and not selected.is_empty():
-			for idx in selected:
-				if idx < units.size() and units[idx].team == "player":
-					_cancel_airfield_recovery(units[idx])
-					units[idx].attack_target = enemy_found
-					units[idx].attack_focus_pos = units[enemy_found].pos
-					# Do not let an old move destination or patrol override this attack.
-					units[idx].erase("target")
-					units[idx].erase("air_patrol_points")
-					units[idx].erase("air_patrol_index")
-					units[idx].erase("air_patrol_resume")
-					units[idx].erase("attack_base")
-					units[idx].erase("attack_building")
-					units[idx].erase("attack_move_active")
-					units[idx].erase("guard_active")
-					units[idx].erase("escort_active")
-					units[idx].erase("escort_target_id")
-					units[idx].erase("escort_offset")
-			notice = "أمر هجوم!"
-			notice_time = 1.5
+			_issue_group_attack_order(enemy_found)
 		else:
 			var found = -1
 			for i in units.size():
