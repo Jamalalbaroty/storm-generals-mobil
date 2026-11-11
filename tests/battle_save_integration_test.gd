@@ -104,6 +104,17 @@ func _run_battle_save_integration_test() -> void:
 		_expect(int(game.call("_missile_damage", String(army_name))) == int(expected_air_profile["missile_damage"]), "Strategic missile damage must match the approved faction profile for " + String(army_name))
 		_expect(is_equal_approx(float(game.call("_missile_cooldown", String(army_name))), float(expected_air_profile["missile_cooldown"])), "Strategic missile cooldown must match the approved faction profile for " + String(army_name))
 
+	var aircraft_cost_contract := {
+		"الصيني": {"helicopter": 650, "fighter": 520},
+		"الأمريكي": {"helicopter": 650, "fighter": 500},
+		"الجيش العربي": {"helicopter": 650, "fighter": 500},
+		"وطن": {"helicopter": 850, "fighter": 575}
+	}
+	for army_name in aircraft_cost_contract:
+		var expected_aircraft_costs: Dictionary = aircraft_cost_contract[army_name]
+		_expect(int(game.call("_unit_cost", "helicopter", String(army_name))) == int(expected_aircraft_costs["helicopter"]), "Helicopter production cost must match the approved faction economy for " + String(army_name))
+		_expect(int(game.call("_unit_cost", "fighter", String(army_name))) == int(expected_aircraft_costs["fighter"]), "Fighter production cost must match the approved faction economy for " + String(army_name))
+
 	# Shared construction economy remains consistent across all four factions.
 	var building_cost_contract := {
 		"barracks": 250, "factory": 450, "turret": 350, "airfield": 600,
@@ -147,6 +158,15 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_priority_air_target", Vector2.ZERO, "player", 320.0)) == 2, "Anti-air target selection must prioritize fighters threatening strategic installations over helicopters and ground units")
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
+	# Enemy ground assault target selection must exclude aircraft and retain only living ground forces.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2(5.0, 0.0)},
+		{"kind": "helicopter", "team": "enemy", "hp": 160, "pos": Vector2(15.0, 0.0)},
+		{"kind": "artillery", "team": "enemy", "hp": 220, "pos": Vector2(60.0, 0.0)},
+		{"kind": "tank", "team": "enemy", "hp": 0, "pos": Vector2(10.0, 0.0)}
+	])
+	_expect(int(game.call("_nearest_enemy_ground_unit", Vector2.ZERO, 185.0)) == 2, "Player bunker targeting must ignore enemy aircraft and destroyed units while selecting artillery")
+	game.get("units").clear()
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
