@@ -163,3 +163,8 @@ When the player issues boarding with a landed transport and selected infantry ou
 ## Implemented twelfth slice — wounded-first extraction and rendezvous correction
 
 Boarding selection is now ordered by ascending current health, so the most wounded selected infantry are evacuated first when aircraft capacity is limited. A code review also found and corrected a rendezvous-list handling error: the nearby-only subset had replaced the full selected squad before rendezvous orders were assigned. The full squad is now preserved separately, so distant infantry actually receive their movement targets. Regression tests cover rendezvous movement and wounded-first boarding. Godot execution and device validation are still pending.
+
+
+## Implemented thirteenth slice — recall transport to a field squad
+
+The airlift command tab now includes a pickup-recall action. With one player transport and one or more player infantry selected, the command computes the squad rendezvous center, asks the existing tactical landing planner for a safe nearby ground/rooftop site, assigns an anti-air-aware route, and dispatches the empty aircraft. On landing it settles into the existing idle state; the player then moves the squad within boarding range and confirms loading. The order rejects multiple transports, missing infantry, occupied cargo, busy aircraft, and unavailable safe landing plans. A regression test covers dispatch state, landing target, and route assignment. This is a player-confirmed extraction workflow, not automatic pickup or automatic boarding. Godot execution and Android validation remain pending.
