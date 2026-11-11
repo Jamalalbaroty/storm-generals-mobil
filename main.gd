@@ -199,6 +199,23 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
+func _next_airfield_recovery_slot(recovery_id: int) -> int:
+	# Reuse the lowest free slot; counting aircraft is unsafe when earlier slots become free.
+	var occupied_slots: Dictionary = {}
+	for aircraft in units:
+		if String(aircraft.get("team", "")) != "player" or not bool(aircraft.get("airfield_returning", false)):
+			continue
+		if int(aircraft.get("airfield_recovery_id", -2)) != recovery_id:
+			continue
+		var slot := int(aircraft.get("airfield_recovery_slot", -1))
+		if slot >= 0:
+			occupied_slots[slot] = true
+	var next_slot := 0
+	while occupied_slots.has(next_slot):
+		next_slot += 1
+	return next_slot
+
+
 func _save_aircraft_resume_order(unit: Dictionary) -> void:
 	# Preserve the player's current air mission while an aircraft automatically rearms.
 	var resume_order: Dictionary = {}
@@ -861,10 +878,7 @@ func _process(delta: float) -> void:
 								nearest_airfield = airfield_index
 						if nearest_airfield >= 0:
 							var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
-							var recovery_slot := 0
-							for queued_aircraft in units:
-								if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
-									recovery_slot += 1
+							var recovery_slot := _next_airfield_recovery_slot(recovery_id)
 							_save_aircraft_resume_order(unit)
 							unit["airfield_returning"] = true
 							unit["airfield_landed"] = false
