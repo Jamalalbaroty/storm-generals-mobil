@@ -58,6 +58,14 @@ func _run_battle_save_integration_test() -> void:
 	game.call("_update_supply_control", 1.0)
 	_expect(String(game.get("supply_points")[0].get("owner", "")) == "enemy", "An uncontested enemy unit must recapture a player supply point")
 	_expect(int(game.get("enemy_credits")) >= 4, "An enemy-controlled supply point must generate enemy income")
+	# The nearest enemy defender must be able to reinforce a threatened friendly supply point.
+	game.get("units").assign([
+		{"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(375.0, 300.0)},
+		{"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(430.0, 300.0)}
+	])
+	var reinforcement_handled: bool = game.call("_update_enemy_supply_reinforcement", game.get("units")[0], 0, 0.1)
+	_expect(reinforcement_handled, "An eligible enemy defender must respond to a threatened enemy-held supply point")
+	_expect(bool(game.get("units")[0].get("supply_reinforcement_active", false)), "The dispatched defender must retain its supply reinforcement assignment")
 	game.get("units").clear()
 	game.get("supply_points").clear()
 
