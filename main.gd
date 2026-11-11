@@ -654,6 +654,8 @@ func _process(delta: float) -> void:
 						continue
 					if bool(unit.get("defense_guard", false)) and _update_enemy_defense_guard(unit, i, delta):
 						continue
+					if unit.kind in ["tank", "infantry"] and _update_enemy_counterattack_reserve(unit, i, delta):
+						continue
 				if unit.kind == "fighter":
 					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
 					if air_target < 0:
@@ -4374,6 +4376,73 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 		var return_speed := 22.0 if String(unit.get("kind", "")) == "artillery" else (36.0 if String(unit.get("kind", "")) == "tank" else 55.0)
 		var return_direction := _ground_navigation_direction(unit, unit_index, anchor, delta, return_speed)
 		unit.pos += return_direction * delta * return_speed
+	return true
+
+
+func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	# Keep at most two mobile reserves ready to repel a breach near critical enemy assets.
+	var is_active := bool(unit.get("counterattack_active", false))
+	var anchor: Vector2 = unit.get("counterattack_anchor", enemy_base)
+	if not is_active:
+		var active_reserves := 0
+		for candidate in units:
+			if String(candidate.get("team", "")) == "enemy" and bool(candidate.get("counterattack_active", false)) and int(candidate.get("hp", 0)) > 0:
+				active_reserves += 1
+		if active_reserves >= 2:
+			return false
+		var asset_positions: Array[Vector2] = [enemy_base]
+		for building in enemy_buildings:
+			if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+				continue
+			if String(building.get("kind", "")) in ["missile_silo", "factory", "barracks", "airfield", "power_plant", "anti_air", "missile_defense"]:
+				asset_positions.append(building.pos)
+		var best_anchor_distance := INF
+		var breached_anchor := Vector2.ZERO
+		var breach_found := false
+		for asset_pos in asset_positions:
+			var local_threat := _nearest_player_ground_unit(asset_pos, 185.0)
+			if local_threat < 0:
+				continue
+			var asset_distance: float = unit.pos.distance_to(asset_pos)
+			if asset_distance > 300.0:
+				continue
+			var score: float = asset_distance + asset_pos.distance_to(units[local_threat].pos) * 0.35
+			if score < best_anchor_distance:
+				best_anchor_distance = score
+				breached_anchor = asset_pos
+				breach_found = true
+		if not breach_found:
+			return false
+		unit["counterattack_active"] = true
+		unit["counterattack_anchor"] = breached_anchor
+		anchor = breached_anchor
+	var threat_index := _nearest_player_ground_unit(anchor, 205.0)
+	if threat_index < 0:
+		if unit.pos.distance_to(anchor) > 14.0:
+			var return_speed := 36.0 if String(unit.get("kind", "")) == "tank" else 55.0
+			var return_direction := _ground_navigation_direction(unit, unit_index, anchor, delta, return_speed)
+			unit.pos += return_direction * delta * return_speed
+		else:
+			unit.erase("counterattack_active")
+			unit.erase("counterattack_anchor")
+		return true
+	var threat: Dictionary = units[threat_index]
+	var distance: float = unit.pos.distance_to(threat.pos)
+	var weapon_range := 150.0 if String(unit.get("kind", "")) == "tank" else 105.0
+	if distance > weapon_range and unit.pos.distance_to(anchor) < 225.0:
+		var move_speed := 36.0 if String(unit.get("kind", "")) == "tank" else 55.0
+		var direction := _ground_navigation_direction(unit, unit_index, threat.pos, delta, move_speed)
+		unit.pos += direction * delta * move_speed
+	elif distance <= weapon_range:
+		unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
+		if float(unit.get("attack_cd", 0.0)) <= 0.0:
+			var hp_before := int(threat.get("hp", 0))
+			var damage := _unit_damage_with_veterancy(unit, 20 if String(unit.get("kind", "")) == "tank" else 10)
+			threat["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(threat, damage))
+			_award_unit_experience(unit, hp_before - int(threat["hp"]))
+			_register_unit_kill(unit, threat, hp_before)
+			_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
+			unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
 	return true
 
 
