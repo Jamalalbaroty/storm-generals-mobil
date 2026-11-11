@@ -141,3 +141,10 @@ Regression coverage verifies defensive stance assignment, landing-zone anchoring
 AUTONOMOUS transports may now set `transport_ai_post_drop_doctrine` to `ATTACK_MOVE`. Unassigned passengers then receive the saved sortie objective as their movement target and activate the game's existing attack-move combat loop, which searches for nearby hostile units/buildings while advancing. The doctrine safely declines when no objective was retained, allowing the established formation-rally fallback. DEFEND remains the default. Existing player orders are checked before any doctrine state is changed.
 
 Regression cases cover activation, objective targeting, and the missing-objective fallback. These are authored tests only; Godot headless CI and Android gameplay validation remain pending.
+
+
+## Implemented ninth slice — selected transport command panel
+
+A compact touch panel is now shown when the player selects one or more friendly transport helicopters. It exposes a cycle button for MANUAL → ASSISTED → AUTONOMOUS → MANUAL and a post-drop doctrine toggle between DEFEND and ATTACK_MOVE. The panel writes settings to the selected aircraft records; it does not silently launch a sortie.
+
+Safety locks prevent changing the control mode while a transport is inbound, descending, or assessing a landing, and prevent changing post-drop doctrine unless the aircraft is idle or loaded. Selection is restricted to player-owned transport helicopters. Regression tests cover visibility eligibility, mode/doctrine persistence, and both in-flight locks. These tests are authored but still require a successful Godot CI run and Android touch-device validation.
