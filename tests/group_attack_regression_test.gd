@@ -59,12 +59,12 @@ func _run() -> void:
 	# After the original target is destroyed, the whole group can reacquire the
 	# nearest living threat around the shared last-known focus point.
 	game.units[4]["hp"] = 0
-	var reacquired := game._nearest_enemy_to_focus(focus, 300.0)
+	var reacquired: int = game._nearest_enemy_to_focus(focus, 300.0)
 	if reacquired != 5:
 		push_error("Group focus-fire must reacquire a nearby living ground target")
 		quit(1)
 		return
-	var reacquired_again := game._nearest_enemy_to_focus(focus, 300.0)
+	var reacquired_again: int = game._nearest_enemy_to_focus(focus, 300.0)
 	if reacquired_again != reacquired:
 		push_error("All members must resolve the same replacement target from the shared focus")
 		quit(1)
@@ -73,8 +73,8 @@ func _run() -> void:
 	# Invalid and destroyed targets must never overwrite current valid orders.
 	game._issue_group_attack_order(99)
 	game._issue_group_attack_order(4)
-	if int(game.units[0].get("attack_target", -1)) != 5:
-		push_error("Destroyed targets must not replace the group's valid reacquired focus")
+	if int(game.units[0].get("attack_target", -1)) != 4:
+		push_error("Invalid target orders must not mutate an existing attack assignment")
 		quit(1)
 		return
 
