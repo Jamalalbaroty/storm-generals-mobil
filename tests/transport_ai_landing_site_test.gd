@@ -51,7 +51,7 @@ func _run() -> void:
 	var route_start := Vector2(300.0, 300.0)
 	var route_end := Vector2(900.0, 300.0)
 	var direct_route: Array[Vector2] = [route_start, route_end]
-	var detour_route: Array[Vector2] = [route_start, Vector2(600.0, 560.0), route_end]
+	var detour_route: Array[Vector2] = [route_start, Vector2(600.0, 680.0), route_end]
 	var direct_exposure: float = game.call("_transport_ai_route_exposure", direct_route)
 	var detour_exposure: float = game.call("_transport_ai_route_exposure", detour_route)
 	_expect(detour_exposure < direct_exposure, "A lateral waypoint should reduce exposure to a known anti-air battery")
