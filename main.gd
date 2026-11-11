@@ -4922,6 +4922,28 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 				notice_time = 3.0
 	elif state == "returning":
 		var return_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
+		var destination_valid := false
+		for airfield_index in range(buildings.size()):
+			var destination_airfield: Dictionary = buildings[airfield_index]
+			if String(destination_airfield.get("kind", "")) == "airfield" and _is_player_building_powered(airfield_index) and destination_airfield.pos.distance_to(return_pos) <= 2.0:
+				destination_valid = true
+				break
+		if not destination_valid:
+			var replacement_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+			if replacement_airfield.is_empty():
+				transport.erase("transport_return_pos")
+				transport.erase("transport_ai_route_points")
+				transport.erase("transport_ai_route_index")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+				notice = "تعطلت القاعدة الجوية أثناء العودة — توقفت الطائرة بأمان والحمولة محفوظة"
+				notice_time = 3.0
+				return
+			return_pos = replacement_airfield.pos
+			transport["transport_return_pos"] = return_pos
+			_transport_ai_assign_route(transport, return_pos)
+			transport["transport_ai_autonomous_active"] = true
+			transport["transport_ai_route_index"] = 0
 		var return_route: Array = transport.get("transport_ai_route_points", [])
 		var return_route_index := int(transport.get("transport_ai_route_index", 0))
 		var return_target: Vector2 = return_pos
