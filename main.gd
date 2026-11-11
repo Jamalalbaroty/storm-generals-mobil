@@ -4492,6 +4492,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 		if cargo.is_empty():
 			transport["transport_state"] = "idle"
 			transport.erase("transport_target_pos")
+			transport.erase("transport_ai_objective_pos")
+			transport["transport_ai_autonomous_active"] = false
 			return
 		transport["transport_drop_timer"] = float(transport.get("transport_drop_timer", 0.0)) + delta
 		if float(transport["transport_drop_timer"]) >= 0.72:
@@ -4550,6 +4552,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			_add_visual_effect("dust", drop_pos, drop_pos, Color("#c5b28b"), 0.42, 8.0)
 			if cargo.is_empty():
 				transport.erase("transport_target_pos")
+				transport.erase("transport_ai_objective_pos")
+				transport["transport_ai_autonomous_active"] = false
 				var nearest_airfield := Vector2.ZERO
 				var airfield_found := false
 				var nearest_distance := INF
