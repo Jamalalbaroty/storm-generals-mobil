@@ -195,6 +195,16 @@ func _run_transport_airlift_regression() -> void:
 		game.call("_update_transport_helicopter", full_transport, 0.5)
 	_expect(String(full_transport.get("transport_state", "")) == "idle", "Transport should become available after completing its five-second rearm and repair cycle")
 
+	# A large frame must clamp flight to the airfield instead of overshooting and oscillating.
+	full_transport["pos"] = Vector2(420.0, 320.0)
+	full_transport["transport_return_pos"] = Vector2(650.0, 320.0)
+	full_transport["transport_state"] = "returning"
+	full_transport.erase("transport_ai_route_points")
+	full_transport.erase("transport_ai_route_index")
+	game.call("_update_transport_helicopter", full_transport, 10.0)
+	_expect(String(full_transport.get("transport_state", "")) == "rearming", "A large return-flight frame should arrive and enter rearming without overshoot")
+	_expect(full_transport.pos.distance_to(Vector2(650.0, 320.0)) < 0.1, "Large-delta return movement should clamp exactly to the airfield")
+
 	game.queue_free()
 	await process_frame
 	if failure_count > 0:
