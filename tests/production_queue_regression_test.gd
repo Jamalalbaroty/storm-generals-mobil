@@ -803,7 +803,7 @@ func _run() -> void:
 		{"unit_id": "player_ground_near", "pos": Vector2(200, 100), "team": "player", "kind": "tank", "hp": 300},
 		{"unit_id": "player_ground_far", "pos": Vector2(300, 100), "team": "player", "kind": "artillery", "hp": 220}
 	])
-	var heli_target_index := game._enemy_helicopter_cached_target(game.units[0], 0, 0.1, -1)
+	var heli_target_index: int = game._enemy_helicopter_cached_target(game.units[0], 0, 0.1, -1)
 	if heli_target_index != 1 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_near":
 		push_error("Enemy helicopter must retain the existing nearest exposed ground-target selection")
 		quit(1)
