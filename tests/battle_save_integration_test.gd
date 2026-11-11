@@ -62,11 +62,18 @@ func _run_battle_save_integration_test() -> void:
 		"airfield_rearm_progress": 2.25, "airfield_resume_order": {"air_patrol_points": [Vector2(80.0, 90.0)], "air_patrol_index": 0, "air_patrol_resume": true},
 		"airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 1.5
 	}
-	game.get("units").assign([rerouted_aircraft])
+	var rerouted_aircraft_2: Dictionary = {"unit_id": "reroute_2", "kind": "fighter", "team": "player", "hp": 120, "pos": Vector2(2.0, 0.0), "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1}
+	var rerouted_aircraft_3: Dictionary = {"unit_id": "reroute_3", "kind": "helicopter", "team": "player", "hp": 120, "pos": Vector2(4.0, 0.0), "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 0}
+	game.get("units").assign([rerouted_aircraft, rerouted_aircraft_2, rerouted_aircraft_3])
 	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft, 4)), "Aircraft must be redirected when its assigned airfield is lost and an alternate is available")
-	_expect(int(rerouted_aircraft.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft.get("airfield_recovery_slot", -1)) == 0, "Rerouted aircraft must reserve a fresh slot at the alternate airfield")
+	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft_2, 4)), "Second aircraft must also be redirected to the alternate field")
+	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft_3, 4)), "Third aircraft must also be redirected to the alternate field")
+	_expect(int(rerouted_aircraft.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft.get("airfield_recovery_slot", -1)) == 0, "First rerouted aircraft must reserve the first free slot at the alternate field")
+	_expect(int(rerouted_aircraft_2.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_2.get("airfield_recovery_slot", -1)) == 1, "Second rerouted aircraft must reserve a distinct second slot")
+	_expect(int(rerouted_aircraft_3.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_3.get("airfield_recovery_slot", -1)) == 2, "Third rerouted aircraft must reserve a distinct third slot")
 	_expect(bool(rerouted_aircraft.get("airfield_returning", false)) and not bool(rerouted_aircraft.get("airfield_sortie_launch", false)), "Rerouting must resume the recovery flight and clear the stale takeoff queue")
 	_expect(is_equal_approx(float(rerouted_aircraft.get("airfield_rearm_progress", 0.0)), 2.25) and rerouted_aircraft.has("airfield_resume_order"), "Rerouting must preserve rearm progress and the original flight order")
+	game.get("units").clear()
 	game.get("units").clear()
 	game.get("buildings").clear()
 
