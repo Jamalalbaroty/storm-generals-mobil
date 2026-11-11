@@ -42,6 +42,9 @@ jobs:
 
       - name: Run transport airlift regression test
         run: timeout 180s godot --headless --path . --script tests/transport_airlift_regression_test.gd
+ 
+      - name: Run transport AI landing-site and control-policy regression test
+        run: timeout 180s godot --headless --path . --script tests/transport_ai_landing_site_test.gd
 
       - name: Run combined-arms group formation regression test
         run: timeout 60s godot --headless --path . --script tests/group_formation_regression_test.gd
