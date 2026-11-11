@@ -62,6 +62,19 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "A following aircraft must wait until its same-airfield predecessor clears the launch lane")
 	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 9)), "An aircraft at another airfield must not block this runway")
 	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_4", 4)), "Enemy aircraft must not block the player's airfield queue")
+	# Losing or depowering the assigned airfield must release recovery and launch queue state.
+	var stranded_aircraft: Dictionary = {
+		"unit_id": "stranded_fighter", "kind": "fighter", "team": "player", "hp": 150,
+		"airfield_returning": true, "airfield_landed": true, "airfield_recovery_id": 4,
+		"airfield_recovery_slot": 2, "airfield_rearm_progress": 3.25,
+		"airfield_sortie_ready": true, "airfield_sortie_launch": true,
+		"airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 1.5,
+		"airfield_resume_order": {"air_patrol_points": [Vector2(210.0, 180.0), Vector2(480.0, 210.0)], "air_patrol_index": 1, "air_patrol_resume": true}
+	}
+	game.call("_abandon_airfield_recovery", stranded_aircraft)
+	_expect(not stranded_aircraft.has("airfield_returning") and not stranded_aircraft.has("airfield_landed") and not stranded_aircraft.has("airfield_recovery_id") and not stranded_aircraft.has("airfield_recovery_slot") and not stranded_aircraft.has("airfield_rearm_progress"), "Abandoned recovery must release landing state and its reserved slot")
+	_expect(not stranded_aircraft.has("airfield_sortie_launch") and not stranded_aircraft.has("airfield_sortie_ready") and not stranded_aircraft.has("airfield_sortie_airfield_id") and not stranded_aircraft.has("airfield_sortie_launch_wait"), "Abandoned recovery must release all stale takeoff queue state")
+	_expect(not stranded_aircraft.has("airfield_resume_order") and Array(stranded_aircraft.get("air_patrol_points", [])).size() == 2 and int(stranded_aircraft.get("air_patrol_index", -1)) == 1 and bool(stranded_aircraft.get("air_patrol_resume", false)), "Aircraft must resume its saved patrol mission when the assigned airfield is lost")
 	game.get("units").clear()
 
 	# Strategic supply points remain neutral while contested and change hands when uncontested.
