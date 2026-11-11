@@ -200,6 +200,23 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	return true
 
 
+func _valid_player_airfield_index(unit: Dictionary, airfield_id: int) -> int:
+	# Keep a per-aircraft index hint, but validate stable identity and live field state
+	# every frame so building removal, destruction, or power loss cannot stale the cache.
+	var cached_index := int(unit.get("airfield_cached_index", -1))
+	if cached_index >= 0 and cached_index < buildings.size():
+		var cached_airfield: Dictionary = buildings[cached_index]
+		if String(cached_airfield.get("kind", "")) == "airfield" and int(cached_airfield.get("production_id", -2)) == airfield_id and int(cached_airfield.get("hp", 0)) > 0 and float(cached_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(cached_index):
+			return cached_index
+	unit.erase("airfield_cached_index")
+	for airfield_index in range(buildings.size()):
+		var candidate: Dictionary = buildings[airfield_index]
+		if String(candidate.get("kind", "")) == "airfield" and int(candidate.get("production_id", -2)) == airfield_id and int(candidate.get("hp", 0)) > 0 and float(candidate.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
+			unit["airfield_cached_index"] = airfield_index
+			return airfield_index
+	return -1
+
+
 func _nearest_powered_player_airfield_index(origin: Vector2, excluded_airfield_id: int = -1) -> int:
 	var nearest_airfield := -1
 	var nearest_distance := INF
@@ -221,6 +238,7 @@ func _redirect_aircraft_recovery(unit: Dictionary, failed_airfield_id: int) -> b
 		_abandon_airfield_recovery(unit)
 		return false
 	var alternate_id := int(buildings[alternate_index].get("production_id", -1))
+	unit["airfield_cached_index"] = alternate_index
 	for state_key in ["airfield_landed", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
 		unit.erase(state_key)
 	unit["airfield_returning"] = true
@@ -339,7 +357,7 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 
 func _abandon_airfield_recovery(unit: Dictionary) -> void:
 	# A destroyed or unpowered recovery field must release the aircraft and its queue slot.
-	for state_key in ["airfield_returning", "airfield_landed", "airfield_recovery_id", "airfield_recovery_slot", "airfield_rearm_progress", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
+	for state_key in ["airfield_returning", "airfield_landed", "airfield_recovery_id", "airfield_recovery_slot", "airfield_rearm_progress", "airfield_cached_index", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
 		unit.erase(state_key)
 	_restore_aircraft_resume_order(unit)
 
@@ -350,6 +368,7 @@ func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	unit.erase("airfield_landed")
 	unit.erase("airfield_recovery_id")
 	unit.erase("airfield_recovery_slot")
+	unit.erase("airfield_cached_index")
 	unit.erase("airfield_sortie_ready")
 	unit.erase("airfield_sortie_launch")
 	unit.erase("airfield_sortie_airfield_id")
@@ -949,18 +968,14 @@ func _process(delta: float) -> void:
 							unit["airfield_rearm_progress"] = 0.0
 							unit["airfield_recovery_id"] = recovery_id
 							unit["airfield_recovery_slot"] = recovery_slot
+							unit["airfield_cached_index"] = nearest_airfield
 							unit.erase("target")
 							unit.erase("attack_target")
 							unit.erase("attack_focus_pos")
 							unit.erase("attack_base")
 							unit.erase("attack_building")
 				if bool(unit.get("airfield_returning", false)):
-					var recovery_index := -1
-					for airfield_index in range(buildings.size()):
-						var recovery_airfield: Dictionary = buildings[airfield_index]
-						if String(recovery_airfield.get("kind", "")) == "airfield" and int(recovery_airfield.get("production_id", -2)) == int(unit.get("airfield_recovery_id", -1)) and int(recovery_airfield.get("hp", 0)) > 0 and float(recovery_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
-							recovery_index = airfield_index
-							break
+					var recovery_index := _valid_player_airfield_index(unit, int(unit.get("airfield_recovery_id", -1)))
 					if recovery_index < 0:
 						_redirect_aircraft_recovery(unit, int(unit.get("airfield_recovery_id", -1)))
 					else:
@@ -1021,12 +1036,7 @@ func _process(delta: float) -> void:
 				# Recovered aircraft taxi clear of the landing area before resuming flight.
 				if unit.kind in ["fighter", "helicopter"] and bool(unit.get("airfield_sortie_launch", false)):
 					var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
-					var sortie_airfield_index := -1
-					for sortie_index in range(buildings.size()):
-						var sortie_airfield: Dictionary = buildings[sortie_index]
-						if String(sortie_airfield.get("kind", "")) == "airfield" and int(sortie_airfield.get("production_id", -2)) == sortie_airfield_id and int(sortie_airfield.get("hp", 0)) > 0 and float(sortie_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(sortie_index):
-							sortie_airfield_index = sortie_index
-							break
+					var sortie_airfield_index := _valid_player_airfield_index(unit, sortie_airfield_id)
 					if sortie_airfield_index < 0:
 						_redirect_aircraft_recovery(unit, sortie_airfield_id)
 					else:
