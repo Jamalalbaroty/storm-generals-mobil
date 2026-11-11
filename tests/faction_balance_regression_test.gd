@@ -48,9 +48,9 @@ func _run() -> void:
 		return
 
 	# Watan must lead in battlefield output, while its full land/air reinforcement costs remain premium.
-	var watan_helicopter_dps := float(game._helicopter_damage({"faction": "وطن"})) / game._helicopter_cooldown({"faction": "وطن"})
+	var watan_helicopter_dps: float = float(game._helicopter_damage({"faction": "وطن"})) / game._helicopter_cooldown({"faction": "وطن"})
 	for army in FACTIONS:
-		var dps := float(game._helicopter_damage({"faction": army})) / game._helicopter_cooldown({"faction": army})
+		var dps: float = float(game._helicopter_damage({"faction": army})) / game._helicopter_cooldown({"faction": army})
 		if army != "وطن" and watan_helicopter_dps <= dps:
 			push_error("Watan helicopter combat output must exceed %s" % army)
 			quit(1)
@@ -73,7 +73,7 @@ func _run() -> void:
 			return
 
 	# Missile output and cooldown must follow the selected faction, not the active player's faction.
-	var watan_missile_dps := float(game._missile_damage("وطن")) / game._missile_cooldown("وطن")
+	var watan_missile_dps: float = float(game._missile_damage("وطن")) / game._missile_cooldown("وطن")
 	for army in FACTIONS:
 		if game._missile_damage(army) <= 0 or game._missile_cooldown(army) <= 0.0:
 			push_error("%s has invalid missile combat parameters" % army)
