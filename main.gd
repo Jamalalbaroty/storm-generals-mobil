@@ -674,6 +674,8 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
+				if unit.kind in ["tank", "infantry", "artillery"] and _update_enemy_ground_assault(unit, i, delta):
+					continue
 				# Damaged player aircraft automatically recover at a powered, completed airfield.
 				if unit.kind in ["fighter", "helicopter"]:
 					var aircraft_ammo := int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12))
@@ -1816,9 +1818,9 @@ func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vec
 	var lane_offset := 22.0 * float(lane_rank)
 	var role_offset := Vector2.ZERO
 	if unit_kind == "tank":
-		role_offset = attack_direction * 58.0
+		role_offset = -attack_direction * 65.0
 	elif unit_kind == "infantry":
-		role_offset = -attack_direction * 22.0
+		role_offset = -attack_direction * 100.0
 	return target_pos + role_offset + lateral_direction * lane_side * lane_offset
 
 
@@ -1853,6 +1855,77 @@ func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vect
 	var lane_rank := int(floor(float(unit_index) / 2.0)) + 1
 	var lane_offset := minf(70.0 * float(lane_rank), 210.0)
 	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * lane_offset
+
+
+func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	# Execute the enemy's land doctrine: armor leads, infantry screens, artillery stays in support.
+	var unit_kind := String(unit.get("kind", ""))
+	if unit_kind not in ["tank", "infantry", "artillery"]:
+		return false
+	var preferred_pos: Vector2 = unit.get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
+	var target_index := _select_enemy_ground_assault_target(unit.pos, preferred_pos)
+	var target_pos: Vector2 = base_pos
+	if target_index >= 0:
+		target_pos = units[target_index].pos
+		unit["attack_target"] = target_index
+		unit["attack_focus_pos"] = target_pos
+	else:
+		unit.erase("attack_target")
+		unit.erase("attack_focus_pos")
+	var attack_direction: Vector2 = target_pos - enemy_base
+	if attack_direction.length_squared() <= 0.01:
+		attack_direction = Vector2.LEFT
+	else:
+		attack_direction = attack_direction.normalized()
+	var formation_goal: Vector2
+	if unit_kind == "artillery":
+		formation_goal = _enemy_artillery_support_position(target_pos, enemy_base, _enemy_artillery_formation_rank(unit_index))
+	elif unit_kind == "infantry":
+		formation_goal = _enemy_infantry_support_position(unit.pos, target_pos, enemy_base, _enemy_assault_formation_rank(unit_index))
+	else:
+		formation_goal = _enemy_ground_assault_formation_position(unit_kind, target_pos, enemy_base, _enemy_assault_formation_rank(unit_index))
+	var weapon_range := 300.0 if unit_kind == "artillery" else (150.0 if unit_kind == "tank" else 105.0)
+	var target_distance: float = unit.pos.distance_to(target_pos)
+	if target_index >= 0 and target_distance <= weapon_range:
+		unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
+		if float(unit.get("attack_cd", 0.0)) <= 0.0:
+			var threat: Dictionary = units[target_index]
+			if unit_kind == "artillery":
+				_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
+				_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
+				_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
+				_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "enemy", unit)
+				unit["attack_cd"] = 2.4
+			else:
+				var hp_before := int(threat.get("hp", 0))
+				var base_damage := 20 if unit_kind == "tank" else 10
+				var damage := _unit_damage_with_veterancy(unit, base_damage)
+				threat["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(threat, damage))
+				_award_unit_experience(unit, hp_before - int(threat["hp"]))
+				_register_unit_kill(unit, threat, hp_before)
+				_add_visual_effect("tracer" if unit_kind == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
+				unit["attack_cd"] = 0.75 if unit_kind == "tank" else 1.0
+		return true
+	if target_index < 0 and target_distance <= (360.0 if unit_kind == "artillery" else (155.0 if unit_kind == "tank" else 105.0)):
+		unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
+		if float(unit.get("attack_cd", 0.0)) <= 0.0:
+			var base_damage := _unit_damage_with_veterancy(unit, 45 if unit_kind == "artillery" else (20 if unit_kind == "tank" else 10))
+			var hp_before := player_base_hp
+			player_base_hp = maxi(0, player_base_hp - base_damage)
+			_award_unit_experience(unit, hp_before - player_base_hp)
+			_add_visual_effect("explosion" if unit_kind == "artillery" else "tracer", base_pos, base_pos, Color("#ffad62"), 0.35, 34.0)
+			unit["attack_cd"] = 2.4 if unit_kind == "artillery" else (0.75 if unit_kind == "tank" else 1.0)
+		return true
+	var goal_distance: float = unit.pos.distance_to(formation_goal)
+	var move_speed := 22.0 if unit_kind == "artillery" else (36.0 if unit_kind == "tank" else 55.0)
+	var movement_goal := formation_goal
+	# Close the final gap only when a formation slot still leaves the unit outside weapon range.
+	if goal_distance <= 18.0 and target_distance > weapon_range:
+		movement_goal = target_pos
+	var move_direction := _ground_navigation_direction(unit, unit_index, movement_goal, delta, move_speed)
+	if move_direction.length_squared() > 0.001:
+		unit.pos += move_direction * delta * move_speed
+	return true
 
 func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 	# Landing infantry prioritize production and air facilities, then defensive assets.
