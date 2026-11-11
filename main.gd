@@ -4139,10 +4139,12 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 	var cargo: Array = transport.get("transport_cargo", [])
 	if cargo.is_empty():
 		transport["transport_firing"] = false
+		transport["attack_target_pos"] = Vector2.ZERO
 		return
 	var state := String(transport.get("transport_state", "idle"))
 	if state == "descending":
 		transport["transport_firing"] = false
+		transport["attack_target_pos"] = Vector2.ZERO
 		return
 	var target_index := -1
 	var target_distance := 158.0
@@ -4158,6 +4160,7 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 			target_index = index
 	if target_index < 0:
 		transport["transport_firing"] = false
+		transport["attack_target_pos"] = Vector2.ZERO
 		for passenger in cargo:
 			passenger["cargo_attack_cd"] = maxf(0.0, float(passenger.get("cargo_attack_cd", 0.0)) - delta)
 		transport["transport_cargo"] = cargo
