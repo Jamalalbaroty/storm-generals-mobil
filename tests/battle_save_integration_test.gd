@@ -56,6 +56,18 @@ func _run_battle_save_integration_test() -> void:
 		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 0.5, "production_id": 10, "pos": Vector2(5.0, 0.0)}
 	])
 	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 1, "Aircraft must bypass a destroyed nearest airfield and select the nearest surviving completed powered field")
+	var rerouted_aircraft: Dictionary = {
+		"unit_id": "reroute_1", "kind": "fighter", "team": "player", "hp": 120, "pos": Vector2.ZERO,
+		"airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 2,
+		"airfield_rearm_progress": 2.25, "airfield_resume_order": {"air_patrol_points": [Vector2(80.0, 90.0)], "air_patrol_index": 0, "air_patrol_resume": true},
+		"airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 1.5
+	}
+	game.get("units").assign([rerouted_aircraft])
+	_expect(bool(game.call("_redirect_aircraft_recovery", rerouted_aircraft, 4)), "Aircraft must be redirected when its assigned airfield is lost and an alternate is available")
+	_expect(int(rerouted_aircraft.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft.get("airfield_recovery_slot", -1)) == 0, "Rerouted aircraft must reserve a fresh slot at the alternate airfield")
+	_expect(bool(rerouted_aircraft.get("airfield_returning", false)) and not bool(rerouted_aircraft.get("airfield_sortie_launch", false)), "Rerouting must resume the recovery flight and clear the stale takeoff queue")
+	_expect(is_equal_approx(float(rerouted_aircraft.get("airfield_rearm_progress", 0.0)), 2.25) and rerouted_aircraft.has("airfield_resume_order"), "Rerouting must preserve rearm progress and the original flight order")
+	game.get("units").clear()
 	game.get("buildings").clear()
 
 	# Takeoff queue staggers aircraft assigned to the same airfield and ignores other fields.
