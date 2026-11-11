@@ -4932,6 +4932,9 @@ func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	var unit_type := str(selected_tank.get_meta("unit_type", "tank"))
 	var is_infantry := unit_type == "infantry"
 	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
+	if is_infantry:
+		_fire_infantry_squad_volley(target)
+		return
 	if unit_type == "tank":
 		_animate_tank_recoil(selected_tank)
 	var projectile := MeshInstance3D.new()
@@ -4954,6 +4957,45 @@ func _fire_showcase_projectile(pivot: Node3D, target: Node3D) -> void:
 	tween.tween_property(projectile, "global_position", destination, 0.22 if is_infantry else (0.28 if is_aircraft else 0.32))
 	var damage := 12.5 if is_infantry else (20.0 if is_aircraft else 25.0)
 	tween.tween_callback(_resolve_showcase_hit.bind(projectile, target, damage))
+
+
+func _fire_infantry_squad_volley(target: Node3D) -> void:
+	if not is_instance_valid(selected_tank) or not is_instance_valid(target):
+		return
+	var soldiers := selected_tank.get_children()
+	var armed_soldiers: Array[Node3D] = []
+	for child in soldiers:
+		if child is Node3D and child.get_node_or_null("InfantryWeapon") is Node3D:
+			armed_soldiers.append(child as Node3D)
+	if armed_soldiers.is_empty():
+		return
+	var damage_per_rifle := 12.5 / float(armed_soldiers.size())
+	for soldier in armed_soldiers:
+		var weapon := soldier.get_node("InfantryWeapon") as Node3D
+		var muzzle_position := weapon.global_position - weapon.global_transform.basis.z * 0.92
+		_spawn_muzzle_flash(muzzle_position, 0.58)
+		_play_combat_audio(muzzle_position, false)
+		var projectile := MeshInstance3D.new()
+		var projectile_mesh := SphereMesh.new()
+		projectile_mesh.radius = 0.045
+		projectile_mesh.height = 0.09
+		projectile.mesh = projectile_mesh
+		var projectile_material := StandardMaterial3D.new()
+		projectile_material.albedo_color = Color(1.0, 0.86, 0.34)
+		projectile_material.emission_enabled = true
+		projectile_material.emission = Color(1.0, 0.72, 0.18)
+		projectile_material.emission_energy_multiplier = 1.8
+		projectile.material_override = projectile_material
+		add_child(projectile)
+		projectile.global_position = muzzle_position
+		var destination := target.global_position + Vector3.UP * 0.95
+		var tween := create_tween()
+		tween.tween_property(projectile, "global_position", destination, 0.22)
+		tween.tween_callback(_resolve_showcase_hit.bind(projectile, target, damage_per_rifle))
+		var original_position := weapon.position
+		var recoil := create_tween()
+		recoil.tween_property(weapon, "position:z", original_position.z + 0.09, 0.035)
+		recoil.tween_property(weapon, "position:z", original_position.z, 0.09)
 
 func _resolve_showcase_hit(projectile: Node3D, target: Node3D, damage: float) -> void:
 	if is_instance_valid(projectile):
