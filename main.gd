@@ -4081,10 +4081,12 @@ func _order_destroy_selected_building() -> void:
 			continue
 		if unit.kind not in ["tank", "artillery", "infantry", "fighter", "helicopter"]:
 			continue
+		# A direct demolition order takes priority over movement, patrol, guard, and escort stances.
+		if String(unit.get("kind", "")) in ["fighter", "helicopter"]:
+			_cancel_airfield_recovery(unit)
 		unit.attack_building = selected_enemy_building
-		unit.erase("attack_base")
-		unit.erase("attack_target")
-		unit.erase("target")
+		for order_key in ["attack_base", "attack_target", "attack_focus_pos", "target", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+			unit.erase(order_key)
 		assigned += 1
 	if assigned == 0:
 		notice = "حدد قوات قتالية برية أو جوية لتدمير المبنى"
