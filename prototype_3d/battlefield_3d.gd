@@ -715,8 +715,19 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			altitude += _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0
 		if kind in ["fighter", "helicopter"] and bool(record.get("airfield_launch", false)):
 			altitude = 0.45
-		if kind in ["infantry", "builder", "marine"] and record.has("transport_rooftop_kind"):
-			altitude = _gameplay_rooftop_height(String(record.get("transport_rooftop_kind", "")))
+		if kind in ["infantry", "builder", "marine"] and record.has("transport_rooftop_kind") and record.get("transport_rooftop_center", null) is Vector2:
+			# Keep inserted infantry at roof height only while its authoritative 2D position
+			# remains over that building; units walking off the roof descend to ground level.
+			var rooftop_center: Vector2 = record["transport_rooftop_center"]
+			var world_units_per_map_x := (ARENA_SIZE * 0.76) / map_rect.size.x
+			var world_units_per_map_y := (ARENA_SIZE * 0.76) / map_rect.size.y
+			var roof_delta_x := absf(source_pos.x - rooftop_center.x) * world_units_per_map_x
+			var roof_delta_z := absf(source_pos.y - rooftop_center.y) * world_units_per_map_y
+			var rooftop_kind := String(record.get("transport_rooftop_kind", ""))
+			var roof_half_width := 3.8 if rooftop_kind == "bunker" else 3.25
+			var roof_half_depth := 3.3 if rooftop_kind == "bunker" else 2.75
+			if roof_delta_x <= roof_half_width and roof_delta_z <= roof_half_depth:
+				altitude = _gameplay_rooftop_height(rooftop_kind)
 		var world_pos := Vector3(lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nx), altitude, lerpf(-ARENA_SIZE * 0.38, ARENA_SIZE * 0.38, nz))
 		var tint := Color(0.30, 0.43, 0.34) if team == "player" else Color(0.43, 0.31, 0.28)
 		var current_health := maxf(0.0, float(record.get("hp", 100.0)))
