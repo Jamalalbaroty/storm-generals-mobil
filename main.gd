@@ -2412,6 +2412,17 @@ func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vect
 	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * lane_offset
 
 
+func _enemy_ground_flank_route_risk(assault_origin: Vector2, flank_anchor: Vector2) -> float:
+	# Score the approach corridor, not just its endpoint, so a safe-looking flank
+	# is not selected when the route itself crosses a defended firing zone.
+	var route_risk := 0.0
+	for sample_index in range(1, 5):
+		var progress := float(sample_index) / 4.0
+		var route_point: Vector2 = assault_origin.lerp(flank_anchor, progress)
+		route_risk += _enemy_ground_target_defense_risk(route_point) * (0.75 + progress * 0.25)
+	return route_risk
+
+
 func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
 	# When a target is covered by several defenses, approach from the less protected flank.
 	if _enemy_ground_target_defense_risk(target_pos) < 1.15:
@@ -2424,8 +2435,8 @@ func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vec
 	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
 	var left_flank: Vector2 = target_pos - lateral_direction * 115.0
 	var right_flank: Vector2 = target_pos + lateral_direction * 115.0
-	var left_risk := _enemy_ground_target_defense_risk(left_flank)
-	var right_risk := _enemy_ground_target_defense_risk(right_flank)
+	var left_risk := _enemy_ground_flank_route_risk(assault_origin, left_flank)
+	var right_risk := _enemy_ground_flank_route_risk(assault_origin, right_flank)
 	if absf(left_risk - right_risk) <= 0.08:
 		return left_flank if unit_index % 2 == 0 else right_flank
 	return left_flank if left_risk < right_risk else right_flank
