@@ -1010,7 +1010,9 @@ func _process(delta: float) -> void:
 						if target_building.hp <= 0:
 							_remove_destroyed_buildings("enemy")
 				else:
-					unit.pos += (target_building.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else 38.0)
+					var building_speed := 22.0 if unit.kind == "artillery" else 38.0
+					var building_direction := _ground_navigation_direction(unit, i, target_building.pos, delta, building_speed)
+					unit.pos += building_direction * delta * building_speed
 				continue
 			if unit.get("attack_base", false):
 				var base_distance: float = unit.pos.distance_to(enemy_base)
@@ -1024,7 +1026,9 @@ func _process(delta: float) -> void:
 						_award_unit_experience(unit, base_hp_before - enemy_base_hp)
 						unit.attack_cd = 2.4 if unit.kind == "artillery" else (0.75 if unit.kind == "tank" else 1.0)
 				else:
-					unit.pos += (enemy_base - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+					var base_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
+					var base_direction := _ground_navigation_direction(unit, i, enemy_base, delta, base_speed)
+					unit.pos += base_direction * delta * base_speed
 				continue
 			var enemy_target := int(unit.get("attack_target", -1))
 			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
@@ -1069,11 +1073,15 @@ func _process(delta: float) -> void:
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
 							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
 				else:
-					unit.pos += (enemy.pos - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+					var combat_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
+					var combat_direction := _ground_navigation_direction(unit, i, enemy.pos, delta, combat_speed)
+					unit.pos += combat_direction * delta * combat_speed
 			elif unit.has("target"):
 				var target: Vector2 = unit.target
 				if unit.pos.distance_to(target) > 8.0:
-					unit.pos += (target - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+					var move_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
+					var move_direction := _ground_navigation_direction(unit, i, target, delta, move_speed)
+					unit.pos += move_direction * delta * move_speed
 				else:
 					# Clear completed ground move orders; attack-move remains active
 					# and can still acquire a nearby hostile on the next simulation tick.
@@ -5056,7 +5064,7 @@ func _update_production_queues(delta: float) -> void:
 			queue_redraw()
 			return
 
-func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, producer_id: int) -> bool:
+func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, producer_id: int, ignored_unit_index: int = -1) -> bool:
 	var unit_radius := 13.0 if unit_kind in ["tank", "artillery"] else 10.0
 	for building_side in [buildings, enemy_buildings]:
 		for structure in building_side:
@@ -5082,7 +5090,10 @@ func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, prod
 				resolved = _fortification_resolve_circle(candidate, candidate, structure.pos, unit_radius + building_radius)
 			if resolved.distance_to(candidate) > 0.1:
 				return false
-	for existing in units:
+	for existing_index in range(units.size()):
+		if existing_index == ignored_unit_index:
+			continue
+		var existing: Dictionary = units[existing_index]
 		if int(existing.get("hp", 0)) <= 0 or String(existing.get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 			continue
 		var existing_radius := 13.0 if String(existing.get("kind", "")) in ["tank", "artillery"] else 9.0
@@ -5103,6 +5114,35 @@ func _find_clear_ground_spawn(origin: Vector2, unit_kind: String, producer_id: i
 			if _is_ground_spawn_position_clear(candidate, unit_kind, producer_id):
 				return candidate
 	return Vector2(-1.0, -1.0)
+
+
+func _ground_navigation_direction(unit: Dictionary, unit_index: int, destination: Vector2, delta: float, move_speed: float) -> Vector2:
+	var to_destination := destination - unit.pos
+	if to_destination.length_squared() <= 0.01:
+		return Vector2.ZERO
+	var forward := to_destination.normalized()
+	var travel_distance := maxf(5.0, move_speed * delta)
+	var direct_candidate := unit.pos + forward * travel_distance
+	var kind := String(unit.get("kind", ""))
+	if _is_ground_spawn_position_clear(direct_candidate, kind, -1, unit_index):
+		return forward
+	# A blocked direct step tries both shoulders; deterministic tie-breaking prevents jitter.
+	var side := Vector2(-forward.y, forward.x)
+	var side_offset := maxf(18.0, 13.0 if kind in ["tank", "artillery"] else 10.0)
+	var best_direction := Vector2.ZERO
+	var best_distance := INF
+	for side_sign in [1.0, -1.0]:
+		var candidate := unit.pos + forward * (travel_distance * 0.55) + side * side_offset * side_sign
+		if not _is_ground_spawn_position_clear(candidate, kind, -1, unit_index):
+			continue
+		var remaining_distance := candidate.distance_to(destination)
+		if remaining_distance < best_distance:
+			best_distance = remaining_distance
+			best_direction = (candidate - unit.pos).normalized()
+	if best_direction != Vector2.ZERO:
+		return best_direction
+	# If both shoulders are blocked, hold position rather than repeatedly pushing into a wall.
+	return Vector2.ZERO
 
 
 func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1) -> void:
