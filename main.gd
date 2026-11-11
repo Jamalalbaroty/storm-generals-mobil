@@ -1071,12 +1071,12 @@ func _process(delta: float) -> void:
 							continue
 						var air_building: Dictionary = enemy_buildings[air_building_index]
 						var air_building_distance: float = unit.pos.distance_to(air_building.pos)
-						var air_building_range := 245.0 if unit.kind == "fighter" else 225.0
+						var air_building_range := _air_building_attack_range(String(unit.get("kind", "")))
 						if air_building_distance <= air_building_range:
 							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
 							if unit.attack_cd <= 0.0 and int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) > 0:
 								unit["aircraft_ammo"] = maxi(0, int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) - 1)
-								var air_building_damage := 26 if unit.kind == "fighter" else _helicopter_damage(unit)
+								var air_building_damage := _air_building_attack_damage(unit)
 								var air_building_hp_before := int(air_building.hp)
 								air_building.hp = maxi(0, air_building_hp_before - air_building_damage)
 								_award_unit_experience(unit, air_building_hp_before - int(air_building.hp))
@@ -1703,6 +1703,15 @@ func _ground_building_attack_damage(unit: Dictionary) -> int:
 	var unit_kind := String(unit.get("kind", ""))
 	var base_damage := 48 if unit_kind == "artillery" else (32 if unit_kind == "tank" else 8)
 	return _unit_damage_with_veterancy(unit, base_damage)
+
+
+func _air_building_attack_range(unit_kind: String) -> float:
+	return 245.0 if unit_kind == "fighter" else (225.0 if unit_kind == "helicopter" else 0.0)
+
+
+func _air_building_attack_damage(unit: Dictionary) -> int:
+	var unit_kind := String(unit.get("kind", ""))
+	return 26 if unit_kind == "fighter" else (_helicopter_damage(unit) if unit_kind == "helicopter" else 0)
 
 
 func _unit_damage_taken_with_veterancy(unit: Dictionary, raw_damage: int) -> int:
