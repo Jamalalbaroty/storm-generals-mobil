@@ -3933,7 +3933,19 @@ func _load_selected_infantry_into_transport() -> void:
 	var load_count := mini(available, infantry_indices.size())
 	for n in range(load_count):
 		var passenger: Dictionary = units[infantry_indices[n]]
-		cargo.append({"faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0)), "cargo_attack_cd": randf_range(0.0, 0.35)})
+		cargo.append({
+			"team": "player",
+			"faction": String(passenger.get("faction", faction)),
+			"hp": int(passenger.get("hp", 100)),
+			"combat_xp": float(passenger.get("combat_xp", 0.0)),
+			"veterancy": int(passenger.get("veterancy", 0)),
+			"combat_kills": int(passenger.get("combat_kills", 0)),
+			"air_kills": int(passenger.get("air_kills", 0)),
+			"armor_kills": int(passenger.get("armor_kills", 0)),
+			"naval_kills": int(passenger.get("naval_kills", 0)),
+			"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
+			"cargo_attack_cd": randf_range(0.0, 0.35)
+		})
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
 	var transport_record: Dictionary = transport
@@ -4062,7 +4074,23 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			var drop_index := int(transport.get("transport_drop_index", 0))
 			var offsets := [Vector2(-18, -12), Vector2(18, -12), Vector2(-18, 12), Vector2(18, 12), Vector2(0, -22), Vector2(0, 22), Vector2(-26, 0), Vector2(26, 0)]
 			var drop_pos: Vector2 = transport.get("transport_target_pos", transport.pos) + offsets[drop_index % offsets.size()]
-			units.append({"pos": drop_pos, "team": "player", "kind": "infantry", "faction": String(passenger.get("faction", faction)), "hp": int(passenger.get("hp", 100)), "attack_cd": 0.0, "combat_xp": float(passenger.get("combat_xp", 0.0)), "veterancy": int(passenger.get("veterancy", 0)), "combat_kills": int(passenger.get("combat_kills", 0)), "combat_medals": [], "facing": 0.0, "turret_facing": 0.0})
+			units.append({
+				"pos": drop_pos,
+				"team": "player",
+				"kind": "infantry",
+				"faction": String(passenger.get("faction", faction)),
+				"hp": int(passenger.get("hp", 100)),
+				"attack_cd": 0.0,
+				"combat_xp": float(passenger.get("combat_xp", 0.0)),
+				"veterancy": int(passenger.get("veterancy", 0)),
+				"combat_kills": int(passenger.get("combat_kills", 0)),
+				"air_kills": int(passenger.get("air_kills", 0)),
+				"armor_kills": int(passenger.get("armor_kills", 0)),
+				"naval_kills": int(passenger.get("naval_kills", 0)),
+				"combat_medals": Array(passenger.get("combat_medals", [])).duplicate(),
+				"facing": 0.0,
+				"turret_facing": 0.0
+			})
 			transport["transport_cargo"] = cargo
 			transport["transport_drop_index"] = drop_index + 1
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
@@ -4144,11 +4172,11 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 			var damage := _unit_damage_with_veterancy(passenger, base_damage)
 			var hp_before := int(target.get("hp", 0))
 			target["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(target, damage))
-			passenger["combat_xp"] = float(passenger.get("combat_xp", 0.0)) + float(hp_before - int(target["hp"])) * 0.35
+			var damage_dealt := hp_before - int(target["hp"])
+			_award_unit_experience(passenger, damage_dealt)
+			_register_unit_kill(passenger, target, hp_before)
 			passenger["cargo_attack_cd"] = 0.95
 			fired = true
-			if int(target["hp"]) <= 0:
-				passenger["combat_kills"] = int(passenger.get("combat_kills", 0)) + 1
 		else:
 			passenger["cargo_attack_cd"] = cooldown
 		cargo[passenger_index] = passenger
