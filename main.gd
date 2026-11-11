@@ -4025,15 +4025,24 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 			continue
 		var target_pos := world_pos
 		var rooftop_found := false
+		var rooftop_kind := ""
 		for building in buildings:
+			var candidate_kind := String(building.get("kind", ""))
+			if candidate_kind in ["wall", "wall_corner", "wall_gate", "airfield"]:
+				continue
 			if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 				target_pos = building.pos
+				rooftop_kind = candidate_kind
 				rooftop_found = true
 				break
 		if not rooftop_found:
 			for building in enemy_buildings:
+				var candidate_kind := String(building.get("kind", ""))
+				if candidate_kind in ["wall", "wall_corner", "wall_gate", "airfield"]:
+					continue
 				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 					target_pos = building.pos
+					rooftop_kind = candidate_kind
 					rooftop_found = true
 					break
 		if rooftop_found:
@@ -4068,6 +4077,10 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					return true
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
+		if rooftop_found:
+			transport["transport_target_building_kind"] = rooftop_kind
+		else:
+			transport.erase("transport_target_building_kind")
 		transport["transport_state"] = "inbound"
 		transport["transport_order_pending"] = false
 		transport["transport_drop_index"] = 0
@@ -4140,6 +4153,10 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			restored_passenger["kind"] = "infantry"
 			# One-shot presentation hint for the 3D bridge; this passenger has just touched down.
 			restored_passenger["transport_rope_drop"] = true
+			if String(transport.get("transport_landing_type", "ground")) == "rooftop":
+				restored_passenger["transport_rooftop_kind"] = String(transport.get("transport_target_building_kind", ""))
+			else:
+				restored_passenger.erase("transport_rooftop_kind")
 			restored_passenger["faction"] = String(passenger.get("faction", faction))
 			restored_passenger["hp"] = int(passenger.get("hp", 100))
 			restored_passenger["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
