@@ -750,8 +750,12 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			var fast_ropes := unit.get_node_or_null("FastRopes")
 			if fast_ropes is Node3D:
 				fast_ropes.visible = String(record.get("transport_state", "")) == "descending"
-			unit.set_meta("transport_cargo_count", Array(record.get("transport_cargo", [])).size())
+			var cargo_count := Array(record.get("transport_cargo", [])).size()
+			unit.set_meta("transport_cargo_count", cargo_count)
 			unit.set_meta("transport_firing", bool(record.get("transport_firing", false)))
+			var door_gunners := unit.get_node_or_null("DoorGunners")
+			if door_gunners is Node3D:
+				door_gunners.visible = cargo_count > 0
 			var door_muzzles := unit.get_node_or_null("DoorMuzzleFlashes")
 			if door_muzzles is Node3D:
 				door_muzzles.visible = bool(record.get("transport_firing", false)) and not Array(record.get("transport_cargo", [])).is_empty()
