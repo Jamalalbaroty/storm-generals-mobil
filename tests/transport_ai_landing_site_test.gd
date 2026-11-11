@@ -380,6 +380,29 @@ func _run() -> void:
 	manually_ordered_transport["transport_state"] = "descending"
 	game.call("_transport_ai_reassess_descending", manually_ordered_transport)
 	_expect(String(manually_ordered_transport.get("transport_state", "")) == "descending" and Vector2(manually_ordered_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(manual_destination) < 1.0, "Descent threat reassessment must not override manual control")
+
+	# A fresh player order during rope descent takes control at once and preserves every passenger still aboard.
+	var descent_override_transport: Dictionary = {
+		"team": "player", "kind": "transport_helicopter", "hp": 200,
+		"pos": Vector2(420.0, 260.0), "transport_state": "descending",
+		"transport_target_pos": Vector2(620.0, 260.0),
+		"transport_ai_autonomous_active": true, "transport_ai_player_override": false,
+		"transport_ai_objective_pos": Vector2(620.0, 260.0),
+		"transport_ai_route_points": [Vector2(500.0, 200.0), Vector2(620.0, 260.0)],
+		"transport_ai_route_index": 0, "transport_drop_index": 1,
+		"transport_drop_timer": 0.4,
+		"transport_cargo": [{"kind": "infantry", "hp": 90}, {"kind": "infantry", "hp": 75}]
+	}
+	var descent_manual_destination := Vector2(760.0, 520.0)
+	game.call("_transport_ai_issue_manual_move", descent_override_transport, descent_manual_destination)
+	_expect(bool(descent_override_transport.get("transport_ai_player_override", false)) and not bool(descent_override_transport.get("transport_ai_autonomous_active", true)), "A manual command during descent must immediately disable autonomous control")
+	_expect(String(descent_override_transport.get("transport_state", "")) == "inbound" and Vector2(descent_override_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(descent_manual_destination) < 1.0, "A manual command during descent must establish the new flight destination")
+	_expect(Array(descent_override_transport.get("transport_cargo", [])).size() == 2 and int(descent_override_transport.get("transport_drop_index", -1)) == 0, "A manual descent override must preserve all remaining passengers and reset the rope cycle")
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": descent_manual_destination})
+	game.call("_transport_ai_reassess_inbound", descent_override_transport, 3.0)
+	game.call("_transport_ai_reassess_descending", descent_override_transport)
+	_expect(String(descent_override_transport.get("transport_state", "")) == "inbound" and Vector2(descent_override_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(descent_manual_destination) < 1.0, "Autonomous threat reassessment must not replace a destination issued during descent")
+	_expect(Array(descent_override_transport.get("transport_cargo", [])).size() == 2, "Autonomous reassessment after manual override must not lose remaining cargo")
 	game.get("units").clear()
 	game.get("selected").clear()
 	game.set("game_started", false)
