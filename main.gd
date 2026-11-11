@@ -4342,7 +4342,7 @@ func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Arra
 	var direction := landing_pos - start_pos
 	if direction.length() > 1.0:
 		var perpendicular := Vector2(-direction.normalized().y, direction.normalized().x)
-		for offset in [150.0, -150.0, 260.0, -260.0]:
+		for offset in [150.0, -150.0, 380.0, -380.0]:
 			var waypoint := start_pos.lerp(landing_pos, 0.5) + perpendicular * offset
 			var safe_bounds := _transport_landing_bounds(false)
 			waypoint.x = clampf(waypoint.x, safe_bounds.position.x, safe_bounds.end.x)
