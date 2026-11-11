@@ -413,6 +413,11 @@ func _run() -> void:
 	_expect(bool(assigned_air_escort.get("escort_active", false)), "A fighter should accept an explicit transport escort order")
 	_expect(int(assigned_air_escort.get("escort_target_id", -1)) == 52, "An air escort should track the transport by its stable 3D sync ID")
 	_expect(not assigned_air_escort.has("target") and not assigned_air_escort.has("attack_target"), "Assigning escort duty should replace stale movement and attack orders")
+	game.get("units").append({"team": "player", "kind": "helicopter", "hp": 120, "pos": Vector2(390.0, 260.0), "3d_sync_id": 42, "aircraft_ammo": 12})
+	game.call("_on_3d_gameplay_order_issued", "player|42|helicopter", "escort", Vector3.ZERO, "player|52|transport_helicopter")
+	_expect(int(game.get("units")[0].get("escort_formation_slot", -1)) == 0 and int(game.get("units")[2].get("escort_formation_slot", -1)) == 1, "Manual escort orders should allocate distinct formation slots around one transport")
+	_expect(Vector2(game.get("units")[0].get("escort_offset", Vector2.ZERO)) != Vector2(game.get("units")[2].get("escort_offset", Vector2.ZERO)), "Manually assigned escorts should not overlap formation positions")
+	_expect(int(game.get("units")[0].get("escort_formation_size", 0)) == 2 and int(game.get("units")[2].get("escort_formation_size", 0)) == 2, "Manual escort assignment should update formation size for every escort")
 	# An invalid or destroyed escort target must not be accepted.
 	game.get("units")[0].erase("escort_active")
 	game.get("units")[1]["hp"] = 0
