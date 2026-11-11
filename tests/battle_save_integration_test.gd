@@ -33,6 +33,34 @@ func _run_battle_save_integration_test() -> void:
 	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000001", "Stable identity must survive unit-array compaction")
 	game.get("units").clear()
 
+	# Strategic supply points remain neutral while contested and change hands when uncontested.
+	game.get("supply_points").assign([{
+		"pos": Vector2(400.0, 300.0),
+		"owner": "neutral",
+		"kind": "supply",
+		"payout": 0.0,
+		"supply_payout": 0.0
+	}])
+	game.get("units").assign([
+		{"kind": "infantry", "team": "player", "hp": 60, "pos": Vector2(405.0, 300.0)},
+		{"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(395.0, 300.0)}
+	])
+	game.set("credits", 0)
+	game.set("enemy_credits", 0)
+	game.call("_update_supply_control", 1.0)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "neutral", "A contested neutral supply point must not change hands")
+	game.get("units").remove_at(1)
+	game.call("_update_supply_control", 1.0)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "player", "An uncontested player unit must capture a neutral supply point")
+	_expect(int(game.get("credits")) >= 4, "A player-controlled supply point must generate its income")
+	game.get("units").clear()
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(400.0, 300.0)})
+	game.call("_update_supply_control", 1.0)
+	_expect(String(game.get("supply_points")[0].get("owner", "")) == "enemy", "An uncontested enemy unit must recapture a player supply point")
+	_expect(int(game.get("enemy_credits")) >= 4, "An enemy-controlled supply point must generate enemy income")
+	game.get("units").clear()
+	game.get("supply_points").clear()
+
 	game.set("faction", "وطن")
 	game.set("map_type", "الساحل الجبلي")
 	game.set("game_started", true)
