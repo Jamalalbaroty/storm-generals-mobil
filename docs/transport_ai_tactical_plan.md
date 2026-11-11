@@ -288,3 +288,8 @@ Rescue sorting now preserves the primary medical rule (lowest HP first) and adds
 ## Implemented follow-up — isolated-squad rescue priority
 
 The casualty triage sorter now measures friendly infantry support within 160 world units. For soldiers with equal HP and equal hostile pressure, the more isolated casualty is prioritized before distance is considered. The score is based only on living friendly infantry and is advisory; it does not alter movement, formation, or combat orders. Regression assertions cover isolation scoring and tie-break behavior. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented thirty-second slice — threat-weighted air escort command
+
+Automatic escort allocation and escort recovery now account for the live threat envelope around each transport's tactical anchor, including its final-approach landing zone or short extraction rear-guard position. Nearby enemy fighters, helicopters, anti-air units, tanks, and artillery contribute role-weighted pressure with distance falloff; the score is capped so a single crowded threat cluster cannot overwhelm load balancing. The assignment cost combines travel distance, existing escort count, and a bounded threat-priority credit. This favors the transport in greater danger while retaining a penalty for stacking every escort on one aircraft. The same score is used when a surviving escort must transfer after its protected transport is lost. Regression assertions cover threat-score ordering and selection of the more threatened transport when travel distances are comparable. Tests are authored only; Godot execution, CI, and Android validation remain pending.
