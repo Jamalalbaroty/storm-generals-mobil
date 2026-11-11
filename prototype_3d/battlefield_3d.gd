@@ -735,11 +735,12 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("max_health", maximum_health)
 			unit.set_meta("gameplay_visual_target", world_pos)
 			if kind in ["infantry", "builder", "marine"] and bool(record.get("transport_rope_drop", false)):
-				# The logical infantry record already exists; animate its single 3D proxy down from rope height.
+				# Consume the one-shot hint only after the proxy exists, so a failed spawn can retry safely.
 				unit.set_meta("transport_touchdown_active", true)
 				unit.set_meta("transport_touchdown_elapsed", 0.0)
 				unit.global_position.y = world_pos.y + 1.65
 				_add_transport_touchdown_dust(world_pos)
+				record.erase("transport_rope_drop")
 			if kind == "transport_helicopter":
 				var rooftop_active := String(record.get("transport_landing_type", "ground")) == "rooftop" and String(record.get("transport_state", "")) in ["inbound", "descending"]
 				unit.set_meta("transport_rooftop_altitude", _gameplay_rooftop_height(String(record.get("transport_target_building_kind", ""))) if rooftop_active else 0.0)
