@@ -439,6 +439,16 @@ func _run() -> void:
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "A transport must leave service safely if its airfield becomes unavailable")
 	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Aborted airfield service must preserve all passengers")
 
+	# Equal-health casualties in a more dangerous local pocket are evacuated before safer casualties.
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(500.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(540.0, 300.0)})
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(520.0, 300.0)})
+	var threat_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", [0, 1], Vector2(500.0, 300.0))
+	_expect(int(threat_sorted[1]) == 0, "Equal-health casualties under heavier local threat should board before safer casualties")
+	_expect(float(game.call("_transport_ai_rescue_threat_pressure", Vector2(500.0, 300.0))) > float(game.call("_transport_ai_rescue_threat_pressure", Vector2(900.0, 300.0)), "Rescue threat pressure should decrease outside hostile proximity")
+	game.get("units").clear()
+
 	# Air units can be explicitly assigned to escort a friendly transport via the 3D command bridge.
 	game.get("units").clear()
 	game.get("selected").clear()
