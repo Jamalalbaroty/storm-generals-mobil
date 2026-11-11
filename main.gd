@@ -1861,12 +1861,15 @@ func _strategic_enemy_building_index(from_pos: Vector2) -> int:
 			continue
 		var priority := 1
 		match String(building.get("kind", "")):
+			"missile_silo":
+				# Remove a strategic missile threat before it can cycle another launch.
+				priority = 6
 			"barracks", "factory":
 				priority = 5
-			"airfield":
+			"airfield", "power_plant":
 				priority = 4
-			"shipyard", "missile_silo":
-				priority = 3
+			"shipyard":
+				priority = 2
 			"turret", "anti_air", "missile_defense":
 				priority = 2
 			_:
