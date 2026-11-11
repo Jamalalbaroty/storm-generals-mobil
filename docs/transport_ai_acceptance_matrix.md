@@ -209,3 +209,11 @@ GitHub Actions for this exact commit:
 - Expanded live-scene save/restore integration coverage across transport `inbound` flight, `descending` rope deployment, `returning` to base, `loaded` standby, and `idle` after a passenger leaves the cargo manifest as a field unit. Destination, route points, drop index, cargo manifest, and passenger identity are asserted.
 - The first corruption fixture failed because it had already consumed the backup during the preceding missing-primary recovery check. The fixture was corrected to recreate the backup+corrupt-primary layout before testing fallback; no production save-store logic change was needed for that test-fixture failure.
 - Corrected code/test commit `7788d3440a3685dec2d6cdaf338ea88db09dd0c3`: Regression #758 success and Validation #835 success. Android APK export remained skipped.
+
+### Snapshot validation and stable unit identity hardening — 2026-11-11
+
+- Snapshot validation now rejects non-finite numeric values and coordinates, negative unit/building/base health or economy balances, malformed building progress, invalid production queue timing/producer references, and malformed missile state before persistence.
+- Added regression cases for NaN unit health, infinite unit position, negative building health, out-of-range build progress, NaN production duration, and NaN missile target. The valid production-order fixtures now include producer position and kind as required by the live schema.
+- Stable identity assignment now reserves all existing field-unit and passenger IDs before generating missing IDs. This prevents an earlier unassigned spawn from taking an ID already owned by a later unit. Added coverage for ID preservation and array compaction after a unit is removed.
+- Final tested code commit `63550d9f69eaa6da3c0be14395e42cf90c80f9ec`: Regression #764 success and Validation #841 success. All regression steps passed, including save-store, live save/restore, transport lifecycle, formations, coordinated attacks, 2D/3D bridge, and endurance. Android APK export was skipped as required.
+- An earlier validation attempt exposed an incomplete test fixture (missing producer position); the fixture was corrected and the full suite passed on the final tested commit.
