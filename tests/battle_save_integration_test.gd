@@ -84,6 +84,54 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_load_battle_snapshot")), "Android pause notification should persist a resumable battle")
 	_expect(int(game.get("credits")) == 1337, "Pause autosave should capture the latest economy state")
 
+	# Exercise every meaningful transport lifecycle boundary through the real snapshot path.
+	var transport_cases := [
+		{"state": "inbound", "cargo_count": 1, "target": Vector2(710.0, 280.0), "route": [Vector2(500.0, 220.0), Vector2(710.0, 280.0)], "drop_index": 0},
+		{"state": "descending", "cargo_count": 1, "target": Vector2(720.0, 290.0), "route": [Vector2(540.0, 230.0), Vector2(720.0, 290.0)], "drop_index": 0},
+		{"state": "returning", "cargo_count": 1, "target": Vector2(650.0, 320.0), "route": [Vector2(600.0, 280.0), Vector2(650.0, 320.0)], "drop_index": 0},
+		{"state": "loaded", "cargo_count": 1, "target": Vector2(680.0, 260.0), "route": [], "drop_index": 0},
+		{"state": "idle", "cargo_count": 0, "target": Vector2.ZERO, "route": [], "drop_index": 1}
+	]
+	for case_index in range(transport_cases.size()):
+		var transport_case: Dictionary = transport_cases[case_index]
+		var live_transport: Dictionary = game.get("units")[0]
+		live_transport["transport_state"] = String(transport_case["state"])
+		live_transport["transport_target_pos"] = transport_case["target"]
+		live_transport["transport_ai_route_points"] = transport_case["route"].duplicate(true)
+		live_transport["transport_ai_route_index"] = 0
+		live_transport["transport_drop_index"] = int(transport_case["drop_index"])
+		live_transport["transport_drop_timer"] = 0.35
+		live_transport["transport_cargo"] = []
+		if int(transport_case["cargo_count"]) > 0:
+			live_transport["transport_cargo"] = [{
+				"unit_id": "unit_00000052",
+				"kind": "infantry",
+				"team": "player",
+				"faction": "وطن",
+				"hp": 47,
+				"pos": Vector2(420.0, 210.0)
+			}]
+		elif game.get("units").size() == 1:
+			game.get("units").append({
+				"unit_id": "unit_00000052",
+				"kind": "infantry",
+				"team": "player",
+				"faction": "وطن",
+				"hp": 47,
+				"pos": Vector2(720.0, 290.0)
+			})
+		_expect(bool(game.call("_save_battle_snapshot")), "Transport lifecycle case %s should save" % String(transport_case["state"]))
+		live_transport["transport_state"] = "idle"
+		live_transport["transport_ai_route_points"] = []
+		_expect(bool(game.call("_load_battle_snapshot")), "Transport lifecycle case %s should restore" % String(transport_case["state"]))
+		var restored_transport: Dictionary = game.get("units")[0]
+		_expect(String(restored_transport.get("transport_state", "")) == String(transport_case["state"]), "Transport lifecycle state should survive save/restore")
+		_expect(Array(restored_transport.get("transport_cargo", [])).size() == int(transport_case["cargo_count"]), "Transport cargo manifest should match lifecycle state")
+		_expect(restored_transport.get("transport_target_pos", Vector2.ZERO).distance_to(transport_case["target"]) < 0.1, "Transport destination should survive lifecycle save/restore")
+		_expect(Array(restored_transport.get("transport_ai_route_points", [])).size() == Array(transport_case["route"]).size(), "Transport tactical route should survive lifecycle save/restore")
+		if case_index == transport_cases.size() - 1:
+			_expect(game.get("units").size() == 2 and String(game.get("units")[1].get("unit_id", "")) == "unit_00000052", "Dropped passenger should exist as a field unit after leaving the manifest")
+
 	game.get("battle_save_store").call("delete_snapshot")
 	game.queue_free()
 	await process_frame
