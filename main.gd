@@ -119,6 +119,7 @@ var ground_alert_active := false
 var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
+var next_unit_identity := 1
 var command_tab := 0
 var commander_profile: Dictionary = {
 	"battles_played": 0,
@@ -542,7 +543,35 @@ func _play_battle_sound(sound_name: String) -> void:
 			audio_player_cursor = (player_index + 1) % audio_players.size()
 			return
 
+func _claim_stable_unit_identity(unit_record: Dictionary, seen_ids: Dictionary) -> void:
+	var unit_id := String(unit_record.get("unit_id", ""))
+	if unit_id.is_empty() or seen_ids.has(unit_id):
+		unit_id = "unit_%08d" % next_unit_identity
+		next_unit_identity += 1
+		unit_record["unit_id"] = unit_id
+	elif unit_id.begins_with("unit_"):
+		var existing_number := unit_id.trim_prefix("unit_").to_int()
+		next_unit_identity = maxi(next_unit_identity, existing_number + 1)
+	seen_ids[unit_id] = true
+
+
+func _ensure_stable_unit_identities() -> void:
+	# Unit array indices change whenever squads board transports or casualties are removed.
+	# Give field units and carried passengers durable identities before systems reference them.
+	var seen_ids: Dictionary = {}
+	for unit_variant in units:
+		if not unit_variant is Dictionary:
+			continue
+		var unit_record: Dictionary = unit_variant
+		_claim_stable_unit_identity(unit_record, seen_ids)
+		var cargo: Array = unit_record.get("transport_cargo", [])
+		for passenger_variant in cargo:
+			if passenger_variant is Dictionary:
+				_claim_stable_unit_identity(passenger_variant, seen_ids)
+
+
 func _process(delta: float) -> void:
+	_ensure_stable_unit_identities()
 	air_formation_order_clock = maxf(0.0, air_formation_order_clock - delta)
 	if use_3d_view and is_instance_valid(battlefield_3d):
 		battlefield_sync_timer += delta
