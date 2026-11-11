@@ -3861,7 +3861,12 @@ func _update_infantry_animation(delta: float) -> void:
 			if is_instance_valid(part):
 				var base_y := 0.86 if part_name == "InfantryBody" else (1.48 if part_name == "InfantryHead" else 1.66)
 				var drop := crouch_target * (0.55 if part_name == "InfantryBody" else 1.0)
-				part.position.y = lerpf(part.position.y, base_y - drop, crouch_blend)
+				var breath_phase := infantry_gait_clock * 1.65 + float(soldier.get_meta("infantry_slot_index", 0)) * 0.7
+				var breath_strength := 0.008 if not is_aiming else 0.002
+				var breath_offset := sin(breath_phase) * breath_strength
+				if part_name == "InfantryHelmet":
+					breath_offset *= 0.45
+				part.position.y = lerpf(part.position.y, base_y - drop + breath_offset, crouch_blend)
 				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
 				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
 		var desired_gait := 0.0
