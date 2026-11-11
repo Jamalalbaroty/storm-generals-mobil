@@ -1696,6 +1696,13 @@ func _unit_damage_taken_with_veterancy(unit: Dictionary, raw_damage: int) -> int
 	return maxi(1, roundi(float(raw_damage) * multiplier))
 
 
+func _artillery_blast_radius_with_veterancy(unit: Dictionary, base_radius: float) -> float:
+	# Experienced artillery crews improve dispersion and target coverage without increasing shell damage.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 1.10 if rank == 3 else (1.06 if rank == 2 else (1.03 if rank == 1 else 1.0))
+	return base_radius * multiplier
+
+
 func _load_commander_profile() -> void:
 	var config := ConfigFile.new()
 	var load_error := config.load("user://storm_generals_profile.cfg")
@@ -2447,7 +2454,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 				_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 				_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-				_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
+				_apply_artillery_blast(threat.pos, _artillery_blast_radius_with_veterancy(unit, 76.0), _unit_damage_with_veterancy(unit, 48), "player", unit)
 				unit["attack_cd"] = 2.4
 			else:
 				var hp_before := int(threat.get("hp", 0))
@@ -7291,7 +7298,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 					_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 					_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 					_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-					_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
+					_apply_artillery_blast(threat.pos, _artillery_blast_radius_with_veterancy(unit, 76.0), _unit_damage_with_veterancy(unit, 48), "player", unit)
 					unit["attack_cd"] = 2.4
 				else:
 					var hp_before := int(threat.get("hp", 0))
