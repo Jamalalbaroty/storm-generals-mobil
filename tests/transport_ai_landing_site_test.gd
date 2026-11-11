@@ -335,6 +335,23 @@ func _run() -> void:
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "A transport must leave service safely if its airfield becomes unavailable")
 	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Aborted airfield service must preserve all passengers")
 
+	# Air units can be explicitly assigned to escort a friendly transport via the 3D command bridge.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(360.0, 280.0), "3d_sync_id": 41, "aircraft_ammo": 8})
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(500.0, 300.0), "3d_sync_id": 52, "transport_state": "loaded", "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.call("_on_3d_gameplay_order_issued", "player|41|fighter", "escort", Vector3.ZERO, "player|52|transport_helicopter")
+	var assigned_air_escort: Dictionary = game.get("units")[0]
+	_expect(bool(assigned_air_escort.get("escort_active", false)), "A fighter should accept an explicit transport escort order")
+	_expect(int(assigned_air_escort.get("escort_target_id", -1)) == 52, "An air escort should track the transport by its stable 3D sync ID")
+	_expect(not assigned_air_escort.has("target") and not assigned_air_escort.has("attack_target"), "Assigning escort duty should replace stale movement and attack orders")
+	# An invalid or destroyed escort target must not be accepted.
+	game.get("units")[0].erase("escort_active")
+	game.get("units")[1]["hp"] = 0
+	game.call("_on_3d_gameplay_order_issued", "player|41|fighter", "escort", Vector3.ZERO, "player|52|transport_helicopter")
+	_expect(not game.get("units")[0].has("escort_active"), "An air escort must reject a destroyed transport")
+	game.get("units").clear()
+
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
 	game.get("units").clear()
 	game.get("buildings").clear()
