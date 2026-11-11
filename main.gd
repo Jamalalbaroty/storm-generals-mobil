@@ -3992,18 +3992,15 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 			continue
 		var target_pos := world_pos
 		var rooftop_found := false
-		var target_building: Dictionary = {}
 		for building in buildings:
 			if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 				target_pos = building.pos
-				target_building = building
 				rooftop_found = true
 				break
 		if not rooftop_found:
 			for building in enemy_buildings:
 				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0 and building.pos.distance_to(world_pos) <= 48.0:
 					target_pos = building.pos
-					target_building = building
 					rooftop_found = true
 					break
 		if rooftop_found:
@@ -4028,7 +4025,10 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					notice = "نقطة الإنزال قريبة من مبنى معادٍ — اختر مساحة آمنة"
 					notice_time = 2.2
 					return true
-			for occupant in units:
+			for occupant_index in range(units.size()):
+				if occupant_index == index:
+					continue
+				var occupant: Dictionary = units[occupant_index]
 				if int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(target_pos) < 42.0:
 					notice = "الموقع مزدحم — اختر مساحة مفتوحة للإنزال"
 					notice_time = 2.2
