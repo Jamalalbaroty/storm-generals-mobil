@@ -268,3 +268,8 @@ When a protected transport is inbound or descending and within 320 world units o
 ## Implemented follow-up — insertion-zone rear guard during extraction
 
 After the final passenger is dropped, the transport stores the landing center as a temporary escort anchor. While the empty transport begins its return flight and remains within 320 world units of the insertion zone, its air escorts continue covering that zone rather than immediately abandoning the landed squad. Once the transport clears the 320-unit extraction radius, the temporary anchor is erased and escorts resume following the transport. A newly planned group insertion also clears any stale extraction anchor. The same emergency and group target selection logic uses this temporary anchor, so automatic defense remains centered on the insertion area during the rear-guard window. Regression assertions cover rear-guard activation, release after extraction, and anchor cleanup. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented follow-up — casualty triage for rescue boarding
+
+Rescue boarding now uses a shared triage sorter: infantry with the lowest remaining HP are prioritized first, and soldiers with equal HP are ordered by distance to the transport so nearer casualties board first. The helper returns a sorted copy and does not mutate the original selected-index array. The existing capacity limit and field-unit retention behavior remain unchanged, so only passengers that fit and are physically within boarding range are loaded; the rest stay on the battlefield. Regression coverage checks wounded-first ordering and the proximity tie-break. Tests are authored only; Godot execution, CI, and Android validation remain pending.
