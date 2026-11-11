@@ -766,7 +766,9 @@ func _process(delta: float) -> void:
 								unit.erase("airfield_recovery_slot")
 								unit.erase("airfield_rearm_progress")
 					continue
-				if unit.kind == "tank" or unit.kind == "artillery":
+				# Amphibious landing support is disabled with the naval system.
+				# Never let this legacy automation replace a player's direct land-unit orders.
+				if NAVAL_SYSTEM_ENABLED and (unit.kind == "tank" or unit.kind == "artillery"):
 					var landing_support_target = _landing_assault_support_target(unit.pos, "player")
 					if landing_support_target >= 0:
 						if not bool(unit.get("landing_support_active", false)):
