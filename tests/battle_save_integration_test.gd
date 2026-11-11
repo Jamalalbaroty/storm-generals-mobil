@@ -33,6 +33,22 @@ func _run_battle_save_integration_test() -> void:
 	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000001", "Stable identity must survive unit-array compaction")
 	game.get("units").clear()
 
+	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
+	game.get("units").assign([
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 2},
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 0},
+		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 9, "airfield_recovery_slot": 0}
+	])
+	_expect(int(game.call("_next_airfield_recovery_slot", 4)) == 0, "Recovery slot allocator must reuse the lowest free slot and ignore other teams and airfields")
+	game.get("units")[0]["airfield_recovery_slot"] = 0
+	game.get("units")[1]["airfield_recovery_slot"] = 2
+	game.get("units")[2]["airfield_returning"] = false
+	_expect(int(game.call("_next_airfield_recovery_slot", 4)) == 1, "A gap between occupied recovery slots must be reused instead of duplicating a later slot")
+	game.get("units")[1]["airfield_recovery_slot"] = 1
+	_expect(int(game.call("_next_airfield_recovery_slot", 4)) == 2, "Recovery slot allocator must choose the next free slot when lower slots are occupied")
+	game.get("units").clear()
+
 	# Strategic supply points remain neutral while contested and change hands when uncontested.
 	game.get("supply_points").assign([{
 		"pos": Vector2(400.0, 300.0),
