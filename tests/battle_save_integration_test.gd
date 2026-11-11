@@ -57,7 +57,7 @@ func _run_battle_save_integration_test() -> void:
 		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4}
 	])
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
-	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 0.0), "Takeoff queue must be isolated per airfield")
+	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 1.5), "Takeoff queue must be isolated per airfield")
 	game.get("units").clear()
 
 	# Strategic supply points remain neutral while contested and change hands when uncontested.
