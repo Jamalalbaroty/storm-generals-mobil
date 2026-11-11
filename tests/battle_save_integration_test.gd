@@ -54,6 +54,11 @@ func _run_battle_save_integration_test() -> void:
 	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 1}, 76.0)), 78.28), "Veteran artillery must gain 3 percent blast radius")
 	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 2}, 76.0)), 80.56), "Elite artillery must gain 6 percent blast radius")
 	_expect(is_equal_approx(float(game.call("_artillery_blast_radius_with_veterancy", {"veterancy": 3}, 76.0)), 83.6), "Heroic artillery must gain 10 percent blast radius")
+	_expect(is_equal_approx(float(game.call("_tank_reload_cooldown_with_veterancy", {"veterancy": 0}, 0.75)), 0.75), "Unranked tanks must retain base reload time")
+	_expect(is_equal_approx(float(game.call("_tank_reload_cooldown_with_veterancy", {"veterancy": 1}, 0.75)), 0.7275), "Veteran tanks must reload 3 percent faster")
+	_expect(is_equal_approx(float(game.call("_tank_reload_cooldown_with_veterancy", {"veterancy": 2}, 0.75)), 0.705), "Elite tanks must reload 6 percent faster")
+	_expect(is_equal_approx(float(game.call("_tank_reload_cooldown_with_veterancy", {"veterancy": 3}, 0.75)), 0.675), "Heroic tanks must reload 10 percent faster")
+	_expect(is_equal_approx(float(game.call("_tank_reload_cooldown_with_veterancy", {"veterancy": 3}, 2.4)), 2.16), "Tank reload specialization must scale proportionally across cooldown values")
 	var enemy_veterancy_test: Dictionary = {"unit_id": "enemy_veterancy_test", "kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
 	game.call("_award_unit_experience", enemy_veterancy_test, 500)
 	_expect(float(enemy_veterancy_test.get("combat_xp", 0.0)) == 250.0 and int(enemy_veterancy_test.get("veterancy", 0)) == 2, "Enemy units must earn elite veterancy just like player units")
