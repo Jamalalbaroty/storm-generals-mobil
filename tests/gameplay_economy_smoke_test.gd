@@ -25,12 +25,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	# Mobile command deck keeps all 23 gameplay actions reachable in four compact tabs.
+	# Mobile command deck exposes the complete five-tab, 32-action command roster.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
 		[10, 11, 12, 13, 14, 15],
-		[16, 17, 18, 19, 20, 12]
+		[23, 24, 25, 26, 27],
+		[28, 29, 30, 31]
 	]
 	var covered_actions: Dictionary = {}
 	for tab_index in range(expected_command_tabs.size()):
@@ -39,7 +40,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 23, "The compact command tabs should retain access to all 23 gameplay actions")
+	_expect(covered_actions.size() == 32, "The five compact command tabs should retain access to all 32 gameplay actions")
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
@@ -58,24 +59,29 @@ func _run_gameplay_economy_smoke_test() -> void:
 			faction_rects.append(faction_rect)
 		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
 		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
-	# Exercise the real press/release path, not only the geometry helpers.
-	# Each army card must start a match and assign the chosen faction to the builder.
+	# Exercise the real press/release path, including the campaign briefing between faction selection and battle start.
 	var active_viewport: Vector2 = game.get_viewport_rect().size
 	var expected_factions: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 	for faction_index in range(expected_factions.size()):
 		game.set("game_started", false)
+		game.set("campaign_briefing", false)
 		game.set("faction", "")
 		game.get("units").clear()
 		var touch_target: Rect2 = game.call("_faction_rect", faction_index, active_viewport)
 		game.call("_handle_pointer", touch_target.get_center(), true)
 		game.call("_handle_pointer", touch_target.get_center(), false)
-		_expect(bool(game.get("game_started")), "Tapping army card %d should start the match" % faction_index)
+		_expect(bool(game.get("campaign_briefing")) and not bool(game.get("game_started")), "Tapping army card %d should open its campaign briefing" % faction_index)
 		_expect(String(game.get("faction")) == expected_factions[faction_index], "Tapping army card %d should select the matching faction" % faction_index)
+		var campaign_start: Vector2 = game.call("_campaign_start_rect", active_viewport).get_center()
+		game.call("_handle_pointer", campaign_start, true)
+		game.call("_handle_pointer", campaign_start, false)
+		_expect(bool(game.get("game_started")), "Starting the selected campaign should launch the match for army %d" % faction_index)
 		var starting_units: Array = game.get("units")
 		_expect(not starting_units.is_empty() and String(starting_units[0].get("kind", "")) == "builder", "Each faction should receive its starting builder")
 		if not starting_units.is_empty():
 			_expect(String(starting_units[0].get("faction", "")) == expected_factions[faction_index], "Starting builder should inherit the selected faction")
 	game.set("game_started", false)
+	game.set("campaign_briefing", false)
 	game.get("units").clear()
 
 	# A second finger must not take ownership of an active touch or change its
@@ -105,8 +111,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	primary_touch.pressed = false
 	game._input(primary_touch)
 	_expect(int(game.get("active_touch_index")) == -1, "The primary touch should release pointer ownership")
-	_expect(bool(game.get("game_started")) and String(game.get("faction")) == "الأمريكي", "The original finger should complete its intended army-card tap")
+	_expect(bool(game.get("campaign_briefing")) and not bool(game.get("game_started")) and String(game.get("faction")) == "الأمريكي", "The original finger should complete its intended army-card selection without a secondary finger stealing the tap")
+	var multitouch_campaign_start: Vector2 = game.call("_campaign_start_rect", active_viewport).get_center()
+	game.call("_handle_pointer", multitouch_campaign_start, true)
+	game.call("_handle_pointer", multitouch_campaign_start, false)
+	_expect(bool(game.get("game_started")), "The selected army should start after the briefing confirmation")
 	game.set("game_started", false)
+	game.set("campaign_briefing", false)
 	game.get("units").clear()
 
 	# Verify touch selection, move orders, and direct attack orders through the
@@ -116,6 +127,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var army_start: Vector2 = army_start_rect.get_center()
 	game.call("_handle_pointer", army_start, true)
 	game.call("_handle_pointer", army_start, false)
+	var battle_campaign_start: Vector2 = game.call("_campaign_start_rect", battle_viewport).get_center()
+	game.call("_handle_pointer", battle_campaign_start, true)
+	game.call("_handle_pointer", battle_campaign_start, false)
 	var builder_position: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
 	game.call("_handle_pointer", builder_position, true)
 	game.call("_handle_pointer", builder_position, false)
@@ -136,9 +150,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# End-to-end player loop: tap build commands, place/finish structures, then produce infantry and armor.
 	var build_loop_viewport: Vector2 = game.get_viewport_rect().size
 	game.set("command_tab", 0)
+	game.set("campaign_briefing", false)
 	var build_loop_army: Vector2 = game.call("_faction_rect", 0, build_loop_viewport).get_center()
 	game.call("_handle_pointer", build_loop_army, true)
 	game.call("_handle_pointer", build_loop_army, false)
+	var build_loop_campaign_start: Vector2 = game.call("_campaign_start_rect", build_loop_viewport).get_center()
+	game.call("_handle_pointer", build_loop_campaign_start, true)
+	game.call("_handle_pointer", build_loop_campaign_start, false)
 	var build_loop_builder: Vector2 = game.get("base_pos") + Vector2(58.0, 0.0)
 	game.call("_handle_pointer", build_loop_builder, true)
 	game.call("_handle_pointer", build_loop_builder, false)
