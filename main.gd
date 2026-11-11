@@ -878,6 +878,7 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_airfield_id")
 						_restore_aircraft_resume_order(unit)
 					continue
+			if unit.team == "player":
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
 				if unit.kind == "transport_helicopter":
