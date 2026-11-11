@@ -102,6 +102,15 @@ func _initialize() -> void:
 	parent_cancelled_press.position = Vector2(320.0, 280.0)
 	game._input(parent_cancelled_press)
 	bridge.call("_unhandled_input", parent_cancelled_press)
+	var emulated_mouse_press := InputEventMouseButton.new()
+	emulated_mouse_press.button_index = MOUSE_BUTTON_LEFT
+	emulated_mouse_press.pressed = true
+	emulated_mouse_press.position = Vector2(360.0, 300.0)
+	game._input(emulated_mouse_press)
+	if not game.get_viewport().is_input_handled() or bool(bridge.get("selection_gesture_active")):
+		push_error("A synthetic mouse click escaped the parent while an Android finger owned the pointer")
+		quit(1)
+		return
 	if int(game.get("active_touch_index")) != 7 or not (bridge.get("touch_points") as Dictionary).has(7):
 		push_error("The parent/3D bridge did not establish the same active Android touch")
 		quit(1)
