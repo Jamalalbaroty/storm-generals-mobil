@@ -4154,9 +4154,19 @@ func _load_selected_infantry_into_transport() -> void:
 		notice = "لا يمكن تحميل الجنود أثناء طيران المروحية أو تنفيذ الإنزال"
 		notice_time = 2.2
 		return
-	# Boarding is physical: selected infantry must be close to the landed transport.
+	# Rescue priority: sort the selected squad by lowest health first, with stable index ties.
+	for sort_index in range(infantry_indices.size()):
+		for compare_index in range(sort_index + 1, infantry_indices.size()):
+			var first_hp := int(units[infantry_indices[sort_index]].get("hp", 100))
+			var next_hp := int(units[infantry_indices[compare_index]].get("hp", 100))
+			if next_hp < first_hp:
+				var swap_index := infantry_indices[sort_index]
+				infantry_indices[sort_index] = infantry_indices[compare_index]
+				infantry_indices[compare_index] = swap_index
+	# Preserve the full squad list: the nearby subset may be empty while everyone needs rendezvous orders.
+	var selected_infantry_indices: Array[int] = infantry_indices.duplicate()
 	var nearby_infantry: Array[int] = []
-	for infantry_index in infantry_indices:
+	for infantry_index in selected_infantry_indices:
 		if infantry_index >= 0 and infantry_index < units.size() and units[infantry_index].pos.distance_to(transport.pos) <= 76.0:
 			nearby_infantry.append(infantry_index)
 	infantry_indices = nearby_infantry
@@ -4167,8 +4177,8 @@ func _load_selected_infantry_into_transport() -> void:
 			Vector2(-34.0, -24.0), Vector2(34.0, -24.0), Vector2(-34.0, 24.0), Vector2(34.0, 24.0),
 			Vector2(-68.0, 0.0), Vector2(68.0, 0.0), Vector2(0.0, -58.0), Vector2(0.0, 58.0)
 		]
-		for n in range(infantry_indices.size()):
-			var rendezvous_index := infantry_indices[n]
+		for n in range(selected_infantry_indices.size()):
+			var rendezvous_index := selected_infantry_indices[n]
 			if rendezvous_index < 0 or rendezvous_index >= units.size():
 				continue
 			var rendezvous_unit: Dictionary = units[rendezvous_index]
