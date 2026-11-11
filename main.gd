@@ -4732,14 +4732,20 @@ func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) ->
 			continue
 		var protected_transport: Dictionary = units[best_transport_index]
 		_cancel_airfield_recovery(escort)
-		var offset: Vector2 = escort.pos - protected_transport.pos
-		if offset.length() > 105.0:
-			offset = offset.normalized() * 105.0
-		if offset.length() < 28.0:
-			var side := -1.0 if int(escort_counts.get(best_transport_index, 0)) % 2 == 0 else 1.0
-			offset = Vector2(side * 62.0, -48.0)
+		var formation_slot := int(escort_counts.get(best_transport_index, 0))
+		var row := int(formation_slot / 2)
+		var side := -1.0 if formation_slot % 2 == 0 else 1.0
+		var offset := Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
+		if formation_slot == 4:
+			offset = Vector2(0.0, 112.0)
+		elif formation_slot > 4:
+			var reserve_row := int((formation_slot - 5) / 2)
+			var reserve_side := -1.0 if (formation_slot - 5) % 2 == 0 else 1.0
+			offset = Vector2(reserve_side * (96.0 + float(reserve_row) * 16.0), 112.0 + float(reserve_row) * 48.0)
 		escort["escort_target_id"] = int(protected_transport.get("3d_sync_id", -1))
 		escort["escort_offset"] = offset
+		escort["escort_formation_slot"] = formation_slot
+		escort["escort_formation_size"] = formation_slot + 1
 		escort["escort_active"] = true
 		escort.erase("escort_auto_target")
 		for order_key in ["target", "guard_active", "guard_position", "guard_radius", "attack_move_active", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
