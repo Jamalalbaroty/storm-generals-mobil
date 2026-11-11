@@ -3853,6 +3853,8 @@ func _update_infantry_animation(delta: float) -> void:
 				var base_y := 0.86 if part_name == "InfantryBody" else (1.48 if part_name == "InfantryHead" else 1.66)
 				var drop := crouch_target * (0.55 if part_name == "InfantryBody" else 1.0)
 				part.position.y = lerpf(part.position.y, base_y - drop, crouch_blend)
+				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
+				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
