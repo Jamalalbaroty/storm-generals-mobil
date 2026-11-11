@@ -961,13 +961,23 @@ func _process(delta: float) -> void:
 								air_escort_index = escort_candidate_index
 								break
 						if air_escort_index < 0:
-							unit.erase("escort_active")
-							unit.erase("escort_target_id")
-							unit.erase("escort_offset")
-							if bool(unit.get("escort_auto_target", false)):
-								unit.erase("attack_target")
-								unit.erase("attack_focus_pos")
-							unit.erase("escort_auto_target")
+							if _transport_ai_reassign_air_escort(i):
+								air_escort_id = int(unit.get("escort_target_id", -1))
+								for replacement_index in range(units.size()):
+									var replacement_candidate: Dictionary = units[replacement_index]
+									if String(replacement_candidate.get("team", "")) == "player" and int(replacement_candidate.get("3d_sync_id", -1)) == air_escort_id and int(replacement_candidate.get("hp", 0)) > 0 and String(replacement_candidate.get("kind", "")) == "transport_helicopter":
+										air_escort_index = replacement_index
+										break
+							if air_escort_index < 0:
+								unit.erase("escort_active")
+								unit.erase("escort_target_id")
+								unit.erase("escort_offset")
+								unit.erase("escort_formation_slot")
+								unit.erase("escort_formation_size")
+								if bool(unit.get("escort_auto_target", false)):
+									unit.erase("attack_target")
+									unit.erase("attack_focus_pos")
+								unit.erase("escort_auto_target")
 						else:
 							var air_escort_target: Dictionary = units[air_escort_index]
 							var escort_enemy_index := int(unit.get("attack_target", -1))
@@ -4722,6 +4732,58 @@ func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
 		var reserve_side := -1.0 if (slot - 5) % 2 == 0 else 1.0
 		return Vector2(reserve_side * (96.0 + float(reserve_row) * 16.0), 112.0 + float(reserve_row) * 48.0)
 	return Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
+
+
+func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
+	if escort_index < 0 or escort_index >= units.size():
+		return false
+	var escort: Dictionary = units[escort_index]
+	if String(escort.get("team", "")) != "player" or String(escort.get("kind", "")) not in ["fighter", "helicopter"] or int(escort.get("hp", 0)) <= 0:
+		return false
+	var best_transport_index := -1
+	var best_cost := INF
+	for transport_index in range(units.size()):
+		var candidate: Dictionary = units[transport_index]
+		if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "transport_helicopter" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var candidate_id := int(candidate.get("3d_sync_id", -1))
+		if candidate_id < 0:
+			continue
+		var assigned_count := 0
+		for other_index in range(units.size()):
+			if other_index == escort_index:
+				continue
+			var other: Dictionary = units[other_index]
+			if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == candidate_id and int(other.get("hp", 0)) > 0:
+				assigned_count += 1
+		var cost := escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0
+		if cost < best_cost:
+			best_cost = cost
+			best_transport_index = transport_index
+	if best_transport_index < 0:
+		return false
+	var new_target: Dictionary = units[best_transport_index]
+	var new_target_id := int(new_target.get("3d_sync_id", -1))
+	var new_slot := 0
+	for other_index in range(units.size()):
+		if other_index == escort_index:
+			continue
+		var other: Dictionary = units[other_index]
+		if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == new_target_id and int(other.get("hp", 0)) > 0:
+			new_slot += 1
+	escort["escort_target_id"] = new_target_id
+	escort["escort_formation_slot"] = new_slot
+	escort["escort_offset"] = _transport_ai_escort_formation_offset(new_slot)
+	escort["escort_formation_size"] = new_slot + 1
+	escort["escort_active"] = true
+	if bool(escort.get("escort_auto_target", false)):
+		escort.erase("attack_target")
+		escort.erase("attack_focus_pos")
+	escort.erase("escort_auto_target")
+	for other in units:
+		if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == new_target_id and int(other.get("hp", 0)) > 0:
+			other["escort_formation_size"] = new_slot + 1
+	return true
 
 
 func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
