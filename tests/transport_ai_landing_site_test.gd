@@ -248,6 +248,35 @@ func _run() -> void:
 	_expect(Array(unsafe_inbound.get("transport_cargo", [])).size() == 1, "A no-site hold must retain the complete passenger manifest")
 	game.get("units").clear()
 
+	# Critical transport damage must abort insertion and prioritize recovery.
+	game.get("buildings").clear()
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(1040.0, 540.0)})
+	var critical_transport: Dictionary = {
+		"team": "player", "kind": "transport_helicopter", "hp": 60,
+		"pos": Vector2(500.0, 300.0), "transport_state": "inbound",
+		"transport_target_pos": Vector2(760.0, 300.0),
+		"transport_cargo": [{"kind": "infantry", "hp": 35}, {"kind": "infantry", "hp": 80}],
+		"transport_ai_mode": "AUTONOMOUS", "transport_ai_autonomous_active": true,
+		"transport_ai_objective_pos": Vector2(760.0, 300.0), "transport_ai_reassess_timer": 0.0
+	}
+	game.call("_transport_ai_reassess_inbound", critical_transport, 1.3)
+	_expect(String(critical_transport.get("transport_state", "")) == "returning", "A transport at or below 30% health should abort insertion and return to a friendly airfield")
+	_expect(String(critical_transport.get("transport_ai_last_decision_reason", "")) == "critical_damage", "Emergency recovery should record the critical-damage decision reason")
+	_expect(Vector2(critical_transport.get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(1040.0, 540.0)) < 1.0, "Critical-damage recovery should select the nearest valid friendly airfield")
+	_expect(Array(critical_transport.get("transport_cargo", [])).size() == 2, "Critical-damage recovery must preserve the complete passenger manifest")
+	_expect(not critical_transport.has("transport_target_pos"), "Critical-damage recovery must clear the unsafe insertion target")
+
+	# Without an airfield, critical damage causes a safe hold with all passengers retained.
+	game.get("buildings").clear()
+	critical_transport["transport_state"] = "inbound"
+	critical_transport["transport_target_pos"] = Vector2(760.0, 300.0)
+	critical_transport["transport_ai_reassess_timer"] = 0.0
+	game.call("_transport_ai_reassess_inbound", critical_transport, 1.3)
+	_expect(String(critical_transport.get("transport_state", "")) == "loaded", "A critically damaged transport without a recovery airfield should hold safely")
+	_expect(not bool(critical_transport.get("transport_ai_autonomous_active", true)), "A critical-damage hold must stop autonomous flight")
+	_expect(Array(critical_transport.get("transport_cargo", [])).size() == 2, "A critical-damage hold must retain all passengers")
+	game.get("units").clear()
+
 	# Autonomous passengers with no prior orders establish a defensive perimeter after touchdown.
 	var fresh_passenger: Dictionary = {"kind": "infantry", "team": "player", "pos": Vector2(700.0, 400.0)}
 	var autonomous_transport: Dictionary = {"transport_ai_mode": "AUTONOMOUS", "transport_ai_post_drop_doctrine": "DEFEND"}
