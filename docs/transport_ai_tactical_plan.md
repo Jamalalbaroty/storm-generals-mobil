@@ -135,3 +135,9 @@ Regression coverage compares direct and detour exposure around a known anti-air 
 When an AUTONOMOUS transport deploys a passenger who has no pre-existing player order, the passenger now receives the existing infantry guard stance anchored to the landing zone, with a 155-pixel defensive radius. This reuses the game's established guard/combat behavior instead of introducing a parallel combat system. Existing movement, attack, capture, attack-move, or guard orders are preserved and bypass the doctrine. MANUAL and ASSISTED sorties retain the previous formation-rally behavior. The doctrine is configurable per transport through `transport_ai_post_drop_doctrine`; the initial supported default is `DEFEND`.
 
 Regression coverage verifies defensive stance assignment, landing-zone anchoring, radius, preservation of a pre-existing movement order, and no automatic doctrine in MANUAL mode. Godot execution is still required before this slice can be called validated.
+
+## Implemented eighth slice — objective-directed post-drop attack-move
+
+AUTONOMOUS transports may now set `transport_ai_post_drop_doctrine` to `ATTACK_MOVE`. Unassigned passengers then receive the saved sortie objective as their movement target and activate the game's existing attack-move combat loop, which searches for nearby hostile units/buildings while advancing. The doctrine safely declines when no objective was retained, allowing the established formation-rally fallback. DEFEND remains the default. Existing player orders are checked before any doctrine state is changed.
+
+Regression cases cover activation, objective targeting, and the missing-objective fallback. These are authored tests only; Godot headless CI and Android gameplay validation remain pending.
