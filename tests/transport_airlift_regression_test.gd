@@ -185,10 +185,15 @@ func _run_transport_airlift_regression() -> void:
 		_expect(String(landed_unit.get("team", "")) == "player" and String(landed_unit.get("kind", "")) == "infantry", "Every dropped passenger should become a friendly infantry unit")
 		_expect(bool(landed_unit.get("transport_rope_drop", false)), "Every dropped passenger should receive the rope touchdown presentation hint")
 		_expect(String(landed_unit.get("faction", "")) == "الأمريكي" and int(landed_unit.get("hp", 0)) == 60, "Airlift should preserve passenger faction and health")
-	for return_frame in range(8):
+	for return_frame in range(20):
+		if String(full_transport.get("transport_state", "")) != "returning":
+			break
 		game.call("_update_transport_helicopter", full_transport, 0.5)
-	_expect(String(full_transport.get("transport_state", "")) == "idle", "Transport should complete its return to the nearest airfield")
-	_expect(full_transport.pos.distance_to(Vector2(650.0, 320.0)) < 0.1, "Transport should return to the airfield position")
+	_expect(String(full_transport.get("transport_state", "")) == "rearming", "Transport should reach the nearest airfield and begin its service cycle")
+	_expect(full_transport.pos.distance_to(Vector2(650.0, 320.0)) < 0.1, "Transport should return exactly to the airfield position")
+	for service_frame in range(11):
+		game.call("_update_transport_helicopter", full_transport, 0.5)
+	_expect(String(full_transport.get("transport_state", "")) == "idle", "Transport should become available after completing its five-second rearm and repair cycle")
 
 	game.queue_free()
 	await process_frame
