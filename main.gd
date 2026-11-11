@@ -2764,13 +2764,45 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 	return -1
 
 
+func _player_air_defense_risk(target_pos: Vector2) -> float:
+	# Helicopters avoid diving into concentrated anti-air screens when a safer ground target is available.
+	var risk := 0.0
+	for defense in buildings:
+		if int(defense.get("hp", 0)) <= 0 or float(defense.get("build_progress", 1.0)) < 1.0:
+			continue
+		var weight := 0.0
+		match String(defense.get("kind", "")):
+			"anti_air":
+				weight = 1.25
+			"missile_defense":
+				weight = 0.85
+			"turret":
+				weight = 0.35
+		if weight > 0.0:
+			var distance: float = defense.pos.distance_to(target_pos)
+			if distance <= 320.0:
+				risk += weight * (1.0 - distance / 360.0)
+	return risk
+
+
 func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int) -> int:
-	# Attack helicopters reinforce the ground command focus when it is within their operational radius.
-	if ground_focus_index >= 0 and ground_focus_index < units.size():
-		var focus: Dictionary = units[ground_focus_index]
-		if String(focus.get("team", "")) == "player" and int(focus.get("hp", 0)) > 0 and String(focus.get("kind", "")) in ["tank", "artillery", "infantry"] and from_pos.distance_to(focus.pos) <= 760.0:
-			return ground_focus_index
-	return _nearest_unit_by_priority(from_pos, 760.0, "player", ["tank", "artillery", "infantry"])
+	# Preserve ground-command focus, but let exposed targets win when the focus is protected by air defenses.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) not in ["tank", "artillery", "infantry"]:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance > 760.0:
+			continue
+		var score: float = distance * 0.35 + _player_air_defense_risk(candidate.pos) * 165.0
+		if candidate_index == ground_focus_index:
+			score -= 75.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
 
 
 func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -> int:
