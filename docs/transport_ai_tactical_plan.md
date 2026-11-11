@@ -306,3 +306,8 @@ Transport escorts now periodically reassess their protected aircraft during the 
 - A new assignment must improve the combined travel/load/threat cost by more than the 70-point hysteresis margin while the current transport remains valid.
 - A destroyed or invalid protected transport can still trigger immediate recovery assignment.
 - Player-issued attack, building-attack, and base-strike orders are never replaced by automatic reassignment.
+
+
+## Implemented thirty-fourth slice — mission-critical air protection
+
+The unified escort-priority score now combines nearby hostile pressure with transport vulnerability, passenger value, and mission phase. Damaged aircraft receive a bounded vulnerability credit based on their transport repair maximum; each passenger adds a small bounded cargo credit; inbound, descending, and landing-assessment missions receive a modest urgency bonus. The total score is capped to preserve the existing distance and escort-load balancing behavior. This makes the director protect the most mission-critical transport rather than reacting only to proximity. A regression assertion compares a damaged, loaded, active transport with a healthy empty idle transport. Tests are authored only until the updated branch commit is run through Godot CI.
