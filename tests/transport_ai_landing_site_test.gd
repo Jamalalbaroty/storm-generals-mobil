@@ -319,6 +319,15 @@ func _run() -> void:
 	_expect(int(game.get("units")[0].get("hp", 0)) == int(game.call("_unit_repair_max_hp", game.get("units")[0])), "Airfield servicing should restore transport health")
 	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Rearming must not unload passengers automatically")
 
+	# Losing the airfield during service must abort safely and retain cargo.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 80, "pos": Vector2(700.0, 300.0), "transport_state": "rearming", "transport_return_pos": Vector2(700.0, 300.0), "transport_cargo": [{"kind": "infantry", "hp": 80}]})
+	game.call("_update_transport_helicopter", game.get("units")[0], 0.1)
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "A transport must leave service safely if its airfield becomes unavailable")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "Aborted airfield service must preserve all passengers")
+
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
 	game.get("units").clear()
 	game.get("buildings").clear()
