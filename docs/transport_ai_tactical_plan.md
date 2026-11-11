@@ -248,3 +248,8 @@ Transport escorts now select nearby threats using ordered priorities specific to
 ## Implemented follow-up — defensive leash for air escorts
 
 Automatic air escort pursuit is now bounded by two defensive checks: the enemy must remain within 220 world units of the protected transport, and the escort itself must remain within 260 world units of that transport. When either boundary is crossed, the existing auto-target cleanup releases the target and the escort returns to its assigned formation slot. The rule applies only to escort-generated automatic targets; explicit player attack orders are not tagged as auto-targets and are not altered by this leash. Regression assertions cover inside-bubble retention, escort overextension, and enemies leaving the protected radius. Tests are authored only; Godot execution, CI, and Android validation remain pending.
+
+
+## Implemented follow-up — shared air-escort target deconfliction
+
+Automatic target acquisition now checks other living escort units assigned to the same protected transport and skips enemies already claimed by those escorts. Selection still follows role priority (fighters prioritize enemy aircraft; gunships prioritize ground threats), then nearest unclaimed target within 220 world units. Escorts protecting different transports do not reserve one another's targets. When all suitable threats are already claimed, the escort does not duplicate the attack and can resume its formation behavior. Regression assertions cover same-transport deconfliction and independent target pools for separate transports. Tests are authored only; Godot execution, CI, and Android validation remain pending.
