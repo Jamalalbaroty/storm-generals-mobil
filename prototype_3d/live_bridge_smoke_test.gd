@@ -285,260 +285,262 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Naval counter-production must launch destroyers from the coastal shipyard.
-	var naval_test_units: Array[Dictionary] = []
-	game.set("units", naval_test_units)
-	var ai_shipyards: Array[Dictionary] = [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0}]
-	game.set("enemy_buildings", ai_shipyards)
-	game.set("enemy_base", Vector2(900.0, 320.0))
-	game.set("enemy_credits", 100000)
-	game.set("enemy_supplies", 1000)
-	if not bool(game.call("_enemy_has_building", "shipyard")):
-		push_error("Naval-control AI test setup did not register a completed enemy shipyard")
-		quit(1)
-		return
-	var produced_naval_counter := bool(game.call("_enemy_counter_production", "naval_control", 0, 0, 0, 0))
-	var produced_units: Array = game.get("units")
-	if not produced_naval_counter or produced_units.size() != 1 or String(produced_units[0].get("kind", "")) != "destroyer":
-		push_error("Naval-control AI failed: produced=%s units=%s shipyard=%s credits=%s supplies=%s destroyer_cost=%s supply_cost=%s" % [produced_naval_counter, produced_units.size(), game.call("_enemy_has_building", "shipyard"), game.get("enemy_credits"), game.get("enemy_supplies"), game.call("_unit_cost", "destroyer", game.call("_enemy_faction")), game.call("_unit_supply_cost", "destroyer")])
-		quit(1)
-		return
-	var expected_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
-	var produced_position: Vector2 = produced_units[0].get("pos", Vector2.ZERO)
-	if produced_position.distance_to(expected_dock) > 0.1:
-		push_error("Naval counter destroyer did not spawn at the coastal shipyard")
-		quit(1)
-		return
-
-	# Once naval superiority is established, the enemy AI should deploy an amphibious assault craft.
-	var ai_naval_units: Array[Dictionary] = [
-		{"pos": Vector2(780.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
-		{"pos": Vector2(790.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
-		{"pos": Vector2(800.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
-		{"pos": Vector2(780.0, 660.0), "team": "enemy", "kind": "carrier", "hp": 520},
-		{"pos": Vector2(780.0, 670.0), "team": "enemy", "kind": "submarine", "hp": 210},
-		{"pos": Vector2(220.0, 650.0), "team": "player", "kind": "destroyer", "hp": 260},
-		{"pos": Vector2(240.0, 650.0), "team": "player", "kind": "submarine", "hp": 210}
-	]
-	game.set("units", ai_naval_units)
-	var complete_ai_buildings: Array[Dictionary] = [
-		{"pos": Vector2(900.0, 240.0), "kind": "barracks", "hp": 400, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 300.0), "kind": "factory", "hp": 500, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 360.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 420.0), "kind": "airfield", "hp": 450, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 480.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0},
-		{"pos": Vector2(780.0, 650.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0},
-		{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0},
-		{"pos": Vector2(740.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0},
-		{"pos": Vector2(760.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
-	]
-	game.set("enemy_buildings", complete_ai_buildings)
-	game.set("enemy_credits", 100000)
-	game.set("enemy_supplies", 1000)
-	game.set("enemy_strategy", "balanced")
-	game.call("_enemy_ai_turn")
-	var amphibious_units: Array[Dictionary] = game.get("units")
-	var ai_landing_craft_count := 0
-	var ai_landing_craft: Dictionary = {}
-	for ai_unit in amphibious_units:
-		if ai_unit.get("team") == "enemy" and ai_unit.get("kind") == "landing_craft":
-			ai_landing_craft_count += 1
-			ai_landing_craft = ai_unit
-	var expected_ai_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
-	if ai_landing_craft_count != 1 or String(ai_landing_craft.get("landing_state", "")) != "outbound" or int(ai_landing_craft.get("passengers", 0)) != 3 or Vector2(ai_landing_craft.get("home_pos", Vector2.ZERO)).distance_to(expected_ai_dock) > 0.1:
-		push_error("Enemy naval AI did not deploy one fully loaded amphibious landing craft from its coastal dock")
-		quit(1)
-		return
-
-
-	# Enemy amphibious units must unload a complete assault squad and direct it at the player base.
-	var enemy_craft_test: Dictionary = ai_landing_craft
-	enemy_craft_test["pos"] = Vector2(700.0, 520.0)
-	var enemy_assault_units: Array[Dictionary] = [enemy_craft_test]
-	game.set("units", enemy_assault_units)
-	game.call("_update_landing_craft", enemy_assault_units[0], 0.1, Vector2(700.0, 520.0))
-	var enemy_landed_units: Array[Dictionary] = game.get("units")
-	var enemy_marines := 0
-	var player_base_target: Vector2 = game.get("base_pos")
-	for enemy_landed_unit in enemy_landed_units:
-		if enemy_landed_unit.get("team") == "enemy" and enemy_landed_unit.get("kind") == "infantry" and bool(enemy_landed_unit.get("landing_assault", false)):
-			enemy_marines += 1
-			if not enemy_landed_unit.has("target") or Vector2(enemy_landed_unit["target"]).distance_to(player_base_target) > 0.1:
-				push_error("Enemy amphibious infantry did not receive an attack route to the player base")
-				quit(1)
-				return
-	if enemy_marines != 3 or enemy_landed_units.size() != 4 or String(enemy_landed_units[0].get("landing_state", "")) != "returning":
-		push_error("Enemy amphibious craft failed to unload a complete three-marine squad and return")
-		quit(1)
-		return
-
-
-	# Enemy craft must complete the same return-and-reload cycle after its assault.
-	var enemy_home: Vector2 = Vector2(enemy_craft_test.get("home_pos", Vector2.ZERO))
-	enemy_landed_units[0]["pos"] = enemy_home
-	game.set("units", enemy_landed_units)
-	game.call("_update_landing_craft", enemy_landed_units[0], 0.1, Vector2(700.0, 520.0))
-	var enemy_loading_units: Array[Dictionary] = game.get("units")
-	if String(enemy_loading_units[0].get("landing_state", "")) != "loading" or absf(float(enemy_loading_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
-		push_error("Enemy landing craft did not return to dock for its five-second reload")
-		quit(1)
-		return
-	game.call("_update_landing_craft", enemy_loading_units[0], 5.1, Vector2(700.0, 520.0))
-	var enemy_reloaded_units: Array[Dictionary] = game.get("units")
-	if String(enemy_reloaded_units[0].get("landing_state", "")) != "outbound" or int(enemy_reloaded_units[0].get("passengers", 0)) != 3 or enemy_reloaded_units.size() != 4:
-		push_error("Enemy landing craft failed to reload and prepare a second amphibious sortie")
-		quit(1)
-		return
-
-	# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
-	var shore := Vector2(700.0, 520.0)
-	var home_dock := Vector2(180.0, 520.0)
-	var landing_craft: Dictionary = {
-		"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
-		"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
-	}
-	var landing_units: Array[Dictionary] = [landing_craft]
-	game.set("units", landing_units)
-	game.call("_update_landing_craft", landing_units[0], 0.1, shore)
-	var unloaded_units: Array[Dictionary] = game.get("units")
-	var unloaded_marines := 0
-	for landed_unit in unloaded_units:
-		if landed_unit.get("team") == "player" and landed_unit.get("kind") == "infantry" and bool(landed_unit.get("landing_assault", false)):
-			unloaded_marines += 1
-	if unloaded_units.size() != 4 or unloaded_marines != 3 or String(unloaded_units[0].get("landing_state", "")) != "returning" or int(unloaded_units[0].get("passengers", -1)) != 0:
-		push_error("Landing craft did not unload exactly three marines and enter returning state")
-		quit(1)
-		return
-
-	unloaded_units[0]["pos"] = home_dock
-	game.set("units", unloaded_units)
-	game.call("_update_landing_craft", unloaded_units[0], 0.1, shore)
-	var returning_units: Array[Dictionary] = game.get("units")
-	if String(returning_units[0].get("landing_state", "")) != "loading" or absf(float(returning_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
-		push_error("Landing craft did not enter its five-second dock loading phase")
-		quit(1)
-		return
-	game.call("_update_landing_craft", returning_units[0], 5.1, shore)
-	var reloaded_units: Array[Dictionary] = game.get("units")
-	if String(reloaded_units[0].get("landing_state", "")) != "outbound" or int(reloaded_units[0].get("passengers", 0)) != 3 or reloaded_units.size() != 4:
-		push_error("Landing craft failed to reload three passengers for its next sortie")
-		quit(1)
-		return
-
-	# A full team must make the craft wait at shore without duplicate or partial unloading.
-	var capacity_units: Array[Dictionary] = [{
-		"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
-		"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
-	}]
-	for marine_index in range(39):
-		capacity_units.append({"pos": home_dock, "team": "player", "kind": "infantry", "hp": 100})
-	game.set("units", capacity_units)
-	game.call("_update_landing_craft", capacity_units[0], 0.1, shore)
-	var capacity_result: Array[Dictionary] = game.get("units")
-	if capacity_result.size() != 40 or String(capacity_result[0].get("landing_state", "")) != "outbound" or int(capacity_result[0].get("passengers", 0)) != 3:
-		push_error("Landing craft did not wait safely when its team reached unit capacity")
-		quit(1)
-		return
-
-	# A destroyer assigned to amphibious escort must hold station instead of firing at the distant base.
-	game.set("base_pos", Vector2(200.0, 360.0))
-	game.set("player_base_hp", 1000)
-	var escort_craft_pos := Vector2(700.0, 360.0)
-	var escort_slot := escort_craft_pos + Vector2(-58.0, -66.0)
-	var escort_test_units: Array[Dictionary] = [
-		{"pos": Vector2(400.0, 360.0), "team": "enemy", "kind": "destroyer", "hp": 260, "attack_cd": 0.0},
-		{"pos": escort_craft_pos, "home_pos": Vector2(780.0, 590.0), "team": "enemy", "kind": "landing_craft", "hp": 180, "passengers": 3, "landing_state": "outbound"}
-	]
-	game.set("units", escort_test_units)
-	var base_hp_before_escort: int = int(game.get("player_base_hp"))
-	game.call("_process", 0.5)
-	var escorted_units: Array[Dictionary] = game.get("units")
-	var destroyer_after_escort: Vector2 = escorted_units[0].pos
-	if int(game.get("player_base_hp")) != base_hp_before_escort or destroyer_after_escort.distance_to(escort_slot) >= Vector2(400.0, 360.0).distance_to(escort_slot):
-		push_error("Destroyer did not hold escort station around its amphibious landing craft")
-		quit(1)
-		return
-
-	# Friendly armor must temporarily support landed marines, then resume its original base order.
-	var support_test_units: Array[Dictionary] = [
-		{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "tank", "hp": 150, "attack_base": true, "attack_cd": 0.0},
-		{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
-		{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
-	]
-	game.set("units", support_test_units)
-	game.call("_process", 0.1)
-	var supported_units: Array[Dictionary] = game.get("units")
-	if not bool(supported_units[0].get("landing_support_active", false)) or int(supported_units[0].get("attack_target", -1)) != 2 or supported_units[0].has("attack_base"):
-		push_error("Friendly tank did not divert from its base order to protect the landed marine squad")
-		quit(1)
-		return
-	var cleared_support_units: Array[Dictionary] = [supported_units[0], supported_units[1]]
-	game.set("units", cleared_support_units)
-	game.call("_process", 0.1)
-	var restored_support_units: Array[Dictionary] = game.get("units")
-	if bool(restored_support_units[0].get("landing_support_active", false)) or not bool(restored_support_units[0].get("attack_base", false)) or restored_support_units[0].has("attack_target"):
-		push_error("Friendly tank did not resume its saved base order after landing threats were cleared")
-		quit(1)
-		return
-
-	# Friendly artillery must also protect landed marines and restore its saved building order.
-	var artillery_support_units: Array[Dictionary] = [
-		{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "artillery", "hp": 110, "attack_building": 0, "attack_cd": 0.0},
-		{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
-		{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
-	]
-	game.set("units", artillery_support_units)
-	game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 500}])
-	game.call("_process", 0.1)
-	var supported_artillery: Array[Dictionary] = game.get("units")
-	if not bool(supported_artillery[0].get("landing_support_active", false)) or int(supported_artillery[0].get("attack_target", -1)) != 2 or supported_artillery[0].has("attack_building"):
-		push_error("Friendly artillery did not divert from its building order to protect the landed marine squad")
-		quit(1)
-		return
-	var cleared_artillery_support: Array[Dictionary] = [supported_artillery[0], supported_artillery[1]]
-	game.set("units", cleared_artillery_support)
-	game.call("_process", 0.1)
-	var restored_artillery: Array[Dictionary] = game.get("units")
-	if bool(restored_artillery[0].get("landing_support_active", false)) or int(restored_artillery[0].get("attack_building", -1)) != 0 or restored_artillery[0].has("attack_target"):
-		push_error("Friendly artillery did not resume its saved building order after landing threats were cleared")
-		quit(1)
-		return
-
-	# Enemy armor must also defend its own landed marines against nearby player ground forces.
-	var enemy_landing_support_units: Array[Dictionary] = [
-		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
-		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
-		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
-	]
-	game.set("units", enemy_landing_support_units)
-	game.call("_process", 0.1)
-	var enemy_supported_units: Array[Dictionary] = game.get("units")
-	if not bool(enemy_supported_units[0].get("landing_support_active", false)) or int(enemy_supported_units[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_units[2].get("hp", 150)) >= 150:
-		push_error("Enemy tank did not engage the nearby player tank to protect its landed marines")
-		quit(1)
-		return
-	var cleared_enemy_support: Array[Dictionary] = [enemy_supported_units[0], enemy_supported_units[1]]
-	game.set("units", cleared_enemy_support)
-	game.call("_process", 0.1)
-	var released_enemy_units: Array[Dictionary] = game.get("units")
-	if bool(released_enemy_units[0].get("landing_support_active", false)) or released_enemy_units[0].has("landing_support_target"):
-		push_error("Enemy tank did not release its temporary landing-defense assignment after the threat disappeared")
-		quit(1)
-		return
-
-	var enemy_artillery_support_units: Array[Dictionary] = [
-		{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
-		{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
-		{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
-	]
-	game.set("units", enemy_artillery_support_units)
-	game.call("_process", 0.1)
-	var enemy_supported_artillery: Array[Dictionary] = game.get("units")
-	if not bool(enemy_supported_artillery[0].get("landing_support_active", false)) or int(enemy_supported_artillery[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_artillery[2].get("hp", 150)) >= 150:
-		push_error("Enemy artillery did not fire on the nearby player tank to protect its landed marines")
-		quit(1)
-		return
-
+	if bool(game.get_script().get_script_constant_map().get("NAVAL_SYSTEM_ENABLED", false)):
+		# Naval counter-production must launch destroyers from the coastal shipyard.
+		var naval_test_units: Array[Dictionary] = []
+		game.set("units", naval_test_units)
+		var ai_shipyards: Array[Dictionary] = [{"pos": Vector2(900.0, 320.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0}]
+		game.set("enemy_buildings", ai_shipyards)
+		game.set("enemy_base", Vector2(900.0, 320.0))
+		game.set("enemy_credits", 100000)
+		game.set("enemy_supplies", 1000)
+		if not bool(game.call("_enemy_has_building", "shipyard")):
+			push_error("Naval-control AI test setup did not register a completed enemy shipyard")
+			quit(1)
+			return
+		var produced_naval_counter := bool(game.call("_enemy_counter_production", "naval_control", 0, 0, 0, 0))
+		var produced_units: Array = game.get("units")
+		if not produced_naval_counter or produced_units.size() != 1 or String(produced_units[0].get("kind", "")) != "destroyer":
+			push_error("Naval-control AI failed: produced=%s units=%s shipyard=%s credits=%s supplies=%s destroyer_cost=%s supply_cost=%s" % [produced_naval_counter, produced_units.size(), game.call("_enemy_has_building", "shipyard"), game.get("enemy_credits"), game.get("enemy_supplies"), game.call("_unit_cost", "destroyer", game.call("_enemy_faction")), game.call("_unit_supply_cost", "destroyer")])
+			quit(1)
+			return
+		var expected_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
+		var produced_position: Vector2 = produced_units[0].get("pos", Vector2.ZERO)
+		if produced_position.distance_to(expected_dock) > 0.1:
+			push_error("Naval counter destroyer did not spawn at the coastal shipyard")
+			quit(1)
+			return
+	
+		# Once naval superiority is established, the enemy AI should deploy an amphibious assault craft.
+		var ai_naval_units: Array[Dictionary] = [
+			{"pos": Vector2(780.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+			{"pos": Vector2(790.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+			{"pos": Vector2(800.0, 650.0), "team": "enemy", "kind": "destroyer", "hp": 260},
+			{"pos": Vector2(780.0, 660.0), "team": "enemy", "kind": "carrier", "hp": 520},
+			{"pos": Vector2(780.0, 670.0), "team": "enemy", "kind": "submarine", "hp": 210},
+			{"pos": Vector2(220.0, 650.0), "team": "player", "kind": "destroyer", "hp": 260},
+			{"pos": Vector2(240.0, 650.0), "team": "player", "kind": "submarine", "hp": 210}
+		]
+		game.set("units", ai_naval_units)
+		var complete_ai_buildings: Array[Dictionary] = [
+			{"pos": Vector2(900.0, 240.0), "kind": "barracks", "hp": 400, "build_progress": 1.0},
+			{"pos": Vector2(900.0, 300.0), "kind": "factory", "hp": 500, "build_progress": 1.0},
+			{"pos": Vector2(900.0, 360.0), "kind": "turret", "hp": 350, "build_progress": 1.0},
+			{"pos": Vector2(900.0, 420.0), "kind": "airfield", "hp": 450, "build_progress": 1.0},
+			{"pos": Vector2(900.0, 480.0), "kind": "missile_silo", "hp": 500, "build_progress": 1.0},
+			{"pos": Vector2(780.0, 650.0), "kind": "shipyard", "hp": 500, "build_progress": 1.0},
+			{"pos": Vector2(900.0, 540.0), "kind": "anti_air", "hp": 380, "build_progress": 1.0},
+			{"pos": Vector2(740.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0},
+			{"pos": Vector2(760.0, 650.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0}
+		]
+		game.set("enemy_buildings", complete_ai_buildings)
+		game.set("enemy_credits", 100000)
+		game.set("enemy_supplies", 1000)
+		game.set("enemy_strategy", "balanced")
+		game.call("_enemy_ai_turn")
+		var amphibious_units: Array[Dictionary] = game.get("units")
+		var ai_landing_craft_count := 0
+		var ai_landing_craft: Dictionary = {}
+		for ai_unit in amphibious_units:
+			if ai_unit.get("team") == "enemy" and ai_unit.get("kind") == "landing_craft":
+				ai_landing_craft_count += 1
+				ai_landing_craft = ai_unit
+		var expected_ai_dock := Vector2(780.0, game.get_viewport_rect().size.y * 0.82)
+		if ai_landing_craft_count != 1 or String(ai_landing_craft.get("landing_state", "")) != "outbound" or int(ai_landing_craft.get("passengers", 0)) != 3 or Vector2(ai_landing_craft.get("home_pos", Vector2.ZERO)).distance_to(expected_ai_dock) > 0.1:
+			push_error("Enemy naval AI did not deploy one fully loaded amphibious landing craft from its coastal dock")
+			quit(1)
+			return
+	
+	
+		# Enemy amphibious units must unload a complete assault squad and direct it at the player base.
+		var enemy_craft_test: Dictionary = ai_landing_craft
+		enemy_craft_test["pos"] = Vector2(700.0, 520.0)
+		var enemy_assault_units: Array[Dictionary] = [enemy_craft_test]
+		game.set("units", enemy_assault_units)
+		game.call("_update_landing_craft", enemy_assault_units[0], 0.1, Vector2(700.0, 520.0))
+		var enemy_landed_units: Array[Dictionary] = game.get("units")
+		var enemy_marines := 0
+		var player_base_target: Vector2 = game.get("base_pos")
+		for enemy_landed_unit in enemy_landed_units:
+			if enemy_landed_unit.get("team") == "enemy" and enemy_landed_unit.get("kind") == "infantry" and bool(enemy_landed_unit.get("landing_assault", false)):
+				enemy_marines += 1
+				if not enemy_landed_unit.has("target") or Vector2(enemy_landed_unit["target"]).distance_to(player_base_target) > 0.1:
+					push_error("Enemy amphibious infantry did not receive an attack route to the player base")
+					quit(1)
+					return
+		if enemy_marines != 3 or enemy_landed_units.size() != 4 or String(enemy_landed_units[0].get("landing_state", "")) != "returning":
+			push_error("Enemy amphibious craft failed to unload a complete three-marine squad and return")
+			quit(1)
+			return
+	
+	
+		# Enemy craft must complete the same return-and-reload cycle after its assault.
+		var enemy_home: Vector2 = Vector2(enemy_craft_test.get("home_pos", Vector2.ZERO))
+		enemy_landed_units[0]["pos"] = enemy_home
+		game.set("units", enemy_landed_units)
+		game.call("_update_landing_craft", enemy_landed_units[0], 0.1, Vector2(700.0, 520.0))
+		var enemy_loading_units: Array[Dictionary] = game.get("units")
+		if String(enemy_loading_units[0].get("landing_state", "")) != "loading" or absf(float(enemy_loading_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
+			push_error("Enemy landing craft did not return to dock for its five-second reload")
+			quit(1)
+			return
+		game.call("_update_landing_craft", enemy_loading_units[0], 5.1, Vector2(700.0, 520.0))
+		var enemy_reloaded_units: Array[Dictionary] = game.get("units")
+		if String(enemy_reloaded_units[0].get("landing_state", "")) != "outbound" or int(enemy_reloaded_units[0].get("passengers", 0)) != 3 or enemy_reloaded_units.size() != 4:
+			push_error("Enemy landing craft failed to reload and prepare a second amphibious sortie")
+			quit(1)
+			return
+	
+		# Landing craft must unload exactly three marines, return, reload and prepare another sortie.
+		var shore := Vector2(700.0, 520.0)
+		var home_dock := Vector2(180.0, 520.0)
+		var landing_craft: Dictionary = {
+			"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
+			"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
+		}
+		var landing_units: Array[Dictionary] = [landing_craft]
+		game.set("units", landing_units)
+		game.call("_update_landing_craft", landing_units[0], 0.1, shore)
+		var unloaded_units: Array[Dictionary] = game.get("units")
+		var unloaded_marines := 0
+		for landed_unit in unloaded_units:
+			if landed_unit.get("team") == "player" and landed_unit.get("kind") == "infantry" and bool(landed_unit.get("landing_assault", false)):
+				unloaded_marines += 1
+		if unloaded_units.size() != 4 or unloaded_marines != 3 or String(unloaded_units[0].get("landing_state", "")) != "returning" or int(unloaded_units[0].get("passengers", -1)) != 0:
+			push_error("Landing craft did not unload exactly three marines and enter returning state")
+			quit(1)
+			return
+	
+		unloaded_units[0]["pos"] = home_dock
+		game.set("units", unloaded_units)
+		game.call("_update_landing_craft", unloaded_units[0], 0.1, shore)
+		var returning_units: Array[Dictionary] = game.get("units")
+		if String(returning_units[0].get("landing_state", "")) != "loading" or absf(float(returning_units[0].get("landing_timer", 0.0)) - 5.0) > 0.01:
+			push_error("Landing craft did not enter its five-second dock loading phase")
+			quit(1)
+			return
+		game.call("_update_landing_craft", returning_units[0], 5.1, shore)
+		var reloaded_units: Array[Dictionary] = game.get("units")
+		if String(reloaded_units[0].get("landing_state", "")) != "outbound" or int(reloaded_units[0].get("passengers", 0)) != 3 or reloaded_units.size() != 4:
+			push_error("Landing craft failed to reload three passengers for its next sortie")
+			quit(1)
+			return
+	
+		# A full team must make the craft wait at shore without duplicate or partial unloading.
+		var capacity_units: Array[Dictionary] = [{
+			"pos": shore, "home_pos": home_dock, "team": "player", "kind": "landing_craft",
+			"faction": "الأمريكي", "hp": 180, "passengers": 3, "landing_state": "outbound"
+		}]
+		for marine_index in range(39):
+			capacity_units.append({"pos": home_dock, "team": "player", "kind": "infantry", "hp": 100})
+		game.set("units", capacity_units)
+		game.call("_update_landing_craft", capacity_units[0], 0.1, shore)
+		var capacity_result: Array[Dictionary] = game.get("units")
+		if capacity_result.size() != 40 or String(capacity_result[0].get("landing_state", "")) != "outbound" or int(capacity_result[0].get("passengers", 0)) != 3:
+			push_error("Landing craft did not wait safely when its team reached unit capacity")
+			quit(1)
+			return
+	
+		# A destroyer assigned to amphibious escort must hold station instead of firing at the distant base.
+		game.set("base_pos", Vector2(200.0, 360.0))
+		game.set("player_base_hp", 1000)
+		var escort_craft_pos := Vector2(700.0, 360.0)
+		var escort_slot := escort_craft_pos + Vector2(-58.0, -66.0)
+		var escort_test_units: Array[Dictionary] = [
+			{"pos": Vector2(400.0, 360.0), "team": "enemy", "kind": "destroyer", "hp": 260, "attack_cd": 0.0},
+			{"pos": escort_craft_pos, "home_pos": Vector2(780.0, 590.0), "team": "enemy", "kind": "landing_craft", "hp": 180, "passengers": 3, "landing_state": "outbound"}
+		]
+		game.set("units", escort_test_units)
+		var base_hp_before_escort: int = int(game.get("player_base_hp"))
+		game.call("_process", 0.5)
+		var escorted_units: Array[Dictionary] = game.get("units")
+		var destroyer_after_escort: Vector2 = escorted_units[0].pos
+		if int(game.get("player_base_hp")) != base_hp_before_escort or destroyer_after_escort.distance_to(escort_slot) >= Vector2(400.0, 360.0).distance_to(escort_slot):
+			push_error("Destroyer did not hold escort station around its amphibious landing craft")
+			quit(1)
+			return
+	
+		# Friendly armor must temporarily support landed marines, then resume its original base order.
+		var support_test_units: Array[Dictionary] = [
+			{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "tank", "hp": 150, "attack_base": true, "attack_cd": 0.0},
+			{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
+			{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
+		]
+		game.set("units", support_test_units)
+		game.call("_process", 0.1)
+		var supported_units: Array[Dictionary] = game.get("units")
+		if not bool(supported_units[0].get("landing_support_active", false)) or int(supported_units[0].get("attack_target", -1)) != 2 or supported_units[0].has("attack_base"):
+			push_error("Friendly tank did not divert from its base order to protect the landed marine squad")
+			quit(1)
+			return
+		var cleared_support_units: Array[Dictionary] = [supported_units[0], supported_units[1]]
+		game.set("units", cleared_support_units)
+		game.call("_process", 0.1)
+		var restored_support_units: Array[Dictionary] = game.get("units")
+		if bool(restored_support_units[0].get("landing_support_active", false)) or not bool(restored_support_units[0].get("attack_base", false)) or restored_support_units[0].has("attack_target"):
+			push_error("Friendly tank did not resume its saved base order after landing threats were cleared")
+			quit(1)
+			return
+	
+		# Friendly artillery must also protect landed marines and restore its saved building order.
+		var artillery_support_units: Array[Dictionary] = [
+			{"pos": Vector2(400.0, 360.0), "team": "player", "kind": "artillery", "hp": 110, "attack_building": 0, "attack_cd": 0.0},
+			{"pos": Vector2(410.0, 360.0), "team": "player", "kind": "infantry", "hp": 100, "landing_assault": true},
+			{"pos": Vector2(450.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150}
+		]
+		game.set("units", artillery_support_units)
+		game.set("enemy_buildings", [{"pos": Vector2(900.0, 360.0), "kind": "factory", "hp": 500}])
+		game.call("_process", 0.1)
+		var supported_artillery: Array[Dictionary] = game.get("units")
+		if not bool(supported_artillery[0].get("landing_support_active", false)) or int(supported_artillery[0].get("attack_target", -1)) != 2 or supported_artillery[0].has("attack_building"):
+			push_error("Friendly artillery did not divert from its building order to protect the landed marine squad")
+			quit(1)
+			return
+		var cleared_artillery_support: Array[Dictionary] = [supported_artillery[0], supported_artillery[1]]
+		game.set("units", cleared_artillery_support)
+		game.call("_process", 0.1)
+		var restored_artillery: Array[Dictionary] = game.get("units")
+		if bool(restored_artillery[0].get("landing_support_active", false)) or int(restored_artillery[0].get("attack_building", -1)) != 0 or restored_artillery[0].has("attack_target"):
+			push_error("Friendly artillery did not resume its saved building order after landing threats were cleared")
+			quit(1)
+			return
+	
+		# Enemy armor must also defend its own landed marines against nearby player ground forces.
+		var enemy_landing_support_units: Array[Dictionary] = [
+			{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "tank", "hp": 150, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
+			{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
+			{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+		]
+		game.set("units", enemy_landing_support_units)
+		game.call("_process", 0.1)
+		var enemy_supported_units: Array[Dictionary] = game.get("units")
+		if not bool(enemy_supported_units[0].get("landing_support_active", false)) or int(enemy_supported_units[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_units[2].get("hp", 150)) >= 150:
+			push_error("Enemy tank did not engage the nearby player tank to protect its landed marines")
+			quit(1)
+			return
+		var cleared_enemy_support: Array[Dictionary] = [enemy_supported_units[0], enemy_supported_units[1]]
+		game.set("units", cleared_enemy_support)
+		game.call("_process", 0.1)
+		var released_enemy_units: Array[Dictionary] = game.get("units")
+		if bool(released_enemy_units[0].get("landing_support_active", false)) or released_enemy_units[0].has("landing_support_target"):
+			push_error("Enemy tank did not release its temporary landing-defense assignment after the threat disappeared")
+			quit(1)
+			return
+	
+		var enemy_artillery_support_units: Array[Dictionary] = [
+			{"pos": Vector2(500.0, 360.0), "team": "enemy", "kind": "artillery", "hp": 100, "target": Vector2(200.0, 360.0), "defense_guard": true, "defense_anchor": Vector2(500.0, 360.0)},
+			{"pos": Vector2(510.0, 360.0), "team": "enemy", "kind": "infantry", "hp": 60, "landing_assault": true},
+			{"pos": Vector2(550.0, 360.0), "team": "player", "kind": "tank", "hp": 150}
+		]
+		game.set("units", enemy_artillery_support_units)
+		game.call("_process", 0.1)
+		var enemy_supported_artillery: Array[Dictionary] = game.get("units")
+		if not bool(enemy_supported_artillery[0].get("landing_support_active", false)) or int(enemy_supported_artillery[0].get("landing_support_target", -1)) != 2 or int(enemy_supported_artillery[2].get("hp", 150)) >= 150:
+			push_error("Enemy artillery did not fire on the nearby player tank to protect its landed marines")
+			quit(1)
+			return
+	
+	
 	# Enemy ground assaults use role-based lanes: armor leads and infantry follows.
 	var formation_origin := Vector2(1000.0, 360.0)
 	var formation_target := Vector2(400.0, 360.0)
@@ -1153,12 +1155,17 @@ func _initialize() -> void:
 	var all_unit_families: Array[Dictionary] = [
 		{"pos": Vector2(180.0, 180.0), "team": "player", "kind": "infantry", "faction": "الجيش العربي", "hp": 55.0, "max_hp": 60.0},
 		{"pos": Vector2(260.0, 180.0), "team": "player", "kind": "artillery", "faction": "وطن", "hp": 95.0, "max_hp": 110.0},
-		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0},
-		{"pos": Vector2(420.0, 180.0), "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 240.0, "max_hp": 260.0},
-		{"pos": Vector2(500.0, 180.0), "team": "enemy", "kind": "carrier", "faction": "الصيني", "hp": 500.0, "max_hp": 520.0},
-		{"pos": Vector2(580.0, 180.0), "team": "enemy", "kind": "submarine", "faction": "الصيني", "hp": 190.0, "max_hp": 210.0},
-		{"pos": Vector2(660.0, 180.0), "team": "enemy", "kind": "landing_craft", "faction": "الأمريكي", "hp": 300.0, "max_hp": 320.0}
+		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0}
 	]
+	var expected_live_keys: Array[String] = ["player|1|infantry", "player|2|artillery", "player|3|helicopter"]
+	if bool(bridge.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
+		all_unit_families.append_array([
+			{"pos": Vector2(420.0, 180.0), "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 240.0, "max_hp": 260.0},
+			{"pos": Vector2(500.0, 180.0), "team": "enemy", "kind": "carrier", "faction": "الصيني", "hp": 500.0, "max_hp": 520.0},
+			{"pos": Vector2(580.0, 180.0), "team": "enemy", "kind": "submarine", "faction": "الصيني", "hp": 190.0, "max_hp": 210.0},
+			{"pos": Vector2(660.0, 180.0), "team": "enemy", "kind": "landing_craft", "faction": "الأمريكي", "hp": 300.0, "max_hp": 320.0}
+		])
+		expected_live_keys.append_array(["enemy|4|destroyer", "enemy|5|carrier", "enemy|6|submarine", "enemy|7|landing_craft"])
 	game.set("units", all_unit_families)
 	game.call("_sync_3d_gameplay_bridge")
 	if bridge.game_unit_nodes.size() != all_unit_families.size():
