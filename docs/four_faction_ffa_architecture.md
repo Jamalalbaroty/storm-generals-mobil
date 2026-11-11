@@ -101,3 +101,19 @@ Introduce a versioned team-state section in battle saves. A migration layer must
 - Watan retains its deliberate combat advantage and higher land/air reinforcement costs; no balance values are silently altered.
 - Four-team FFA uses only land and air while naval systems remain paused.
 - Tests prove actual simulated team interactions; stat tables alone do not count as an FFA simulation.
+
+## Phase A inventory snapshot — 2026-11-12
+
+A static scan of branch `feature/transport-ai-tactical-director` at the start of the characterization pass (8,626 lines in `main.gd`) counted the following exact legacy-side references. Counts are textual occurrences, not unique call sites or a claim that every occurrence has been migrated:
+
+- `== "player"`: 64; `!= "player"`: 45.
+- `== "enemy"`: 32; `!= "enemy"`: 34.
+- The three explicit nearest-side helpers remain present: `_nearest_player_unit`, `_nearest_enemy_unit`, and `_nearest_enemy_ground_unit`; each has additional callers.
+- Split match state remains visible: `player_base_hp` (15 references), `enemy_base_hp` (13), `enemy_timer` (8), `enemy_strategy` (11), and `enemy_buildings` (102).
+- Player-side economy/building collections use legacy names such as `credits` and `buildings`, rather than a symmetric `player_credits` / `player_buildings` pair.
+
+### Characterization coverage added
+
+`tests/battle_two_side_targeting_characterization_test.gd` locks the current nearest-target contract before production targeting is changed: player/enemy ownership filters, dead-unit exclusion, air-only filtering, ground-role filtering, neutral-side exclusion, and the strict maximum-distance boundary. It also records an important current behavior: generic nearest-enemy targeting does not filter retreating units, while the ground-only helper does. This behavior is characterized, not silently redesigned.
+
+The new script is part of the Godot Regression workflow. The next migration step remains blocked on this test and the full existing suite passing on the same commit. This phase adds no gameplay behavior changes.
