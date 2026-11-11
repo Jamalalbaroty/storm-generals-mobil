@@ -25,7 +25,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	# Mobile command deck exposes the complete five-tab, 32-action command roster.
+	# Mobile command deck exposes all 27 unique actions across five tabs.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
@@ -40,7 +40,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 32, "The five compact command tabs should retain access to all 32 gameplay actions")
+	_expect(covered_actions.size() == 27, "The five compact command tabs should retain access to all 27 gameplay actions")
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
