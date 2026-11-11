@@ -218,6 +218,7 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.get("credits")) == 1444, "Close-request autosave should capture the latest economy state")
 	game.set("game_started", false)
 	game.set("campaign_briefing", false)
+	game.set("has_resumable_battle", game.call("_has_resumable_battle"))
 	game.set("credits", 2222)
 	game.call("_notification", Node.NOTIFICATION_APPLICATION_PAUSED)
 	game.set("credits", 7)
