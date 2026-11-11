@@ -50,8 +50,11 @@ func _run_transport_airlift_regression() -> void:
 			infantry_record["attack_target"] = 10
 		game.get("units").append(infantry_record)
 	game.get("units").append({"kind": "tank", "team": "enemy", "hp": 100, "pos": Vector2(500.0, 200.0)})
-	game.set("selected", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+	var loading_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+	game.set("selected", loading_selection)
+	print("LOAD_DEBUG before units=%d selected=%s" % [game.get("units").size(), str(game.get("selected"))])
 	game.call("_load_selected_infantry_into_transport")
+	print("LOAD_DEBUG after units=%d selected=%s notice=%s units_data=%s" % [game.get("units").size(), str(game.get("selected")), str(game.get("notice")), str(game.get("units"))])
 	var loaded_transport: Dictionary = game.get("units")[0]
 	var loaded_cargo: Array = loaded_transport.get("transport_cargo", [])
 	_expect(loaded_cargo.size() == 8, "Transport should load up to its eight-soldier capacity")
