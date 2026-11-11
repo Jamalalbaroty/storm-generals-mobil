@@ -477,6 +477,24 @@ func _run_battle_save_integration_test() -> void:
 	game.call("_process", 0.1)
 	_expect(int(live_victory_profile.get("battles_played", 0)) == 1 and int(live_victory_profile.get("campaign_funds", 0)) == 625, "Additional frames after victory must not duplicate campaign rewards or career totals")
 
+	# Resolve defeat through the same live frame loop; it must not advance or reward the campaign.
+	game.set("battle_result", "")
+	game.set("commander_profile_saved_result", "")
+	game.set("player_base_hp", 0)
+	game.set("enemy_base_hp", 500)
+	game.call("_process", 0.1)
+	var live_defeat_result := String(game.get("battle_result"))
+	_expect(live_defeat_result.contains("هُزمت"), "Destroying the player base in the live campaign loop must resolve defeat")
+	_expect(int(live_victory_profile.get("battles_played", 0)) == 2 and int(live_victory_profile.get("defeats", 0)) == 1, "Live defeat must record exactly one additional battle and defeat")
+	_expect(int(live_victory_profile.get("campaign_progress", {}).get("وطن", 0)) == 3 and int(live_victory_profile.get("campaign_funds", 0)) == 625, "Live defeat must preserve campaign progress and grant no additional funds")
+	_expect(bool(game.call("_save_battle_snapshot")), "A completed defeat state must be saveable for result continuity")
+	game.set("battle_result", "")
+	game.set("player_base_hp", 900)
+	_expect(bool(game.call("_load_battle_snapshot")), "Saved defeat state must restore through the battle save integration")
+	_expect(String(game.get("battle_result")) == live_defeat_result and int(game.get("player_base_hp")) == 0, "Restoring a defeated battle must preserve its result and destroyed base state")
+	game.call("_process", 0.1)
+	_expect(int(live_victory_profile.get("battles_played", 0)) == 2 and int(live_victory_profile.get("defeats", 0)) == 1, "Frames after restoring defeat must not record the same loss twice")
+
 	game.set("commander_profile", original_commander_profile)
 	game.call("_save_commander_profile")
 
