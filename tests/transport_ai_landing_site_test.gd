@@ -207,6 +207,23 @@ func _run() -> void:
 	game.get("units").clear()
 	game.get("selected").clear()
 
+	# A recalled empty transport must remain at the pickup site instead of becoming idle.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(400.0, 300.0), "transport_state": "descending", "transport_cargo": [], "transport_pickup_waiting": true})
+	game.call("_update_transport_helicopter", game.get("units")[0], 0.1)
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "pickup_waiting", "An empty recalled transport should hold at the squad pickup site")
+
+	# Infantry can board a transport that is waiting at its pickup rendezvous.
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 65, "pos": Vector2(430.0, 300.0)})
+	game.get("selected").append_array([0, 1])
+	game.call("_load_selected_infantry_into_transport")
+	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "Boarding a waiting pickup transport should transition it to loaded")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "The field squad should board the waiting pickup transport")
+	_expect(not game.get("units")[0].has("transport_pickup_waiting"), "Successful boarding should clear the pickup wait marker")
+	game.get("units").clear()
+	game.get("selected").clear()
+
 	# Boarding requires a landed aircraft and infantry within the physical pickup radius.
 	game.get("units").clear()
 	game.get("selected").clear()
