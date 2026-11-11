@@ -61,7 +61,7 @@ jobs:
   android-candidate:
     name: Export playable Android debug APK
     needs: regression
-    if: needs.regression.result == 'success' && github.event_name == 'workflow_dispatch'
+    if: needs.regression.result == 'success' && (github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container:
