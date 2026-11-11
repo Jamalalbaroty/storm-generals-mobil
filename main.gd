@@ -918,7 +918,8 @@ func _process(delta: float) -> void:
 							escort_enemy_index = nearby_escort_enemy
 					if escort_enemy_index < 0 and not unit.has("attack_building"):
 						if unit.pos.distance_to(escort_position) > 16.0:
-							unit.pos += (escort_position - unit.pos).normalized() * delta * 38.0
+							var escort_direction := _ground_navigation_direction(unit, i, escort_position, delta, 38.0)
+							unit.pos += escort_direction * delta * 38.0
 						continue
 			if bool(unit.get("guard_active", false)):
 				var guard_post: Vector2 = unit.get("guard_position", unit.pos)
@@ -963,7 +964,9 @@ func _process(delta: float) -> void:
 						unit["attack_focus_pos"] = units[guard_enemy_index].pos
 				if not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 					if unit.pos.distance_to(guard_post) > 12.0:
-						unit.pos += (guard_post - unit.pos).normalized() * delta * (22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0))
+						var guard_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
+						var guard_direction := _ground_navigation_direction(unit, i, guard_post, delta, guard_speed)
+						unit.pos += guard_direction * delta * guard_speed
 					continue
 			if bool(unit.get("attack_move_active", false)) and not bool(unit.get("guard_active", false)) and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 				var current_attack_target := int(unit.get("attack_target", -1))
