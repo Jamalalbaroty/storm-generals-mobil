@@ -4206,6 +4206,34 @@ func _sell_selected_building() -> void:
 
 
 
+func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_pos: Vector2) -> Array[int]:
+	# Generals-style casualty extraction: most wounded first, then nearest to the pickup point.
+	var ordered: Array[int] = infantry_indices.duplicate()
+	for sort_index in range(ordered.size()):
+		var best_index := sort_index
+		for compare_index in range(sort_index + 1, ordered.size()):
+			var current_unit_index := ordered[compare_index]
+			var best_unit_index := ordered[best_index]
+			if current_unit_index < 0 or current_unit_index >= units.size():
+				continue
+			if best_unit_index < 0 or best_unit_index >= units.size():
+				best_index = compare_index
+				continue
+			var current_unit: Dictionary = units[current_unit_index]
+			var best_unit: Dictionary = units[best_unit_index]
+			var current_hp := int(current_unit.get("hp", 100))
+			var best_hp := int(best_unit.get("hp", 100))
+			var current_distance: float = current_unit.get("pos", transport_pos).distance_to(transport_pos)
+			var best_distance: float = best_unit.get("pos", transport_pos).distance_to(transport_pos)
+			if current_hp < best_hp or (current_hp == best_hp and current_distance < best_distance):
+				best_index = compare_index
+		if best_index != sort_index:
+			var swap_index := ordered[sort_index]
+			ordered[sort_index] = ordered[best_index]
+			ordered[best_index] = swap_index
+	return ordered
+
+
 func _load_selected_infantry_into_transport() -> void:
 	var transport_index := -1
 	var infantry_indices: Array[int] = []
@@ -4233,15 +4261,8 @@ func _load_selected_infantry_into_transport() -> void:
 		notice = "لا يمكن تحميل الجنود أثناء طيران المروحية أو تنفيذ الإنزال"
 		notice_time = 2.2
 		return
-	# Rescue priority: sort the selected squad by lowest health first, with stable index ties.
-	for sort_index in range(infantry_indices.size()):
-		for compare_index in range(sort_index + 1, infantry_indices.size()):
-			var first_hp := int(units[infantry_indices[sort_index]].get("hp", 100))
-			var next_hp := int(units[infantry_indices[compare_index]].get("hp", 100))
-			if next_hp < first_hp:
-				var swap_index := infantry_indices[sort_index]
-				infantry_indices[sort_index] = infantry_indices[compare_index]
-				infantry_indices[compare_index] = swap_index
+	# Rescue priority: most wounded first; equal-health soldiers nearest the transport board first.
+	infantry_indices = _transport_ai_sort_rescue_infantry(infantry_indices, transport.pos)
 	# Preserve the full squad list: the nearby subset may be empty while everyone needs rendezvous orders.
 	var selected_infantry_indices := infantry_indices.duplicate()
 	var nearby_infantry: Array[int] = []
