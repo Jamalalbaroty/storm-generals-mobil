@@ -875,8 +875,11 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			if is_instance_valid(rope_troops):
 				var descending_soldier := rope_troops.get_node_or_null("DescendingSoldier") as Node3D
 				if is_instance_valid(descending_soldier):
-					descending_soldier.position = Vector3(-0.48 if drop_index % 2 == 0 else 0.48, lerpf(-0.55, -4.15, drop_progress), 0.48)
-					descending_soldier.rotation.z = sin(float(Time.get_ticks_msec()) * 0.006) * 0.035
+					var rope_side := -0.48 if drop_index % 2 == 0 else 0.48
+					var rope_sway := sin(float(Time.get_ticks_msec()) * 0.006 + float(drop_index) * 0.35) * 0.035
+					descending_soldier.position = Vector3(rope_side, lerpf(-0.55, -4.15, drop_progress), 0.48)
+					descending_soldier.rotation.z = rope_sway
+					descending_soldier.rotation.x = cos(float(Time.get_ticks_msec()) * 0.0045) * 0.025
 			if is_instance_valid(fast_ropes):
 				fast_ropes.rotation.z = sin(float(Time.get_ticks_msec()) * 0.004) * 0.018 if fast_ropes.visible else lerpf(fast_ropes.rotation.z, 0.0, clampf(delta * 5.0, 0.0, 1.0))
 			var door_gunners := unit.get_node_or_null("DoorGunners") as Node3D
@@ -2711,6 +2714,33 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 		descending_gear.position = Vector3(0.0, 0.0, 0.20)
 		descending_gear.material_override = _make_armour_material(Color(0.12, 0.16, 0.12))
 		descending_soldier.add_child(descending_gear)
+		# Simple articulated silhouette so the rope rider reads clearly at battlefield camera distance.
+		for limb_side in [-1.0, 1.0]:
+			var descending_arm := MeshInstance3D.new()
+			var descending_arm_mesh := CapsuleMesh.new()
+			descending_arm_mesh.radius = 0.065
+			descending_arm_mesh.height = 0.34
+			descending_arm.mesh = descending_arm_mesh
+			descending_arm.position = Vector3(limb_side * 0.19, 0.04, 0.015)
+			descending_arm.rotation.z = limb_side * -0.52
+			descending_arm.material_override = _make_armour_material(Color(0.18, 0.22, 0.17))
+			descending_soldier.add_child(descending_arm)
+			var descending_leg := MeshInstance3D.new()
+			var descending_leg_mesh := CapsuleMesh.new()
+			descending_leg_mesh.radius = 0.075
+			descending_leg_mesh.height = 0.34
+			descending_leg.mesh = descending_leg_mesh
+			descending_leg.position = Vector3(limb_side * 0.085, -0.34, 0.015)
+			descending_leg.rotation.z = limb_side * 0.12
+			descending_leg.material_override = _make_armour_material(Color(0.13, 0.17, 0.13))
+			descending_soldier.add_child(descending_leg)
+		var rope_grip := MeshInstance3D.new()
+		var rope_grip_mesh := BoxMesh.new()
+		rope_grip_mesh.size = Vector3(0.34, 0.055, 0.07)
+		rope_grip.mesh = rope_grip_mesh
+		rope_grip.position = Vector3(0.0, 0.19, 0.015)
+		rope_grip.material_override = _make_armour_material(Color(0.36, 0.31, 0.22))
+		descending_soldier.add_child(rope_grip)
 	var sensor := MeshInstance3D.new()
 	var sensor_mesh := SphereMesh.new()
 	sensor_mesh.radius = 0.16
