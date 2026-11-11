@@ -986,7 +986,7 @@ func _process(delta: float) -> void:
 								unit.erase("escort_auto_target")
 								escort_enemy_index = -1
 							if escort_enemy_index < 0 and not unit.has("attack_building"):
-								var nearby_escort_threat := _transport_ai_select_escort_threat(air_escort_target.pos, String(unit.kind), 220.0)
+								var nearby_escort_threat := _transport_ai_select_group_escort_threat(air_escort_id, air_escort_target.pos, String(unit.kind), 220.0)
 								if nearby_escort_threat >= 0:
 									unit["attack_target"] = nearby_escort_threat
 									unit["attack_focus_pos"] = units[nearby_escort_threat].pos
@@ -4725,6 +4725,37 @@ func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float)
 	var distance := maxf(0.0, slot_distance)
 	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
 	return base_speed * catchup_factor
+
+
+func _transport_ai_select_group_escort_threat(transport_id: int, from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
+	# Avoid assigning the same automatic target to multiple escorts protecting one transport.
+	var priority_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if escort_kind == "fighter" else ["tank", "artillery", "infantry"]
+	for preferred_kind in priority_kinds:
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) != preferred_kind:
+				continue
+			var claimed := false
+			for escort_index in range(units.size()):
+				if escort_index == candidate_index:
+					continue
+				var other_escort: Dictionary = units[escort_index]
+				if not bool(other_escort.get("escort_active", false)) or not bool(other_escort.get("escort_auto_target", false)) or int(other_escort.get("escort_target_id", -1)) != transport_id:
+					continue
+				if int(other_escort.get("attack_target", -1)) == candidate_index:
+					claimed = true
+					break
+			if claimed:
+				continue
+			var distance: float = from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
 
 
 func _transport_ai_escort_should_release_target(escort_pos: Vector2, transport_pos: Vector2, enemy_pos: Vector2) -> bool:
