@@ -1297,6 +1297,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 	game.set("selected", group_selection)
 	var group_destination := Vector2(active_viewport.x * 0.58, clampf(active_viewport.y * 0.72, 240.0, 285.0))
+	print("GROUP_MOVE_DIAGNOSTIC viewport=", active_viewport, " destination=", group_destination, " tab_rect=", game.call("_command_tab_rect", 2, active_viewport), " button_rect=", game.call("_button_rect", 0, active_viewport), " mode_rect=", game.call("_transport_ai_mode_rect", active_viewport))
 	game.call("_handle_pointer", group_destination, true)
 	game.call("_handle_pointer", group_destination, false)
 	var group_origin := Vector2.ZERO
