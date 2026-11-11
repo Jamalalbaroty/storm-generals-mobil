@@ -4127,6 +4127,7 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 			target_distance = distance
 			target_index = index
 	if target_index < 0:
+		transport["transport_firing"] = false
 		for passenger in cargo:
 			passenger["cargo_attack_cd"] = maxf(0.0, float(passenger.get("cargo_attack_cd", 0.0)) - delta)
 		transport["transport_cargo"] = cargo
@@ -4149,6 +4150,7 @@ func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> vo
 		else:
 			passenger["cargo_attack_cd"] = cooldown
 		cargo[passenger_index] = passenger
+	transport["transport_firing"] = fired
 	if fired:
 		var side_offset := Vector2(0.0, -9.0 if int(transport.get("cargo_fire_side", 0)) % 2 == 0 else 9.0)
 		transport["cargo_fire_side"] = int(transport.get("cargo_fire_side", 0)) + 1
