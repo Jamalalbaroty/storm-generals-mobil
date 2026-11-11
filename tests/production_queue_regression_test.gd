@@ -769,5 +769,57 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Enemy fighters must prioritize landing-craft threats, then safely refresh cached targets after unit indices shift.
+	game.buildings.clear()
+	game.enemy_buildings.clear()
+	game.units.assign([
+		{"unit_id": "enemy_fighter_cache", "pos": Vector2(100, 100), "team": "enemy", "kind": "fighter", "hp": 120},
+		{"unit_id": "enemy_landing_cache", "pos": Vector2(240, 100), "team": "enemy", "kind": "landing_craft", "landing_state": "outbound", "hp": 500},
+		{"unit_id": "player_close_fighter", "pos": Vector2(120, 100), "team": "player", "kind": "fighter", "hp": 120},
+		{"unit_id": "player_landing_threat", "pos": Vector2(400, 100), "team": "player", "kind": "helicopter", "hp": 120}
+	])
+	var fighter_assignment: Dictionary = game._enemy_fighter_cached_assignment(game.units[0], 0, 0.1)
+	if int(fighter_assignment.get("index", -1)) != 3 or String(fighter_assignment.get("mode", "")) != "fighter_landing_defense":
+		push_error("Enemy fighter must prioritize an aircraft threatening an active landing craft over a closer unrelated interceptor")
+		quit(1)
+		return
+	game.units.insert(0, {"unit_id": "inserted_enemy_unit", "pos": Vector2(700, 700), "team": "enemy", "kind": "builder", "hp": 100})
+	fighter_assignment = game._enemy_fighter_cached_assignment(game.units[1], 1, 0.05)
+	if int(fighter_assignment.get("index", -1)) != 4 or String(game.units[4].get("unit_id", "")) != "player_landing_threat":
+		push_error("Enemy fighter cache must reject a stale index and reacquire the same target by stable unit identity")
+		quit(1)
+		return
+	game.units[2].hp = 0
+	game.units[4].hp = 0
+	fighter_assignment = game._enemy_fighter_cached_assignment(game.units[1], 1, 0.05)
+	if int(fighter_assignment.get("index", -1)) != 3 or String(fighter_assignment.get("mode", "")) != "fighter_intercept":
+		push_error("Enemy fighter cache must immediately replace a dead landing threat with a valid air intercept target")
+		quit(1)
+		return
+
+	# Enemy helicopter target caching must also survive index shifts and invalidate destroyed ground targets.
+	game.units.assign([
+		{"unit_id": "enemy_heli_cache", "pos": Vector2(100, 100), "team": "enemy", "kind": "helicopter", "hp": 160},
+		{"unit_id": "player_ground_near", "pos": Vector2(200, 100), "team": "player", "kind": "tank", "hp": 300},
+		{"unit_id": "player_ground_far", "pos": Vector2(300, 100), "team": "player", "kind": "artillery", "hp": 220}
+	])
+	var heli_target_index := game._enemy_helicopter_cached_target(game.units[0], 0, 0.1, -1)
+	if heli_target_index != 1 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_near":
+		push_error("Enemy helicopter must retain the existing nearest exposed ground-target selection")
+		quit(1)
+		return
+	game.units.insert(0, {"unit_id": "inserted_enemy_air_unit", "pos": Vector2(500, 500), "team": "enemy", "kind": "fighter", "hp": 120})
+	heli_target_index = game._enemy_helicopter_cached_target(game.units[1], 1, 0.05, -1)
+	if heli_target_index != 2 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_near":
+		push_error("Enemy helicopter cache must reacquire its target after unit-list indices shift")
+		quit(1)
+		return
+	game.units[2].hp = 0
+	heli_target_index = game._enemy_helicopter_cached_target(game.units[1], 1, 0.05, -1)
+	if heli_target_index != 3 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_far":
+		push_error("Enemy helicopter cache must invalidate a destroyed target and select the next valid ground target")
+		quit(1)
+		return
+
 	print("PASS: faction costs, enemy strategy, player/enemy power grids, production recovery, and missile defense")
 	quit(0)
