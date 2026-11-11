@@ -4179,6 +4179,13 @@ func _group_formation_role(unit: Node3D) -> int:
 	return 2 # Tanks and other direct-combat vehicles form the front line.
 
 
+func _group_formation_columns(role: int, unit_count: int) -> int:
+	# Keep infantry on two clear flanks; widen armor and artillery as squads grow.
+	if role == 1:
+		return 2
+	return mini(5, maxi(1, int(ceil(sqrt(float(maxi(1, unit_count)))))))
+
+
 func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forward: Vector3, spacing: float) -> Vector3:
 	var role := _group_formation_role(unit)
 	var role_index := 0
@@ -4194,12 +4201,12 @@ func _group_formation_offset_for_unit(unit: Node3D, units: Array[Node3D], forwar
 	var preceding_rows := 0
 	var total_rows := 0
 	for role_index_value in range(role_counts.size()):
-		var role_columns := 2 if role_index_value == 1 else 3
+		var role_columns := _group_formation_columns(role_index_value, role_counts[role_index_value])
 		var role_rows := int(ceil(float(role_counts[role_index_value]) / float(role_columns))) if role_counts[role_index_value] > 0 else 0
 		total_rows += role_rows
 		if role_index_value < role:
 			preceding_rows += role_rows
-	var columns := 2 if role == 1 else mini(3, role_counts[role])
+	var columns := _group_formation_columns(role, role_counts[role])
 	var row := int(role_index / columns)
 	var column := role_index % columns
 	var lane_row := preceding_rows + row
