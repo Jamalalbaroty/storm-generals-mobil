@@ -137,14 +137,30 @@ var commander_profile: Dictionary = {
 }
 var commander_profile_saved_result := ""
 var battle_save_store: RefCounted
+var has_resumable_battle := false
 
 func _ready() -> void:
 	randomize()
 	_load_commander_profile()
 	battle_save_store = BattleSaveStoreScript.new()
+	has_resumable_battle = _has_resumable_battle()
 	_setup_battle_audio()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
+
+
+func _has_resumable_battle() -> bool:
+	if battle_save_store == null:
+		return false
+	var snapshot: Dictionary = battle_save_store.call("load_snapshot")
+	if snapshot.is_empty():
+		return false
+	var match_state: Dictionary = snapshot.get("match", {})
+	return bool(match_state.get("game_started", false)) and String(match_state.get("battle_result", "")).is_empty()
+
+
+func _resume_battle_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x * 0.20, size.y * 0.84), Vector2(size.x * 0.60, 42.0))
 
 
 func _notification(what: int) -> void:
@@ -1649,6 +1665,7 @@ func _save_battle_snapshot() -> bool:
 	var snapshot := _build_battle_snapshot()
 	var saved := bool(battle_save_store.call("save_snapshot", snapshot))
 	if saved:
+		has_resumable_battle = true
 		notice = "تم حفظ المعركة بنجاح"
 		notice_time = 2.5
 	else:
@@ -1741,6 +1758,7 @@ func _load_battle_snapshot() -> bool:
 	environment_particles.clear()
 	campaign_briefing = false
 	commander_profile_saved_result = battle_result
+	has_resumable_battle = false
 	_ensure_stable_unit_identities()
 	notice = "تمت استعادة المعركة — قواتك ومهمات النقل جاهزة"
 	notice_time = 3.5
@@ -3367,7 +3385,7 @@ func _draw_faction_picker(size: Vector2) -> void:
 		_draw_campaign_briefing(size)
 		return
 	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
-	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
+	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.76)
 	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
 	draw_rect(panel, Color("#52666c"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
@@ -3381,6 +3399,11 @@ func _draw_faction_picker(size: Vector2) -> void:
 		var progress_label := "الحملة مكتملة" if completed >= CAMPAIGN_MISSIONS.size() else "المهمة %d / %d" % [completed + 1, CAMPAIGN_MISSIONS.size()]
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.45), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.76), progress_label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 11, Color("#f4d77a"))
+	if has_resumable_battle:
+		var resume_rect := _resume_battle_rect(size)
+		draw_rect(resume_rect, Color("#315d48"), true)
+		draw_rect(resume_rect, Color("#a8e6b0"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, resume_rect.position + Vector2(0.0, 27.0), "استعادة آخر معركة", HORIZONTAL_ALIGNMENT_CENTER, resume_rect.size.x, 17, Color.WHITE)
 
 
 func _campaign_start_rect(size: Vector2) -> Rect2:
@@ -3497,6 +3520,9 @@ func _input(event: InputEvent) -> void:
 		queue_redraw()
 
 func _begin_campaign_battle(size: Vector2) -> void:
+	if battle_save_store != null:
+		battle_save_store.call("delete_snapshot")
+	has_resumable_battle = false
 	var progress: Dictionary = commander_profile.get("campaign_progress", {})
 	campaign_mission_index = clampi(int(progress.get(faction, 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
 	var mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
@@ -3749,6 +3775,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		if _restart_rect(size).has_point(pos):
 			_set_3d_view_enabled(false)
 			game_started = false
+			if battle_save_store != null:
+				battle_save_store.call("delete_snapshot")
+			has_resumable_battle = false
 			paused = false
 			battle_result = ""
 			faction = ""
@@ -3817,6 +3846,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_begin_campaign_battle(size)
 				return
 		else:
+			if has_resumable_battle and _resume_battle_rect(size).has_point(pos):
+				if not _load_battle_snapshot():
+					has_resumable_battle = false
+				queue_redraw()
+				return
 			for i in FACTIONS.size():
 				if _faction_rect(i, size).has_point(pos):
 					faction = FACTIONS[i]
