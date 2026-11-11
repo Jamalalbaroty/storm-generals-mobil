@@ -4702,6 +4702,53 @@ func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transpo
 	return true
 
 
+func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
+	if transport_indices.is_empty():
+		return 0
+	var escort_counts: Dictionary = {}
+	var assigned := 0
+	for selected_index in selected:
+		if selected_index < 0 or selected_index >= units.size() or transport_indices.has(selected_index):
+			continue
+		var escort: Dictionary = units[selected_index]
+		var escort_kind := String(escort.get("kind", ""))
+		if String(escort.get("team", "")) != "player" or int(escort.get("hp", 0)) <= 0 or escort_kind not in ["fighter", "helicopter"]:
+			continue
+		var best_transport_index := -1
+		var best_cost := INF
+		for transport_index in transport_indices:
+			if transport_index < 0 or transport_index >= units.size():
+				continue
+			var transport: Dictionary = units[transport_index]
+			var sync_id := int(transport.get("3d_sync_id", -1))
+			if sync_id < 0 or String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+				continue
+			var assigned_count := int(escort_counts.get(transport_index, 0))
+			var cost := escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0
+			if cost < best_cost:
+				best_cost = cost
+				best_transport_index = transport_index
+		if best_transport_index < 0:
+			continue
+		var protected_transport: Dictionary = units[best_transport_index]
+		_cancel_airfield_recovery(escort)
+		var offset: Vector2 = escort.pos - protected_transport.pos
+		if offset.length() > 105.0:
+			offset = offset.normalized() * 105.0
+		if offset.length() < 28.0:
+			var side := -1.0 if int(escort_counts.get(best_transport_index, 0)) % 2 == 0 else 1.0
+			offset = Vector2(side * 62.0, -48.0)
+		escort["escort_target_id"] = int(protected_transport.get("3d_sync_id", -1))
+		escort["escort_offset"] = offset
+		escort["escort_active"] = true
+		escort.erase("escort_auto_target")
+		for order_key in ["target", "guard_active", "guard_position", "guard_radius", "attack_move_active", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+			escort.erase(order_key)
+		escort_counts[best_transport_index] = int(escort_counts.get(best_transport_index, 0)) + 1
+		assigned += 1
+	return assigned
+
+
 func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 	var pending_transports: Array[int] = []
 	for selected_index in selected:
@@ -4721,7 +4768,8 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 			notice_time = 2.8
 			return true
 		if _transport_ai_order_group_ground_insertions(world_pos, pending_transports):
-			notice = "انطلقت %d طائرات نقل إلى مواقع إنزال أرضية متباعدة ومنسقة" % pending_transports.size()
+			var escort_count := _transport_ai_assign_selected_air_escorts(pending_transports)
+			notice = "انطلقت %d طائرات نقل إلى مواقع إنزال متباعدة — المرافقة الجوية: %d" % [pending_transports.size(), escort_count]
 		else:
 			notice = "تعذر تأمين مواقع إنزال متباعدة لكل الطائرات — لم تصدر أي مهمة"
 		notice_time = 2.8
