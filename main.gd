@@ -2595,6 +2595,10 @@ func _draw() -> void:
 			draw_line(_unit_rotated_point(u.pos, Vector2(-11, 4), heli_angle), _unit_rotated_point(u.pos, Vector2(-22, 10), heli_angle), Color("#343b3b"), 2)
 			draw_line(_unit_rotated_point(u.pos, Vector2(3, 7), heli_angle), _unit_rotated_point(u.pos, Vector2(14, 12), heli_angle), Color("#343b3b"), 2)
 			draw_circle(_unit_rotated_point(u.pos, Vector2(5, -3), heli_angle), 3, Color("#9ed5df"))
+			if u.kind == "transport_helicopter":
+				var cargo_count := Array(u.get("transport_cargo", [])).size()
+				if cargo_count > 0:
+					draw_string(ThemeDB.fallback_font, u.pos + Vector2(-13, 29), "حمولة %d/8" % cargo_count, HORIZONTAL_ALIGNMENT_CENTER, 58, 9, Color("#f4dfad"))
 		elif u.kind == "fighter":
 			var plane_color = Color("#d7e4e8") if u.team == "player" else Color("#d95b51")
 			var plane_angle := _unit_facing_angle(u)
@@ -2918,7 +2922,7 @@ func _draw_hud(size: Vector2) -> void:
 		var infantry_count := 0
 		var ground_support_count := 0
 		var aircraft_count := 0
-		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
+		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "transport_helicopter": "مروحية النقل", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
 		var dossier_name := String(kind_labels.get(String(selected_player_units[0].get("kind", "")), "الوحدة"))
 		for selected_unit in selected_player_units:
 			var selected_kind := String(selected_unit.get("kind", ""))
@@ -2926,7 +2930,7 @@ func _draw_hud(size: Vector2) -> void:
 				infantry_count += 1
 			elif selected_kind in ["tank", "artillery", "builder"]:
 				ground_support_count += 1
-			elif selected_kind in ["fighter", "helicopter"]:
+			elif selected_kind in ["fighter", "helicopter", "transport_helicopter"]:
 				aircraft_count += 1
 			var unit_xp := float(selected_unit.get("combat_xp", 0.0))
 			var unit_rank := int(selected_unit.get("veterancy", 0))
