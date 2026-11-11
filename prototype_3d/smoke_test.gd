@@ -497,6 +497,8 @@ func _initialize() -> void:
 	unit_records[0]["pos"] = Vector2(300.0, 180.0)
 	unit_records[0]["hp"] = 90
 	battlefield.call("sync_game_units", unit_records, map_rect)
+	# Live 3D proxies interpolate toward the latest authoritative 2D transform.
+	battlefield.call("_process", 0.1)
 	battlefield.call("_update_showcase_health_bars")
 	var tank_health_fill := battlefield.showcase_health_bars.get(tank_3d) as MeshInstance3D
 	if tank_3d.position.distance_to(Vector3(-6.384, 0.0, -6.384)) > 0.03 or absf(float(tank_3d.get_meta("health")) - 90.0) > 0.001 or tank_health_fill == null or absf(tank_health_fill.scale.x - 0.45) > 0.02:
