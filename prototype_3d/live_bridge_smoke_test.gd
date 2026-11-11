@@ -1007,7 +1007,7 @@ func _initialize() -> void:
 	game.call("_process", 1.0)
 	var retreated_units: Array[Dictionary] = game.get("units")
 	if float(retreated_units[0].pos.x) <= 500.0 or not bool(retreated_units[0].get("retreating", false)) or int(retreated_units[1].get("hp", 150)) != 150:
-		push_error("Critically damaged enemy armor did not disengage and fall back toward its nearest completed asset")
+		push_error("Critically damaged enemy armor did not disengage: units=%s enemy_base=%s enemy_base_hp=%s battle_result=%s" % [str(retreated_units), str(game.get("enemy_base")), str(game.get("enemy_base_hp")), str(game.get("battle_result"))])
 		quit(1)
 		return
 	var nearest_retreat_asset: Vector2 = game.call("_enemy_retreat_destination", Vector2(500.0, 330.0))
