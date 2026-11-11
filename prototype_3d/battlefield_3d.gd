@@ -3864,13 +3864,6 @@ func _update_infantry_animation(delta: float) -> void:
 				part.position.y = lerpf(part.position.y, base_y - drop, crouch_blend)
 				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
 				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
-		var weapon_pivot := soldier.get_node_or_null("InfantryWeapon") as Node3D
-		if is_instance_valid(weapon_pivot):
-			# Raise and steady the rifle when the authoritative squad order enters combat.
-			var weapon_pitch := -0.075 if is_aiming else 0.0
-			var weapon_roll := -0.035 if is_aiming else 0.0
-			weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x, weapon_pitch, clampf(delta * 8.0, 0.0, 1.0))
-			weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z, weapon_roll, clampf(delta * 8.0, 0.0, 1.0))
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
@@ -3886,6 +3879,17 @@ func _update_infantry_animation(delta: float) -> void:
 		var phase_offset := float(slot_index % 4) * (PI * 0.5)
 		var phase := infantry_gait_clock * lerpf(6.0, 9.0, gait_intensity) + phase_offset
 		var stride := lerpf(0.025, 0.52, gait_intensity)
+		var weapon_pivot := soldier.get_node_or_null("InfantryWeapon") as Node3D
+		if is_instance_valid(weapon_pivot):
+			# Raise and steady the rifle when the authoritative squad order enters combat.
+			var weapon_pitch := -0.075 if is_aiming else 0.0
+			var weapon_roll := -0.035 if is_aiming else 0.0
+			weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x, weapon_pitch, clampf(delta * 8.0, 0.0, 1.0))
+			weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z, weapon_roll, clampf(delta * 8.0, 0.0, 1.0))
+			var walk_sway := sin(phase) * 0.018 * gait_intensity
+			weapon_pivot.position.y = lerpf(weapon_pivot.position.y, 1.13 + walk_sway, clampf(delta * 9.0, 0.0, 1.0))
+			var walk_bob := absf(cos(phase)) * 0.012 * gait_intensity
+			weapon_pivot.position.z = lerpf(weapon_pivot.position.z, -0.20 - walk_bob, clampf(delta * 9.0, 0.0, 1.0))
 		for leg_index in range(legs.size()):
 			var leg_variant = legs[leg_index]
 			if not is_instance_valid(leg_variant):
