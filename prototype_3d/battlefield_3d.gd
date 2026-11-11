@@ -3628,6 +3628,9 @@ func _add_placeholder_infantry_squad(at: Vector3, faction_color: Color, faction_
 		var soldier := Node3D.new()
 		soldier.name = "Soldier_" + str(soldier_index)
 		soldier.position = soldier_offsets[soldier_index]
+		# Stable slot phases keep the four soldiers marching as one squad
+		# instead of giving every proxy an unrelated random-looking gait.
+		soldier.set_meta("infantry_slot_index", soldier_index)
 		squad.add_child(soldier)
 
 		var body := MeshInstance3D.new()
@@ -3830,7 +3833,9 @@ func _update_infantry_animation(delta: float) -> void:
 		var gait_intensity := float(soldier.get_meta("infantry_gait_intensity", 0.0))
 		gait_intensity = move_toward(gait_intensity, desired_gait, delta * 5.0)
 		soldier.set_meta("infantry_gait_intensity", gait_intensity)
-		var phase := infantry_gait_clock * lerpf(6.0, 9.0, gait_intensity) + float(soldier.get_instance_id() % 7)
+		var slot_index := int(soldier.get_meta("infantry_slot_index", 0))
+		var phase_offset := float(slot_index % 4) * (PI * 0.5)
+		var phase := infantry_gait_clock * lerpf(6.0, 9.0, gait_intensity) + phase_offset
 		for leg_index in range(legs.size()):
 			var leg_variant = legs[leg_index]
 			if not is_instance_valid(leg_variant):
