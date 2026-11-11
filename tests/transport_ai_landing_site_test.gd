@@ -442,6 +442,12 @@ func _run() -> void:
 	_expect(int(game.get("units")[1].get("escort_formation_slot", -1)) == 0, "Surviving escorts should compact into the first available formation slot")
 	_expect(int(game.get("units")[1].get("escort_formation_size", 0)) == 1, "Compacted formation size should exclude destroyed escorts")
 	_expect(Vector2(game.get("units")[1].get("escort_offset", Vector2.ZERO)) == game.call("_transport_ai_escort_formation_offset", 0), "Compaction should restore the deterministic slot offset")
+	var escort_base_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 18.0)
+	var escort_far_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 420.0)
+	var escort_helicopter_speed: float = game.call("_transport_ai_escort_catchup_speed", "helicopter", 420.0)
+	_expect(escort_far_speed > escort_base_speed, "An escort far from its moving formation slot should accelerate to catch up")
+	_expect(escort_far_speed <= escort_base_speed * 1.4, "Escort catch-up acceleration must remain capped for balance")
+	_expect(escort_helicopter_speed > 78.0 and escort_helicopter_speed <= 78.0 * 1.4, "Gunship catch-up speed should scale independently within the same cap")
 	game.get("units").clear()
 
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
