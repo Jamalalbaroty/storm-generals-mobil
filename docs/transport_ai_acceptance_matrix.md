@@ -195,3 +195,10 @@ GitHub Actions for this exact commit:
 - Android APK export remained skipped, as requested until the overall project reaches the separately verified 80% threshold.
 
 **Remaining release gates:** real Android device touch/performance and app-close/relaunch verification are not covered by headless CI. The save schema currently captures the defined match state; it still needs a device lifecycle test before being treated as release-ready.
+
+### Mobile lifecycle autosave — 2026-11-11
+
+- Active battles now save synchronously on Godot `NOTIFICATION_APPLICATION_PAUSED` (Android background/interruption) and `NOTIFICATION_WM_CLOSE_REQUEST` (desktop close). Finished or not-yet-started matches are not autosaved by this hook.
+- Added a regression that changes the live economy, dispatches the application-paused notification, deliberately mutates the in-memory state, then reloads and verifies the autosaved value.
+- GitHub Actions on commit `d372d3753f2a68ff3b011602d35133531f3fa5fa`: Regression run `43074404381` (#754) success, including lifecycle autosave integration and all existing transport/formation/attack/endurance tests; Validation run `43074404520` (#831) success.
+- APK export remained skipped. CI notification simulation is not a substitute for verifying actual Android process termination/relaunch on a physical device.
