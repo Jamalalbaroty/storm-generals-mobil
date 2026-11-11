@@ -86,3 +86,8 @@ This is a reusable decision primitive only. It is not yet wired to MANUAL / ASSI
 `main.gd` now includes `_transport_ai_build_landing_candidates(objective_pos)` to create a deterministic grid of ground candidates inside the safe map bounds and rooftop candidates from completed, living non-wall structures. `_transport_ai_plan_landing(objective_pos)` evaluates that set and returns the best valid destination using the existing deterministic scorer. The landing-site regression script now also checks that candidate generation and planning return a complete valid destination on a normal map.
 
 This remains a planning primitive: it does not yet launch or redirect a transport, and it does not replace the player's explicit manual landing command. Automated candidate generation and scoring must be run through Godot headless before being considered verified.
+
+
+## Implemented third slice — broader threat sampling
+
+The landing evaluator now samples the approach corridor at 25%, 50%, and 75% rather than relying on one midpoint. It also applies a distance-weighted penalty for nearby living enemy mobile units, with heavier weights for armor, artillery, and aircraft. The regression script includes a case that verifies the planner prefers a site outside a nearby hostile tank's threat radius. This remains unverified until the Godot headless test is run; it still does not issue transport movement orders or provide the player policy UI.
