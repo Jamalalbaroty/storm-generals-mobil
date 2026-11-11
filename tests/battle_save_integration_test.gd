@@ -78,6 +78,17 @@ func _run_battle_save_integration_test() -> void:
 	_expect(not bool(save_store.call("_validate_unit_identity", invalid_rank_unit, {})), "Out-of-range veterancy rank must be rejected by save validation")
 	game.get("units").clear()
 
+	# Four-army balance contract: each army keeps its intended economic and combat identity.
+	_expect(int(game.call("_unit_cost", "tank", "الصيني")) == 270, "Chinese armor must retain the lowest tank cost")
+	_expect(int(game.call("_unit_cost", "tank", "الأمريكي")) == 300, "American tank cost must remain the combined-arms baseline")
+	_expect(int(game.call("_unit_cost", "infantry", "الجيش العربي")) == 90, "Arab infantry must retain its affordability advantage")
+	_expect(int(game.call("_unit_cost", "artillery", "الجيش العربي")) == 430, "Arab artillery must retain its field-support cost advantage")
+	_expect(int(game.call("_unit_cost", "tank", "وطن")) == 360, "Watan elite tanks must retain a deliberate production premium")
+	_expect(int(game.call("_unit_cost", "fighter", "وطن")) == 575, "Watan air power must retain its reinforcement premium")
+	_expect(int(game.call("_missile_damage", "وطن")) == 230 and int(game.call("_missile_cost", "وطن")) == 850, "Watan's stronger strategic missile must retain its higher resource cost")
+	_expect(int(game.call("_missile_damage", "الصيني")) == 185 and int(game.call("_missile_cost", "الصيني")) == 650, "Chinese strategic missiles must retain the lower-cost, lower-damage profile")
+	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")) and int(game.call("_unit_cost", "tank", "الصيني")) < int(game.call("_unit_cost", "tank", "الأمريكي")), "Elite Watan and efficient Chinese armor must remain distinct from the American baseline")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
