@@ -1169,13 +1169,9 @@ func _initialize() -> void:
 	game.set("units", all_unit_families)
 	game.call("_sync_3d_gameplay_bridge")
 	if bridge.game_unit_nodes.size() != all_unit_families.size():
-		push_error("Live bridge did not create one stable 3D proxy for every infantry, artillery, air and naval unit family")
+		push_error("Live bridge did not create one stable 3D proxy for every enabled unit family")
 		quit(1)
 		return
-	var expected_live_keys: Array[String] = [
-		"player|1|infantry", "player|2|artillery", "player|3|helicopter",
-		"enemy|4|destroyer", "enemy|5|carrier", "enemy|6|submarine", "enemy|7|landing_craft"
-	]
 	for family_index in range(expected_live_keys.size()):
 		var family_node := bridge.game_unit_nodes.get(expected_live_keys[family_index]) as Node3D
 		if family_node == null or absf(float(family_node.get_meta("health", -1.0)) - float(all_unit_families[family_index].hp)) > 0.001 or absf(float(family_node.get_meta("max_health", -1.0)) - float(all_unit_families[family_index].max_hp)) > 0.001:
