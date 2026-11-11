@@ -985,6 +985,14 @@ func _process(delta: float) -> void:
 								unit.erase("attack_focus_pos")
 								unit.erase("escort_auto_target")
 								escort_enemy_index = -1
+							var emergency_escort_threat := _transport_ai_select_emergency_escort_threat(air_escort_id, i, air_escort_target.pos, 150.0)
+							if emergency_escort_threat >= 0 and not unit.has("attack_building") and (not unit.has("attack_target") or bool(unit.get("escort_auto_target", false))):
+								var current_auto_target := int(unit.get("attack_target", -1))
+								if not bool(unit.get("escort_auto_target", false)) or current_auto_target < 0 or current_auto_target >= units.size() or units[current_auto_target].pos.distance_to(air_escort_target.pos) > 150.0:
+									unit["attack_target"] = emergency_escort_threat
+									unit["attack_focus_pos"] = units[emergency_escort_threat].pos
+									unit["escort_auto_target"] = true
+									escort_enemy_index = emergency_escort_threat
 							if escort_enemy_index < 0 and not unit.has("attack_building"):
 								var nearby_escort_threat := _transport_ai_select_group_escort_threat(air_escort_id, air_escort_target.pos, String(unit.kind), 220.0)
 								if nearby_escort_threat >= 0:
@@ -4725,6 +4733,31 @@ func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float)
 	var distance := maxf(0.0, slot_distance)
 	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
 	return base_speed * catchup_factor
+
+
+func _transport_ai_select_emergency_escort_threat(transport_id: int, escort_index: int, transport_pos: Vector2, max_distance: float = 150.0) -> int:
+	# During an immediate threat to the transport, all escorts prioritize the closest unclaimed attacker.
+	var best_index := -1
+	var best_distance := max_distance
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var claimed := false
+		for other_index in range(units.size()):
+			if other_index == escort_index or other_index == candidate_index:
+				continue
+			var other_escort: Dictionary = units[other_index]
+			if bool(other_escort.get("escort_active", false)) and bool(other_escort.get("escort_auto_target", false)) and int(other_escort.get("escort_target_id", -1)) == transport_id and int(other_escort.get("attack_target", -1)) == candidate_index:
+				claimed = true
+				break
+		if claimed:
+			continue
+		var distance: float = transport_pos.distance_to(candidate.pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = candidate_index
+	return best_index
 
 
 func _transport_ai_select_group_escort_threat(transport_id: int, from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
