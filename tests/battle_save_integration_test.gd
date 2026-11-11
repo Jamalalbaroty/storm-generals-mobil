@@ -211,6 +211,19 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_load_battle_snapshot")), "Android pause notification should persist a resumable battle")
 	_expect(int(game.get("credits")) == 1337, "Pause autosave should capture the latest economy state")
 
+	game.set("credits", 1444)
+	game.call("_notification", Node.NOTIFICATION_WM_CLOSE_REQUEST)
+	game.set("credits", 6)
+	_expect(bool(game.call("_load_battle_snapshot")), "Desktop close notification should persist the active battle before teardown")
+	_expect(int(game.get("credits")) == 1444, "Close-request autosave should capture the latest economy state")
+	game.set("game_started", false)
+	game.set("credits", 2222)
+	game.call("_notification", Node.NOTIFICATION_APPLICATION_PAUSED)
+	game.set("credits", 7)
+	_expect(bool(game.call("_load_battle_snapshot")), "An existing valid battle save should remain loadable while the game is at its menu")
+	_expect(int(game.get("credits")) == 1444, "Pausing outside an active match must not overwrite the previous battle save")
+	game.set("game_started", true)
+
 	# Exercise every meaningful transport lifecycle boundary through the real snapshot path.
 	var transport_cases := [
 		{"state": "inbound", "cargo_count": 1, "target": Vector2(710.0, 280.0), "route": [Vector2(500.0, 220.0), Vector2(710.0, 280.0)], "drop_index": 0},
