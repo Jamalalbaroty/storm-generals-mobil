@@ -179,6 +179,29 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_nearest_unit_by_priority", Vector2.ZERO, 19.0, "enemy", ["fighter", "helicopter", "transport_helicopter"])) == -1, "Role-based target selection must never acquire targets outside its engagement radius")
 	game.get("units").clear()
 
+	# Zero Hour-style armor facing: rear/side exposure takes more damage than a frontal hit.
+	var armored_target: Dictionary = {"kind": "tank", "team": "enemy", "hp": 300, "pos": Vector2.ZERO, "facing": 0.0}
+	var frontal_hit := int(game.call("_player_armor_penetration_damage", armored_target, 100, Vector2(100.0, 0.0)))
+	var rear_hit := int(game.call("_player_armor_penetration_damage", armored_target, 100, Vector2(-100.0, 0.0)))
+	_expect(frontal_hit == 105, "Tank frontal armor must reduce incoming penetration damage")
+	_expect(rear_hit == 162 and rear_hit > frontal_hit, "Tank rear exposure must take stronger armor-penetrating damage")
+	# Artillery shells damage ground units by distance, never friendly forces or aircraft.
+	var artillery_attacker: Dictionary = {"team": "player", "kind": "artillery", "combat_xp": 0.0}
+	game.get("units").assign([
+		{"kind": "tank", "team": "enemy", "hp": 300, "pos": Vector2.ZERO},
+		{"kind": "artillery", "team": "enemy", "hp": 220, "pos": Vector2(100.0, 0.0)},
+		{"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(101.0, 0.0)},
+		{"kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO},
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2.ZERO}
+	])
+	game.call("_apply_artillery_blast", Vector2.ZERO, 100.0, 100, "enemy", artillery_attacker)
+	_expect(int(game.get("units")[0]["hp"]) == 200, "Artillery blast must apply full damage at the impact center")
+	_expect(int(game.get("units")[1]["hp"]) == 185, "Artillery blast must apply reduced damage at the edge of its radius")
+	_expect(int(game.get("units")[2]["hp"]) == 100, "Artillery blast must not damage ground units outside its radius")
+	_expect(int(game.get("units")[3]["hp"]) == 180, "Ground artillery blast must not damage aircraft")
+	_expect(int(game.get("units")[4]["hp"]) == 300, "Artillery blast must never damage friendly units")
+	game.get("units").clear()
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
