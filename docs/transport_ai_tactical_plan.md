@@ -111,3 +111,8 @@ Explicit player landing orders now mark the current sortie as player-overridden 
 ## Landing clearance correction
 
 The live unit-occupancy filter now ignores friendly transport helicopters while checking landing footprints. This prevents a transport from treating its own current hover position as an occupied ground landing zone during tactical planning. A regression case was added for a friendly transport hovering exactly over a candidate site. Other friendly ground units and hostile units continue to block the landing footprint.
+
+
+## CI feedback and correction
+
+The first Godot 4.4 regression run confirmed project import and the existing economy, gameplay-smoke, and transport-airlift suites, but the new AI test was rejected by strict Variant-inference warnings on two local variables. Those variables are now explicitly typed as `Dictionary`. The dedicated AI regression suite must be rerun on the corrected commit before this slice is considered validated.
