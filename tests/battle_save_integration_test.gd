@@ -174,6 +174,53 @@ func _run_battle_save_integration_test() -> void:
 		if case_index == transport_cases.size() - 1:
 			_expect(game.get("units").size() == 2 and String(game.get("units")[1].get("unit_id", "")) == "unit_00000052", "Dropped passenger should exist as a field unit after leaving the manifest")
 
+	# Campaign secondary objectives expose live, deterministic progress for every mission.
+	game.set("campaign_mission_index", 0)
+	game.set("player_base_hp", 499)
+	var objective_status: Dictionary = game.call("_campaign_secondary_objective_status")
+	_expect(int(objective_status.get("current", -1)) == 499 and int(objective_status.get("required", -1)) == 500 and not bool(objective_status.get("met", true)), "Mission 1 objective progress must reflect base health below threshold")
+	game.set("player_base_hp", 500)
+	_expect(bool(game.call("_campaign_secondary_objective_met")), "Mission 1 secondary objective must complete at 50 percent base health")
+
+	game.set("campaign_mission_index", 1)
+	game.set("supply_points", [
+		{"owner": "player"}, {"owner": "player"}, {"owner": "enemy"}, {"owner": "neutral"}
+	])
+	objective_status = game.call("_campaign_secondary_objective_status")
+	_expect(int(objective_status.get("current", -1)) == 2 and bool(objective_status.get("met", false)), "Mission 2 objective must count two player-controlled supply points")
+
+	game.set("campaign_mission_index", 2)
+	game.set("buildings", [
+		{"hp": 100, "build_progress": 1.0},
+		{"hp": 100, "build_progress": 1.0},
+		{"hp": 100, "build_progress": 1.0},
+		{"hp": 100, "build_progress": 0.75},
+		{"hp": 0, "build_progress": 1.0}
+	])
+	objective_status = game.call("_campaign_secondary_objective_status")
+	_expect(int(objective_status.get("current", -1)) == 3 and not bool(objective_status.get("met", true)), "Mission 3 objective must exclude incomplete and destroyed buildings")
+	game.get("buildings").append({"hp": 100, "build_progress": 1.0})
+	_expect(bool(game.call("_campaign_secondary_objective_met")), "Mission 3 secondary objective must complete with four finished living buildings")
+
+	game.set("campaign_mission_index", 3)
+	game.set("units", [
+		{"team": "player", "kind": "fighter", "hp": 100},
+		{"team": "player", "kind": "tank", "hp": 100},
+		{"team": "player", "kind": "artillery", "hp": 0},
+		{"team": "enemy", "kind": "tank", "hp": 100}
+	])
+	objective_status = game.call("_campaign_secondary_objective_status")
+	_expect(int(objective_status.get("current", -1)) == 2 and bool(objective_status.get("met", false)), "Mission 4 objective must require living player air and armor units")
+	game.set("units", [{"team": "player", "kind": "fighter", "hp": 100}, {"team": "player", "kind": "tank", "hp": 0}])
+	_expect(not bool(game.call("_campaign_secondary_objective_met")), "Mission 4 objective must fail when the only armor unit is destroyed")
+
+	game.set("campaign_mission_index", 4)
+	game.set("player_base_hp", 599)
+	objective_status = game.call("_campaign_secondary_objective_status")
+	_expect(int(objective_status.get("current", -1)) == 599 and not bool(objective_status.get("met", true)), "Mission 5 objective progress must reflect base health below 60 percent")
+	game.set("player_base_hp", 600)
+	_expect(bool(game.call("_campaign_secondary_objective_met")), "Mission 5 secondary objective must complete at 60 percent base health")
+
 	# Battle outcomes must update career and campaign progression exactly once.
 	var original_commander_profile: Dictionary = game.get("commander_profile").duplicate(true)
 	game.set("commander_profile", {
