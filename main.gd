@@ -4720,18 +4720,24 @@ func _transport_ai_apply_post_drop_doctrine(passenger: Dictionary, transport: Di
 	if has_player_order:
 		return false
 	var doctrine := String(transport.get("transport_ai_post_drop_doctrine", "DEFEND")).to_upper()
-	if doctrine != "DEFEND":
-		return false
-	passenger["guard_position"] = landing_center
-	passenger["guard_radius"] = 155.0
-	passenger["guard_active"] = true
-	passenger.erase("target")
-	passenger.erase("attack_target")
-	passenger.erase("attack_focus_pos")
-	passenger.erase("attack_building")
-	passenger.erase("attack_base")
-	passenger.erase("attack_move_active")
-	return true
+	# Clear only stale autonomous state after confirming the passenger has no player order.
+	for order_key in ["target", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
+		passenger.erase(order_key)
+	if doctrine == "DEFEND":
+		passenger["guard_position"] = landing_center
+		passenger["guard_radius"] = 155.0
+		passenger["guard_active"] = true
+		return true
+	if doctrine == "ATTACK_MOVE":
+		# Reuse the game's existing attack-move combat loop; objective is the sortie's saved mission point.
+		if not transport.has("transport_ai_objective_pos"):
+			return false
+		var map_size := get_viewport_rect().size
+		var objective: Vector2 = transport["transport_ai_objective_pos"]
+		passenger["target"] = Vector2(clampf(objective.x, 24.0, map_size.x - 24.0), clampf(objective.y, 24.0, map_size.y - 24.0))
+		passenger["attack_move_active"] = true
+		return true
+	return false
 
 
 func _transport_formation_slot(center: Vector2, drop_index: int, transport: Dictionary, fallback: Vector2) -> Vector2:
