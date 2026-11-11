@@ -751,6 +751,10 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			if fast_ropes is Node3D:
 				fast_ropes.visible = String(record.get("transport_state", "")) == "descending"
 			unit.set_meta("transport_cargo_count", Array(record.get("transport_cargo", [])).size())
+			unit.set_meta("transport_firing", bool(record.get("transport_firing", false)))
+			var door_muzzles := unit.get_node_or_null("DoorMuzzleFlashes")
+			if door_muzzles is Node3D:
+				door_muzzles.visible = bool(record.get("transport_firing", false)) and not Array(record.get("transport_cargo", [])).is_empty()
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
 	var selection_roster_changed := false
@@ -792,18 +796,18 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		var unit := unit_variant as Node3D
 		var target_variant = unit.get_meta("gameplay_visual_target", unit.global_position)
 		var aircraft_kind := String(unit.get_meta("gameplay_unit_kind", unit.get_meta("unit_type", "")))
-		var is_aircraft := aircraft_kind in ["fighter", "helicopter"]
+		var is_aircraft := aircraft_kind in ["fighter", "helicopter", "transport_helicopter"]
 		var horizontal_travel := 0.0
 		if target_variant is Vector3:
 			horizontal_travel = Vector2(target_variant.x - unit.global_position.x, target_variant.z - unit.global_position.z).length()
 			unit.global_position = unit.global_position.lerp(target_variant, blend)
 		if is_aircraft:
 			# Small climb under forward movement; helicopters retain a gentle hover motion.
-			var base_altitude := 5.2 if aircraft_kind == "helicopter" else 6.4
+			var base_altitude := 5.2 if aircraft_kind in ["helicopter", "transport_helicopter"] else 6.4
 			var climb_target := clampf(horizontal_travel * 0.035, 0.0, 0.42)
-			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind == "helicopter" else 1.15)
+			var hover_phase := float(unit.get_meta("gameplay_hover_phase", 0.0)) + delta * (2.4 if aircraft_kind in ["helicopter", "transport_helicopter"] else 1.15)
 			unit.set_meta("gameplay_hover_phase", hover_phase)
-			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind == "helicopter" else 0.035)
+			var hover_amount := sin(hover_phase) * (0.10 if aircraft_kind in ["helicopter", "transport_helicopter"] else 0.035)
 			var landed_at_airfield := bool(unit.get_meta("gameplay_aircraft_landed", false))
 			var altitude_target := 0.45 if landed_at_airfield else (base_altitude + climb_target + hover_amount)
 			var takeoff_active := bool(unit.get_meta("gameplay_aircraft_takeoff", false))
@@ -2506,6 +2510,55 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, i
 		cargo_bay.position = Vector3(0.0, -0.12, 0.48)
 		cargo_bay.material_override = _make_armour_material(tint.darkened(0.12))
 		helicopter.add_child(cargo_bay)
+		# Side-door silhouettes make the troop compartment visibly occupied.
+		var passenger_group := Node3D.new()
+		passenger_group.name = "DoorGunners"
+		helicopter.add_child(passenger_group)
+		for side in [-1.0, 1.0]:
+			var soldier := Node3D.new()
+			soldier.position = Vector3(side * 0.62, -0.12, 0.12)
+			passenger_group.add_child(soldier)
+			var torso := MeshInstance3D.new()
+			var torso_mesh := CapsuleMesh.new()
+			torso_mesh.radius = 0.16
+			torso_mesh.height = 0.48
+			torso.mesh = torso_mesh
+			torso.material_override = _make_armour_material(Color(0.16, 0.20, 0.16))
+			soldier.add_child(torso)
+			var head := MeshInstance3D.new()
+			var head_mesh := SphereMesh.new()
+			head_mesh.radius = 0.12
+			head_mesh.height = 0.20
+			head.mesh = head_mesh
+			head.position.y = 0.30
+			head.material_override = _make_armour_material(Color(0.48, 0.39, 0.27))
+			soldier.add_child(head)
+			var rifle := MeshInstance3D.new()
+			var rifle_mesh := BoxMesh.new()
+			rifle_mesh.size = Vector3(0.07, 0.07, 0.72)
+			rifle.mesh = rifle_mesh
+			rifle.position = Vector3(side * 0.18, -0.05, -0.38)
+			rifle.material_override = _make_armour_material(Color(0.08, 0.09, 0.08))
+			soldier.add_child(rifle)
+		var muzzle_group := Node3D.new()
+		muzzle_group.name = "DoorMuzzleFlashes"
+		muzzle_group.visible = false
+		helicopter.add_child(muzzle_group)
+		for side in [-1.0, 1.0]:
+			var flash := MeshInstance3D.new()
+			flash.name = "MuzzleFlash"
+			var flash_mesh := SphereMesh.new()
+			flash_mesh.radius = 0.14
+			flash_mesh.height = 0.18
+			flash.mesh = flash_mesh
+			flash.position = Vector3(side * 0.92, -0.08, -0.34)
+			var flash_material := StandardMaterial3D.new()
+			flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			flash_material.albedo_color = Color(1.0, 0.66, 0.20, 0.92)
+			flash_material.emission_enabled = true
+			flash_material.emission = Color(1.0, 0.40, 0.08)
+			flash.material_override = flash_material
+			muzzle_group.add_child(flash)
 		var rope_group := Node3D.new()
 		rope_group.name = "FastRopes"
 		rope_group.visible = false
