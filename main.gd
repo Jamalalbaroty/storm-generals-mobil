@@ -4164,7 +4164,7 @@ func _load_selected_infantry_into_transport() -> void:
 				infantry_indices[sort_index] = infantry_indices[compare_index]
 				infantry_indices[compare_index] = swap_index
 	# Preserve the full squad list: the nearby subset may be empty while everyone needs rendezvous orders.
-	var selected_infantry_indices: Array[int] = infantry_indices.duplicate()
+	var selected_infantry_indices := infantry_indices.duplicate()
 	var nearby_infantry: Array[int] = []
 	for infantry_index in selected_infantry_indices:
 		if infantry_index >= 0 and infantry_index < units.size() and units[infantry_index].pos.distance_to(transport.pos) <= 76.0:
