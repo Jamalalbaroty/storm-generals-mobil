@@ -355,9 +355,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit["escort_formation_slot"] = escort_slot
 		source_unit["escort_formation_size"] = escort_slot + 1
 		source_unit["escort_active"] = true
-		for existing_escort in units:
-			if bool(existing_escort.get("escort_active", false)) and int(existing_escort.get("escort_target_id", -1)) == escort_target_id and int(existing_escort.get("hp", 0)) > 0:
-				existing_escort["escort_formation_size"] = escort_slot + 1
+		_transport_ai_sync_escort_formation(escort_target_id)
 		source_unit.erase("escort_auto_target")
 		source_unit.erase("target")
 		source_unit.erase("guard_active")
@@ -4735,6 +4733,22 @@ func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
 	return Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
 
 
+func _transport_ai_sync_escort_formation(target_id: int) -> void:
+	if target_id < 0:
+		return
+	var members: Array[int] = []
+	for index in range(units.size()):
+		var escort: Dictionary = units[index]
+		if bool(escort.get("escort_active", false)) and int(escort.get("escort_target_id", -1)) == target_id and int(escort.get("hp", 0)) > 0 and String(escort.get("team", "")) == "player":
+			members.append(index)
+	var formation_size := members.size()
+	for slot in range(formation_size):
+		var escort: Dictionary = units[members[slot]]
+		escort["escort_formation_slot"] = slot
+		escort["escort_formation_size"] = formation_size
+		escort["escort_offset"] = _transport_ai_escort_formation_offset(slot)
+
+
 func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 	if escort_index < 0 or escort_index >= units.size():
 		return false
@@ -4779,6 +4793,7 @@ func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
 	escort["escort_offset"] = _transport_ai_escort_formation_offset(new_slot)
 	escort["escort_formation_size"] = new_slot + 1
 	escort["escort_active"] = true
+	_transport_ai_sync_escort_formation(new_target_id)
 	if bool(escort.get("escort_auto_target", false)):
 		escort.erase("attack_target")
 		escort.erase("attack_focus_pos")
