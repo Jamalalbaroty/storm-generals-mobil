@@ -93,6 +93,29 @@ func _initialize() -> void:
 		quit(1)
 		return
 	game.call("_set_3d_view_enabled", true)
+	# Exercise Android cancellation through the parent input handler. The parent
+	# marks the event handled, so the 3D child's unhandled-input callback cannot
+	# clear its own pointer state unless the parent explicitly forwards the reset.
+	var parent_cancelled_press := InputEventScreenTouch.new()
+	parent_cancelled_press.index = 7
+	parent_cancelled_press.pressed = true
+	parent_cancelled_press.position = Vector2(320.0, 280.0)
+	game._input(parent_cancelled_press)
+	bridge.call("_unhandled_input", parent_cancelled_press)
+	if int(game.get("active_touch_index")) != 7 or not (bridge.get("touch_points") as Dictionary).has(7):
+		push_error("The parent/3D bridge did not establish the same active Android touch")
+		quit(1)
+		return
+	var parent_cancelled_release := InputEventScreenTouch.new()
+	parent_cancelled_release.index = 7
+	parent_cancelled_release.pressed = false
+	parent_cancelled_release.canceled = true
+	parent_cancelled_release.position = Vector2(320.0, 280.0)
+	game._input(parent_cancelled_release)
+	if int(game.get("active_touch_index")) != -1 or not (bridge.get("touch_points") as Dictionary).is_empty() or not (bridge.get("touch_start_positions") as Dictionary).is_empty() or not (bridge.get("touch_moved") as Dictionary).is_empty() or bool(bridge.get("touch_multi_gesture")) or float(bridge.get("last_pinch_distance")) != 0.0:
+		push_error("A parent-intercepted Android cancellation left stale 3D camera gesture state")
+		quit(1)
+		return
 	# Two-finger gestures must enter pinch mode and must not become a unit-selection tap.
 	var touch_one := InputEventScreenTouch.new()
 	touch_one.index = 0
