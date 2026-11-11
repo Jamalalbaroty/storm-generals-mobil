@@ -515,7 +515,9 @@ func _initialize() -> void:
 		return
 
 	# Verify dedicated artillery and naval silhouettes plus the shared combat-array invariant.
-	var archetype_kinds := ["artillery", "destroyer", "carrier", "submarine", "landing_craft"]
+	var archetype_kinds := ["artillery"]
+	if bool(battlefield.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
+		archetype_kinds.append_array(["destroyer", "carrier", "submarine", "landing_craft"])
 	var archetype_records: Array = []
 	for archetype_index in range(archetype_kinds.size()):
 		archetype_records.append({
