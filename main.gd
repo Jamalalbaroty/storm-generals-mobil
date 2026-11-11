@@ -3298,7 +3298,8 @@ func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 3
 	var row := int(index / 3)
 	var button_width := (size.x - 40.0) / 3.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
+	# Three compact rows keep all eight strategy actions reachable on short mobile screens.
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 42.0), Vector2(button_width, 40.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	if campaign_briefing:
