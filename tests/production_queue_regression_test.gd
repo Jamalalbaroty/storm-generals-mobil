@@ -821,5 +821,76 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Combat QA: terrain cover and friendly garrison bonuses must reduce incoming damage deterministically.
+	game.buildings.clear()
+	game.supply_points.clear()
+	game.map_type = "الصحراء"
+	var terrain_infantry: Dictionary = {"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2.ZERO}
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 100:
+		push_error("Open desert should not apply an infantry terrain-cover bonus")
+		quit(1)
+		return
+	game.map_type = "ساحل الغابات"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 72:
+		push_error("Forest coastline should reduce infantry damage by the configured 28 percent")
+		quit(1)
+		return
+	game.map_type = "الساحل الجبلي"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 80:
+		push_error("Mountain coastline should reduce infantry damage by the configured 20 percent")
+		quit(1)
+		return
+	game.map_type = "المدينة الساحلية"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 76:
+		push_error("Coastal city should reduce infantry damage by the configured 24 percent")
+		quit(1)
+		return
+
+	# Friendly bridge garrisons and completed bunkers stack their intended cover.
+	game.map_type = "الصحراء"
+	game.supply_points.assign([{"owner": "player", "kind": "bridge", "pos": Vector2.ZERO}])
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 82:
+		push_error("Infantry holding a friendly bridge should receive the 18 percent garrison protection")
+		quit(1)
+		return
+	game.buildings.assign([{"kind": "bunker", "hp": 400, "build_progress": 1.0, "level": 1, "pos": Vector2.ZERO}])
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 64:
+		push_error("Completed bunker and friendly bridge cover should combine with deterministic rounding")
+		quit(1)
+		return
+	game.buildings[0]["build_progress"] = 0.5
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 82:
+		push_error("An unfinished bunker must not grant defensive cover")
+		quit(1)
+		return
+	game.buildings.clear()
+	game.supply_points.clear()
+
+	# Artillery blast falloff must distinguish center, edge, outside radius, air, and friendly units.
+	var artillery_center := Vector2(500.0, 300.0)
+	var artillery_attacker: Dictionary = {"team": "player", "kind": "artillery", "combat_xp": 0.0, "veterancy": 0}
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center},
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center + Vector2(100.0, 0.0)},
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center + Vector2(100.1, 0.0)},
+		{"team": "enemy", "kind": "fighter", "hp": 200, "pos": artillery_center},
+		{"team": "player", "kind": "tank", "hp": 300, "pos": artillery_center},
+		{"team": "enemy", "kind": "tank", "hp": 0, "pos": artillery_center}
+	])
+	game._apply_artillery_blast(artillery_center, 100.0, 100, "enemy", artillery_attacker)
+	if int(game.units[0]["hp"]) != 200 or int(game.units[1]["hp"]) != 265:
+		push_error("Artillery should deal full damage at impact and 35 percent damage at the blast edge")
+		quit(1)
+		return
+	if int(game.units[2]["hp"]) != 300 or int(game.units[3]["hp"]) != 200 or int(game.units[4]["hp"]) != 300 or int(game.units[5]["hp"]) != 0:
+		push_error("Artillery blast must ignore units outside radius, aircraft, friendly units, and already-destroyed units")
+		quit(1)
+		return
+	if not is_equal_approx(float(artillery_attacker.get("combat_xp", 0.0)), 67.5):
+		push_error("Artillery attacker should receive experience from actual damage dealt across valid ground targets")
+		quit(1)
+		return
+	game.units.clear()
+
 	print("PASS: faction costs, enemy strategy, player/enemy power grids, production recovery, and missile defense")
 	quit(0)
