@@ -22,10 +22,10 @@ func _run() -> void:
 	game.get("enemy_buildings").clear()
 	var objective := Vector2(1100.0, 250.0)
 
-	var outside := game.call("_transport_ai_evaluate_landing_site", {"id": "outside", "pos": Vector2(5.0, 5.0), "landing_type": "ground"}, objective)
+	var outside: Dictionary = game.call("_transport_ai_evaluate_landing_site", {"id": "outside", "pos": Vector2(5.0, 5.0), "landing_type": "ground"}, objective)
 	_expect(not bool(outside.get("valid", true)) and String(outside.get("reason", "")) == "outside_map", "Reject landing points outside safe map bounds")
 
-	var invalid_roof := game.call("_transport_ai_evaluate_landing_site", {"id": "roof", "pos": Vector2(450.0, 250.0), "landing_type": "rooftop", "building_kind": "barracks"}, objective)
+	var invalid_roof: Dictionary = game.call("_transport_ai_evaluate_landing_site", {"id": "roof", "pos": Vector2(450.0, 250.0), "landing_type": "rooftop", "building_kind": "barracks"}, objective)
 	_expect(not bool(invalid_roof.get("valid", true)) and String(invalid_roof.get("reason", "")) == "invalid_rooftop", "Reject rooftops that do not resolve to a completed building")
 
 	game.get("enemy_buildings").append({"kind": "anti_air", "hp": 500, "pos": Vector2(500.0, 250.0)})
