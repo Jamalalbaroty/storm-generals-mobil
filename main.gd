@@ -227,6 +227,23 @@ func _airfield_sortie_launch_delay(airfield_id: int) -> float:
 	return float(queued_launches) * 1.5
 
 
+func _airfield_sortie_has_launch_predecessor(unit_id: String, airfield_id: int) -> bool:
+	var aircraft_index := -1
+	for index in range(units.size()):
+		if String(units[index].get("unit_id", "")) == unit_id:
+			aircraft_index = index
+			break
+	if aircraft_index <= 0:
+		return false
+	for index in range(aircraft_index):
+		var queued_aircraft: Dictionary = units[index]
+		if String(queued_aircraft.get("team", "")) != "player" or not bool(queued_aircraft.get("airfield_sortie_launch", false)):
+			continue
+		if int(queued_aircraft.get("airfield_sortie_airfield_id", -2)) == airfield_id:
+			return true
+	return false
+
+
 func _save_aircraft_resume_order(unit: Dictionary) -> void:
 	# Preserve the player's current air mission while an aircraft automatically rearms.
 	var resume_order: Dictionary = {}
@@ -989,6 +1006,8 @@ func _process(delta: float) -> void:
 						var launch_wait := float(unit.get("airfield_sortie_launch_wait", 0.0))
 						if launch_wait > 0.0:
 							unit["airfield_sortie_launch_wait"] = maxf(0.0, launch_wait - delta)
+							continue
+						if _airfield_sortie_has_launch_predecessor(String(unit.get("unit_id", "")), sortie_airfield_id):
 							continue
 						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
 						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
