@@ -4638,6 +4638,9 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		transport.erase("transport_ai_objective_pos")
 		transport.erase("transport_ai_recommendation")
 		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
 		if rooftop_found:
@@ -4780,6 +4783,9 @@ func _cancel_transport_order() -> void:
 		if state == "descending":
 			continue
 		transport.erase("transport_target_pos")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
 		transport.erase("transport_pickup_waiting")
 		transport.erase("transport_order_pending")
 		transport.erase("transport_ai_objective_pos")
@@ -4929,6 +4935,8 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 		elif transport.pos.distance_to(return_pos) <= 14.0:
 			transport.pos = return_pos
 			transport.erase("transport_return_pos")
+			transport.erase("transport_ai_route_points")
+			transport.erase("transport_ai_route_index")
 			transport["transport_ai_autonomous_active"] = false
 			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
 	elif transport.has("target"):
