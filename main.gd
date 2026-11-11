@@ -1689,6 +1689,13 @@ func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	return maxi(1, roundi(float(base_damage) * multiplier))
 
 
+func _unit_damage_taken_with_veterancy(unit: Dictionary, raw_damage: int) -> int:
+	# Veteran crews use cover and positioning more effectively; keep the defensive edge modest.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 0.91 if rank == 3 else (0.94 if rank == 2 else (0.97 if rank == 1 else 1.0))
+	return maxi(1, roundi(float(raw_damage) * multiplier))
+
+
 func _load_commander_profile() -> void:
 	var config := ConfigFile.new()
 	var load_error := config.load("user://storm_generals_profile.cfg")
@@ -2041,7 +2048,8 @@ func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 			garrison_multiplier = minf(garrison_multiplier, 0.90)
 		damage_multiplier *= garrison_multiplier
 		break
-	return maxi(1, roundi(float(raw_damage) * damage_multiplier))
+	var terrain_damage := maxi(1, roundi(float(raw_damage) * damage_multiplier))
+	return _unit_damage_taken_with_veterancy(target, terrain_damage)
 
 func _terrain_effect_label() -> String:
 	match map_type:
