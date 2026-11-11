@@ -1605,6 +1605,7 @@ func _build_battle_snapshot() -> Dictionary:
 			"enemy_credits": enemy_credits,
 			"enemy_income_timer": enemy_income_timer,
 			"enemy_timer": enemy_timer,
+			"enemy_missile_timer": enemy_missile_timer,
 			"enemy_strategy": enemy_strategy,
 			"base_pos": base_pos,
 			"enemy_base": enemy_base,
@@ -1695,6 +1696,7 @@ func _load_battle_snapshot() -> bool:
 	enemy_credits = int(match_state.get("enemy_credits", STARTING_CREDITS))
 	enemy_income_timer = float(match_state.get("enemy_income_timer", 0.0))
 	enemy_timer = float(match_state.get("enemy_timer", 0.0))
+	enemy_missile_timer = maxf(0.0, float(match_state.get("enemy_missile_timer", 0.0)))
 	enemy_strategy = String(match_state.get("enemy_strategy", "balanced"))
 	base_pos = match_state.get("base_pos", base_pos)
 	enemy_base = match_state.get("enemy_base", enemy_base)
