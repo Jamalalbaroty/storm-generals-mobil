@@ -4679,16 +4679,40 @@ func _enemy_ai_turn() -> void:
 	var player_air_threat = 0
 	var player_heavy_ground_threat = 0
 	var player_infantry_threat = 0
+	var close_air_pressure := 0
+	var close_heavy_pressure := 0
+	var close_infantry_pressure := 0
 	for player_unit in units:
 		if player_unit.team != "player" or player_unit.get("hp", 0) <= 0:
 			continue
-		if player_unit.kind == "fighter" or player_unit.kind == "helicopter":
+		var unit_kind := String(player_unit.get("kind", ""))
+		var is_air_threat := unit_kind == "fighter" or unit_kind == "helicopter"
+		var is_heavy_threat := unit_kind == "tank" or unit_kind == "artillery"
+		var is_infantry_threat := unit_kind == "infantry"
+		if is_air_threat:
 			player_air_threat += 1
-		elif player_unit.kind == "tank" or player_unit.kind == "artillery":
+		elif is_heavy_threat:
 			player_heavy_ground_threat += 1
-		elif player_unit.kind == "infantry":
+		elif is_infantry_threat:
 			player_infantry_threat += 1
-	var next_strategy := _enemy_choose_strategy(player_air_threat, 0, player_heavy_ground_threat, player_infantry_threat)
+		# A unit near the enemy base or a critical installation is more urgent
+		# than an identical unit still far from the defensive perimeter.
+		var nearest_asset_distance: float = player_unit.pos.distance_to(enemy_base)
+		for protected_asset in enemy_buildings:
+			if int(protected_asset.get("hp", 0)) <= 0:
+				continue
+			var asset_kind := String(protected_asset.get("kind", ""))
+			if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
+				continue
+			nearest_asset_distance = minf(nearest_asset_distance, player_unit.pos.distance_to(protected_asset.pos))
+		if nearest_asset_distance <= 300.0:
+			if is_air_threat:
+				close_air_pressure += 1
+			elif is_heavy_threat:
+				close_heavy_pressure += 1
+			elif is_infantry_threat:
+				close_infantry_pressure += 1
+	var next_strategy := _enemy_choose_strategy(player_air_threat + close_air_pressure, 0, player_heavy_ground_threat + close_heavy_pressure, player_infantry_threat + close_infantry_pressure)
 	if next_strategy != enemy_strategy:
 		enemy_strategy = next_strategy
 		var strategy_names := {"air_control": "التفوق الجوي", "armor_breaker": "مكافحة القوات المدرعة", "area_denial": "القصف المساحي", "balanced": "التوازن"}
