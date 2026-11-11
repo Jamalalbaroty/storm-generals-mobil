@@ -4103,11 +4103,16 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			return
 		transport["transport_drop_timer"] = float(transport.get("transport_drop_timer", 0.0)) + delta
 		if float(transport["transport_drop_timer"]) >= 0.72:
-			transport["transport_drop_timer"] = 0.0
-			var passenger: Dictionary = cargo.pop_front()
 			var drop_index := int(transport.get("transport_drop_index", 0))
-			var offsets := [Vector2(-18, -12), Vector2(18, -12), Vector2(-18, 12), Vector2(18, 12), Vector2(0, -22), Vector2(0, 22), Vector2(-26, 0), Vector2(26, 0)]
-			var drop_pos: Vector2 = transport.get("transport_target_pos", transport.pos) + offsets[drop_index % offsets.size()]
+			var landing_center: Vector2 = transport.get("transport_target_pos", transport.pos)
+			var drop_pos_value = _find_transport_drop_position(landing_center, drop_index, transport)
+			if not drop_pos_value is Vector2:
+				# Keep the passenger aboard and retry shortly instead of spawning inside an obstacle.
+				transport["transport_drop_timer"] = 0.42
+				return
+			transport["transport_drop_timer"] = 0.0
+			var drop_pos: Vector2 = drop_pos_value
+			var passenger: Dictionary = cargo.pop_front()
 			units.append({
 				"pos": drop_pos,
 				"team": "player",
@@ -4166,6 +4171,50 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport.erase("target")
 
 
+
+
+func _find_transport_drop_position(center: Vector2, drop_index: int, transport: Dictionary) -> Variant:
+	# Rooftop drops stay close to the selected building; ground drops use a wider ring.
+	var is_rooftop := String(transport.get("transport_landing_type", "ground")) == "rooftop"
+	var rooftop_offsets: Array[Vector2] = [
+		Vector2(-22, -14), Vector2(22, -14), Vector2(-22, 14), Vector2(22, 14),
+		Vector2(0, -30), Vector2(0, 30), Vector2(-34, 0), Vector2(34, 0)
+	]
+	var ground_offsets: Array[Vector2] = [
+		Vector2(-34, -22), Vector2(34, -22), Vector2(-34, 22), Vector2(34, 22),
+		Vector2(0, -42), Vector2(0, 42), Vector2(-46, 0), Vector2(46, 0)
+	]
+	var offsets: Array[Vector2] = rooftop_offsets if is_rooftop else ground_offsets
+	var safe_map_rect := Rect2(Vector2(36.0, 36.0), get_viewport_rect().size - Vector2(72.0, 72.0))
+	for attempt in range(offsets.size()):
+		var candidate: Vector2 = center + offsets[(drop_index + attempt) % offsets.size()]
+		if not safe_map_rect.has_point(candidate):
+			continue
+		var blocked := false
+		if not is_rooftop:
+			for building in buildings:
+				if int(building.get("hp", 0)) > 0 and building.pos.distance_to(candidate) < 48.0:
+					blocked = true
+					break
+			if not blocked:
+				for building in enemy_buildings:
+					if int(building.get("hp", 0)) > 0 and building.pos.distance_to(candidate) < 48.0:
+						blocked = true
+						break
+		if blocked:
+			continue
+		for occupant in units:
+			if int(occupant.get("hp", 0)) <= 0:
+				continue
+			# Ignore the hovering transport itself, but keep clear of every ground unit.
+			if String(occupant.get("kind", "")) == "transport_helicopter" and String(occupant.get("team", "")) == "player" and occupant.pos.distance_to(transport.pos) < 2.0:
+				continue
+			if occupant.pos.distance_to(candidate) < 15.0:
+				blocked = true
+				break
+		if not blocked:
+			return candidate
+	return null
 
 
 func _update_transport_passenger_fire(transport: Dictionary, delta: float) -> void:
