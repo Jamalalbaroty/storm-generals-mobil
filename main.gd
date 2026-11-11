@@ -1685,7 +1685,7 @@ func _player_armor_penetration_damage(target: Dictionary, base_damage: int, atta
 
 func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	var rank := int(unit.get("veterancy", 0))
-	var multiplier := 1.0 + (0.08 if rank == 1 else (0.15 if rank >= 2 else 0.0))
+	var multiplier := 1.25 if rank >= 3 else (1.15 if rank == 2 else (1.08 if rank == 1 else 1.0))
 	return maxi(1, roundi(float(base_damage) * multiplier))
 
 
@@ -1992,11 +1992,11 @@ func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
 	var old_rank := int(unit.get("veterancy", 0))
 	var xp := float(unit.get("combat_xp", 0.0)) + float(damage_dealt) * 0.5
 	unit["combat_xp"] = xp
-	var new_rank := 2 if xp >= 250.0 else (1 if xp >= 100.0 else 0)
+	var new_rank := 3 if xp >= 500.0 else (2 if xp >= 250.0 else (1 if xp >= 100.0 else 0))
 	if new_rank > old_rank:
 		unit["veterancy"] = new_rank
 		if String(unit.get("team", "")) == "player":
-			var rank_name := "نخبة" if new_rank == 2 else "مخضرم"
+			var rank_name := "بطل" if new_rank == 3 else ("نخبة" if new_rank == 2 else "مخضرم")
 			notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
 			notice_time = 2.8
 
@@ -3128,7 +3128,7 @@ func _draw() -> void:
 		if veterancy > 0:
 			var rank_color := Color("#f0c85a") if veterancy == 1 else Color("#8be4ff")
 			draw_circle(u.pos + Vector2(18, -19), 5.0, rank_color)
-			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else "★★", HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
+			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else ("★★" if veterancy == 2 else "★★★"), HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
