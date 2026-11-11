@@ -4152,7 +4152,7 @@ func _load_selected_infantry_into_transport() -> void:
 		return
 	var transport: Dictionary = units[transport_index]
 	var transport_state := String(transport.get("transport_state", "idle"))
-	if transport_state not in ["idle", "loaded"]:
+	if transport_state not in ["idle", "loaded", "pickup_waiting"]:
 		notice = "لا يمكن تحميل الجنود أثناء طيران المروحية أو تنفيذ الإنزال"
 		notice_time = 2.2
 		return
@@ -4217,6 +4217,8 @@ func _load_selected_infantry_into_transport() -> void:
 		cargo.append(cargo_entry)
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
+	transport.erase("transport_pickup_waiting")
+	transport["transport_ai_autonomous_active"] = false
 	# A newly loaded sortie starts a fresh task; old manual overrides belong to the previous sortie.
 	transport["transport_ai_player_override"] = false
 	transport.erase("transport_ai_objective_pos")
@@ -4691,6 +4693,7 @@ func _order_transport_pickup() -> void:
 		transport.erase("transport_target_building_kind")
 	transport["transport_ai_player_override"] = true
 	transport["transport_ai_autonomous_active"] = true
+	transport["transport_pickup_waiting"] = true
 	_transport_ai_assign_route(transport, pickup_pos)
 	transport["transport_state"] = "inbound"
 	transport["transport_drop_index"] = 0
@@ -4754,7 +4757,14 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport["transport_drop_timer"] = 0.0
 	elif state == "descending":
 		var cargo: Array = transport.get("transport_cargo", [])
-		if cargo.is_empty():
+			if cargo.is_empty():
+			if bool(transport.get("transport_pickup_waiting", false)):
+				# Hold position for the field squad; the player confirms boarding when infantry arrive.
+				transport["transport_state"] = "pickup_waiting"
+				transport.erase("transport_target_pos")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_ai_player_override"] = true
+				return
 			transport["transport_state"] = "idle"
 			transport.erase("transport_target_pos")
 			transport.erase("transport_ai_objective_pos")
