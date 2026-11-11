@@ -858,8 +858,10 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			var severe_damage := clampf((0.30 - damage_ratio) / 0.30, 0.0, 1.0)
 			var damage_roll := damage_wobble * lerpf(0.025, 0.16, severe_damage)
 			var damage_pitch := cos(damage_phase * 0.73) * damage_intensity * lerpf(0.012, 0.075, severe_damage)
-			unit.rotation.z = clampf(unit.rotation.z + damage_roll, -0.42, 0.42)
-			unit.rotation.x = clampf(unit.rotation.x + damage_pitch, -0.20, 0.20)
+			# Blend toward a bounded damage pose; never accumulate rotation frame after frame.
+			unit.rotation.z = lerpf(unit.rotation.z, clampf(bank_target + damage_roll, -0.42, 0.42), clampf(delta * 5.5, 0.0, 1.0))
+			var transport_base_pitch := clampf(climb_target * 0.22, 0.0, 0.12)
+			unit.rotation.x = lerpf(unit.rotation.x, clampf(transport_base_pitch + damage_pitch, -0.20, 0.20), clampf(delta * 4.0, 0.0, 1.0))
 			var damage_smoke := unit.get_node_or_null("DamageSmoke") as Node3D
 			if is_instance_valid(damage_smoke) and damage_smoke.visible:
 				var smoke_phase := float(unit.get_meta("transport_smoke_phase", 0.0)) + delta * 2.1
@@ -1165,7 +1167,8 @@ func spawn_game_unit_destruction_effect(source_pos: Vector2, map_rect: Rect2, ki
 	if map_rect.size.x <= 0.0 or map_rect.size.y <= 0.0:
 		return
 	var is_aircraft := kind in ["fighter", "helicopter", "transport_helicopter"]
-	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, 0.08)
+	var wreck_start_height := 5.2 if kind == "transport_helicopter" else 0.08
+	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, wreck_start_height)
 	var wreck_source := Node3D.new()
 	wreck_source.global_position = world_pos
 	wreck_source.set_meta("gameplay_unit_kind", kind)
@@ -1175,10 +1178,20 @@ func spawn_game_unit_destruction_effect(source_pos: Vector2, map_rect: Rect2, ki
 	wreck_source.queue_free()
 	_spawn_impact_flash(world_pos, true)
 	if is_aircraft:
-		# Aircraft wrecks settle to the ground instead of remaining at flight altitude.
 		var wreck_variant = gameplay_debris_nodes.back() if not gameplay_debris_nodes.is_empty() else null
 		if is_instance_valid(wreck_variant):
-			(wreck_variant as Node3D).global_position.y = 0.08
+			var aircraft_wreck := wreck_variant as Node3D
+			if kind == "transport_helicopter":
+				# Stylized falling wreck: visual tween only, with no effect on RTS simulation.
+				var fall_tween := create_tween()
+				fall_tween.set_parallel(true)
+				fall_tween.tween_property(aircraft_wreck, "global_position:y", 0.08, 1.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				fall_tween.tween_property(aircraft_wreck, "rotation:x", 0.72, 1.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				fall_tween.tween_property(aircraft_wreck, "rotation:z", -0.86, 1.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				fall_tween.chain().tween_callback(_spawn_impact_flash.bind(Vector3(world_pos.x, 0.08, world_pos.z), true))
+			else:
+				# Fighters and combat helicopters retain their existing ground-wreck presentation.
+				aircraft_wreck.global_position.y = 0.08
 
 
 func _spawn_light_unit_wreck(unit: Node3D) -> void:
