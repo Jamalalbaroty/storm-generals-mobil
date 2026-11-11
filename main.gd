@@ -4337,7 +4337,7 @@ func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
 
 func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Array[Vector2]:
 	# Compare a direct corridor with deterministic perpendicular detours around known AA.
-	var routes: Array[Array] = []
+	var routes: Array = []
 	routes.append([landing_pos])
 	var direction := landing_pos - start_pos
 	if direction.length() > 1.0:
