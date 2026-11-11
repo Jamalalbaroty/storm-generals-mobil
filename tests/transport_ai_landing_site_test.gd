@@ -290,6 +290,20 @@ func _run() -> void:
 	_expect(Array(returning_transport.get("transport_cargo", [])).size() == 1, "Return-to-base must preserve all passengers")
 	_expect(returning_transport.has("transport_ai_route_points"), "Return-to-base should assign the existing threat-aware flight route")
 
+	# If the selected recovery airfield is destroyed or loses power in flight, replan to another valid friendly field.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(300.0, 300.0), "transport_state": "returning", "transport_return_pos": Vector2(700.0, 300.0), "transport_cargo": [{"kind": "infantry", "hp": 80}], "transport_ai_autonomous_active": true})
+	game.get("buildings").append({"kind": "airfield", "hp": 0, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "pos": Vector2(900.0, 300.0)})
+	game.call("_update_transport_helicopter", game.get("units")[0], 0.01)
+	var replanned_transport: Dictionary = game.get("units")[0]
+	_expect(String(replanned_transport.get("transport_state", "")) == "returning", "A returning transport should remain in recovery after its destination is lost")
+	_expect(Vector2(replanned_transport.get("transport_return_pos", Vector2.ZERO)).distance_to(Vector2(900.0, 300.0)) < 1.0, "A returning transport should replan to the next powered friendly airfield")
+	_expect(Array(replanned_transport.get("transport_cargo", [])).size() == 1, "Airfield loss must never discard the transport's passengers")
+
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
 	game.get("units").clear()
 	game.get("buildings").clear()
