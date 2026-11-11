@@ -4161,8 +4161,21 @@ func _load_selected_infantry_into_transport() -> void:
 			nearby_infantry.append(infantry_index)
 	infantry_indices = nearby_infantry
 	if infantry_indices.is_empty():
-		notice = "اقترب بالمشاة إلى مسافة 76 من طائرة النقل لتحميلهم"
-		notice_time = 2.4
+		# Order a rendezvous instead of silently failing; the player confirms boarding again on arrival.
+		var map_size := get_viewport_rect().size
+		var rendezvous_offsets: Array[Vector2] = [
+			Vector2(-34.0, -24.0), Vector2(34.0, -24.0), Vector2(-34.0, 24.0), Vector2(34.0, 24.0),
+			Vector2(-68.0, 0.0), Vector2(68.0, 0.0), Vector2(0.0, -58.0), Vector2(0.0, 58.0)
+		]
+		for n in range(infantry_indices.size()):
+			var rendezvous_index := infantry_indices[n]
+			if rendezvous_index < 0 or rendezvous_index >= units.size():
+				continue
+			var rendezvous_unit: Dictionary = units[rendezvous_index]
+			var rendezvous_pos: Vector2 = transport.pos + rendezvous_offsets[n % rendezvous_offsets.size()]
+			rendezvous_unit["target"] = Vector2(clampf(rendezvous_pos.x, 24.0, map_size.x - 24.0), clampf(rendezvous_pos.y, 24.0, map_size.y - 48.0))
+		notice = "تتحرك فرقة المشاة إلى نقطة الإخلاء — أعد أمر التحميل عند وصولها"
+		notice_time = 3.0
 		return
 	var cargo: Array = transport.get("transport_cargo", [])
 	var available := 8 - cargo.size()
