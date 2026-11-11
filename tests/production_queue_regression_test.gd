@@ -774,9 +774,9 @@ func _run() -> void:
 	game.enemy_buildings.clear()
 	game.units.assign([
 		{"unit_id": "enemy_fighter_cache", "pos": Vector2(100, 100), "team": "enemy", "kind": "fighter", "hp": 120},
-		{"unit_id": "enemy_landing_cache", "pos": Vector2(240, 100), "team": "enemy", "kind": "landing_craft", "landing_state": "outbound", "hp": 500},
+		{"unit_id": "enemy_landing_cache", "pos": Vector2(500, 100), "team": "enemy", "kind": "landing_craft", "landing_state": "outbound", "hp": 500},
 		{"unit_id": "player_close_fighter", "pos": Vector2(120, 100), "team": "player", "kind": "fighter", "hp": 120},
-		{"unit_id": "player_landing_threat", "pos": Vector2(400, 100), "team": "player", "kind": "helicopter", "hp": 120}
+		{"unit_id": "player_landing_threat", "pos": Vector2(550, 100), "team": "player", "kind": "helicopter", "hp": 120}
 	])
 	var fighter_assignment: Dictionary = game._enemy_fighter_cached_assignment(game.units[0], 0, 0.1)
 	if int(fighter_assignment.get("index", -1)) != 3 or String(fighter_assignment.get("mode", "")) != "fighter_landing_defense":
