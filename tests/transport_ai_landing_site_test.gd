@@ -449,6 +449,17 @@ func _run() -> void:
 	_expect(float(game.call("_transport_ai_rescue_threat_pressure", Vector2(500.0, 300.0))) > float(game.call("_transport_ai_rescue_threat_pressure", Vector2(900.0, 300.0))), "Rescue threat pressure should decrease outside hostile proximity")
 	game.get("units").clear()
 
+	# When health and hostile pressure are equal, isolated casualties outrank soldiers with nearby friendly support.
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(500.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(700.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(720.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2(740.0, 300.0)})
+	var isolation_sorted: Array = game.call("_transport_ai_sort_rescue_infantry", [0, 1], Vector2(600.0, 300.0))
+	_expect(int(isolation_sorted[0]) == 0, "An isolated casualty should be prioritized over an equally wounded soldier with nearby friendly support")
+	_expect(float(game.call("_transport_ai_rescue_isolation_score", Vector2(500.0, 300.0))) > float(game.call("_transport_ai_rescue_isolation_score", Vector2(720.0, 300.0))), "Isolation score should be higher when no friendly infantry are nearby")
+	game.get("units").clear()
+
 	# Air units can be explicitly assigned to escort a friendly transport via the 3D command bridge.
 	game.get("units").clear()
 	game.get("selected").clear()
