@@ -350,6 +350,40 @@ func _run() -> void:
 	game.get("selected").clear()
 	game.get("units").clear()
 
+	# A direct player move must take control away from the autonomous transport director.
+	game.set("game_started", true)
+	game.set("battle_result", "")
+	game.get("units").append({
+		"team": "player", "kind": "transport_helicopter", "hp": 200,
+		"pos": Vector2(260.0, 260.0), "transport_state": "inbound",
+		"transport_target_pos": Vector2(700.0, 260.0),
+		"transport_ai_autonomous_active": true,
+		"transport_ai_player_override": false,
+		"transport_ai_objective_pos": Vector2(700.0, 260.0),
+		"transport_ai_route_points": [Vector2(450.0, 180.0), Vector2(700.0, 260.0)],
+		"transport_ai_route_index": 0,
+		"transport_cargo": [{"kind": "infantry", "hp": 100}]
+	})
+	game.get("selected").append(0)
+	var manual_destination := Vector2(900.0, 520.0)
+	game.call("_handle_pointer", manual_destination, true)
+	game.call("_handle_pointer", manual_destination, false)
+	var manually_ordered_transport: Dictionary = game.get("units")[0]
+	_expect(bool(manually_ordered_transport.get("transport_ai_player_override", false)), "A direct touch move must activate the transport player override")
+	_expect(not bool(manually_ordered_transport.get("transport_ai_autonomous_active", true)), "A direct touch move must deactivate autonomous transport replanning")
+	_expect(String(manually_ordered_transport.get("transport_state", "")) == "inbound", "A direct touch move must keep the transport in its flight phase")
+	_expect(Vector2(manually_ordered_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(manual_destination) < 1.0, "A direct touch move must become the authoritative landing destination")
+	_expect(not manually_ordered_transport.has("transport_ai_route_points") and not manually_ordered_transport.has("transport_ai_objective_pos"), "A direct touch move must clear the stale autonomous route and objective")
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": manual_destination})
+	game.call("_transport_ai_reassess_inbound", manually_ordered_transport, 3.0)
+	_expect(Vector2(manually_ordered_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(manual_destination) < 1.0, "Inbound reassessment must not replace a player-directed destination")
+	manually_ordered_transport["transport_state"] = "descending"
+	game.call("_transport_ai_reassess_descending", manually_ordered_transport)
+	_expect(String(manually_ordered_transport.get("transport_state", "")) == "descending" and Vector2(manually_ordered_transport.get("transport_target_pos", Vector2.ZERO)).distance_to(manual_destination) < 1.0, "Descent threat reassessment must not override manual control")
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.set("game_started", false)
+
 	# A selected transport can be recalled to a selected field squad using the tactical landing planner.
 	game.get("units").clear()
 	game.get("selected").clear()
