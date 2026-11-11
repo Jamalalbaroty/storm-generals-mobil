@@ -109,6 +109,23 @@ func _run_battle_save_integration_test() -> void:
 	_expect((game.get("units")[0].get("defense_anchor", Vector2.ZERO) as Vector2).distance_to(game.get("enemy_base")) < 1.0, "A guard must abandon a destroyed forward asset and return to base defense")
 	game.get("units").clear()
 	game.get("enemy_buildings").clear()
+	# Counterattack reserve mobilization is capped at two units around a breached critical asset.
+	game.set("enemy_base", Vector2(700.0, 300.0))
+	game.get("enemy_buildings").assign([{"kind": "factory", "hp": 400, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)}])
+	game.get("units").assign([
+		{"kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2(650.0, 280.0)},
+		{"kind": "infantry", "team": "enemy", "hp": 60, "pos": Vector2(660.0, 320.0)},
+		{"kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2(680.0, 340.0)},
+		{"kind": "tank", "team": "player", "hp": 150, "pos": Vector2(710.0, 300.0)}
+	])
+	var first_reserve_handled: bool = game.call("_update_enemy_counterattack_reserve", game.get("units")[0], 0, 0.1)
+	var second_reserve_handled: bool = game.call("_update_enemy_counterattack_reserve", game.get("units")[1], 1, 0.1)
+	var third_reserve_handled: bool = game.call("_update_enemy_counterattack_reserve", game.get("units")[2], 2, 0.1)
+	_expect(first_reserve_handled and second_reserve_handled, "The enemy must mobilize up to two counterattack reserves against a breach")
+	_expect(not third_reserve_handled, "The enemy must not commit more than two counterattack reserves at once")
+	_expect(bool(game.get("units")[0].get("counterattack_active", false)) and bool(game.get("units")[1].get("counterattack_active", false)), "Both committed counterattack units must retain their active assignments")
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
 
 	game.set("faction", "وطن")
 	game.set("map_type", "الساحل الجبلي")
