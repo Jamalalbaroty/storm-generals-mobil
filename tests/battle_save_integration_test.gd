@@ -50,6 +50,20 @@ func _run_battle_save_integration_test() -> void:
 	game.call("_award_unit_experience", enemy_veterancy_test, 500)
 	_expect(float(enemy_veterancy_test.get("combat_xp", 0.0)) == 250.0 and int(enemy_veterancy_test.get("veterancy", 0)) == 2, "Enemy units must earn elite veterancy just like player units")
 	_expect(float(veteran_test_unit.get("combat_xp", 0.0)) == 500.0, "Veterancy XP must accumulate exactly across combat awards")
+	# Veterancy is part of the persisted unit record and must survive snapshot creation.
+	game.get("units").assign([veteran_test_unit.duplicate(true), enemy_veterancy_test.duplicate(true)])
+	var veterancy_snapshot: Dictionary = game.call("_build_battle_snapshot")
+	_expect(float(veterancy_snapshot["units"][0].get("combat_xp", -1.0)) == 500.0 and int(veterancy_snapshot["units"][0].get("veterancy", -1)) == 3, "Battle snapshots must preserve player combat XP and heroic rank")
+	_expect(float(veterancy_snapshot["units"][1].get("combat_xp", -1.0)) == 250.0 and int(veterancy_snapshot["units"][1].get("veterancy", -1)) == 2, "Battle snapshots must preserve enemy combat XP and elite rank")
+	var save_store: Object = game.get("battle_save_store")
+	_expect(bool(save_store.call("_validate_unit_identity", veteran_test_unit.duplicate(true), {})), "Valid veterancy data must pass save validation")
+	var invalid_xp_unit: Dictionary = veteran_test_unit.duplicate(true)
+	invalid_xp_unit["combat_xp"] = -1.0
+	_expect(not bool(save_store.call("_validate_unit_identity", invalid_xp_unit, {})), "Negative combat XP must be rejected by save validation")
+	var invalid_rank_unit: Dictionary = veteran_test_unit.duplicate(true)
+	invalid_rank_unit["veterancy"] = 4
+	_expect(not bool(save_store.call("_validate_unit_identity", invalid_rank_unit, {})), "Out-of-range veterancy rank must be rejected by save validation")
+	game.get("units").clear()
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
