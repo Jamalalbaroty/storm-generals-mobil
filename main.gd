@@ -4731,6 +4731,16 @@ func _transport_ai_nearest_friendly_airfield(from_pos: Vector2) -> Dictionary:
 	return nearest
 
 
+func _transport_ai_is_friendly_airfield_at(site_pos: Vector2) -> bool:
+	for airfield_index in range(buildings.size()):
+		var airfield: Dictionary = buildings[airfield_index]
+		if String(airfield.get("kind", "")) != "airfield" or not _is_player_building_powered(airfield_index):
+			continue
+		if airfield.pos.distance_to(site_pos) <= 2.0:
+			return true
+	return false
+
+
 func _order_transport_return_to_base() -> void:
 	var transport: Dictionary = {}
 	for index in selected:
@@ -4956,11 +4966,28 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			transport["transport_ai_route_index"] = return_route_index + 1
 		elif transport.pos.distance_to(return_pos) <= 14.0:
 			transport.pos = return_pos
-			transport.erase("transport_return_pos")
 			transport.erase("transport_ai_route_points")
 			transport.erase("transport_ai_route_index")
 			transport["transport_ai_autonomous_active"] = false
+			transport["transport_rearm_progress"] = 0.0
+			transport["transport_state"] = "rearming"
+	elif state == "rearming":
+		var service_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
+		if not _transport_ai_is_friendly_airfield_at(service_pos):
+			transport.erase("transport_return_pos")
+			transport.erase("transport_rearm_progress")
 			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "توقفت خدمة طائرة النقل — المطار لم يعد صالحاً والحمولة محفوظة"
+			notice_time = 2.8
+			return
+		transport["transport_rearm_progress"] = float(transport.get("transport_rearm_progress", 0.0)) + delta
+		if float(transport["transport_rearm_progress"]) >= 5.0:
+			transport["hp"] = _unit_repair_max_hp(transport)
+			transport.erase("transport_return_pos")
+			transport.erase("transport_rearm_progress")
+			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "اكتملت صيانة طائرة النقل — أصبحت جاهزة للمهمة التالية"
+			notice_time = 2.5
 	elif transport.has("target"):
 		var move_target: Vector2 = transport.target
 		if transport.pos.distance_to(move_target) > 12.0:
