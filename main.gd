@@ -4507,7 +4507,6 @@ func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
 
 func _enemy_ai_turn() -> void:
 	var player_air_threat = 0
-	var player_naval_threat = 0
 	var player_heavy_ground_threat = 0
 	var player_infantry_threat = 0
 	for player_unit in units:
@@ -4515,16 +4514,14 @@ func _enemy_ai_turn() -> void:
 			continue
 		if player_unit.kind == "fighter" or player_unit.kind == "helicopter":
 			player_air_threat += 1
-		elif _is_naval_kind(String(player_unit.kind)):
-			player_naval_threat += 1
 		elif player_unit.kind == "tank" or player_unit.kind == "artillery":
 			player_heavy_ground_threat += 1
 		elif player_unit.kind == "infantry":
 			player_infantry_threat += 1
-	var next_strategy := _enemy_choose_strategy(player_air_threat, player_naval_threat, player_heavy_ground_threat, player_infantry_threat)
+	var next_strategy := _enemy_choose_strategy(player_air_threat, 0, player_heavy_ground_threat, player_infantry_threat)
 	if next_strategy != enemy_strategy:
 		enemy_strategy = next_strategy
-		var strategy_names := {"air_control": "التفوق الجوي", "naval_control": "السيطرة البحرية", "armor_breaker": "مكافحة الدروع", "area_denial": "القصف المساحي", "balanced": "التوازن"}
+		var strategy_names := {"air_control": "التفوق الجوي", "armor_breaker": "مكافحة القوات المدرعة", "area_denial": "القصف المساحي", "balanced": "التوازن"}
 		notice = "العدو يغيّر خطته إلى: %s" % strategy_names.get(enemy_strategy, "التوازن")
 		notice_time = 2.5
 	var build_pos := _enemy_build_position()
@@ -4705,7 +4702,6 @@ func _enemy_choose_strategy(air_threat: int, naval_threat: int, heavy_ground_thr
 	# A small hysteresis margin prevents doctrine flicker when unit counts fluctuate.
 	var threat_scores := {
 		"air_control": float(air_threat) * 3.0,
-		"naval_control": float(naval_threat) * 3.2,
 		"armor_breaker": float(heavy_ground_threat) * 2.5,
 		"area_denial": float(infantry_threat) * 1.1
 	}
@@ -4731,12 +4727,6 @@ func _enemy_counter_production(strategy: String, fighter_count: int, helicopter_
 	var supply_cost := 0
 	var unit_hp := 0
 	match strategy:
-		"naval_control":
-			if destroyer_count < 3 and _enemy_has_powered_building("shipyard"):
-				kind = "destroyer"
-				cost = _unit_cost(kind, _enemy_faction())
-				supply_cost = _unit_supply_cost(kind)
-				unit_hp = 260
 		"air_control":
 			if fighter_count < 4 and _enemy_has_powered_building("airfield"):
 				kind = "fighter"
