@@ -1262,10 +1262,10 @@ func spawn_game_unit_destruction_effect(source_pos: Vector2, map_rect: Rect2, ki
 	var wreck_start_height := 5.2 if kind == "transport_helicopter" else 0.08
 	var world_pos := _gameplay_effect_world_position(source_pos, map_rect, wreck_start_height)
 	var wreck_source := Node3D.new()
+	add_child(wreck_source)
 	wreck_source.global_position = world_pos
 	wreck_source.set_meta("gameplay_unit_kind", kind)
 	wreck_source.set_meta("unit_type", kind)
-	add_child(wreck_source)
 	_spawn_light_unit_wreck(wreck_source)
 	wreck_source.queue_free()
 	_spawn_impact_flash(world_pos, true)
@@ -1294,9 +1294,9 @@ func _spawn_light_unit_wreck(unit: Node3D) -> void:
 	var unit_kind := String(unit.get_meta("gameplay_unit_kind", unit.get_meta("unit_type", unit.get_meta("source_kind", "tank"))))
 	var wreck := Node3D.new()
 	wreck.name = "LightUnitWreck"
+	add_child(wreck)
 	wreck.global_position = unit.global_position
 	wreck.rotation.y = unit.rotation.y
-	add_child(wreck)
 	var wreck_mesh := BoxMesh.new()
 	var wreck_chunk := MeshInstance3D.new()
 	wreck_chunk.mesh = wreck_mesh
