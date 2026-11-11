@@ -575,7 +575,7 @@ func _process(delta: float) -> void:
 			var building: Dictionary = buildings[defense_index]
 			if (building.kind == "turret" or building.kind == "anti_air" or building.kind == "bunker") and _is_player_building_powered(defense_index):
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var is_bunker := building.kind == "bunker"
+				var is_bunker: bool = String(building.get("kind", "")) == "bunker"
 				var bunker_level := maxi(1, int(building.get("level", 1))) if is_bunker else 1
 				var bunker_range := 185.0 + float(bunker_level - 1) * 30.0
 				var target := _nearest_enemy_ground_unit(building.pos, bunker_range) if is_bunker else (_priority_air_target(building.pos, "enemy", 320.0) if building.kind == "anti_air" else _nearest_enemy_unit(building.pos, 230.0))
@@ -757,7 +757,8 @@ func _process(delta: float) -> void:
 				# Damaged player aircraft automatically recover at a powered, completed airfield.
 				if unit.kind in ["fighter", "helicopter"]:
 					var aircraft_ammo := int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12))
-					var aircraft_needs_repair := aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
+					var aircraft_max_hp: int = _unit_repair_max_hp(unit)
+					var aircraft_needs_repair: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
 					if not bool(unit.get("airfield_returning", false)) and (aircraft_ammo <= 0 or (not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_needs_repair)):
 						var nearest_airfield := -1
 						var nearest_airfield_distance := INF
@@ -806,7 +807,7 @@ func _process(delta: float) -> void:
 						var landing_column := landing_slot % 3 - 1
 						var landing_row := int(landing_slot / 3)
 						var landing_spot := recovery_airfield_pos + Vector2(float(landing_column) * 24.0, 30.0 + float(landing_row) * 20.0)
-						var recovery_distance := unit.pos.distance_to(landing_spot)
+						var recovery_distance: float = unit.pos.distance_to(landing_spot)
 						if recovery_distance > 14.0:
 							unit.pos += (landing_spot - unit.pos).normalized() * delta * (92.0 if unit.kind == "fighter" else 68.0)
 						else:
@@ -924,7 +925,7 @@ func _process(delta: float) -> void:
 					if unit.has("air_patrol_points") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 						var patrol_points: Array = unit.get("air_patrol_points", [])
 						if patrol_points.size() >= 2:
-							var patrol_threat_kinds := ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
+						var patrol_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
 						var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
 						if patrol_threat >= 0:
 							unit["attack_target"] = patrol_threat
@@ -1038,7 +1039,7 @@ func _process(delta: float) -> void:
 							continue
 						if guard_candidate.pos.distance_to(guard_post) > guard_radius:
 							continue
-						var guard_candidate_distance := unit.pos.distance_to(guard_candidate.pos)
+						var guard_candidate_distance: float = unit.pos.distance_to(guard_candidate.pos)
 						if guard_candidate_distance < guard_enemy_distance:
 							guard_enemy_distance = guard_candidate_distance
 							guard_enemy_index = guard_candidate_index
@@ -1048,7 +1049,7 @@ func _process(delta: float) -> void:
 						var guard_building: Dictionary = enemy_buildings[guard_building_index]
 						if int(guard_building.get("hp", 0)) <= 0 or guard_building.pos.distance_to(guard_post) > guard_radius:
 							continue
-						var candidate_distance := unit.pos.distance_to(guard_building.pos)
+						var candidate_distance: float = unit.pos.distance_to(guard_building.pos)
 						if candidate_distance < guard_building_distance:
 							guard_building_distance = candidate_distance
 							guard_building_target = guard_building_index
@@ -1065,7 +1066,7 @@ func _process(delta: float) -> void:
 					continue
 			if bool(unit.get("attack_move_active", false)) and not bool(unit.get("guard_active", false)) and not unit.has("attack_building") and not bool(unit.get("attack_base", false)):
 				var current_attack_target := int(unit.get("attack_target", -1))
-				var has_live_attack_target := current_attack_target >= 0 and current_attack_target < units.size() and units[current_attack_target].team == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
+				var has_live_attack_target: bool = current_attack_target >= 0 and current_attack_target < units.size() and String(units[current_attack_target].get("team", "")) == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
 				if not has_live_attack_target:
 					var attack_move_unit_target := _nearest_enemy_ground_unit(unit.pos, 420.0 if unit.kind == "artillery" else 235.0)
 					var attack_move_unit_distance := INF
@@ -1077,7 +1078,7 @@ func _process(delta: float) -> void:
 						var candidate_building: Dictionary = enemy_buildings[candidate_building_index]
 						if int(candidate_building.get("hp", 0)) <= 0:
 							continue
-						var candidate_distance := unit.pos.distance_to(candidate_building.pos)
+						var candidate_distance: float = unit.pos.distance_to(candidate_building.pos)
 						if candidate_distance < attack_move_building_distance:
 							attack_move_building_distance = candidate_distance
 							attack_move_building_target = candidate_building_index
@@ -1160,7 +1161,7 @@ func _process(delta: float) -> void:
 							_award_unit_experience(unit, enemy_hp_before - int(enemy.hp))
 							_register_unit_kill(unit, enemy, enemy_hp_before)
 							if unit.kind == "tank":
-								var tank_muzzle := unit.pos + Vector2(1.0, 0.0) + Vector2(27.0, 0.0).rotated(_unit_turret_angle(unit))
+								var tank_muzzle: Vector2 = unit.pos + Vector2(1.0, 0.0) + Vector2(27.0, 0.0).rotated(_unit_turret_angle(unit))
 								unit["gun_recoil"] = 7.0
 								_add_visual_effect("muzzle", tank_muzzle, tank_muzzle, Color("#ffd58d"), 0.16, 13.0)
 								_add_visual_effect("tank_round", tank_muzzle, enemy.pos, Color("#ffe0a0"), 0.18, 0.0)
@@ -1246,7 +1247,7 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 				elif kind == "wall_gate":
 					# The gate keeps a clear central passage; only its two guard pillars block ground traffic.
 					for gate_side in [-1.0, 1.0]:
-						var pillar_center := fortification.pos + Vector2(gate_side * 38.0, 0.0)
+						var pillar_center: Vector2 = fortification.pos + Vector2(gate_side * 38.0, 0.0)
 						resolved = _fortification_resolve_segment(resolved, previous, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), collision_radius + 6.0)
 				elif kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
 					# Ground vehicles and infantry cannot pass through solid defensive structures.
@@ -1407,7 +1408,7 @@ func _update_environment_particles(delta: float) -> void:
 				var tank_hp_ratio := float(unit.get("hp", 0)) / 150.0
 				unit["damage_smoke_cd"] = maxf(0.0, float(unit.get("damage_smoke_cd", 0.0)) - delta)
 				if tank_hp_ratio <= 0.60 and float(unit.damage_smoke_cd) <= 0.0:
-					var smoke_origin := unit.pos + Vector2(-7.0, -10.0).rotated(_unit_facing_angle(unit))
+					var smoke_origin: Vector2 = unit.pos + Vector2(-7.0, -10.0).rotated(_unit_facing_angle(unit))
 					var heavy_damage := tank_hp_ratio <= 0.25
 					_spawn_environment_particle(smoke_origin, Vector2(randf_range(-5.0, 5.0), -randf_range(12.0, 21.0)), 7.0 if not heavy_damage else 10.0, 0.95 if not heavy_damage else 1.25, Color("#77736b") if not heavy_damage else Color("#45413c"), "smoke")
 					if heavy_damage:
@@ -1437,7 +1438,7 @@ func _player_armor_penetration_damage(target: Dictionary, base_damage: int, atta
 	var target_kind := String(target.get("kind", ""))
 	var penetration_multiplier := 1.35 if target_kind == "tank" else (1.15 if target_kind == "artillery" else 1.0)
 	var target_facing := float(target.get("facing", 0.0))
-	var incoming_angle := (attacker_pos - target.pos).angle()
+	var incoming_angle: float = (attacker_pos - target.pos).angle()
 	var aspect_angle := absf(wrapf(incoming_angle - target_facing, -PI, PI))
 	var aspect_multiplier := 0.78 if aspect_angle <= 0.78 else (1.20 if aspect_angle >= 2.35 else 1.0)
 	return maxi(1, roundi(float(base_damage) * penetration_multiplier * aspect_multiplier))
@@ -1660,7 +1661,7 @@ func _apply_artillery_blast(center: Vector2, radius: float, base_damage: int, ta
 			continue
 		if String(target.get("kind", "")) not in ["infantry", "tank", "artillery", "builder"]:
 			continue
-		var distance := target.pos.distance_to(center)
+		var distance: float = target.pos.distance_to(center)
 		if distance > radius:
 			continue
 		var falloff := 1.0 - 0.65 * clampf(distance / maxf(1.0, radius), 0.0, 1.0)
@@ -2714,7 +2715,7 @@ func _draw() -> void:
 		tint.a = fade
 		if effect.kind == "targeting":
 			# Ground marker previews the full blast footprint for tactical readability.
-			var marker_radius := float(effect.radius) * (0.82 + progress * 0.18)
+			var marker_radius: float = float(effect.radius) * (0.82 + progress * 0.18)
 			draw_arc(effect.finish, marker_radius, 0.0, TAU, 40, Color(1.0, 0.76, 0.30, fade * 0.88), 2.2)
 			draw_arc(effect.finish, marker_radius * 0.78, 0.0, TAU, 32, Color(1.0, 0.88, 0.56, fade * 0.48), 1.0)
 			for mark_index in range(4):
@@ -2722,7 +2723,7 @@ func _draw() -> void:
 				var mark_direction := Vector2(cos(mark_angle), sin(mark_angle))
 				draw_line(effect.finish + mark_direction * marker_radius * 0.86, effect.finish + mark_direction * marker_radius * 1.08, Color(1.0, 0.78, 0.38, fade), 2.0)
 		elif effect.kind == "muzzle":
-			var muzzle_radius := float(effect.radius) * (0.35 + progress)
+			var muzzle_radius: float = float(effect.radius) * (0.35 + progress)
 			draw_circle(effect.finish, muzzle_radius, Color(1.0, 0.64, 0.28, fade * 0.38))
 			draw_circle(effect.finish, muzzle_radius * 0.42, Color(1.0, 0.94, 0.72, fade * 0.82))
 		elif effect.kind == "shell":
@@ -2738,7 +2739,7 @@ func _draw() -> void:
 		elif effect.kind == "tank_round":
 			# Fast, compact tank projectile with a bright core and short exhaust trail.
 			var round_position: Vector2 = effect.start.lerp(effect.finish, progress)
-			var round_direction := (effect.finish - effect.start).normalized()
+			var round_direction: Vector2 = (effect.finish - effect.start).normalized()
 			draw_line(round_position - round_direction * 11.0, round_position, Color(1.0, 0.68, 0.32, fade * 0.62), 3.0)
 			draw_circle(round_position, 3.2, Color(1.0, 0.83, 0.48, fade))
 			draw_circle(round_position, 1.4, Color(1.0, 0.98, 0.82, fade))
@@ -4530,7 +4531,7 @@ func _update_field_repairs(delta: float) -> void:
 			var max_hp := _unit_repair_max_hp(candidate)
 			if max_hp <= 0 or int(candidate.get("hp", 0)) >= max_hp:
 				continue
-			var distance := builder.pos.distance_to(candidate.pos)
+			var distance: float = builder.pos.distance_to(candidate.pos)
 			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_unit_index = unit_index
@@ -6115,7 +6116,7 @@ func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, prod
 					resolved = _fortification_resolve_segment(candidate, candidate, structure.pos + Vector2(10.0, 0.0), structure.pos + Vector2(10.0, 40.0), unit_radius + 7.0)
 			elif structure_kind == "wall_gate":
 				for gate_side in [-1.0, 1.0]:
-					var pillar_center := structure.pos + Vector2(gate_side * 38.0, 0.0)
+					var pillar_center: Vector2 = structure.pos + Vector2(gate_side * 38.0, 0.0)
 					resolved = _fortification_resolve_segment(resolved, candidate, pillar_center + Vector2(0.0, -17.0), pillar_center + Vector2(0.0, 17.0), unit_radius + 6.0)
 			elif structure_kind in ["bunker", "turret", "anti_air", "missile_defense", "missile_silo"]:
 				var defense_radius := 22.0 if structure_kind in ["bunker", "missile_silo"] else (19.0 if structure_kind == "missile_defense" else 16.0)
@@ -6152,12 +6153,12 @@ func _find_clear_ground_spawn(origin: Vector2, unit_kind: String, producer_id: i
 
 
 func _ground_navigation_direction(unit: Dictionary, unit_index: int, destination: Vector2, delta: float, move_speed: float) -> Vector2:
-	var to_destination := destination - unit.pos
+	var to_destination: Vector2 = destination - unit.pos
 	if to_destination.length_squared() <= 0.01:
 		return Vector2.ZERO
-	var forward := to_destination.normalized()
+	var forward: Vector2 = to_destination.normalized()
 	var travel_distance := maxf(5.0, move_speed * delta)
-	var direct_candidate := unit.pos + forward * travel_distance
+	var direct_candidate: Vector2 = unit.pos + forward * travel_distance
 	var kind := String(unit.get("kind", ""))
 	if _is_ground_spawn_position_clear(direct_candidate, kind, -1, unit_index):
 		return forward
@@ -6167,10 +6168,10 @@ func _ground_navigation_direction(unit: Dictionary, unit_index: int, destination
 	var best_direction := Vector2.ZERO
 	var best_distance := INF
 	for side_sign in [1.0, -1.0]:
-		var candidate := unit.pos + forward * (travel_distance * 0.55) + side * side_offset * side_sign
+		var candidate: Vector2 = unit.pos + forward * (travel_distance * 0.55) + side * side_offset * side_sign
 		if not _is_ground_spawn_position_clear(candidate, kind, -1, unit_index):
 			continue
-		var remaining_distance := candidate.distance_to(destination)
+		var remaining_distance: float = candidate.distance_to(destination)
 		if remaining_distance < best_distance:
 			best_distance = remaining_distance
 			best_direction = (candidate - unit.pos).normalized()
