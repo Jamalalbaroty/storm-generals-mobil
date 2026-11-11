@@ -166,6 +166,18 @@ func _run_battle_save_integration_test() -> void:
 		"pos": Vector2(420.0, 210.0),
 		"transport_state": "loaded",
 		"transport_target_pos": Vector2(680.0, 260.0),
+		"transport_landing_type": "rooftop",
+		"transport_target_building_kind": "factory",
+		"transport_drop_index": 1,
+		"transport_drop_timer": 0.35,
+		"transport_ai_last_site_id": "roof_factory_01",
+		"transport_ai_route_points": [Vector2(520.0, 220.0), Vector2(610.0, 245.0), Vector2(680.0, 260.0)],
+		"transport_ai_route_index": 1,
+		"transport_ai_autonomous_active": true,
+		"transport_ai_player_override": false,
+		"transport_firing": true,
+		"attack_focus_pos": Vector2(735.0, 270.0),
+		"attack_target_pos": Vector2(742.0, 275.0),
 		"transport_cargo": [{
 			"unit_id": "unit_00000052",
 			"kind": "infantry",
@@ -221,6 +233,12 @@ func _run_battle_save_integration_test() -> void:
 		_expect(String(transport.get("unit_id", "")) == "unit_00000051", "Transport identity should be restored")
 		_expect(String(transport.get("transport_state", "")) == "loaded", "Transport mission state should be restored")
 		_expect(Array(transport.get("transport_cargo", [])).size() == 1, "Transport cargo should be restored")
+		_expect(String(transport.get("transport_landing_type", "")) == "rooftop" and String(transport.get("transport_target_building_kind", "")) == "factory", "Transport rooftop insertion target must survive restore")
+		_expect(int(transport.get("transport_drop_index", -1)) == 1 and is_equal_approx(float(transport.get("transport_drop_timer", -1.0)), 0.35), "Rope deployment progress must survive restore")
+		_expect(String(transport.get("transport_ai_last_site_id", "")) == "roof_factory_01", "Transport AI landing-site identity must survive restore")
+		_expect(Array(transport.get("transport_ai_route_points", [])).size() == 3 and int(transport.get("transport_ai_route_index", -1)) == 1, "Transport flight route and current waypoint must survive restore")
+		_expect(bool(transport.get("transport_ai_autonomous_active", false)) and not bool(transport.get("transport_ai_player_override", true), "Transport AI execution policy must survive restore")
+		_expect(bool(transport.get("transport_firing", false)) and transport.get("attack_focus_pos", Vector2.ZERO) == Vector2(735.0, 270.0) and transport.get("attack_target_pos", Vector2.ZERO) == Vector2(742.0, 275.0), "Loaded passenger firing focus must survive restore")
 		_expect(String(mover.get("unit_id", "")) == "unit_00000053" and mover.get("target", Vector2.ZERO) == Vector2(720.0, 240.0), "Movement destination order must survive save/restore")
 		_expect(String(attacker.get("unit_id", "")) == "unit_00000054" and int(attacker.get("attack_target", -1)) == 4, "Attack order must retain its target unit index after restore")
 		_expect(String(game.get("units")[4].get("unit_id", "")) == "unit_00000056" and String(game.get("units")[4].get("team", "")) == "enemy", "The restored attack target must still identify the same enemy unit")
