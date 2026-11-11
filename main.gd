@@ -334,7 +334,9 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			var candidate_kind := String(candidate.get("kind", ""))
 			if candidate.team != "player" or int(candidate.get("3d_sync_id", -1)) != escort_target_id or int(candidate.get("hp", 0)) <= 0:
 				continue
-			if candidate_kind not in ["artillery", "transport_helicopter"]:
+			if escort_kind == "tank" and candidate_kind != "artillery":
+				continue
+			if escort_kind in ["fighter", "helicopter"] and candidate_kind not in ["artillery", "transport_helicopter"]:
 				continue
 			escort_target_index = candidate_index
 			break
