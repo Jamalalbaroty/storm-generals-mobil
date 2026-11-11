@@ -255,6 +255,14 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_enemy_fighter_select_air_target", Vector2.ZERO, 3)) == 1, "Enemy fighters must distribute interceptions when another fighter is already engaging the nearest hostile aircraft")
 	game.get("units")[2]["hp"] = 0
 	_expect(int(game.call("_enemy_fighter_select_air_target", Vector2.ZERO, 3)) == 0, "Enemy fighters must select the nearest available hostile aircraft when no friendly interceptor is engaging it")
+	# Attack helicopters support the command-selected ground threat, then fall back when that focus is invalid.
+	game.get("units").assign([
+		{"kind": "infantry", "team": "player", "hp": 100, "pos": Vector2(35.0, 0.0)},
+		{"kind": "tank", "team": "player", "hp": 300, "pos": Vector2(260.0, 0.0)}
+	])
+	_expect(int(game.call("_enemy_helicopter_assault_target", Vector2.ZERO, 1)) == 1, "Enemy attack helicopters must reinforce the ground assault command focus instead of independently chasing a closer low-priority unit")
+	game.get("units")[1]["hp"] = 0
+	_expect(int(game.call("_enemy_helicopter_assault_target", Vector2.ZERO, 1)) == 0, "Enemy attack helicopters must reacquire a living ground target when the coordinated focus is destroyed")
 	# Enemy combined-arms assault formations must keep armor forward, infantry in support, and artillery at standoff range.
 	var assault_target_pos := Vector2(500.0, 300.0)
 	var assault_origin_pos := Vector2(100.0, 300.0)
