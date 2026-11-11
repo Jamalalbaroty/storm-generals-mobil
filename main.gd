@@ -216,6 +216,17 @@ func _next_airfield_recovery_slot(recovery_id: int) -> int:
 	return next_slot
 
 
+func _airfield_sortie_launch_delay(airfield_id: int) -> float:
+	# One aircraft uses the launch lane at a time; later ready aircraft wait in order.
+	var queued_launches := 0
+	for aircraft in units:
+		if String(aircraft.get("team", "")) != "player" or not bool(aircraft.get("airfield_sortie_launch", false)):
+			continue
+		if int(aircraft.get("airfield_sortie_airfield_id", -2)) == airfield_id:
+			queued_launches += 1
+	return float(queued_launches) * 1.5
+
+
 func _save_aircraft_resume_order(unit: Dictionary) -> void:
 	# Preserve the player's current air mission while an aircraft automatically rearms.
 	var resume_order: Dictionary = {}
@@ -926,6 +937,7 @@ func _process(delta: float) -> void:
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
 								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
+								unit["airfield_sortie_launch_wait"] = _airfield_sortie_launch_delay(int(unit.get("airfield_recovery_id", -1)))
 								unit.erase("airfield_returning")
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
@@ -968,8 +980,13 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
+						unit.erase("airfield_sortie_launch_wait")
 						_restore_aircraft_resume_order(unit)
 					else:
+						var launch_wait := float(unit.get("airfield_sortie_launch_wait", 0.0))
+						if launch_wait > 0.0:
+							unit["airfield_sortie_launch_wait"] = maxf(0.0, launch_wait - delta)
+							continue
 						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
 						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
 						if unit.pos.distance_to(sortie_launch_spot) > 8.0:
