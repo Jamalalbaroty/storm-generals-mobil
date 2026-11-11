@@ -849,6 +849,17 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 		else:
 			unit.rotation.x = lerpf(unit.rotation.x, 0.0, clampf(delta * 4.0, 0.0, 1.0))
 		if aircraft_kind == "transport_helicopter":
+			# Damage-induced instability is visual only; gameplay movement remains authoritative.
+			var damage_ratio := clampf(float(unit.get_meta("transport_damage_ratio", 1.0)), 0.0, 1.0)
+			var damage_intensity := clampf((0.62 - damage_ratio) / 0.62, 0.0, 1.0)
+			var damage_phase := float(unit.get_meta("transport_damage_phase", 0.0)) + delta * lerpf(3.2, 7.5, damage_intensity)
+			unit.set_meta("transport_damage_phase", damage_phase)
+			var damage_wobble := sin(damage_phase) * damage_intensity
+			var severe_damage := clampf((0.30 - damage_ratio) / 0.30, 0.0, 1.0)
+			var damage_roll := damage_wobble * lerpf(0.025, 0.16, severe_damage)
+			var damage_pitch := cos(damage_phase * 0.73) * damage_intensity * lerpf(0.012, 0.075, severe_damage)
+			unit.rotation.z = clampf(unit.rotation.z + damage_roll, -0.42, 0.42)
+			unit.rotation.x = clampf(unit.rotation.x + damage_pitch, -0.20, 0.20)
 			var damage_smoke := unit.get_node_or_null("DamageSmoke") as Node3D
 			if is_instance_valid(damage_smoke) and damage_smoke.visible:
 				var smoke_phase := float(unit.get_meta("transport_smoke_phase", 0.0)) + delta * 2.1
