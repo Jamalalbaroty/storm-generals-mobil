@@ -50,11 +50,9 @@ jobs:
       - name: Smoke test isolated 3D battlefield
         shell: bash
         run: |
-          set +e
-          godot --headless --path . --script res://prototype_3d/smoke_test.gd > /tmp/3d-smoke.log 2>&1
-          smoke_status=$?
-          set -e
-          cat /tmp/3d-smoke.log
+          set -o pipefail
+          timeout --signal=TERM --kill-after=10s 180s godot --headless --path . --script res://prototype_3d/smoke_test.gd 2>&1 | tee /tmp/3d-smoke.log
+          smoke_status=${PIPESTATUS[0]}
           if [ "$smoke_status" -ne 0 ]; then
             echo "3D battlefield smoke test exited with status $smoke_status"
             exit "$smoke_status"

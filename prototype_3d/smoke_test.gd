@@ -14,6 +14,7 @@ func _has_faction_insignia_color(unit: Node, badge_path: NodePath, expected: Col
 
 
 func _initialize() -> void:
+	print("3D smoke checkpoint: initialize")
 	var packed := load("res://prototype_3d/battlefield_3d.tscn") as PackedScene
 	if packed == null:
 		push_error("Could not load the 3D battlefield scene")
@@ -23,34 +24,54 @@ func _initialize() -> void:
 	var battlefield := packed.instantiate()
 	root.add_child(battlefield)
 	await process_frame
+	print("3D smoke checkpoint: battlefield instantiated")
 
 	if not battlefield is Node3D:
 		push_error("The 3D battlefield root is not Node3D")
 		quit(1)
 		return
 
-	# Verify the tactical move path renders while an order is active and clears afterward.
+	# Verify individual tactical paths for a selected group and clear them when its order ends.
+	print("3D smoke checkpoint: tactical group path test")
 	var path_test_unit := Node3D.new()
 	path_test_unit.set_meta("unit_type", "tank")
+	path_test_unit.set_meta("source_team", "player")
+	path_test_unit.set_meta("source_unit_key", "player|path-test|tank")
+	var path_test_infantry := Node3D.new()
+	path_test_infantry.set_meta("unit_type", "infantry")
+	path_test_infantry.set_meta("source_team", "player")
+	path_test_infantry.set_meta("source_unit_key", "player|path-test|infantry")
 	battlefield.add_child(path_test_unit)
-	battlefield.set("selected_tank", path_test_unit)
+	battlefield.add_child(path_test_infantry)
+	var path_test_group: Array[Node3D] = [path_test_unit, path_test_infantry]
+	battlefield.call("_set_live_selection", path_test_group)
 	battlefield.set("selected_destination", Vector3(4.0, 0.0, 2.0))
 	battlefield.set("has_selected_destination", true)
 	battlefield.call("_update_order_path_visual")
+	print("3D smoke checkpoint: tactical path mesh generated")
 	var path_visual := battlefield.get("order_path_instance") as MeshInstance3D
 	var path_mesh := battlefield.get("order_path_mesh") as ImmediateMesh
 	if path_visual == null or path_mesh == null or not path_visual.visible or path_mesh.get_surface_count() != 1:
-		push_error("Tactical move path did not render a visible line for an active destination")
+		push_error("Tactical group paths did not render a visible line surface")
+		quit(1)
+		return
+	var path_arrays: Array = path_mesh.surface_get_arrays(0)
+	var path_vertices: PackedVector3Array = path_arrays[Mesh.ARRAY_VERTEX]
+	if path_vertices.size() != 4:
+		push_error("Tactical group path did not render one separate segment per selected unit")
 		quit(1)
 		return
 	battlefield.set("has_selected_destination", false)
 	battlefield.call("_update_order_path_visual")
 	if path_visual.visible or path_mesh.get_surface_count() != 0:
-		push_error("Tactical move path remained visible after the movement order was cleared")
+		push_error("Tactical group paths remained visible after the movement order was cleared")
 		quit(1)
 		return
+	var empty_path_group: Array[Node3D] = []
+	battlefield.call("_set_live_selection", empty_path_group)
 	path_test_unit.queue_free()
-	battlefield.set("selected_tank", null)
+	path_test_infantry.queue_free()
+	print("3D smoke checkpoint: tactical path test passed")
 
 	var sun_light := battlefield.get("sun_light") as DirectionalLight3D
 	if sun_light == null:

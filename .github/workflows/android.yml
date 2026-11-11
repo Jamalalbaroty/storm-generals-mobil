@@ -4,6 +4,8 @@ name: Build Android APK
 # Run this workflow manually only when the team is ready to produce a test APK.
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/group-tactical-move-paths]
 
 concurrency:
   group: storm-generals-android-${{ github.ref }}
