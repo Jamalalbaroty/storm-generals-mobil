@@ -4206,8 +4206,32 @@ func _sell_selected_building() -> void:
 
 
 
+func _transport_ai_rescue_threat_pressure(infantry_pos: Vector2) -> float:
+	# Estimate immediate battlefield exposure from living hostiles around a casualty.
+	# This is a triage signal only; it does not issue attacks or alter combat simulation.
+	var pressure := 0.0
+	for hostile in units:
+		if String(hostile.get("team", "")) != "enemy" or int(hostile.get("hp", 0)) <= 0:
+			continue
+		var distance: float = infantry_pos.distance_to(hostile.get("pos", infantry_pos))
+		if distance > 180.0:
+			continue
+		var kind := String(hostile.get("kind", ""))
+		var weight := 1.0
+		if kind == "artillery":
+			weight = 2.2
+		elif kind == "tank":
+			weight = 2.0
+		elif kind == "fighter":
+			weight = 1.8
+		elif kind == "helicopter":
+			weight = 1.5
+		pressure += weight * (1.0 - distance / 180.0)
+	return pressure
+
+
 func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_pos: Vector2) -> Array[int]:
-	# Generals-style casualty extraction: most wounded first, then nearest to the pickup point.
+	# Zero Hour-style casualty triage: critical wounds first, then higher local threat, then proximity.
 	var ordered: Array[int] = infantry_indices.duplicate()
 	for sort_index in range(ordered.size()):
 		var best_index := sort_index
@@ -4223,9 +4247,15 @@ func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_
 			var best_unit: Dictionary = units[best_unit_index]
 			var current_hp := int(current_unit.get("hp", 100))
 			var best_hp := int(best_unit.get("hp", 100))
-			var current_distance: float = current_unit.get("pos", transport_pos).distance_to(transport_pos)
-			var best_distance: float = best_unit.get("pos", transport_pos).distance_to(transport_pos)
-			if current_hp < best_hp or (current_hp == best_hp and current_distance < best_distance):
+			var current_pos: Vector2 = current_unit.get("pos", transport_pos)
+			var best_pos: Vector2 = best_unit.get("pos", transport_pos)
+			var current_pressure := _transport_ai_rescue_threat_pressure(current_pos)
+			var best_pressure := _transport_ai_rescue_threat_pressure(best_pos)
+			var current_distance: float = current_pos.distance_to(transport_pos)
+			var best_distance: float = best_pos.distance_to(transport_pos)
+			var higher_threat := current_pressure > best_pressure and not is_equal_approx(current_pressure, best_pressure)
+			var nearer := current_distance < best_distance and not is_equal_approx(current_distance, best_distance)
+			if current_hp < best_hp or (current_hp == best_hp and (higher_threat or (is_equal_approx(current_pressure, best_pressure) and nearer))):
 				best_index = compare_index
 		if best_index != sort_index:
 			var swap_index := ordered[sort_index]
