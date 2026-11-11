@@ -217,12 +217,17 @@ func _run_battle_save_integration_test() -> void:
 	_expect(bool(game.call("_load_battle_snapshot")), "Desktop close notification should persist the active battle before teardown")
 	_expect(int(game.get("credits")) == 1444, "Close-request autosave should capture the latest economy state")
 	game.set("game_started", false)
+	game.set("campaign_briefing", false)
 	game.set("credits", 2222)
 	game.call("_notification", Node.NOTIFICATION_APPLICATION_PAUSED)
 	game.set("credits", 7)
-	_expect(bool(game.call("_load_battle_snapshot")), "An existing valid battle save should remain loadable while the game is at its menu")
-	_expect(int(game.get("credits")) == 1444, "Pausing outside an active match must not overwrite the previous battle save")
-	game.set("game_started", true)
+	var resume_menu_size: Vector2 = game.get_viewport_rect().size
+	var resume_button: Rect2 = game.call("_resume_battle_rect", resume_menu_size)
+	_expect(bool(game.get("has_resumable_battle")) and resume_button.size.y >= 42.0, "Main menu must expose a usable resume action when a valid active battle save exists")
+	game.call("_handle_pointer", resume_button.get_center(), true)
+	game.call("_handle_pointer", resume_button.get_center(), false)
+	_expect(bool(game.get("game_started")), "Touching the main-menu resume action must return directly to the saved battle")
+	_expect(int(game.get("credits")) == 1444, "Main-menu resume must restore the latest autosaved economy state")
 
 	# Exercise every meaningful transport lifecycle boundary through the real snapshot path.
 	var transport_cases := [
