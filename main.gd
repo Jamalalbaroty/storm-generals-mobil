@@ -1327,6 +1327,14 @@ func _cleanup_destroyed_units() -> void:
 			if not bool(candidate.get("wreck_effect_spawned", false)):
 				candidate["wreck_effect_spawned"] = true
 				var destroyed_kind := String(candidate.get("kind", "tank"))
+				if destroyed_kind == "transport_helicopter":
+					var lost_passengers := Array(candidate.get("transport_cargo", [])).size()
+					if lost_passengers > 0:
+						notice = "سقطت مروحية النقل — فُقد %d من الجنود الذين كانوا على متنها" % lost_passengers
+						notice_time = 3.2
+						candidate["transport_cargo"] = []
+						candidate["transport_firing"] = false
+						candidate["attack_target_pos"] = Vector2.ZERO
 				_add_visual_effect("explosion", candidate.pos, candidate.pos, Color("#d58a4c"), 0.62, 34.0)
 				_spawn_environment_particle(candidate.pos + Vector2(-5.0, -8.0), Vector2(-5.0, -18.0), 13.0, 1.8, Color("#45433f"), "smoke")
 				if is_instance_valid(battlefield_3d) and battlefield_3d.has_method("spawn_game_unit_destruction_effect"):
