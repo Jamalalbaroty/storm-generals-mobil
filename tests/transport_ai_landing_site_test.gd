@@ -449,6 +449,13 @@ func _run() -> void:
 	staging_transport["transport_state"] = "loaded"
 	staging_transport["pos"] = Vector2(500.0, 300.0)
 	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(500.0, 300.0), "Escorts should return to the transport after landing or when it is not inbound")
+	staging_transport["transport_state"] = "returning"
+	staging_transport["pos"] = Vector2(620.0, 300.0)
+	staging_transport["transport_post_drop_guard_pos"] = Vector2(500.0, 300.0)
+	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(500.0, 300.0), "Escorts should hold the insertion zone while the transport starts extracting")
+	staging_transport["pos"] = Vector2(900.0, 300.0)
+	_expect(Vector2(game.call("_transport_ai_escort_anchor_position", staging_transport)) == Vector2(900.0, 300.0), "Escorts should rejoin the transport after it clears the insertion zone")
+	_expect(not staging_transport.has("transport_post_drop_guard_pos"), "The temporary insertion-zone guard anchor should clear after extraction")
 	var escort_base_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 18.0)
 	var escort_far_speed: float = game.call("_transport_ai_escort_catchup_speed", "fighter", 420.0)
 	var escort_helicopter_speed: float = game.call("_transport_ai_escort_catchup_speed", "helicopter", 420.0)
