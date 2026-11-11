@@ -125,7 +125,7 @@ func _run() -> void:
 	# Gradually increase live battlefield density after the economy/endurance checks.
 	# Keep health high so this phase measures sustained update/identity handling,
 	# not which side wins the deliberately crowded engagement.
-	for stage_count in [8, 16, 24]:
+	for stage_count in [8, 16, 24, 32, 40, 48]:
 		for team in ["player", "enemy"]:
 			for stage_index in range(8):
 				var unit_number: int = int(stage_count) - 8 + stage_index
@@ -134,8 +134,13 @@ func _run() -> void:
 					unit_kind = "fighter"
 				elif unit_number % 4 == 3:
 					unit_kind = "helicopter"
-				var side_x := 350.0 if team == "player" else 850.0
-				var side_y := 180.0 + float(unit_number) * 22.0
+				# Pack each side into an 8-column grid that stays inside the
+				# 1280x720 test viewport even at the 48-unit-per-team stage.
+				var grid_column: int = unit_number % 8
+				var grid_row: int = int(unit_number / 8)
+				var side_origin_x := 180.0 if team == "player" else 700.0
+				var side_x := side_origin_x + float(grid_column) * 50.0
+				var side_y := 140.0 + float(grid_row) * 75.0
 				units.append({
 					"kind": unit_kind, "team": team,
 					"faction": "الأمريكي" if team == "player" else "الصيني",
@@ -177,7 +182,7 @@ func _run() -> void:
 		push_error("Long-match endurance test failed with %d assertion(s)." % failure_count)
 		quit(1)
 		return
-	print("Long-match endurance test passed: 128 seconds of live economy, production, AI, combat, supply, and staged battlefield-density simulation.")
+	print("Long-match endurance test passed: 158 seconds of live economy, production, AI, combat, supply, and staged battlefield-density simulation.")
 	quit()
 
 
