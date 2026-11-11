@@ -286,6 +286,10 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(objective_status.get("current", -1)) == 499 and int(objective_status.get("required", -1)) == 500 and not bool(objective_status.get("met", true)), "Mission 1 objective progress must reflect base health below threshold")
 	game.set("player_base_hp", 500)
 	_expect(bool(game.call("_campaign_secondary_objective_met")), "Mission 1 secondary objective must complete at 50 percent base health")
+	objective_hud = game.call("_campaign_objective_hud_state", Vector2(320.0, 480.0))
+	_expect(bool(objective_hud.get("met", false)) and String(objective_hud.get("state", "")) == "مكتمل", "Objective HUD must switch to its completed state when the live threshold is reached")
+	_expect(float(objective_hud.get("progress", 0.0)) == 1.0, "Completed objective HUD progress must clamp to exactly 100 percent")
+	_expect((objective_hud.get("rect", Rect2()) as Rect2).size == Vector2(300.0, 39.0), "Objective HUD must preserve safe horizontal margins on a narrow phone viewport")
 
 	game.get("supply_points").clear()
 	game.get("supply_points").append_array([
