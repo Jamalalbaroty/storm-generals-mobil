@@ -137,6 +137,21 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(game.call("_building_max_hp", {"kind": "turret", "level": 2})) == 480, "Level-two ground defenses must gain the established 20 percent durability")
 	_expect(int(game.call("_building_max_hp", {"kind": "anti_air", "level": 3})) == 560, "Level-three anti-air defenses must scale consistently with upgrades")
 
+	# Zero Hour-style enemy doctrine: react to the strongest land/air threat and avoid strategy flicker.
+	game.set("enemy_strategy", "balanced")
+	_expect(String(game.call("_enemy_choose_strategy", 2, 0, 0, 0)) == "air_control", "Enemy AI must choose air control when hostile aircraft create the strongest threat")
+	game.set("enemy_strategy", "balanced")
+	_expect(String(game.call("_enemy_choose_strategy", 0, 0, 3, 0)) == "armor_breaker", "Enemy AI must choose armor breaker against a concentrated tank/artillery threat")
+	game.set("enemy_strategy", "balanced")
+	_expect(String(game.call("_enemy_choose_strategy", 0, 0, 0, 5)) == "area_denial", "Enemy AI must choose area denial against a large infantry force")
+	game.set("enemy_strategy", "balanced")
+	_expect(String(game.call("_enemy_choose_strategy", 0, 0, 0, 0)) == "balanced", "Enemy AI must retain balanced doctrine when no battlefield threat is present")
+	game.set("enemy_strategy", "air_control")
+	_expect(String(game.call("_enemy_choose_strategy", 2, 0, 2, 0)) == "air_control", "Enemy doctrine must use hysteresis to avoid flickering between nearly equal threats")
+	game.set("enemy_strategy", "air_control")
+	_expect(String(game.call("_enemy_choose_strategy", 1, 0, 5, 0)) == "armor_breaker", "Enemy AI must switch doctrine when a clearly stronger armor threat emerges")
+	game.set("enemy_strategy", "balanced")
+
 	# Enemy bunkers must acquire ground attackers only, never nearby aircraft or transports.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(20.0, 0.0)},
