@@ -178,3 +178,9 @@ A transport recalled for field extraction now carries an explicit pickup-wait ma
 ## Implemented fifteenth slice — clear temporary pickup movement on boarding
 
 Infantry sent to the aircraft by the extraction rendezvous command now carry a dedicated temporary-order marker. When they board, that temporary movement target is removed from the cargo record so the soldiers do not resume walking back to the pickup point after a later redeployment. Other pre-existing player movement/combat orders remain preserved. A regression assertion covers this cleanup alongside the pickup-wait boarding flow. Runtime validation is pending.
+
+## Implemented sixteenth slice — player-directed return to friendly base
+
+The airlift command panel now includes a separate **عودة إلى القاعدة** action. It accepts exactly one selected player transport with passengers and only while the aircraft is landed/available. The command searches completed, living friendly airfields in the player's building collection, chooses the nearest, and refuses safely when none exists; enemy airfields are never candidates. It preserves the cargo and assigns the existing anti-air-aware waypoint route. The returning state now follows those waypoints and transitions back to loaded at the airfield. Arrival does not unload passengers: the player retains control and may issue a later deployment order.
+
+Regression assertions were added for a valid return, friendly-versus-enemy airfield selection, route assignment, passenger preservation, and safe rejection when no friendly airfield exists. These tests are authored only; Godot execution, CI, and Android touch/gameplay validation remain outstanding.
