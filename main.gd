@@ -972,7 +972,7 @@ func _process(delta: float) -> void:
 				var current_attack_target := int(unit.get("attack_target", -1))
 				var has_live_attack_target := current_attack_target >= 0 and current_attack_target < units.size() and units[current_attack_target].team == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
 				if not has_live_attack_target:
-					var attack_move_unit_target := _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 235.0)
+					var attack_move_unit_target := _nearest_enemy_ground_unit(unit.pos, 420.0 if unit.kind == "artillery" else 235.0)
 					var attack_move_unit_distance := INF
 					if attack_move_unit_target >= 0:
 						attack_move_unit_distance = unit.pos.distance_to(units[attack_move_unit_target].pos)
@@ -1034,11 +1034,11 @@ func _process(delta: float) -> void:
 					unit.pos += base_direction * delta * base_speed
 				continue
 			var enemy_target := int(unit.get("attack_target", -1))
-			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or (units[enemy_target].kind == "submarine" and not _is_submarine_detected(units[enemy_target], "player")):
+			if enemy_target < 0 or enemy_target >= units.size() or units[enemy_target].team != "enemy" or units[enemy_target].get("hp", 0) <= 0 or String(units[enemy_target].get("kind", "")) in ["fighter", "helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 				if unit.has("attack_focus_pos"):
 					enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
 				if enemy_target < 0:
-					enemy_target = _nearest_enemy_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
+					enemy_target = _nearest_enemy_ground_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
 				if enemy_target >= 0:
 					unit.attack_target = enemy_target
 			if enemy_target >= 0:
