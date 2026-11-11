@@ -174,6 +174,11 @@ func _validate_unit_identity(unit: Dictionary, seen_ids: Dictionary) -> bool:
 		return false
 	if not unit.has("pos") or not _is_valid_position(unit["pos"]):
 		return false
+	if unit.has("combat_xp") and (not _is_finite_number(unit["combat_xp"]) or float(unit["combat_xp"]) < 0.0):
+		return false
+	if unit.has("veterancy"):
+		if not unit["veterancy"] is int or int(unit["veterancy"]) < 0 or int(unit["veterancy"]) > 3:
+			return false
 	seen_ids[unit_id] = true
 	return true
 
