@@ -46,6 +46,32 @@ func _run_transport_airlift_regression() -> void:
 	_expect(int(game.get("units")[1]["hp"]) == 100, "Door gunners must not switch to a closer unselected enemy")
 	_expect(bool(transport.get("transport_firing", false)), "Loaded passengers should fire when their selected target is in range")
 
+	# Confirm the real match update loop dispatches passenger fire for a player transport.
+	game.get("units").clear()
+	var live_transport: Dictionary = {
+		"kind": "transport_helicopter",
+		"team": "player",
+		"pos": Vector2(200.0, 200.0),
+		"transport_state": "loaded",
+		"transport_cargo": [
+			{"kind": "infantry", "faction": "الأمريكي", "hp": 60, "cargo_attack_cd": 0.0},
+			{"kind": "infantry", "faction": "الأمريكي", "hp": 60, "cargo_attack_cd": 0.0}
+		],
+		"attack_focus_pos": Vector2(300.0, 200.0),
+		"attack_target": 1
+	}
+	game.get("units").append(live_transport)
+	game.get("units").append({"kind": "tank", "team": "enemy", "hp": 100, "pos": Vector2(300.0, 200.0)})
+	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(230.0, 200.0)})
+	game.set("enemy_timer", 0.0)
+	game.set("enemy_base_hp", 1000)
+	game.set("player_base_hp", 1000)
+	game.set("battle_result", "")
+	game.call("_process", 0.1)
+	_expect(int(game.get("units")[1]["hp"]) == 92, "Live match processing should activate the transport door gunners")
+	_expect(int(game.get("units")[2]["hp"]) == 100, "Live match processing should preserve the player's selected air target")
+	_expect(bool(game.get("units")[0].get("transport_firing", false)), "Live player transport should enter its firing presentation state")
+
 	# The transport approaches a commanded target outside the 158-unit firing envelope.
 	game.get("units").clear()
 	transport = {
