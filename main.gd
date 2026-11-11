@@ -879,7 +879,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target := _enemy_helicopter_assault_target(unit.pos, enemy_ground_focus)
+					var heli_target := _enemy_helicopter_cached_target(unit, i, delta, enemy_ground_focus)
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -923,10 +923,10 @@ func _process(delta: float) -> void:
 					if unit.kind in ["tank", "infantry"] and _update_enemy_counterattack_reserve(unit, i, delta):
 						continue
 				if unit.kind == "fighter":
-					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
-					if air_target < 0:
-						air_target = _enemy_fighter_select_air_target(unit.pos, i)
-					if air_target >= 0:
+					var fighter_assignment := _enemy_fighter_cached_assignment(unit, i, delta)
+					var air_target := int(fighter_assignment.get("index", -1))
+					var assignment_mode := String(fighter_assignment.get("mode", "none"))
+					if air_target >= 0 and assignment_mode != "fighter_escort":
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -937,18 +937,16 @@ func _process(delta: float) -> void:
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
-					else:
-						var escort_heli_index := _enemy_fighter_escort_helicopter_index(unit.pos)
-						if escort_heli_index >= 0:
-							var escort_heli: Dictionary = units[escort_heli_index]
-							var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
-							var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
-							if unit.pos.distance_to(escort_spot) > 18.0:
-								unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
-							else:
-								unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+					elif air_target >= 0 and assignment_mode == "fighter_escort":
+						var escort_heli: Dictionary = units[air_target]
+						var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
+						var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
+						if unit.pos.distance_to(escort_spot) > 18.0:
+							unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 						else:
-							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+					else:
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind in ["tank", "infantry", "artillery"] and _update_enemy_ground_assault(unit, i, delta):
 					continue
@@ -2197,6 +2195,85 @@ func _landing_craft_air_threat_target(from_pos: Vector2, team: String) -> int:
 				best_score = score
 				best_target = target_index
 	return best_target
+
+
+func _enemy_air_target_cache_valid(target_index: int, target_id: String, mode: String, from_pos: Vector2) -> bool:
+	if target_index < 0 or target_index >= units.size() or target_id.is_empty():
+		return false
+	var target: Dictionary = units[target_index]
+	if String(target.get("unit_id", "")) != target_id or int(target.get("hp", 0)) <= 0:
+		return false
+	var target_team := String(target.get("team", ""))
+	var target_kind := String(target.get("kind", ""))
+	match mode:
+		"helicopter_assault":
+			return target_team == "player" and target_kind in ["tank", "artillery", "infantry"] and from_pos.distance_to(target.pos) <= 760.0
+		"fighter_landing_defense":
+			return target_team == "player" and target_kind in ["fighter", "helicopter", "transport_helicopter"]
+		"fighter_intercept":
+			return target_team == "player" and target_kind in ["fighter", "helicopter", "transport_helicopter"] and from_pos.distance_to(target.pos) <= FIGHTER_TARGET_RANGE
+		"fighter_escort":
+			return target_team == "enemy" and target_kind == "helicopter"
+	return false
+
+
+func _enemy_helicopter_cached_target(unit: Dictionary, self_index: int, delta: float, ground_focus_index: int) -> int:
+	var refresh_timer := float(unit.get("air_target_refresh_timer", 0.0)) - delta
+	var target_index := int(unit.get("air_target_index", -1))
+	var target_id := String(unit.get("air_target_unit_id", ""))
+	var mode := String(unit.get("air_target_mode", ""))
+	if refresh_timer > 0.0 and _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos):
+		unit["air_target_refresh_timer"] = refresh_timer
+		return target_index
+	var selected_index := _enemy_helicopter_assault_target(unit.pos, ground_focus_index)
+	var selected_id := ""
+	if selected_index >= 0 and selected_index < units.size():
+		selected_id = String(units[selected_index].get("unit_id", ""))
+		if selected_id.is_empty():
+			_ensure_stable_unit_identities()
+			selected_id = String(units[selected_index].get("unit_id", ""))
+	unit["air_target_index"] = selected_index
+	unit["air_target_unit_id"] = selected_id
+	unit["air_target_mode"] = "helicopter_assault" if selected_index >= 0 and not selected_id.is_empty() else "none"
+	unit["air_target_refresh_timer"] = 0.25
+	return selected_index if not selected_id.is_empty() else -1
+
+
+func _enemy_fighter_cached_assignment(unit: Dictionary, self_index: int, delta: float) -> Dictionary:
+	var refresh_timer := float(unit.get("air_target_refresh_timer", 0.0)) - delta
+	var target_index := int(unit.get("air_target_index", -1))
+	var target_id := String(unit.get("air_target_unit_id", ""))
+	var mode := String(unit.get("air_target_mode", "none"))
+	var cache_valid := mode == "none" and target_index < 0
+	if mode != "none":
+		cache_valid = _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos)
+	if refresh_timer > 0.0 and cache_valid:
+		unit["air_target_refresh_timer"] = refresh_timer
+		return {"index": target_index, "mode": mode}
+	var selected_index := _landing_craft_air_threat_target(unit.pos, "enemy")
+	var selected_mode := "fighter_landing_defense" if selected_index >= 0 else "none"
+	if selected_index < 0:
+		selected_index = _enemy_fighter_select_air_target(unit.pos, self_index)
+		if selected_index >= 0:
+			selected_mode = "fighter_intercept"
+	if selected_index < 0:
+		selected_index = _enemy_fighter_escort_helicopter_index(unit.pos)
+		if selected_index >= 0:
+			selected_mode = "fighter_escort"
+	var selected_id := ""
+	if selected_index >= 0 and selected_index < units.size():
+		selected_id = String(units[selected_index].get("unit_id", ""))
+		if selected_id.is_empty():
+			_ensure_stable_unit_identities()
+			selected_id = String(units[selected_index].get("unit_id", ""))
+	if selected_id.is_empty():
+		selected_index = -1
+		selected_mode = "none"
+	unit["air_target_index"] = selected_index
+	unit["air_target_unit_id"] = selected_id
+	unit["air_target_mode"] = selected_mode
+	unit["air_target_refresh_timer"] = 0.25
+	return {"index": selected_index, "mode": selected_mode}
 
 
 func _update_carrier_fighter(unit: Dictionary, delta: float) -> bool:
