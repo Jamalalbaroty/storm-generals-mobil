@@ -122,6 +122,40 @@ func _run() -> void:
 	_expect(enemy_helicopters >= 1, "Armor-breaker doctrine should field at least one helicopter counter through the live AI loop")
 	_expect(game.get("production_orders").is_empty(), "No completed player production order should remain stuck after the endurance run")
 
+	# Gradually increase live battlefield density after the economy/endurance checks.
+	# Keep health high so this phase measures sustained update/identity handling,
+	# not which side wins the deliberately crowded engagement.
+	for stage_count in [8, 16, 24]:
+		for team in ["player", "enemy"]:
+			for stage_index in range(8):
+				var unit_number := (stage_count - 8) + stage_index
+				var unit_kind := "tank"
+				if unit_number % 4 == 2:
+					unit_kind = "fighter"
+				elif unit_number % 4 == 3:
+					unit_kind = "helicopter"
+				var side_x := 350.0 if team == "player" else 850.0
+				var side_y := 180.0 + float(unit_number) * 22.0
+				units.append({
+					"kind": unit_kind, "team": team,
+					"faction": "الأمريكي" if team == "player" else "الصيني",
+					"hp": 100000, "pos": Vector2(side_x, side_y),
+					"attack_cd": 10.0
+				})
+		game.set("units", units)
+		game.call("_ensure_stable_unit_identities")
+		var seen_stress_ids: Dictionary = {}
+		for stress_unit in units:
+			var stress_id := String(stress_unit.get("unit_id", ""))
+			_expect(not stress_id.is_empty(), "Every live unit must receive a stable identity during density ramp")
+			_expect(not seen_stress_ids.has(stress_id), "Unit identities must remain unique as battlefield density increases")
+			seen_stress_ids[stress_id] = true
+		for stress_frame in range(100):
+			game.call("_process", 0.1)
+		_expect(String(game.get("battle_result")) == "", "A staged high-density match must remain active during the stress window")
+		_expect(int(game.get("credits")) >= 0 and int(game.get("enemy_credits")) >= 0, "Both economies must remain non-negative during density stress")
+		_expect(int(game.get("supplies")) >= 0 and int(game.get("enemy_supplies")) >= 0, "Both supply pools must remain non-negative during density stress")
+
 	# Confirm both port economies continue to accrue even after repeated AI turns.
 	var player_port_state: Dictionary = game.get("supply_points")[0]
 	var enemy_port_state: Dictionary = game.get("supply_points")[1]
