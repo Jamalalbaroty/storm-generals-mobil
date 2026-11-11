@@ -152,6 +152,29 @@ func _run_battle_save_integration_test() -> void:
 	_expect(String(game.call("_enemy_choose_strategy", 1, 0, 5, 0)) == "armor_breaker", "Enemy AI must switch doctrine when a clearly stronger armor threat emerges")
 	game.set("enemy_strategy", "balanced")
 
+	# Counter-production doctrine must answer land and air threats with the correct units.
+	game.set("enemy_strategy", "air_control")
+	game.set("enemy_credits", 5000)
+	game.set("enemy_supplies", 20)
+	game.get("enemy_buildings").assign([{"kind": "airfield", "hp": 450, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)}])
+	game.get("units").clear()
+	_expect(bool(game.call("_enemy_counter_production", "air_control", 0, 0, 0, 0)), "Enemy AI must produce a fighter when air control is needed and a powered airfield is available")
+	_expect(String(game.get("units")[-1].get("kind", "")) == "fighter", "Air-control counter production must deploy a fighter")
+	game.get("units").clear()
+	game.set("enemy_strategy", "armor_breaker")
+	_expect(bool(game.call("_enemy_counter_production", "armor_breaker", 0, 0, 0, 0)), "Enemy AI must produce an attack helicopter against armor when an airfield is available")
+	_expect(String(game.get("units")[-1].get("kind", "")) == "helicopter", "Armor-breaker counter production must deploy a helicopter")
+	game.get("units").clear()
+	game.set("enemy_strategy", "area_denial")
+	game.get("enemy_buildings").assign([{"kind": "factory", "hp": 500, "build_progress": 1.0, "pos": Vector2(700.0, 300.0)}])
+	_expect(bool(game.call("_enemy_counter_production", "area_denial", 0, 0, 0, 0)), "Enemy AI must produce artillery against infantry concentrations when a factory is available")
+	_expect(String(game.get("units")[-1].get("kind", "")) == "artillery", "Area-denial counter production must deploy artillery")
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	game.set("enemy_strategy", "balanced")
+	game.set("enemy_credits", 0)
+	game.set("enemy_supplies", 0)
+
 	# Enemy bunkers must acquire ground attackers only, never nearby aircraft or transports.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2(20.0, 0.0)},
