@@ -3074,7 +3074,7 @@ func _update_naval_combat(delta: float) -> void:
 		if team.is_empty():
 			continue
 		var target := _find_naval_target(vessel, team, 15.0)
-		if not is_instance_valid(target):
+		if not is_instance_valid(target) or not target.is_inside_tree():
 			continue
 		var cooldown := maxf(0.0, float(vessel.get_meta("naval_fire_cooldown", 0.0)) - delta)
 		if cooldown > 0.0:
@@ -3322,7 +3322,7 @@ func _update_air_defenses(delta: float) -> void:
 		var nearest_aircraft: Node3D = null
 		var nearest_distance := 22.0
 		for candidate in showcase_tanks:
-			if not is_instance_valid(candidate):
+			if not is_instance_valid(candidate) or not candidate.is_inside_tree():
 				continue
 			var candidate_type := str(candidate.get_meta("unit_type", "tank"))
 			if candidate_type != "helicopter" and candidate_type != "fighter":
@@ -3485,7 +3485,7 @@ func _update_radar_hud(delta: float) -> void:
 	var hostile_air := 0
 	var hostile_ground := 0
 	for unit in showcase_tanks:
-		if not is_instance_valid(unit):
+		if not is_instance_valid(unit) or not unit.is_inside_tree():
 			continue
 		if str(unit.get_meta("faction_id", "")) == "american":
 			continue
@@ -3579,7 +3579,7 @@ func _update_radar_network(delta: float) -> void:
 		var radar_faction := str(radar.get_meta("faction_id", ""))
 		var active_contacts: Array[String] = []
 		for unit in showcase_tanks:
-			if not is_instance_valid(unit):
+			if not is_instance_valid(unit) or not unit.is_inside_tree():
 				continue
 			var unit_type := str(unit.get_meta("unit_type", "tank"))
 			if unit_type != "helicopter" and unit_type != "fighter":
@@ -3591,7 +3591,7 @@ func _update_radar_network(delta: float) -> void:
 				active_contacts.append(blip_key)
 				var blip: MeshInstance3D = null
 				var existing_blip_variant = radar_blips.get(blip_key)
-				if is_instance_valid(existing_blip_variant):
+				if is_instance_valid(existing_blip_variant) and existing_blip_variant.is_inside_tree():
 					blip = existing_blip_variant as MeshInstance3D
 				if not is_instance_valid(blip):
 					blip = MeshInstance3D.new()
@@ -4734,7 +4734,7 @@ func _unit_separation_vector(unit: Node3D) -> Vector3:
 	var is_aircraft := unit_type == "helicopter" or unit_type == "fighter"
 	var clearance := 3.4 if unit_type == "tank" else (2.5 if unit_type == "infantry" else 4.2)
 	for other in showcase_tanks:
-		if not is_instance_valid(other) or other == unit:
+		if not is_instance_valid(other) or not other.is_inside_tree() or other == unit:
 			continue
 		var other_type := str(other.get_meta("unit_type", "tank"))
 		var other_is_aircraft := other_type == "helicopter" or other_type == "fighter"
