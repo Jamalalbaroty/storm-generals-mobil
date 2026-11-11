@@ -143,3 +143,16 @@ Rebuildable presentation state should be regenerated after load, not serialized:
 ### Stable-identity prerequisite found in source audit
 
 The current source assigns `production_id` to buildings and uses it to reacquire airfield/building references. The unit creation paths inspected do not assign an equivalent persistent unit ID; several live combat/selection paths still refer to units by array index. A safe save-game implementation must therefore introduce and regression-test stable unit identities (including cargo passengers and spawned enemy units) before it can claim robust restoration of cross-unit targets, escort links, or transport manifests. This is a prerequisite, not a cosmetic enhancement.
+
+### Stable unit identity implementation — 2026-11-11
+
+Implemented on development commit `6c389ca15e8ec4b891a142210a914695af48d05f`:
+- Added a monotonic `unit_id` allocator for active field units and carried transport passengers.
+- The identity pass runs at the start of each gameplay frame, repairs empty/duplicate IDs, and advances the allocator beyond any restored numeric `unit_########` IDs it encounters.
+- Added a gameplay smoke assertion covering a transport, a field enemy, and a passenger with colliding initial IDs; it checks that all three end with distinct non-empty identities and that the allocator advances.
+
+GitHub Actions for this exact commit:
+- Godot Regression Tests run `43072453872` (#734): success. This includes the gameplay smoke test containing the new identity assertions, plus transport airlift, transport AI, group formation/attack, 2D-to-3D bridge and endurance regressions.
+- Godot Validation run `43072452185` (#811): success, including project import, active scene, 3D scene, live bridge, gameplay recovery and endurance checks.
+
+**Scope boundary:** this establishes runtime identity and verifies duplicate repair. It does not yet implement battle serialization, persist the identity counter, replace all array-index target references with ID-based references, or prove IDs survive an application restart. Battle save/load remains incomplete and unverified.
