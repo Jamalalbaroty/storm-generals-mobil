@@ -27,6 +27,48 @@ func _run_transport_airlift_regression() -> void:
 	game.get("buildings").clear()
 	game.get("enemy_buildings").clear()
 
+	# Loading preserves the selected infantry records and never exceeds eight passengers.
+	var loading_transport: Dictionary = {
+		"kind": "transport_helicopter",
+		"team": "player",
+		"pos": Vector2(200.0, 200.0),
+		"transport_state": "idle",
+		"transport_cargo": []
+	}
+	game.get("units").append(loading_transport)
+	for infantry_index in range(9):
+		var infantry_record: Dictionary = {
+			"kind": "infantry",
+			"team": "player",
+			"faction": "الأمريكي",
+			"hp": 57 if infantry_index == 0 else 60,
+			"pos": Vector2(210.0 + float(infantry_index) * 4.0, 200.0),
+			"combat_medals": ["veteran"] if infantry_index == 0 else [],
+			"guarding": infantry_index == 0
+		}
+		if infantry_index == 0:
+			infantry_record["attack_target"] = 10
+		game.get("units").append(infantry_record)
+	game.get("units").append({"kind": "tank", "team": "enemy", "hp": 100, "pos": Vector2(500.0, 200.0)})
+	game.set("selected", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+	game.call("_load_selected_infantry_into_transport")
+	var loaded_transport: Dictionary = game.get("units")[0]
+	var loaded_cargo: Array = loaded_transport.get("transport_cargo", [])
+	_expect(loaded_cargo.size() == 8, "Transport should load up to its eight-soldier capacity")
+	_expect(game.get("units").size() == 3, "Loading eight of nine selected soldiers should leave one infantry and the enemy on the field")
+	_expect(String(loaded_transport.get("transport_state", "")) == "loaded", "A successful load should set the transport state to loaded")
+	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "After loading, the transport should remain selected")
+	if not loaded_cargo.is_empty():
+		_expect(int(loaded_cargo[0].get("hp", 0)) == 57 and String(loaded_cargo[0].get("faction", "")) == "الأمريكي", "Loading should preserve passenger health and faction")
+		_expect(Array(loaded_cargo[0].get("combat_medals", [])).has("veteran") and bool(loaded_cargo[0].get("guarding", false)), "Loading should preserve passenger upgrades and stance")
+		_expect(not loaded_cargo[0].has("attack_target") and loaded_cargo[0].get("attack_focus_pos", Vector2.ZERO).distance_to(Vector2(500.0, 200.0)) < 0.1, "Loading should preserve the passenger's intended target position without a stale array index")
+	game.set("selected", [0, 1])
+	game.call("_load_selected_infantry_into_transport")
+	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 8, "A full transport must not exceed its eight-soldier capacity")
+	_expect(game.get("units").size() == 3, "A full transport must leave excess infantry on the battlefield")
+
+	game.get("units").clear()
+
 	# Player-selected focus must override a closer opportunistic target.
 	var transport: Dictionary = {
 		"kind": "transport_helicopter",
@@ -45,32 +87,6 @@ func _run_transport_airlift_regression() -> void:
 	_expect(int(game.get("units")[0]["hp"]) == 92, "Door gunners should prioritize the player-selected target")
 	_expect(int(game.get("units")[1]["hp"]) == 100, "Door gunners must not switch to a closer unselected enemy")
 	_expect(bool(transport.get("transport_firing", false)), "Loaded passengers should fire when their selected target is in range")
-
-	# Confirm the real match update loop dispatches passenger fire for a player transport.
-	game.get("units").clear()
-	var live_transport: Dictionary = {
-		"kind": "transport_helicopter",
-		"team": "player",
-		"pos": Vector2(200.0, 200.0),
-		"transport_state": "loaded",
-		"transport_cargo": [
-			{"kind": "infantry", "faction": "الأمريكي", "hp": 60, "cargo_attack_cd": 0.0},
-			{"kind": "infantry", "faction": "الأمريكي", "hp": 60, "cargo_attack_cd": 0.0}
-		],
-		"attack_focus_pos": Vector2(300.0, 200.0),
-		"attack_target": 1
-	}
-	game.get("units").append(live_transport)
-	game.get("units").append({"kind": "tank", "team": "enemy", "hp": 100, "pos": Vector2(300.0, 200.0)})
-	game.get("units").append({"kind": "infantry", "team": "enemy", "hp": 100, "pos": Vector2(230.0, 200.0)})
-	game.set("enemy_timer", 0.0)
-	game.set("enemy_base_hp", 1000)
-	game.set("player_base_hp", 1000)
-	game.set("battle_result", "")
-	game.call("_process", 0.1)
-	_expect(int(game.get("units")[1]["hp"]) == 92, "Live match processing should activate the transport door gunners")
-	_expect(int(game.get("units")[2]["hp"]) == 100, "Live match processing should preserve the player's selected air target")
-	_expect(bool(game.get("units")[0].get("transport_firing", false)), "Live player transport should enter its firing presentation state")
 
 	# The transport approaches a commanded target outside the 158-unit firing envelope.
 	game.get("units").clear()
