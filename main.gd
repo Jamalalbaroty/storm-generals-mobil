@@ -5038,6 +5038,17 @@ func _update_production_queues(delta: float) -> void:
 				continue
 			var completed_kind := String(order.kind)
 			var completed_producer_id := int(order.get("producer_id", -1))
+			# Do not consume a completed order until a ground-unit exit is genuinely clear.
+			if completed_kind not in ["fighter", "helicopter"] and completed_producer_id >= 0:
+				var exit_is_clear := false
+				for producer in buildings:
+					if int(producer.get("production_id", -2)) == completed_producer_id and String(producer.get("kind", "")) == _production_building_for(completed_kind):
+						exit_is_clear = _find_clear_ground_spawn(producer.pos, completed_kind, completed_producer_id).x >= 0.0
+						break
+				if not exit_is_clear:
+					notice = "اكتمل الإنتاج — المخرج مزدحم، تنتظر الوحدة توفر ممر آمن"
+					notice_time = 2.0
+					continue
 			production_orders.remove_at(i)
 			_spawn_unit(completed_kind, true, completed_producer_id)
 			if notice.begins_with("تم إنتاج"):
@@ -5082,14 +5093,16 @@ func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, prod
 
 func _find_clear_ground_spawn(origin: Vector2, unit_kind: String, producer_id: int) -> Vector2:
 	var unit_radius := 13.0 if unit_kind in ["tank", "artillery"] else 10.0
-	var search_radii := [58.0, 76.0, 94.0, 112.0]
+	# Expand the search in concentric rings so crowded bases can still find a safe exit.
+	# A blocked exit returns a sentinel; the completed production order remains queued.
+	var search_radii := [58.0, 76.0, 94.0, 112.0, 132.0, 152.0, 172.0, 192.0]
 	for radius_value in search_radii:
-		for direction_index in range(16):
-			var angle := TAU * float(direction_index) / 16.0
+		for direction_index in range(32):
+			var angle := TAU * float(direction_index) / 32.0
 			var candidate := origin + Vector2(cos(angle), sin(angle)) * (float(radius_value) + unit_radius * 0.15)
 			if _is_ground_spawn_position_clear(candidate, unit_kind, producer_id):
 				return candidate
-	return origin + Vector2(65.0, 0.0)
+	return Vector2(-1.0, -1.0)
 
 
 func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1) -> void:
