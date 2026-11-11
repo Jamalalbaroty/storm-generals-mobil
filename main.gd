@@ -2416,7 +2416,7 @@ func _nearest_enemy_ground_unit(from_pos: Vector2, max_distance: float) -> int:
 	var best_distance := max_distance
 	for i in range(units.size()):
 		var candidate: Dictionary = units[i]
-		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0 or bool(candidate.get("retreating", false)):
 			continue
 		if String(candidate.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 			continue
