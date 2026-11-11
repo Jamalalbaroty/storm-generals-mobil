@@ -434,6 +434,14 @@ func _run() -> void:
 	_expect(int(game.get("units")[0].get("escort_target_id", -1)) == 64 and int(game.get("units")[0].get("escort_formation_slot", -1)) == 1, "A reassigned escort should join the nearest transport in its next free formation slot")
 	_expect(not game.get("units")[0].has("attack_target") and not game.get("units")[0].has("escort_auto_target"), "Reassignment should clear stale automatic combat targets from the lost transport")
 	_expect(int(game.get("units")[0].get("escort_formation_size", 0)) == 2 and int(game.get("units")[3].get("escort_formation_size", 0)) == 2, "The replacement transport formation should update all escort members")
+	# Dead or detached escorts must not leave holes in a surviving transport's formation.
+	game.get("units").clear()
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 0, "escort_active": true, "escort_target_id": 88, "escort_formation_slot": 0})
+	game.get("units").append({"team": "player", "kind": "helicopter", "hp": 120, "escort_active": true, "escort_target_id": 88, "escort_formation_slot": 2, "escort_formation_size": 3, "escort_offset": Vector2(999.0, 999.0)})
+	game.call("_transport_ai_sync_escort_formation", 88)
+	_expect(int(game.get("units")[1].get("escort_formation_slot", -1)) == 0, "Surviving escorts should compact into the first available formation slot")
+	_expect(int(game.get("units")[1].get("escort_formation_size", 0)) == 1, "Compacted formation size should exclude destroyed escorts")
+	_expect(Vector2(game.get("units")[1].get("escort_offset", Vector2.ZERO)) == game.call("_transport_ai_escort_formation_offset", 0), "Compaction should restore the deterministic slot offset")
 	game.get("units").clear()
 
 	# With no valid friendly airfield, reject the order without changing aircraft state or cargo.
