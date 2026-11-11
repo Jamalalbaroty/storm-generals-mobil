@@ -66,8 +66,15 @@ jobs:
       - name: Smoke test live 2D-to-3D gameplay bridge
         shell: bash
         run: |
-          godot --headless --path . --script res://prototype_3d/live_bridge_smoke_test.gd --verbose > /tmp/live-bridge-smoke.log 2>&1
+          set +e
+          godot --headless --path . --verbose --script res://prototype_3d/live_bridge_smoke_test.gd > /tmp/live-bridge-smoke.log 2>&1
+          live_bridge_status=$?
+          set -e
           cat /tmp/live-bridge-smoke.log
+          if [ "$live_bridge_status" -ne 0 ]; then
+            echo "Live gameplay bridge smoke test exited with status $live_bridge_status"
+            exit "$live_bridge_status"
+          fi
           if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:|Failed to load script|ObjectDB instances leaked" /tmp/live-bridge-smoke.log; then
             echo "Live gameplay bridge smoke test reported engine or script errors"
             exit 1
