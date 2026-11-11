@@ -1319,7 +1319,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 
 	# A direct attack click should synchronize the selected group on one enemy target.
 	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": Vector2(700.0, 320.0)})
-	var group_enemy_index := game.get("units").size() - 1
+	var group_enemy_index: int = game.get("units").size() - 1
 	var group_enemy_position: Vector2 = game.get("units")[group_enemy_index].pos
 	game.call("_handle_pointer", group_enemy_position, true)
 	game.call("_handle_pointer", group_enemy_position, false)
