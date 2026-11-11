@@ -175,6 +175,24 @@ func _run() -> void:
 	var manual_doctrine: bool = game.call("_transport_ai_apply_post_drop_doctrine", manual_passenger, manual_transport, Vector2(720.0, 420.0))
 	_expect(not manual_doctrine and not manual_passenger.has("guard_active"), "Manual transport mode must not apply autonomous post-drop doctrine")
 
+	# The selected-transport panel must configure only safe, player-owned transports.
+	game.get("units").clear()
+	game.get("selected").clear()
+	game.get("units").append({"team": "player", "kind": "transport_helicopter", "transport_state": "loaded", "transport_cargo": [{"kind": "infantry"}]})
+	game.get("selected").append(0)
+	_expect(bool(game.call("_has_selected_transport")), "Selecting a transport should expose its tactical control panel")
+	_expect(int(game.call("_set_selected_transport_mode", "AUTONOMOUS")) == 1, "A loaded selected transport should accept AUTONOMOUS mode")
+	_expect(String(game.get("units")[0].get("transport_ai_mode", "")) == "AUTONOMOUS", "Transport mode selection should persist on the aircraft")
+	_expect(int(game.call("_set_selected_transport_doctrine", "ATTACK_MOVE")) == 1, "A loaded selected transport should accept ATTACK_MOVE doctrine")
+	_expect(String(game.get("units")[0].get("transport_ai_post_drop_doctrine", "")) == "ATTACK_MOVE", "Post-drop doctrine selection should persist on the aircraft")
+	game.get("units")[0]["transport_state"] = "inbound"
+	_expect(int(game.call("_set_selected_transport_mode", "MANUAL")) == 0, "Control mode changes must be locked while the transport is inbound")
+	_expect(int(game.call("_set_selected_transport_doctrine", "DEFEND")) == 0, "Doctrine changes must be locked while the transport is inbound")
+	_expect(game.call("_transport_ai_mode_rect", Vector2(400.0, 800.0)) is Rect2, "The transport mode control should provide a valid touch target")
+	_expect(game.call("_transport_ai_doctrine_rect", Vector2(400.0, 800.0)) is Rect2, "The post-drop doctrine control should provide a valid touch target")
+	game.get("selected").clear()
+	game.get("units").clear()
+
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
