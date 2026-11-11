@@ -4139,20 +4139,32 @@ func _transport_ai_evaluate_landing_site(candidate: Dictionary, objective_pos: V
 		if threat_distance <= 320.0:
 			threat_penalty = maxf(threat_penalty, 35.0 * (1.0 - threat_distance / 420.0))
 	var route_penalty := 0.0
-	var route_midpoint := (site_pos + objective_pos) * 0.5
-	for hostile_structure in enemy_buildings:
-		if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+	# Sample the approach corridor at several points; a single midpoint can miss a defended flank.
+	for route_fraction in [0.25, 0.5, 0.75]:
+		var route_sample: Vector2 = site_pos.lerp(objective_pos, float(route_fraction))
+		for hostile_structure in enemy_buildings:
+			if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+				continue
+			if hostile_structure.pos.distance_to(route_sample) <= 320.0:
+				route_penalty = maxf(route_penalty, 20.0)
+	var mobile_threat_penalty := 0.0
+	for hostile_unit in units:
+		if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
 			continue
-		if hostile_structure.pos.distance_to(route_midpoint) <= 320.0:
-			route_penalty = maxf(route_penalty, 20.0)
+		var hostile_kind := String(hostile_unit.get("kind", ""))
+		var threat_radius := 240.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 170.0
+		var hostile_distance: float = hostile_unit.pos.distance_to(site_pos)
+		if hostile_distance <= threat_radius:
+			var threat_weight := 18.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 10.0
+			mobile_threat_penalty = maxf(mobile_threat_penalty, threat_weight * (1.0 - hostile_distance / threat_radius))
 	var objective_distance := site_pos.distance_to(objective_pos)
 	var objective_score := 15.0 * (1.0 - clampf(objective_distance / 900.0, 0.0, 1.0))
 	var friendly_support := 0.0
 	for friendly in units:
 		if String(friendly.get("team", "")) == "player" and int(friendly.get("hp", 0)) > 0 and friendly.pos.distance_to(site_pos) <= 260.0:
 			friendly_support = maxf(friendly_support, 10.0)
-	var escape_score := 10.0 if threat_penalty < 12.0 else 3.0
-	var score := clampf(35.0 - threat_penalty + 20.0 - route_penalty + objective_score + friendly_support + 10.0 + escape_score, 0.0, 100.0)
+	var escape_score := 10.0 if threat_penalty < 12.0 and mobile_threat_penalty < 6.0 else 3.0
+	var score := clampf(35.0 - threat_penalty - mobile_threat_penalty + 20.0 - route_penalty + objective_score + friendly_support + 10.0 + escape_score, 0.0, 100.0)
 	return {"valid": true, "score": score, "reason": "ranked", "site_id": String(candidate.get("id", "")), "distance": objective_distance}
 
 
