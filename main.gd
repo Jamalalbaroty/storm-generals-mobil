@@ -3843,6 +3843,11 @@ func _input(event: InputEvent) -> void:
 		if event.canceled:
 			if event.index != active_touch_index:
 				return
+			# In 3D mode the parent receives input before the battlefield's
+			# _unhandled_input callback. Clear its gesture state here as well,
+			# because marking this event handled prevents the child from seeing it.
+			if use_3d_view and is_instance_valid(battlefield_3d) and battlefield_3d.has_method("_reset_touch_gesture_state"):
+				battlefield_3d.call("_reset_touch_gesture_state")
 			dragging = false
 			active_touch_index = -1
 			queue_redraw()
