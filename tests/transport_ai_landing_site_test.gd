@@ -215,11 +215,13 @@ func _run() -> void:
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "pickup_waiting", "An empty recalled transport should hold at the squad pickup site")
 
 	# Infantry can board a transport that is waiting at its pickup rendezvous.
-	game.get("units").append({"team": "player", "kind": "infantry", "hp": 65, "pos": Vector2(430.0, 300.0)})
+	game.get("units").append({"team": "player", "kind": "infantry", "hp": 65, "pos": Vector2(430.0, 300.0), "target": Vector2(430.0, 300.0), "transport_pickup_rendezvous": true})
 	game.get("selected").append_array([0, 1])
 	game.call("_load_selected_infantry_into_transport")
 	_expect(String(game.get("units")[0].get("transport_state", "")) == "loaded", "Boarding a waiting pickup transport should transition it to loaded")
 	_expect(Array(game.get("units")[0].get("transport_cargo", [])).size() == 1, "The field squad should board the waiting pickup transport")
+	var waiting_cargo: Array = game.get("units")[0].get("transport_cargo", [])
+	_expect(not waiting_cargo[0].has("target") and not waiting_cargo[0].has("transport_pickup_rendezvous"), "Temporary pickup movement must not be replayed after redeployment")
 	_expect(not game.get("units")[0].has("transport_pickup_waiting"), "Successful boarding should clear the pickup wait marker")
 	game.get("units").clear()
 	game.get("selected").clear()
