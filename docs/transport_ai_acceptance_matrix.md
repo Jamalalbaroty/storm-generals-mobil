@@ -217,3 +217,11 @@ GitHub Actions for this exact commit:
 - Stable identity assignment now reserves all existing field-unit and passenger IDs before generating missing IDs. This prevents an earlier unassigned spawn from taking an ID already owned by a later unit. Added coverage for ID preservation and array compaction after a unit is removed.
 - Final tested code commit `63550d9f69eaa6da3c0be14395e42cf90c80f9ec`: Regression #764 success and Validation #841 success. All regression steps passed, including save-store, live save/restore, transport lifecycle, formations, coordinated attacks, 2D/3D bridge, and endurance. Android APK export was skipped as required.
 - An earlier validation attempt exposed an incomplete test fixture (missing producer position); the fixture was corrected and the full suite passed on the final tested commit.
+
+### Battle outcome and campaign accounting regression — 2026-11-11
+
+- Added live-scene regression coverage for immediate victory resolution when the enemy base reaches zero HP and defeat resolution when the player base reaches zero HP.
+- Verified victory increments battles played and victories once, unlocks the next Watan campaign mission, and grants the first mission reward plus its secondary-objective bonus (350 credits total).
+- Verified repeated victory resolution does not duplicate career statistics or campaign rewards; repeated defeat resolution does not duplicate defeat statistics.
+- Verified defeat does not advance campaign progress or award campaign funds. The test restores the pre-test commander profile after assertions.
+- Tested code commit `2a64a0eed886655e29582ca1ce83e43a40869b15`: Regression #766 success and Validation #843 success. All regression steps passed, including battle save/restore, transport, combined-arms, coordinated attacks, 2D/3D bridge, and endurance. Android APK export remained skipped.
