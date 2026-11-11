@@ -232,7 +232,7 @@ func _initialize() -> void:
 		return
 	var move_positions: Array[Vector3] = []
 	for order in issued_orders:
-		if str(order.get("type", "")) != "move" or str(order.get("target", "")) != "":
+		if str(order.get("type", "")) != "formation_move" or str(order.get("target", "")) != "":
 			push_error("Ground tap emitted an invalid group movement order")
 			quit(1)
 			return
