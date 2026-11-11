@@ -15,7 +15,7 @@ const COMMAND_ACTIONS := [
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
 	[23, 24, 25, 26, 27],
-	[28, 29, 30, 31, 32]
+	[28, 29, 30, 31, 32, 33]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -2991,7 +2991,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(doctrine_rect, Color(0.23, 0.20, 0.13, 0.96), true)
 		draw_rect(doctrine_rect, Color("#d8b75e"), false, 1.2)
 		draw_string(ThemeDB.fallback_font, doctrine_rect.position + Vector2(5, 21), doctrine_label, HORIZONTAL_ALIGNMENT_CENTER, doctrine_rect.size.x - 10, 11, Color.WHITE)
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "استدعاء للإخلاء"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "استدعاء للإخلاء", "عودة إلى القاعدة"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3608,6 +3608,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_cancel_transport_order()
 			elif i == 32:
 				_order_transport_pickup()
+			elif i == 33:
+				_order_transport_return_to_base()
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -4710,6 +4712,62 @@ func _order_transport_pickup() -> void:
 	notice_time = 3.0
 
 
+func _order_transport_return_to_base() -> void:
+	var transport: Dictionary = {}
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var candidate: Dictionary = units[index]
+		if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "transport_helicopter":
+			continue
+		if not transport.is_empty():
+			notice = "اختر طائرة نقل واحدة فقط للعودة إلى القاعدة"
+			notice_time = 2.2
+			return
+		transport = candidate
+	if transport.is_empty():
+		notice = "حدد طائرة النقل أولاً"
+		notice_time = 2.0
+		return
+	if Array(transport.get("transport_cargo", [])).is_empty():
+		notice = "لا توجد حمولة داخل الطائرة للعودة بها إلى القاعدة"
+		notice_time = 2.2
+		return
+	if String(transport.get("transport_state", "idle")) not in ["loaded", "pickup_waiting", "idle"]:
+		notice = "لا يمكن تغيير مسار الطائرة أثناء تنفيذ مهمة أخرى"
+		notice_time = 2.2
+		return
+	var nearest_airfield: Dictionary = {}
+	var nearest_distance := INF
+	for airfield in buildings:
+		if String(airfield.get("kind", "")) != "airfield" or int(airfield.get("hp", 0)) <= 0:
+			continue
+		if float(airfield.get("build_progress", 1.0)) < 1.0:
+			continue
+		var distance: float = transport.pos.distance_to(airfield.pos)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_airfield = airfield
+	if nearest_airfield.is_empty():
+		notice = "لا توجد قاعدة جوية صديقة مكتملة وصالحة — بقي الجنود داخل الطائرة"
+		notice_time = 2.8
+		return
+	var return_pos: Vector2 = nearest_airfield.pos
+	transport["transport_return_pos"] = return_pos
+	transport["transport_ai_player_override"] = true
+	transport["transport_ai_autonomous_active"] = true
+	transport.erase("transport_pickup_waiting")
+	transport.erase("transport_target_pos")
+	transport.erase("transport_order_pending")
+	transport.erase("transport_ai_objective_pos")
+	transport.erase("transport_ai_recommendation")
+	transport.erase("target")
+	_transport_ai_assign_route(transport, return_pos)
+	transport["transport_state"] = "returning"
+	notice = "الطائرة عائدة إلى أقرب قاعدة جوية صديقة — الحمولة محفوظة حتى إصدار أمر جديد"
+	notice_time = 3.0
+
+
 func _cancel_transport_order() -> void:
 	var cancelled := 0
 	for index in selected:
@@ -4858,12 +4916,20 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 				notice_time = 3.0
 	elif state == "returning":
 		var return_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
-		if transport.pos.distance_to(return_pos) > 14.0:
-			transport.pos += (return_pos - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (return_pos - transport.pos).angle()
-		else:
+		var return_route: Array = transport.get("transport_ai_route_points", [])
+		var return_route_index := int(transport.get("transport_ai_route_index", 0))
+		var return_target: Vector2 = return_pos
+		if bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size():
+			return_target = return_route[return_route_index]
+		if transport.pos.distance_to(return_target) > 14.0:
+			transport.pos += (return_target - transport.pos).normalized() * delta * 72.0
+			transport["facing"] = (return_target - transport.pos).angle()
+		elif bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
+			transport["transport_ai_route_index"] = return_route_index + 1
+		elif transport.pos.distance_to(return_pos) <= 14.0:
 			transport.pos = return_pos
 			transport.erase("transport_return_pos")
+			transport["transport_ai_autonomous_active"] = false
 			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
 	elif transport.has("target"):
 		var move_target: Vector2 = transport.target
