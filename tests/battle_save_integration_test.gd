@@ -53,11 +53,13 @@ func _run_battle_save_integration_test() -> void:
 	game.get("units").assign([
 		{"unit_id": "queue_enemy", "kind": "fighter", "team": "enemy", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"unit_id": "queue_2", "kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
-		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_2", "kind": "helicopter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": false, "airfield_sortie_airfield_id": 4},
+		{"unit_id": "queue_3", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": false, "airfield_sortie_airfield_id": 4},
 		{"unit_id": "queue_other", "kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_sortie_launch": true, "airfield_sortie_airfield_id": 9}
 	])
-	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 3.0), "Second aircraft at one airfield must receive a staggered launch delay")
+	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 4)), 1.5), "Second aircraft at one airfield must receive a 1.5-second staggered launch delay")
+	game.get("units")[2]["airfield_sortie_launch"] = true
+	game.get("units")[3]["airfield_sortie_launch"] = true
 	_expect(is_equal_approx(float(game.call("_airfield_sortie_launch_delay", 9)), 1.5), "Takeoff queue must be isolated per airfield")
 	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_1", 4)), "First aircraft in an airfield queue must be allowed to taxi immediately")
 	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "A following aircraft must wait until its same-airfield predecessor clears the launch lane")
@@ -74,12 +76,8 @@ func _run_battle_save_integration_test() -> void:
 		"airfield_resume_order": {"air_patrol_points": [Vector2(210.0, 180.0), Vector2(480.0, 210.0)], "air_patrol_index": 1, "air_patrol_resume": true}
 	}
 	game.call("_abandon_airfield_recovery", stranded_aircraft)
-	var lost_airfield_leader: Dictionary = {
-		"unit_id": "queue_1", "kind": "fighter", "team": "player", "hp": 150,
-		"airfield_sortie_launch": true, "airfield_sortie_ready": true,
-		"airfield_sortie_airfield_id": 4, "airfield_sortie_launch_wait": 0.0,
-		"airfield_resume_order": {"air_patrol_points": [Vector2(100.0, 100.0)], "air_patrol_index": 0, "air_patrol_resume": true}
-	}
+	var lost_airfield_leader: Dictionary = game.get("units")[1]
+	lost_airfield_leader["airfield_resume_order"] = {"air_patrol_points": [Vector2(100.0, 100.0)], "air_patrol_index": 0, "air_patrol_resume": true}
 	game.call("_abandon_airfield_recovery", lost_airfield_leader)
 	_expect(not bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_2", 4)), "When the lead aircraft loses its airfield, the second aircraft must become the next queue leader")
 	_expect(bool(game.call("_airfield_sortie_has_launch_predecessor", "queue_3", 4)), "After promotion, the third aircraft must still wait behind the new queue leader")
