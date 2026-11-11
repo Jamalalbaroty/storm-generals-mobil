@@ -299,6 +299,13 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 			unit["attack_building"] = restored_building
 
 
+func _abandon_airfield_recovery(unit: Dictionary) -> void:
+	# A destroyed or unpowered recovery field must release the aircraft and its queue slot.
+	for state_key in ["airfield_returning", "airfield_landed", "airfield_recovery_id", "airfield_recovery_slot", "airfield_rearm_progress", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
+		unit.erase(state_key)
+	_restore_aircraft_resume_order(unit)
+
+
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
 	unit.erase("airfield_returning")
@@ -927,12 +934,7 @@ func _process(delta: float) -> void:
 							recovery_index = airfield_index
 							break
 					if recovery_index < 0:
-						unit.erase("airfield_returning")
-						unit.erase("airfield_landed")
-						unit.erase("airfield_recovery_id")
-						unit.erase("airfield_recovery_slot")
-						unit.erase("airfield_rearm_progress")
-						_restore_aircraft_resume_order(unit)
+						_abandon_airfield_recovery(unit)
 					else:
 						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
 						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
@@ -997,11 +999,7 @@ func _process(delta: float) -> void:
 							sortie_airfield_index = sortie_index
 							break
 					if sortie_airfield_index < 0:
-						unit.erase("airfield_sortie_launch")
-						unit.erase("airfield_sortie_ready")
-						unit.erase("airfield_sortie_airfield_id")
-						unit.erase("airfield_sortie_launch_wait")
-						_restore_aircraft_resume_order(unit)
+						_abandon_airfield_recovery(unit)
 					else:
 						var launch_wait := float(unit.get("airfield_sortie_launch_wait", 0.0))
 						if launch_wait > 0.0:
