@@ -33,6 +33,21 @@ func _run_battle_save_integration_test() -> void:
 	_expect(String(game.get("units")[0].get("unit_id", "")) == "unit_00000001", "Stable identity must survive unit-array compaction")
 	game.get("units").clear()
 
+	# Zero Hour-style combat veterancy: promotion thresholds, damage bonuses, and faction ownership.
+	var veteran_test_unit: Dictionary = {"unit_id": "veterancy_test", "kind": "tank", "team": "player", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
+	game.call("_award_unit_experience", veteran_test_unit, 199)
+	_expect(is_equal_approx(float(veteran_test_unit.get("combat_xp", 0.0)), 99.5) and int(veteran_test_unit.get("veterancy", 0)) == 0, "A unit must not promote before reaching 100 combat XP")
+	game.call("_award_unit_experience", veteran_test_unit, 1)
+	_expect(int(veteran_test_unit.get("veterancy", 0)) == 1, "A unit must become veteran at 100 combat XP")
+	_expect(int(game.call("_unit_damage_with_veterancy", veteran_test_unit, 100)) == 108, "Veteran units must receive the established 8 percent damage bonus")
+	game.call("_award_unit_experience", veteran_test_unit, 300)
+	_expect(int(veteran_test_unit.get("veterancy", 0)) == 2, "A unit must become elite at 250 combat XP")
+	_expect(int(game.call("_unit_damage_with_veterancy", veteran_test_unit, 100)) == 115, "Elite units must receive the established 15 percent damage bonus")
+	var enemy_veterancy_test: Dictionary = {"unit_id": "enemy_veterancy_test", "kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
+	game.call("_award_unit_experience", enemy_veterancy_test, 500)
+	_expect(float(enemy_veterancy_test.get("combat_xp", 0.0)) == 0.0 and int(enemy_veterancy_test.get("veterancy", 0)) == 0, "Enemy units must not receive player veterancy progression")
+	_expect(float(veteran_test_unit.get("combat_xp", 0.0)) == 250.0, "Veterancy XP must accumulate exactly across combat awards")
+
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
 		{"kind": "fighter", "team": "player", "hp": 180, "pos": Vector2.ZERO, "airfield_returning": true, "airfield_recovery_id": 4, "airfield_recovery_slot": 1},
