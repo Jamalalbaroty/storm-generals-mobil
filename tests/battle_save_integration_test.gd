@@ -252,6 +252,8 @@ func _run_battle_save_integration_test() -> void:
 	game.call("_handle_pointer", resume_button.get_center(), false)
 	_expect(bool(game.get("game_started")), "Touching the main-menu resume action must return directly to the saved battle")
 	_expect(int(game.get("credits")) == 1444, "Main-menu resume must restore the latest autosaved economy state")
+	# Isolate the transport lifecycle fixture after validating independent combat orders above.
+	game.get("units").resize(1)
 
 	# Exercise every meaningful transport lifecycle boundary through the real snapshot path.
 	var transport_cases := [
