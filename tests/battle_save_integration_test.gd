@@ -146,6 +146,51 @@ func _run_battle_save_integration_test() -> void:
 		if case_index == transport_cases.size() - 1:
 			_expect(game.get("units").size() == 2 and String(game.get("units")[1].get("unit_id", "")) == "unit_00000052", "Dropped passenger should exist as a field unit after leaving the manifest")
 
+	# Battle outcomes must update career and campaign progression exactly once.
+	var original_commander_profile: Dictionary = game.get("commander_profile").duplicate(true)
+	game.set("commander_profile", {
+		"battles_played": 0,
+		"victories": 0,
+		"defeats": 0,
+		"total_kills": 0,
+		"air_kills": 0,
+		"armor_kills": 0,
+		"naval_kills": 0,
+		"earned_medals": [],
+		"campaign_progress": {"وطن": 0},
+		"campaign_funds": 0
+	})
+	game.set("faction", "وطن")
+	game.set("campaign_mission_index", 0)
+	game.set("campaign_briefing", false)
+	game.set("commander_profile_saved_result", "")
+	game.set("battle_result", "")
+	game.set("enemy_base_hp", 0)
+	game.set("player_base_hp", 700)
+	_expect(bool(game.call("_resolve_battle_result")), "Destroying the enemy base must resolve a victory immediately")
+	var victory_profile: Dictionary = game.get("commander_profile")
+	_expect(int(victory_profile.get("battles_played", 0)) == 1 and int(victory_profile.get("victories", 0)) == 1, "Victory must increment battle and victory totals once")
+	_expect(int(victory_profile.get("campaign_progress", {}).get("وطن", 0)) == 1, "Victory must unlock the next campaign mission")
+	_expect(int(victory_profile.get("campaign_funds", 0)) == 350, "Meeting the first mission secondary objective must grant base and bonus rewards")
+	game.call("_resolve_battle_result")
+	_expect(int(victory_profile.get("battles_played", 0)) == 1 and int(victory_profile.get("victories", 0)) == 1, "Repeated victory resolution must not duplicate career totals")
+	_expect(int(victory_profile.get("campaign_funds", 0)) == 350, "Repeated victory resolution must not duplicate campaign rewards")
+
+	game.set("faction", "")
+	game.set("commander_profile_saved_result", "")
+	game.set("battle_result", "")
+	game.set("enemy_base_hp", 500)
+	game.set("player_base_hp", 0)
+	_expect(bool(game.call("_resolve_battle_result")), "Destroying the player base must resolve a defeat immediately")
+	var defeat_profile: Dictionary = game.get("commander_profile")
+	_expect(int(defeat_profile.get("battles_played", 0)) == 2 and int(defeat_profile.get("defeats", 0)) == 1, "Defeat must increment battle and defeat totals once")
+	_expect(int(defeat_profile.get("campaign_progress", {}).get("وطن", 0)) == 1 and int(defeat_profile.get("campaign_funds", 0)) == 350, "Defeat must not unlock missions or award campaign funds")
+	game.call("_resolve_battle_result")
+	_expect(int(defeat_profile.get("battles_played", 0)) == 2 and int(defeat_profile.get("defeats", 0)) == 1, "Repeated defeat resolution must not duplicate career totals")
+	game.set("commander_profile", original_commander_profile)
+	game.call("_save_commander_profile")
+
+	game.get("battle_save_store").call("delete_snapshot")
 	game.get("battle_save_store").call("delete_snapshot")
 	game.queue_free()
 	await process_frame
