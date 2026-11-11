@@ -331,3 +331,8 @@ The new boundary regression exposed a one-tick delay: bounded movement reached t
 ## Implemented follow-up — critical-damage recovery
 
 Autonomous inbound transports now compare current health with the established 30% aircraft-repair threshold before continuing toward an insertion point. At or below that threshold, the tactical director cancels the drop, clears the stale objective, and routes the aircraft to the nearest valid friendly airfield. If no airfield exists, it stops autonomous flight in a safe loaded/idle state. Passenger records remain aboard in both cases, and the decision reason is recorded as `critical_damage`. Regression cases cover both recovery and no-airfield hold. Android packaging remains deferred until the overall game reaches 80%; this slice must pass the current Godot CI run before it is counted as validated.
+
+
+## Implemented follow-up — threat response during rope descent
+
+Autonomous transports now recheck immediate hostile pressure before each passenger is removed from cargo during rope descent. If a tank, artillery unit, hostile aircraft, or anti-air battery makes the current drop zone immediately unsafe, the director searches only candidate sites outside those immediate threat envelopes. A valid alternate returns the aircraft to inbound flight and resets the rope timer; if no safe site exists, it aborts and returns to a friendly airfield or holds safely with the remaining passengers aboard. Previously deployed soldiers are left untouched. Player-overridden and manual sorties are not redirected. Regression coverage checks diversion, threat-radius clearance, cargo preservation, and no duplicate/remove behavior for troops already on the ground.
