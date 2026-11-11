@@ -43,10 +43,13 @@ func _run_battle_save_integration_test() -> void:
 	game.call("_award_unit_experience", veteran_test_unit, 300)
 	_expect(int(veteran_test_unit.get("veterancy", 0)) == 2, "A unit must become elite at 250 combat XP")
 	_expect(int(game.call("_unit_damage_with_veterancy", veteran_test_unit, 100)) == 115, "Elite units must receive the established 15 percent damage bonus")
+	game.call("_award_unit_experience", veteran_test_unit, 500)
+	_expect(int(veteran_test_unit.get("veterancy", 0)) == 3, "A unit must become heroic at 500 combat XP")
+	_expect(int(game.call("_unit_damage_with_veterancy", veteran_test_unit, 100)) == 125, "Heroic units must receive the established 25 percent damage bonus")
 	var enemy_veterancy_test: Dictionary = {"unit_id": "enemy_veterancy_test", "kind": "tank", "team": "enemy", "hp": 150, "pos": Vector2.ZERO, "combat_xp": 0.0, "veterancy": 0}
 	game.call("_award_unit_experience", enemy_veterancy_test, 500)
 	_expect(float(enemy_veterancy_test.get("combat_xp", 0.0)) == 250.0 and int(enemy_veterancy_test.get("veterancy", 0)) == 2, "Enemy units must earn elite veterancy just like player units")
-	_expect(float(veteran_test_unit.get("combat_xp", 0.0)) == 250.0, "Veterancy XP must accumulate exactly across combat awards")
+	_expect(float(veteran_test_unit.get("combat_xp", 0.0)) == 500.0, "Veterancy XP must accumulate exactly across combat awards")
 
 	# Airfield recovery slots must reuse gaps rather than collide after an earlier aircraft launches.
 	game.get("units").assign([
