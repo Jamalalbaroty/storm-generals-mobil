@@ -471,8 +471,11 @@ func spawn_game_unit(kind: String, at: Vector3, faction_id: String, tint: Color,
 		"fighter":
 			_add_placeholder_fighter(at, tint, faction_id)
 			unit = showcase_tanks.back()
-		"helicopter", "transport_helicopter":
-			_add_placeholder_helicopter(at, tint, faction_id)
+		"helicopter":
+			_add_placeholder_helicopter(at, tint, faction_id, false)
+			unit = showcase_tanks.back()
+		"transport_helicopter":
+			_add_placeholder_helicopter(at, tint, faction_id, true)
 			unit = showcase_tanks.back()
 		"infantry", "builder", "marine":
 			_add_placeholder_infantry_squad(at, tint, faction_id)
@@ -743,6 +746,11 @@ func sync_game_units(unit_records: Array, map_rect: Rect2) -> int:
 			unit.set_meta("gameplay_aircraft_ammo", int(record.get("aircraft_ammo", 8 if kind == "fighter" else 12)))
 			unit.set_meta("gameplay_aircraft_rearm_progress", float(record.get("airfield_rearm_progress", 0.0)))
 			unit.set_meta("gameplay_aircraft_landed", is_landed)
+		if kind == "transport_helicopter":
+			var fast_ropes := unit.get_node_or_null("FastRopes")
+			if fast_ropes is Node3D:
+				fast_ropes.visible = String(record.get("transport_state", "")) == "descending"
+			unit.set_meta("transport_cargo_count", Array(record.get("transport_cargo", [])).size())
 		_sync_gameplay_unit_orientation(unit, record)
 		synced_count += 1
 	var selection_roster_changed := false
@@ -2391,20 +2399,20 @@ func _build_showcase_aircraft() -> void:
 	_add_placeholder_helicopter(Vector3(-12.0, 5.2, -9.0), Color(0.28, 0.36, 0.25), "american")
 	_add_placeholder_fighter(Vector3(12.0, 6.4, -10.0), Color(0.40, 0.43, 0.46), "chinese")
 
-func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -> void:
+func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String, is_transport: bool = false) -> void:
 	var helicopter := Node3D.new()
 	helicopter.position = at
 	add_child(helicopter)
 	showcase_tanks.append(helicopter)
 	helicopter.set_meta("health", 100.0)
-	helicopter.set_meta("unit_type", "helicopter")
+	helicopter.set_meta("unit_type", "transport_helicopter" if is_transport else "helicopter")
 	helicopter.set_meta("faction_id", faction_id)
 	_create_showcase_health_bar(helicopter)
 
 	var hull := MeshInstance3D.new()
 	var hull_mesh := CapsuleMesh.new()
-	hull_mesh.radius = 0.58
-	hull_mesh.height = 2.7
+	hull_mesh.radius = 0.68 if is_transport else 0.58
+	hull_mesh.height = 3.5 if is_transport else 2.7
 	hull.mesh = hull_mesh
 	hull.rotation_degrees.x = 90.0
 	hull.material_override = _make_armour_material(tint)
@@ -2416,13 +2424,13 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 	cockpit_mesh.radius = 0.48
 	cockpit_mesh.height = 0.75
 	cockpit.mesh = cockpit_mesh
-	cockpit.position = Vector3(0.0, 0.08, -1.0)
+	cockpit.position = Vector3(0.0, 0.08, -1.35 if is_transport else -1.0)
 	cockpit.material_override = _make_armour_material(Color(0.12, 0.20, 0.22))
 	helicopter.add_child(cockpit)
 
 	var tail := MeshInstance3D.new()
 	var tail_mesh := BoxMesh.new()
-	tail_mesh.size = Vector3(0.18, 0.18, 2.3)
+	tail_mesh.size = Vector3(0.18, 0.18, 2.8 if is_transport else 2.3)
 	tail.mesh = tail_mesh
 	tail.position.z = 2.0
 	tail.material_override = _make_armour_material(tint.darkened(0.18))
@@ -2458,8 +2466,9 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 	var weapon_pivot := Node3D.new()
 	weapon_pivot.position = Vector3(0.0, -0.32, -0.15)
 	helicopter.add_child(weapon_pivot)
-	showcase_turrets.append(weapon_pivot)
-	for side in [-1.0, 1.0]:
+	if not is_transport:
+		showcase_turrets.append(weapon_pivot)
+	for side in ([-1.0, 1.0] if not is_transport else []):
 		var rocket := MeshInstance3D.new()
 		var rocket_mesh := CylinderMesh.new()
 		rocket_mesh.top_radius = 0.10
@@ -2472,7 +2481,7 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 		weapon_pivot.add_child(rocket)
 
 	# Zero Hour-inspired helicopter equipment and faction-specific silhouettes.
-	for side in [-1.0, 1.0]:
+	for side in ([-1.0, 1.0] if not is_transport else []):
 		var sponson := MeshInstance3D.new()
 		var sponson_mesh := BoxMesh.new()
 		sponson_mesh.size = Vector3(0.48, 0.30, 1.18)
@@ -2488,6 +2497,29 @@ func _add_placeholder_helicopter(at: Vector3, tint: Color, faction_id: String) -
 		landing_skid.material_override = _make_armour_material(Color(0.10, 0.12, 0.11))
 		helicopter.add_child(landing_skid)
 
+	if is_transport:
+		var cargo_bay := MeshInstance3D.new()
+		cargo_bay.name = "CargoBay"
+		var cargo_mesh := BoxMesh.new()
+		cargo_mesh.size = Vector3(1.35, 0.82, 1.65)
+		cargo_bay.mesh = cargo_mesh
+		cargo_bay.position = Vector3(0.0, -0.12, 0.48)
+		cargo_bay.material_override = _make_armour_material(tint.darkened(0.12))
+		helicopter.add_child(cargo_bay)
+		var rope_group := Node3D.new()
+		rope_group.name = "FastRopes"
+		rope_group.visible = false
+		helicopter.add_child(rope_group)
+		for rope_side in [-0.48, 0.48]:
+			var rope := MeshInstance3D.new()
+			var rope_mesh := CylinderMesh.new()
+			rope_mesh.top_radius = 0.025
+			rope_mesh.bottom_radius = 0.025
+			rope_mesh.height = 4.4
+			rope.mesh = rope_mesh
+			rope.position = Vector3(rope_side, -2.55, 0.48)
+			rope.material_override = _make_armour_material(Color(0.78, 0.70, 0.52))
+			rope_group.add_child(rope)
 	var sensor := MeshInstance3D.new()
 	var sensor_mesh := SphereMesh.new()
 	sensor_mesh.radius = 0.16
