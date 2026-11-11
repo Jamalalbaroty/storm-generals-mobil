@@ -784,6 +784,8 @@ func _process(delta: float) -> void:
 						continue
 					if bool(unit.get("defense_guard", false)) and _update_enemy_defense_guard(unit, i, delta):
 						continue
+					if unit.kind in ["tank", "infantry"] and _update_enemy_supply_reinforcement(unit, i, delta):
+						continue
 					if unit.kind in ["tank", "infantry"] and _update_enemy_counterattack_reserve(unit, i, delta):
 						continue
 				if unit.kind == "fighter":
@@ -4115,6 +4117,25 @@ func _enemy_best_supply_objective(unit_pos: Vector2) -> int:
 			best_priority = priority
 			best_point = point_index
 	return best_point
+
+
+func _update_enemy_supply_reinforcement(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	# Send only the nearest eligible mobile defender to a threatened enemy-held income point.
+	var objective_index := _enemy_supply_reinforcement_point(unit_index)
+	if objective_index < 0:
+		unit.erase("supply_reinforcement_active")
+		unit.erase("supply_reinforcement_point")
+		return false
+	var objective: Dictionary = supply_points[objective_index]
+	var objective_pos: Vector2 = objective.pos
+	unit["supply_reinforcement_active"] = true
+	unit["supply_reinforcement_point"] = objective_index
+	var distance: float = unit.pos.distance_to(objective_pos)
+	if distance > 42.0:
+		var speed := 36.0 if String(unit.get("kind", "")) == "tank" else 52.0
+		var direction := _ground_navigation_direction(unit, unit_index, objective_pos, delta, speed)
+		unit.pos += direction * delta * speed
+	return true
 
 
 func _enemy_supply_reinforcement_point(unit_index: int) -> int:
