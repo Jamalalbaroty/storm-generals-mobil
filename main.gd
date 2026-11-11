@@ -986,8 +986,7 @@ func _process(delta: float) -> void:
 								unit.erase("escort_auto_target")
 								escort_enemy_index = -1
 							if escort_enemy_index < 0 and not unit.has("attack_building"):
-								var escort_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
-								var nearby_escort_threat := _nearest_unit_by_priority(air_escort_target.pos, 220.0, "enemy", escort_threat_kinds)
+								var nearby_escort_threat := _transport_ai_select_escort_threat(air_escort_target.pos, String(unit.kind), 220.0)
 								if nearby_escort_threat >= 0:
 									unit["attack_target"] = nearby_escort_threat
 									unit["attack_focus_pos"] = units[nearby_escort_threat].pos
@@ -4726,6 +4725,24 @@ func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float)
 	var distance := maxf(0.0, slot_distance)
 	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
 	return base_speed * catchup_factor
+
+
+func _transport_ai_select_escort_threat(from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
+	var priority_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if escort_kind == "fighter" else ["tank", "artillery", "infantry"]
+	for preferred_kind in priority_kinds:
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) != preferred_kind:
+				continue
+			var distance: float = from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
 
 
 func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
