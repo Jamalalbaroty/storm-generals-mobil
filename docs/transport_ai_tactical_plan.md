@@ -168,3 +168,8 @@ Boarding selection is now ordered by ascending current health, so the most wound
 ## Implemented thirteenth slice — recall transport to a field squad
 
 The airlift command tab now includes a pickup-recall action. With one player transport and one or more player infantry selected, the command computes the squad rendezvous center, asks the existing tactical landing planner for a safe nearby ground/rooftop site, assigns an anti-air-aware route, and dispatches the empty aircraft. On landing it settles into the existing idle state; the player then moves the squad within boarding range and confirms loading. The order rejects multiple transports, missing infantry, occupied cargo, busy aircraft, and unavailable safe landing plans. A regression test covers dispatch state, landing target, and route assignment. This is a player-confirmed extraction workflow, not automatic pickup or automatic boarding. Godot execution and Android validation remain pending.
+
+
+## Implemented fourteenth slice — pickup rendezvous hold state
+
+A transport recalled for field extraction now carries an explicit pickup-wait marker. When it reaches the planned landing site empty, the descent/update loop transitions it to `pickup_waiting` and holds position instead of dropping into ordinary `idle`. The boarding command accepts this landed waiting state; successful boarding clears the marker and returns the aircraft to `loaded`. Manual landing orders and cancellation clear stale pickup state. Regression coverage checks the waiting transition, boarding from the waiting state, cargo transfer, and marker cleanup. This remains player-confirmed boarding; no automatic squad pickup has been introduced. CI and Godot/device execution results are pending.
