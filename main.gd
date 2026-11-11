@@ -860,10 +860,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					# Attack helicopters reinforce the ground command focus when it is within their operational radius.
-					var heli_target := enemy_ground_focus
-					if heli_target < 0 or heli_target >= units.size() or String(units[heli_target].get("team", "")) != "player" or int(units[heli_target].get("hp", 0)) <= 0 or String(units[heli_target].get("kind", "")) not in ["tank", "artillery", "infantry"] or unit.pos.distance_to(units[heli_target].pos) > 760.0:
-						heli_target = _nearest_unit_by_priority(unit.pos, 760.0, "player", ["tank", "artillery", "infantry"])
+					var heli_target := _enemy_helicopter_assault_target(unit.pos, enemy_ground_focus)
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -2765,6 +2762,15 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 		if best_index >= 0:
 			return best_index
 	return -1
+
+
+func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int) -> int:
+	# Attack helicopters reinforce the ground command focus when it is within their operational radius.
+	if ground_focus_index >= 0 and ground_focus_index < units.size():
+		var focus: Dictionary = units[ground_focus_index]
+		if String(focus.get("team", "")) == "player" and int(focus.get("hp", 0)) > 0 and String(focus.get("kind", "")) in ["tank", "artillery", "infantry"] and from_pos.distance_to(focus.pos) <= 760.0:
+			return ground_focus_index
+	return _nearest_unit_by_priority(from_pos, 760.0, "player", ["tank", "artillery", "infantry"])
 
 
 func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -> int:
