@@ -3869,6 +3869,11 @@ func _update_infantry_animation(delta: float) -> void:
 				part.position.y = lerpf(part.position.y, base_y - drop + breath_offset, crouch_blend)
 				var forward_lean := -0.10 if is_aiming and part_name == "InfantryBody" else (-0.035 if is_aiming and part_name == "InfantryHead" else 0.0)
 				part.rotation.x = lerpf(part.rotation.x, forward_lean, crouch_blend)
+				var idle_scan := 0.0
+				if part_name in ["InfantryHead", "InfantryHelmet"] and not is_aiming and gait_intensity < 0.12:
+					var scan_phase := infantry_gait_clock * 0.72 + float(soldier.get_meta("infantry_slot_index", 0)) * 1.9
+					idle_scan = sin(scan_phase) * 0.085
+				part.rotation.y = lerpf(part.rotation.y, idle_scan, clampf(delta * 2.8, 0.0, 1.0))
 		var desired_gait := 0.0
 		if is_instance_valid(squad):
 			var visual_target = squad.get_meta("gameplay_visual_target", null)
