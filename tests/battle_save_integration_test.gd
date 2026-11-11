@@ -73,6 +73,11 @@ func _run_battle_save_integration_test() -> void:
 	_expect(int(rerouted_aircraft_3.get("airfield_recovery_id", -1)) == 9 and int(rerouted_aircraft_3.get("airfield_recovery_slot", -1)) == 2, "Third rerouted aircraft must reserve a distinct third slot")
 	_expect(bool(rerouted_aircraft.get("airfield_returning", false)) and not bool(rerouted_aircraft.get("airfield_sortie_launch", false)), "Rerouting must resume the recovery flight and clear the stale takeoff queue")
 	_expect(is_equal_approx(float(rerouted_aircraft.get("airfield_rearm_progress", 0.0)), 2.25) and rerouted_aircraft.has("airfield_resume_order"), "Rerouting must preserve rearm progress and the original flight order")
+	game.get("buildings").append_array([
+		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 1.0, "production_id": 11, "pos": Vector2(30.0, 0.0)},
+		{"kind": "airfield", "team": "player", "hp": 500, "build_progress": 1.0, "production_id": 12, "pos": Vector2(1.0, 0.0)}
+	])
+	_expect(int(game.call("_nearest_powered_player_airfield_index", Vector2.ZERO)) == 2, "Aircraft must skip a closer completed airfield that has lost power after earlier fields consume capacity")
 	game.get("units").clear()
 	game.get("units").clear()
 	game.get("buildings").clear()
