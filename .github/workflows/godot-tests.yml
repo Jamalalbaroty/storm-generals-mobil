@@ -40,6 +40,9 @@ jobs:
       - name: Run four-faction combat and economy balance regression
         run: timeout 90s godot --headless --path . --script tests/faction_balance_regression_test.gd
 
+      - name: Run six pairwise faction air-combat matchup matrix
+        run: timeout 90s godot --headless --path . --script tests/faction_matchup_matrix_test.gd
+
       - name: Run gameplay economy and enemy recovery smoke test
         run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
 
