@@ -879,7 +879,11 @@ func _update_gameplay_unit_visuals(delta: float) -> void:
 			if takeoff_active and unit.global_position.y >= base_altitude - 0.28:
 				unit.set_meta("gameplay_aircraft_takeoff", false)
 		var body_yaw := float(unit.get_meta("gameplay_body_yaw_target", unit.rotation.y))
-		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, blend)
+		var is_infantry := aircraft_kind in ["infantry", "builder", "marine"]
+		# Infantry formations turn more deliberately than the proxy interpolation
+		# cadence, keeping the four-person squad visually together during heading changes.
+		var turn_blend := clampf(delta * 7.5, 0.0, 1.0) if is_infantry else blend
+		unit.rotation.y = lerp_angle(unit.rotation.y, body_yaw, turn_blend)
 		# Aircraft bank gently into turns; ground vehicles always settle level.
 		var bank_target := float(unit.get_meta("gameplay_flight_bank_target", 0.0))
 		unit.rotation.z = lerpf(unit.rotation.z, bank_target, clampf(delta * 5.5, 0.0, 1.0))
