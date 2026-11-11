@@ -1238,6 +1238,20 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Attack and guard commands must also survive the same live bridge after view changes.
+	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "attack", Vector3.ZERO, "enemy|4|fighter")
+	post_toggle_order_units = game.get("units")
+	if int(post_toggle_order_units[0].get("attack_target", -1)) != 3 or post_toggle_order_units[0].has("target"):
+		push_error("A 3D attack order after view switching failed to bind the authoritative enemy target")
+		quit(1)
+		return
+	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "guard", Vector3.ZERO, "")
+	post_toggle_order_units = game.get("units")
+	if not bool(post_toggle_order_units[0].get("guard_active", false)) or post_toggle_order_units[0].has("attack_target") or post_toggle_order_units[0].has("target"):
+		push_error("A 3D guard order after view switching failed to replace the previous combat order")
+		quit(1)
+		return
+
 	# Removing a selected live unit must also clear selection and stale attack targets.
 	var selected_before_cleanup := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
 	if selected_before_cleanup == null:
