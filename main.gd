@@ -1,6 +1,13 @@
 extends Node2D
 
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+# Presentation-only identity data. Gameplay faction keys and commander save data stay unchanged.
+const FACTION_PRESENTATION := [
+	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
+	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
+	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
+	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
+]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
 	{"name": "شرارة العاصفة", "map": "الساحل الصحراوي", "brief": "أنشئ قاعدة متينة ودمر مركز قيادة العدو", "reward": 250, "secondary": "حافظ على سلامة قاعدتك بأكثر من 50٪", "bonus": 100},
@@ -3302,22 +3309,39 @@ func _draw_faction_picker(size: Vector2) -> void:
 	if campaign_briefing:
 		_draw_campaign_briefing(size)
 		return
-	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
+	# Keep the established 2x2 touch layout; only enrich its visual identity.
 	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
-	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
+	draw_rect(panel, Color("#101a20"), true)
 	draw_rect(panel, Color("#52666c"), false, 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
-	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.019), 16, 22), Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "STORM GENERALS", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.027), 19, 30), Color("#f4d77a"))
+	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.37), "اختر الجيش الذي ستقوده", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.019), 14, 21), Color("#d8e2e5"))
 	var progress: Dictionary = commander_profile.get("campaign_progress", {})
 	for i in FACTIONS.size():
 		var r := _faction_rect(i, size)
-		draw_rect(r, Color("#28445a") if i != 3 else Color("#73552d"), true)
-		draw_rect(r, Color("#b7c6d1"), false, 2.0)
+		var identity: Dictionary = _faction_presentation(i)
+		var faction_color: Color = Color(String(identity.color))
+		var accent_color: Color = Color(String(identity.accent))
+		draw_rect(r, faction_color.darkened(0.42), true)
+		draw_rect(r, accent_color, false, 2.0)
+		draw_rect(Rect2(r.position, Vector2(5.0, r.size.y)), accent_color, true)
+		var emblem_center := r.position + Vector2(25.0, r.size.y * 0.43)
+		draw_circle(emblem_center, 16.0, Color("#11191d"))
+		draw_arc(emblem_center, 16.0, 0.0, TAU, 32, accent_color, 2.0)
+		draw_string(ThemeDB.fallback_font, emblem_center + Vector2(-14.0, 4.0), String(identity.mark), HORIZONTAL_ALIGNMENT_CENTER, 28.0, 10, accent_color)
+		var text_left := r.position.x + 46.0
+		var text_width := r.size.x - 51.0
+		draw_string(ThemeDB.fallback_font, Vector2(text_left, r.position.y + r.size.y * 0.30), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, text_width, clampi(int(size.x * 0.018), 12, 19), Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(text_left, r.position.y + r.size.y * 0.52), String(identity.doctrine), HORIZONTAL_ALIGNMENT_CENTER, text_width, clampi(int(size.x * 0.012), 9, 12), accent_color)
 		var completed := int(progress.get(FACTIONS[i], 0))
 		var progress_label := "الحملة مكتملة" if completed >= CAMPAIGN_MISSIONS.size() else "المهمة %d / %d" % [completed + 1, CAMPAIGN_MISSIONS.size()]
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.45), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.76), progress_label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 11, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(text_left, r.position.y + r.size.y * 0.78), progress_label, HORIZONTAL_ALIGNMENT_CENTER, text_width, 10, Color("#e8e1cb"))
+	# The four choices remain equal in size and visual priority, including Watan.
 
+
+func _faction_presentation(index: int) -> Dictionary:
+	if index < 0 or index >= FACTION_PRESENTATION.size():
+		return FACTION_PRESENTATION[0]
+	return FACTION_PRESENTATION[index]
 
 func _campaign_start_rect(size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x * 0.55, size.y * 0.64), Vector2(size.x * 0.34, 52))
