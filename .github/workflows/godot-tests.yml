@@ -46,6 +46,9 @@ jobs:
       - name: Run live four-faction helicopter combat regression
         run: timeout 90s godot --headless --path . --script tests/live_faction_air_combat_test.gd
 
+      - name: Run live four-faction infantry, tank, and artillery combat regression
+        run: timeout 90s godot --headless --path . --script tests/live_faction_ground_combat_test.gd
+
       - name: Run isolated four-faction team registry regression
         run: timeout 60s godot --headless --path . --script tests/battle_team_registry_test.gd
 
