@@ -5826,7 +5826,17 @@ func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delt
 			var asset_distance: float = unit.pos.distance_to(asset_pos)
 			if asset_distance > 300.0:
 				continue
-			var score: float = asset_distance + asset_pos.distance_to(units[local_threat].pos) * 0.35
+			# Prefer the asset facing a coordinated push, not just the single closest scout.
+			var local_threat_count := 0
+			for candidate in units:
+				if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+					continue
+				if String(candidate.get("kind", "")) not in ["infantry", "tank", "artillery"]:
+					continue
+				if candidate.pos.distance_to(asset_pos) <= 185.0:
+					local_threat_count += 1
+			var cluster_priority := minf(float(maxi(0, local_threat_count - 1)) * 42.0, 126.0)
+			var score: float = asset_distance + asset_pos.distance_to(units[local_threat].pos) * 0.35 - cluster_priority
 			if score < best_anchor_distance:
 				best_anchor_distance = score
 				breached_anchor = asset_pos
