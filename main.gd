@@ -2014,6 +2014,46 @@ func _enemy_ground_unit_should_fallback(unit: Dictionary) -> bool:
 	return float(unit.get("hp", 0)) <= float(max_hp) * 0.25 and _enemy_ground_threat_distance(unit.pos) <= 145.0
 
 
+func _enemy_assault_rally_ready(unit_index: int, target_pos: Vector2) -> bool:
+	# Small forces and immediate engagements must never be stalled by rally logic.
+	var nearby_force := 0
+	var nearest_support_distance := INF
+	var lead_pos: Vector2 = units[unit_index].pos
+	for candidate_index in range(units.size()):
+		if candidate_index == unit_index:
+			continue
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+			continue
+		if bool(candidate.get("defense_guard", false)) or bool(candidate.get("retreating", false)) or bool(candidate.get("tactical_fallback_active", false)) or bool(candidate.get("counterattack_active", false)) or bool(candidate.get("landing_support_active", false)):
+			continue
+		if candidate.pos.distance_to(target_pos) > 420.0:
+			continue
+		nearby_force += 1
+		nearest_support_distance = minf(nearest_support_distance, lead_pos.distance_to(candidate.pos))
+	# Fewer than three available elements retain the existing aggressive behavior.
+	if nearby_force < 2:
+		return true
+	return nearest_support_distance <= 205.0
+
+
+func _enemy_assault_rally_movement_goal(unit_index: int, target_pos: Vector2, formation_goal: Vector2) -> Vector2:
+	if _enemy_assault_rally_ready(unit_index, target_pos):
+		return formation_goal
+	var approach_direction: Vector2 = enemy_base - target_pos
+	if approach_direction.length_squared() <= 0.01:
+		approach_direction = Vector2.RIGHT
+	else:
+		approach_direction = approach_direction.normalized()
+	var rally_goal: Vector2 = target_pos + approach_direction * 235.0
+	# An advanced element holds its ground; trailing elements close toward the rally line.
+	if units[unit_index].pos.distance_to(target_pos) <= 235.0:
+		return units[unit_index].pos
+	return rally_goal
+
+
 func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: float) -> bool:
 	# Execute the enemy's land doctrine: armor leads, infantry screens, artillery stays in support.
 	var unit_kind := String(unit.get("kind", ""))
@@ -2122,8 +2162,12 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 	var goal_distance: float = unit.pos.distance_to(formation_goal)
 	var move_speed := 22.0 if unit_kind == "artillery" else (36.0 if unit_kind == "tank" else 55.0)
 	var movement_goal := formation_goal
+	# Armor and infantry stage at a shared rally line until nearby support closes the gap.
+	# Artillery remains free to establish its firing lane and provide covering fire.
+	if target_index >= 0 and unit_kind != "artillery":
+		movement_goal = _enemy_assault_rally_movement_goal(unit_index, target_pos, movement_goal)
 	# Close the final gap only when a formation slot still leaves the unit outside weapon range.
-	if goal_distance <= 18.0 and target_distance > weapon_range:
+	if goal_distance <= 18.0 and target_distance > weapon_range and movement_goal == formation_goal:
 		movement_goal = target_pos
 	var move_direction := _ground_navigation_direction(unit, unit_index, movement_goal, delta, move_speed)
 	if move_direction.length_squared() > 0.001:

@@ -317,6 +317,31 @@ func _test_enemy_infantry_flank_screen(game: Node) -> void:
 	_expect(absf(infantry_slot.y - game.units[0].pos.y) >= 60.0, "Enemy infantry must occupy a wide lateral escort lane to screen the armor's flank")
 
 
+func _test_enemy_assault_rally_staging(game: Node) -> void:
+	game.enemy_base = Vector2(1000.0, 330.0)
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(550.0, 330.0)},
+		{"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(760.0, 330.0)},
+		{"team": "enemy", "kind": "artillery", "hp": 110, "pos": Vector2(770.0, 360.0)},
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(540.0, 330.0), "retreating": true},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(350.0, 330.0)}
+	])
+	var target_pos := game.units[4].pos
+	var formation_goal := Vector2(600.0, 330.0)
+	var staged_goal: Vector2 = game._enemy_assault_rally_movement_goal(0, target_pos, formation_goal)
+	_expect(not game._enemy_assault_rally_ready(0, target_pos), "A dispersed three-unit assault group must wait for its nearby support to close before advancing")
+	_expect(staged_goal == game.units[0].pos, "An advanced tank must hold its position rather than push alone beyond the rally line")
+	game.units[1].pos = Vector2(700.0, 330.0)
+	var released_goal: Vector2 = game._enemy_assault_rally_movement_goal(0, target_pos, formation_goal)
+	_expect(game._enemy_assault_rally_ready(0, target_pos), "The assault must become ready once a supporting unit closes within rally distance")
+	_expect(released_goal == formation_goal, "A gathered assault group must resume its assigned formation advance")
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(550.0, 330.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(350.0, 330.0)}
+	])
+	_expect(game._enemy_assault_rally_ready(0, game.units[1].pos), "A small enemy force must never be stalled waiting for units that do not exist")
+
+
 func _test_enemy_assault_distributes_targets(game: Node) -> void:
 	game.enemy_base = Vector2(1000.0, 330.0)
 	game.buildings.clear()
