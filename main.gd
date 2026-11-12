@@ -5799,6 +5799,42 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 	return true
 
 
+func _enemy_counterattack_priority_target(anchor: Vector2, from_pos: Vector2, max_distance: float = 205.0) -> int:
+	# Counterattack reserves suppress high-impact threats first inside the breached perimeter.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var kind := String(candidate.get("kind", ""))
+		if kind not in ["infantry", "tank", "artillery"]:
+			continue
+		var anchor_distance: float = candidate.pos.distance_to(anchor)
+		if anchor_distance > max_distance:
+			continue
+		var threat_priority := 0.0
+		match kind:
+			"artillery":
+				threat_priority = 95.0
+			"tank":
+				threat_priority = 65.0
+			"infantry":
+				threat_priority = 15.0
+		match enemy_strategy:
+			"armor_breaker":
+				if kind == "tank":
+					threat_priority += 35.0
+			"area_denial":
+				if kind == "artillery":
+					threat_priority += 25.0
+		var score: float = anchor_distance * 0.55 + from_pos.distance_to(candidate.pos) * 0.45 - threat_priority
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
+
 func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delta: float) -> bool:
 	# Keep at most two mobile reserves ready to repel a breach near critical enemy assets.
 	var is_active := bool(unit.get("counterattack_active", false))
@@ -5846,7 +5882,7 @@ func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delt
 		unit["counterattack_active"] = true
 		unit["counterattack_anchor"] = breached_anchor
 		anchor = breached_anchor
-	var threat_index := _nearest_player_ground_unit(anchor, 205.0)
+	var threat_index := _enemy_counterattack_priority_target(anchor, unit.pos, 205.0)
 	if threat_index < 0:
 		if unit.pos.distance_to(anchor) > 14.0:
 			var return_speed := 36.0 if String(unit.get("kind", "")) == "tank" else 55.0

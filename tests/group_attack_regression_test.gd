@@ -23,6 +23,7 @@ func _run() -> void:
 	_test_enemy_defensive_flank_selection(game)
 	_test_enemy_critical_fallback(game)
 	_test_enemy_counterattack_prioritizes_group_breach(game)
+	_test_enemy_counterattack_focuses_artillery_threat(game)
 
 	game.queue_free()
 	await process_frame
@@ -253,6 +254,18 @@ func _test_enemy_counterattack_prioritizes_group_breach(game: Node) -> void:
 	_expect(game._update_enemy_counterattack_reserve(game.units[0], 0, 0.5), "Enemy mobile reserve must respond to a coordinated ground breach")
 	_expect(bool(game.units[0].get("counterattack_active", false)), "Enemy reserve must activate when a protected asset is under a ground assault")
 	_expect(game.units[0].get("counterattack_anchor", Vector2.ZERO).distance_to(Vector2(650.0, 330.0)) < 0.1, "Enemy reserve must prioritize the factory threatened by a concentrated player group over an isolated base contact")
+
+
+func _test_enemy_counterattack_focuses_artillery_threat(game: Node) -> void:
+	game.enemy_strategy = "balanced"
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(700.0, 330.0)},
+		{"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(655.0, 330.0)},
+		{"team": "player", "kind": "artillery", "hp": 110, "pos": Vector2(690.0, 330.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(670.0, 360.0)}
+	])
+	var target_index := game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
+	_expect(target_index == 2, "Enemy counterattack must prioritize nearby player artillery over closer infantry and armor in a breached perimeter")
 
 
 func _cleanup_audio(game: Node) -> void:
