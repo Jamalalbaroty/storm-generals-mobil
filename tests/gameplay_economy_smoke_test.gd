@@ -1228,6 +1228,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "الصيني"}, {"kind": "tank"}, 20)) == 21, "Chinese tanks should gain restrained anti-armor pressure")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "faction": "الجيش العربي"}, {"kind": "tank"}, 10)) == 11, "Arab infantry should counter armor through close ambush pressure")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "وطن"}, {"kind": "infantry"}, 20)) == 21, "Watan elite tanks should gain a small general ground advantage")
+	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "team": "enemy", "faction": "الصيني"}, {"kind": "tank", "team": "player"}, 20)) == 21, "Enemy Chinese tanks must receive the same faction anti-armor doctrine as player tanks")
+	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "team": "enemy", "faction": "الجيش العربي"}, {"kind": "tank", "team": "player"}, 10)) == 11, "Enemy Arab infantry must retain its anti-armor ambush doctrine")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank"}, {"kind": "tank"}, 20)) == 20, "Faction-less legacy units must keep baseline attack damage")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "الأمريكي", "factory_level": 2}, {"kind": "tank"}, 100)) == 108, "American factory level 2 must not unlock level-3 fire control")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "الأمريكي", "factory_level": 3}, {"kind": "tank"}, 100)) == 112, "American level-3 fire control should raise anti-armor damage to the 1.12x tier")
