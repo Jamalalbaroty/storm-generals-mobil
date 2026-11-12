@@ -1760,7 +1760,12 @@ func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
 	var config := ConfigFile.new()
 	var load_error := config.load(path)
 	if load_error != OK:
-		return
+		# A previous process may have stopped while replacing the profile. Recover
+		# the last complete copy instead of silently resetting the commander's career.
+		var backup_config := ConfigFile.new()
+		if backup_config.load(path + ".bak") != OK:
+			return
+		config = backup_config
 	var stored: Variant = config.get_value("commander", "profile", {})
 	if not stored is Dictionary:
 		return
@@ -1795,12 +1800,46 @@ func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
 		commander_profile["earned_medals"] = safe_medals
 
 
-func _save_commander_profile() -> void:
+func _save_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> bool:
+	var temp_path := path + ".tmp"
+	var backup_path := path + ".bak"
 	var config := ConfigFile.new()
 	config.set_value("commander", "profile", commander_profile)
-	var save_error := config.save("user://storm_generals_profile.cfg")
+	var save_error := config.save(temp_path)
 	if save_error != OK:
-		push_warning("Could not save commander profile: %s" % error_string(save_error))
+		push_warning("Could not write temporary commander profile: %s" % error_string(save_error))
+		return false
+	# Re-open the temporary file before promoting it over the previous profile.
+	var verification := ConfigFile.new()
+	if verification.load(temp_path) != OK or not verification.get_value("commander", "profile", null) is Dictionary:
+		_remove_commander_profile_file(temp_path)
+		return false
+	var profile_absolute := ProjectSettings.globalize_path(path)
+	var temp_absolute := ProjectSettings.globalize_path(temp_path)
+	var backup_absolute := ProjectSettings.globalize_path(backup_path)
+	var had_previous_profile := FileAccess.file_exists(path)
+	if had_previous_profile:
+		_remove_commander_profile_file(backup_path)
+		var backup_error := DirAccess.rename_absolute(profile_absolute, backup_absolute)
+		if backup_error != OK:
+			_remove_commander_profile_file(temp_path)
+			push_warning("Could not protect previous commander profile: %s" % error_string(backup_error))
+			return false
+	var promote_error := DirAccess.rename_absolute(temp_absolute, profile_absolute)
+	if promote_error != OK:
+		if had_previous_profile:
+			DirAccess.rename_absolute(backup_absolute, profile_absolute)
+		_remove_commander_profile_file(temp_path)
+		push_warning("Could not promote commander profile: %s" % error_string(promote_error))
+		return false
+	if had_previous_profile:
+		_remove_commander_profile_file(backup_path)
+	return true
+
+
+func _remove_commander_profile_file(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _build_battle_snapshot() -> Dictionary:

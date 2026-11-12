@@ -891,6 +891,35 @@ func _run_battle_save_integration_test() -> void:
 	if FileAccess.file_exists("user://storm_generals_profile_regression.cfg"):
 		DirAccess.remove_absolute(profile_test_absolute)
 
+	# Commander career writes must be verified and promoted without sacrificing the previous profile.
+	var profile_test_path := "user://storm_generals_profile_regression.cfg"
+	game.set("commander_profile", {"battles_played": 7, "victories": 4, "defeats": 3, "campaign_progress": {"وطن": 2}, "campaign_funds": 125})
+	_expect(bool(game.call("_save_commander_profile", profile_test_path)), "A valid commander profile should save through the atomic profile writer")
+	var profile_temp_absolute := ProjectSettings.globalize_path(profile_test_path + ".tmp")
+	_expect(DirAccess.make_dir_absolute(profile_temp_absolute) == OK, "Test should create a blocking temporary-path directory")
+	game.set("commander_profile", {"battles_played": 99, "victories": 99, "defeats": 0, "campaign_progress": {}, "campaign_funds": 0})
+	_expect(not bool(game.call("_save_commander_profile", profile_test_path)), "A failed temporary write must be reported instead of replacing the profile")
+	var preserved_profile_config := ConfigFile.new()
+	_expect(preserved_profile_config.load(profile_test_path) == OK, "The previous commander profile must remain readable after a failed write")
+	var preserved_profile_data: Dictionary = preserved_profile_config.get_value("commander", "profile", {})
+	_expect(int(preserved_profile_data.get("battles_played", -1)) == 7 and int(preserved_profile_data.get("campaign_funds", -1)) == 125, "A failed profile write must preserve the last complete career and campaign funds")
+	DirAccess.remove_absolute(profile_temp_absolute)
+
+	# Simulate a process interruption after moving the old profile to its backup.
+	var profile_absolute := ProjectSettings.globalize_path(profile_test_path)
+	var profile_backup_absolute := ProjectSettings.globalize_path(profile_test_path + ".bak")
+	_expect(DirAccess.rename_absolute(profile_absolute, profile_backup_absolute) == OK, "Test should stage a verified backup before corrupting the primary profile")
+	var corrupt_profile_file := FileAccess.open(profile_test_path, FileAccess.WRITE)
+	_expect(corrupt_profile_file != null, "Test should create a corrupted primary commander profile")
+	if corrupt_profile_file != null:
+		corrupt_profile_file.store_string("not a valid commander profile")
+		corrupt_profile_file.close()
+	game.call("_load_commander_profile", profile_test_path)
+	var recovered_profile: Dictionary = game.get("commander_profile")
+	_expect(int(recovered_profile.get("battles_played", -1)) == 7 and int(recovered_profile.get("campaign_funds", -1)) == 125, "A corrupted primary profile must recover the verified backup")
+	for cleanup_path in [profile_test_path, profile_test_path + ".tmp", profile_test_path + ".bak"]:
+		game.call("_remove_commander_profile_file", cleanup_path)
+
 	# Campaign secondary objectives expose live, deterministic progress for every mission.
 	game.set("campaign_mission_index", 0)
 	game.set("player_base_hp", 499)
