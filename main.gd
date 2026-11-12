@@ -348,6 +348,8 @@ func _update_player_airfield_recovery(unit: Dictionary, delta: float) -> bool:
 			_restore_aircraft_resume_order(unit)
 		return true
 	return false
+
+
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
 	# It also invalidates any old combined-arms lane before a new order is applied.
@@ -360,6 +362,7 @@ func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	unit.erase("airfield_sortie_launch")
 	unit.erase("airfield_sortie_airfield_id")
 	unit.erase("airfield_resume_order")
+	unit.erase("airfield_repair_progress")
 
 
 func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_position: Vector3, target_key: String) -> void:
