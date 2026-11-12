@@ -23,7 +23,7 @@ const COMMAND_ACTIONS := [
 	[10, 11, 12, 13, 14, 15],
 	[23, 24, 25, 26, 27],
 	[28, 29, 30, 31],
-	[32, 33, 34, 35, 36, 37, 38]
+	[32, 33, 34, 35, 36, 37, 38, 39]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -893,6 +893,8 @@ func _process(delta: float) -> void:
 						_restore_aircraft_resume_order(unit)
 					continue
 			if unit.team == "player":
+				if unit.kind in ["tank", "infantry", "artillery"] and _update_player_ground_fallback(unit, i, delta):
+					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
 				if unit.kind == "transport_helicopter":
@@ -2072,6 +2074,80 @@ func _enemy_ground_unit_should_fallback(unit: Dictionary) -> bool:
 	return float(unit.get("hp", 0)) <= float(max_hp) * 0.25 and _enemy_ground_threat_distance(unit.pos) <= 145.0
 
 
+func _player_ground_threat_distance(unit_pos: Vector2) -> float:
+	var nearest_distance := INF
+	for candidate in units:
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["tank", "infantry", "artillery", "helicopter"]:
+			continue
+		nearest_distance = minf(nearest_distance, unit_pos.distance_to(candidate.pos))
+	return nearest_distance
+
+
+func _player_ground_unit_should_fallback(unit: Dictionary) -> bool:
+	if not bool(unit.get("auto_retreat_enabled", false)):
+		return false
+	var unit_kind := String(unit.get("kind", ""))
+	var max_hp := _unit_repair_max_hp(unit)
+	if unit_kind == "infantry":
+		max_hp = 60
+	elif unit_kind == "tank":
+		max_hp = maxi(max_hp, 180)
+	elif unit_kind == "artillery":
+		max_hp = maxi(max_hp, 110)
+	if max_hp <= 0 or int(unit.get("hp", 0)) <= 0:
+		return false
+	return float(unit.get("hp", 0)) <= float(max_hp) * 0.25 and _player_ground_threat_distance(unit.pos) <= 145.0
+
+
+func _update_player_ground_fallback(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	var fallback_active := bool(unit.get("player_tactical_fallback_active", false))
+	if fallback_active and _player_ground_threat_distance(unit.pos) > 210.0:
+		unit.erase("player_tactical_fallback_active")
+		fallback_active = false
+	if fallback_active or _player_ground_unit_should_fallback(unit):
+		unit["player_tactical_fallback_active"] = true
+		for order_key in ["target", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset"]:
+			unit.erase(order_key)
+		if unit.pos.distance_to(base_pos) > 58.0:
+			var retreat_speed := 48.0 if String(unit.get("kind", "")) == "infantry" else 42.0
+			var retreat_direction := _ground_navigation_direction(unit, unit_index, base_pos, delta, retreat_speed)
+			unit.pos += retreat_direction * delta * retreat_speed
+		return true
+	return false
+
+
+func _toggle_selected_auto_retreat() -> void:
+	var eligible := 0
+	var enabled_count := 0
+	for raw_index in selected:
+		var unit_index := int(raw_index)
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var unit: Dictionary = units[unit_index]
+		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		if String(unit.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+			continue
+			
+		eligible += 1
+		if not bool(unit.get("auto_retreat_enabled", false)):
+			unit["auto_retreat_enabled"] = true
+			enabled_count += 1
+		else:
+			unit["auto_retreat_enabled"] = false
+			unit.erase("player_tactical_fallback_active")
+	if eligible == 0:
+		notice = "حدد دبابات أو مشاة أو مدفعية لتفعيل الانسحاب الذكي"
+	elif enabled_count == eligible:
+		notice = "تم تفعيل الانسحاب الذكي للقوات المحددة — تراجع عند 25٪ صحة وتحت ضغط قريب"
+	else:
+		notice = "تم إيقاف الانسحاب الذكي للقوات المحددة"
+	notice_time = 3.0
+	queue_redraw()
+
+
 func _enemy_assault_rally_ready(unit_index: int, target_pos: Vector2) -> bool:
 	# Small forces and immediate engagements must never be stalled by rally logic.
 	var nearby_force := 0
@@ -3234,7 +3310,7 @@ func _draw_hud(size: Vector2) -> void:
 			doctrine_summary = "%s%s%s" % [doctrine_summary, " | " if not doctrine_summary.is_empty() else "", "%s ×%d" % [String(doctrine_name), doctrine_count] if selected_player_units.size() > 1 else String(doctrine_name)]
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 45), "العقيدة: %s" % (doctrine_summary if not doctrine_summary.is_empty() else "لا توجد ترقية عقائدية مفعّلة"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#e5c36f") if not doctrine_summary.is_empty() else Color("#84999b"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 63), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "حراسة المواقع", "تجمع عند القاعدة", "إلغاء الأوامر", "تشكيل هجومي", "تشكيل دفاعي", "انتشار واسع", "حماية المدفعية"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "حراسة المواقع", "تجمع عند القاعدة", "إلغاء الأوامر", "تشكيل هجومي", "تشكيل دفاعي", "انتشار واسع", "حماية المدفعية", "انسحاب ذكي"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -4232,6 +4308,8 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_issue_selected_formation_order("spread")
 			elif i == 38:
 				_issue_selected_formation_order("protect")
+			elif i == 39:
+				_toggle_selected_auto_retreat()
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
