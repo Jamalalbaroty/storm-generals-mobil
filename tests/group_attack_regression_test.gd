@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_artillery_standoff(game)
 	_test_enemy_artillery_support_role(game)
 	_test_enemy_defensive_flank_selection(game)
+	_test_enemy_infantry_flank_screen(game)
 	_test_enemy_critical_fallback(game)
 	_test_enemy_counterattack_prioritizes_group_breach(game)
 	_test_enemy_counterattack_focuses_artillery_threat(game)
@@ -301,3 +302,15 @@ func _test_enemy_counterattack_reserve_closes_deployment_gap(game: Node) -> void
 	var reserve_start: Vector2 = game.units[0].pos
 	_expect(game._update_enemy_counterattack_reserve(game.units[0], 0, 1.0), "A distant active reserve must remain under counterattack control while deploying")
 	_expect(game.units[0].pos.distance_to(Vector2(700.0, 330.0)) < reserve_start.distance_to(Vector2(700.0, 330.0)), "A reserve assigned to a distant breached asset must advance toward its anchor instead of remaining idle")
+
+
+func _test_enemy_infantry_flank_screen(game: Node) -> void:
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(700.0, 330.0)},
+		{"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(720.0, 330.0)}
+	])
+	var target := Vector2(500.0, 330.0)
+	var origin := Vector2(900.0, 330.0)
+	var infantry_slot: Vector2 = game._enemy_infantry_support_position(game.units[1].pos, target, origin, 1)
+	_expect(infantry_slot.x > game.units[0].pos.x, "Enemy infantry must remain slightly behind its armor screen")
+	_expect(absf(infantry_slot.y - game.units[0].pos.y) >= 60.0, "Enemy infantry must occupy a wide lateral escort lane to screen the armor's flank")

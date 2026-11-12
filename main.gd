@@ -1913,7 +1913,8 @@ func _enemy_infantry_support_position(infantry_pos: Vector2, target_pos: Vector2
 		return _enemy_ground_assault_formation_position("infantry", target_pos, assault_origin, unit_index)
 	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
 	var lane_side := -1.0 if unit_index % 2 == 0 else 1.0
-	return units[nearest_tank_index].pos - attack_direction * 48.0 + lateral_direction * lane_side * 26.0
+	# Spread infantry into wider escort lanes so they screen both sides of the armor instead of stacking directly behind it.
+	return units[nearest_tank_index].pos - attack_direction * 28.0 + lateral_direction * lane_side * 64.0
 
 
 func _enemy_ground_assault_formation_position(unit_kind: String, target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
