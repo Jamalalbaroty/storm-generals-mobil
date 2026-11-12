@@ -3010,11 +3010,11 @@ func _draw_hud(size: Vector2) -> void:
 		labels[12] = "إلغاء البناء"
 	else:
 		labels[12] = "ترقية / إلغاء"
-	for tab_index in range(COMMAND_TAB_LABELS.size()):
+	for tab_index in range(_command_tab_count()):
 		var tab_rect := _command_tab_rect(tab_index, size)
 		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
 		draw_rect(tab_rect, Color("#f4d77a") if tab_index == command_tab else Color("#58717b"), false, 1.5)
-		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), COMMAND_TAB_LABELS[tab_index], HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color.WHITE)
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), _command_tab_label(tab_index), HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color.WHITE)
 	var visible_actions: Array = _command_action_ids()
 	for slot in range(visible_actions.size()):
 		var action_id := int(visible_actions[slot])
@@ -3031,7 +3031,39 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
 
+func _has_only_selected_builders() -> bool:
+	var has_builder := false
+	for selected_index in selected:
+		if selected_index < 0 or selected_index >= units.size():
+			continue
+		var selected_unit: Dictionary = units[selected_index]
+		if String(selected_unit.get("team", "")) != "player" or int(selected_unit.get("hp", 0)) <= 0:
+			continue
+		if String(selected_unit.get("kind", "")) != "builder":
+			return false
+		has_builder = true
+	return has_builder
+
+
+func _command_tab_count() -> int:
+	return 3 if _has_only_selected_builders() else COMMAND_TAB_LABELS.size()
+
+
+func _command_tab_label(index: int) -> String:
+	if _has_only_selected_builders():
+		var builder_labels: Array[String] = ["المنشآت", "الدفاعات", "التحصينات"]
+		return builder_labels[clampi(index, 0, builder_labels.size() - 1)]
+	return COMMAND_TAB_LABELS[clampi(index, 0, COMMAND_TAB_LABELS.size() - 1)]
+
+
 func _command_action_ids() -> Array:
+	if _has_only_selected_builders():
+		var builder_actions: Array = [
+			[22, 2, 3, 6, 13, 14],
+			[4, 8, 23, 24, 25, 26],
+			[27, 24, 25, 26, 23, 12]
+		]
+		return builder_actions[clampi(command_tab, 0, builder_actions.size() - 1)]
 	return COMMAND_ACTIONS[clampi(command_tab, 0, COMMAND_ACTIONS.size() - 1)]
 
 # Keep Arabic labels legible without clipping on narrow Android viewports.
@@ -3060,7 +3092,7 @@ func _battle_pointer_target(pos: Vector2, size: Vector2) -> String:
 		return "pause"
 	if _three_d_view_toggle_rect(size).has_point(pos):
 		return "view"
-	for tab_index in range(COMMAND_TAB_LABELS.size()):
+	for tab_index in range(_command_tab_count()):
 		if _command_tab_rect(tab_index, size).has_point(pos):
 			return "tab:%d" % tab_index
 	var visible_actions: Array = _command_action_ids()
@@ -3076,7 +3108,7 @@ func _battle_pointer_target(pos: Vector2, size: Vector2) -> String:
 
 
 func _command_tab_rect(index: int, size: Vector2) -> Rect2:
-	var tab_width := (size.x - 44.0) / float(COMMAND_TAB_LABELS.size())
+	var tab_width := (size.x - 44.0) / float(_command_tab_count())
 	return Rect2(Vector2(8.0 + float(index) * (tab_width + 4.0), size.y - 166.0), Vector2(tab_width, 32.0))
 
 
@@ -3508,7 +3540,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					queue_redraw()
 					return
 		return
-	for tab_index in range(COMMAND_TAB_LABELS.size()):
+	for tab_index in range(_command_tab_count()):
 		if _command_tab_rect(tab_index, size).has_point(pos):
 			command_tab = tab_index
 			queue_redraw()

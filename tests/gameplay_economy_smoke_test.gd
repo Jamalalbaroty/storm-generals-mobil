@@ -41,6 +41,22 @@ func _run_gameplay_economy_smoke_test() -> void:
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
 	_expect(covered_actions.size() == 27, "The five compact command tabs should retain access to all 27 gameplay actions")
+	# Selecting only a living builder opens a dedicated construction palette.
+	game.get("units").assign([{"team": "player", "kind": "builder", "hp": 100, "pos": Vector2(180.0, 330.0)}])
+	game.get("selected").assign([0])
+	game.set("command_tab", 0)
+	_expect(bool(game.call("_has_only_selected_builders")), "A selected builder should activate the construction palette")
+	_expect(int(game.call("_command_tab_count")) == 3, "Builder selection should show three focused construction categories")
+	_expect(game.call("_command_tab_label", 0) == "المنشآت" and game.call("_command_tab_label", 1) == "الدفاعات" and game.call("_command_tab_label", 2) == "التحصينات", "Builder tabs should clearly separate structures, defenses, and fortifications")
+	_expect(game.call("_command_action_ids") == [22, 2, 3, 6, 13, 14], "Builder structures tab should expose power, barracks, factory, airfield, silo, and missile defense")
+	game.set("command_tab", 1)
+	_expect(game.call("_command_action_ids") == [4, 8, 23, 24, 25, 26], "Builder defenses tab should expose turret, anti-air, bunker, supply depot, and wall pieces")
+	game.set("command_tab", 2)
+	_expect(game.call("_command_action_ids") == [27, 24, 25, 26, 23, 12], "Builder fortifications tab should expose gates, walls, bunker, and cancel")
+	game.get("selected").clear()
+	game.get("units").clear()
+	game.set("command_tab", 0)
+	_expect(int(game.call("_command_tab_count")) == 5, "Clearing builder selection should restore all five standard command tabs")
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
