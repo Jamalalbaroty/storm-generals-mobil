@@ -23,7 +23,7 @@ const COMMAND_ACTIONS := [
 	[10, 11, 12, 13, 14, 15],
 	[23, 24, 25, 26, 27],
 	[28, 29, 30, 31],
-	[32, 33, 34]
+	[32, 33, 34, 35, 36, 37]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -129,6 +129,7 @@ var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
 var command_tab := 0
+var selected_formation_mode := "combined"
 var commander_profile: Dictionary = {
 	"battles_played": 0,
 	"victories": 0,
@@ -3233,7 +3234,7 @@ func _draw_hud(size: Vector2) -> void:
 			doctrine_summary = "%s%s%s" % [doctrine_summary, " | " if not doctrine_summary.is_empty() else "", "%s ×%d" % [String(doctrine_name), doctrine_count] if selected_player_units.size() > 1 else String(doctrine_name)]
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 45), "العقيدة: %s" % (doctrine_summary if not doctrine_summary.is_empty() else "لا توجد ترقية عقائدية مفعّلة"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#e5c36f") if not doctrine_summary.is_empty() else Color("#84999b"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 63), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "حراسة المواقع", "تجمع عند القاعدة", "إلغاء الأوامر"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "حراسة المواقع", "تجمع عند القاعدة", "إلغاء الأوامر", "تشكيل هجومي", "تشكيل دفاعي", "انتشار واسع"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3736,6 +3737,45 @@ func _group_formation_columns(role: int, unit_count: int) -> int:
 	return mini(4, maxi(1, int(ceil(sqrt(float(maxi(1, unit_count)))))))
 
 
+func _group_formation_spacing_for_mode(base_spacing: float, formation_mode: String) -> float:
+	match formation_mode:
+		"assault":
+			return base_spacing * 0.88
+		"defensive":
+			return base_spacing * 1.12
+		"spread":
+			return base_spacing * 1.65
+	return base_spacing
+
+
+func _issue_selected_formation_order(formation_mode: String) -> void:
+	if formation_mode not in ["assault", "defensive", "spread"]:
+		return
+	var live_count := 0
+	for raw_index in selected:
+		var unit_index := int(raw_index)
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var unit: Dictionary = units[unit_index]
+		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		unit["formation_mode"] = formation_mode
+		live_count += 1
+	if live_count == 0:
+		notice = "حدد قواتك أولاً لاختيار التشكيل"
+	else:
+		selected_formation_mode = formation_mode
+		match formation_mode:
+			"assault":
+				notice = "تشكيل هجومي — المدرعات في المقدمة والمدفعية في الإسناد الخلفي"
+			"defensive":
+				notice = "تشكيل دفاعي — خطوط متماسكة مع حماية الأجنحة"
+			"spread":
+				notice = "انتشار واسع — تباعد أكبر لتقليل التكدس والتأثر بالضربات الجماعية"
+	notice_time = 2.5
+	queue_redraw()
+
+
 func _group_formation_spacing(selected_indices: Array[int]) -> float:
 	var spacing := 24.0
 	for unit_index in selected_indices:
@@ -3755,7 +3795,7 @@ func _group_formation_spacing(selected_indices: Array[int]) -> float:
 	return spacing
 
 
-func _group_move_destination(unit_index: int, selected_indices: Array[int], center: Vector2) -> Vector2:
+func _group_move_destination(unit_index: int, selected_indices: Array[int], center: Vector2, formation_mode: String = "combined") -> Vector2:
 	var valid_indices: Array[int] = []
 	var group_center := Vector2.ZERO
 	for candidate_index in selected_indices:
@@ -3777,7 +3817,7 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 	else:
 		forward = forward.normalized()
 	var right := Vector2(-forward.y, forward.x)
-	var spacing := _group_formation_spacing(valid_indices)
+	var spacing := _group_formation_spacing_for_mode(_group_formation_spacing(valid_indices), formation_mode)
 	var role_counts: Array[int] = [0, 0, 0, 0, 0]
 	var role := _group_formation_role_for_kind(String(units[unit_index].get("kind", "tank")))
 	var role_index := 0
@@ -3803,6 +3843,10 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 	if role == 1:
 		var flank := -1.0 if column == 0 else 1.0
 		lateral = flank * (spacing * 1.25 + float(row) * spacing * 0.55)
+	if formation_mode == "assault" and role == 2:
+		depth += spacing * 0.55
+	elif formation_mode == "defensive" and role == 0:
+		depth -= spacing * 0.35
 	var destination := center + forward * depth + right * lateral
 	var viewport_size := get_viewport_rect().size
 	var margin := 24.0
@@ -4168,6 +4212,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_issue_selected_force_order("regroup")
 			elif i == 34:
 				_issue_selected_force_order("cancel")
+			elif i == 35:
+				_issue_selected_formation_order("assault")
+			elif i == 36:
+				_issue_selected_formation_order("defensive")
+			elif i == 37:
+				_issue_selected_formation_order("spread")
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -4273,7 +4323,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				for idx in move_group_indices:
 					if idx >= 0 and idx < units.size() and units[idx].team == "player":
 						_cancel_airfield_recovery(units[idx])
-						units[idx].target = _group_move_destination(idx, move_group_indices, pos)
+						units[idx].target = _group_move_destination(idx, move_group_indices, pos, String(units[idx].get("formation_mode", selected_formation_mode)))
 						# A direct group move overrides previous combat and stance orders.
 						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
 							units[idx].erase(order_key)
