@@ -86,24 +86,26 @@ func _test_group_order_and_reacquisition(game: Node) -> void:
 
 
 func _test_selected_group_order_summary(game: Node) -> void:
-	game.units.assign([
+	var sample_units: Array[Dictionary] = [
 		{"team": "player", "kind": "tank", "hp": 180, "attack_target": 3},
 		{"team": "player", "kind": "infantry", "hp": 60, "guard_active": true},
 		{"team": "player", "kind": "fighter", "hp": 130, "air_patrol_points": [Vector2.ZERO, Vector2.ONE]},
 		{"team": "player", "kind": "artillery", "hp": 110, "target": Vector2(300.0, 300.0)},
 		{"team": "player", "kind": "tank", "hp": 0, "attack_target": 3},
 		{"team": "enemy", "kind": "tank", "hp": 180, "attack_target": 3}
-	])
-	var summary: String = game._selected_group_order_summary([0, 1, 2, 3, 4, 5, 0])
+	]
+	var summary: String = game._selected_group_order_summary(sample_units)
 	_expect(summary.contains("هجوم 1"), "Dossier must count the selected group's active attack orders")
 	_expect(summary.contains("حراسة 1"), "Dossier must count guard orders separately")
 	_expect(summary.contains("دورية 1"), "Dossier must report air patrol orders")
 	_expect(summary.contains("تحرك 1"), "Dossier must report ordinary movement orders")
 	_expect(not summary.contains("خامل"), "Destroyed and enemy units must not inflate the selected force's order summary")
-	_expect(game._selected_group_order_summary([]) == "لا توجد قوات حية", "An empty selection must produce a safe empty-state label")
-	_expect(game._selected_group_order_summary([4]) == "لا توجد قوات حية", "Destroyed selected units must not be reported as active forces")
-	game.units.assign([{"team": "player", "kind": "tank", "hp": 180, "attack_move_active": true}])
-	_expect(game._selected_group_order_summary([0]) == "الأمر: تقدم قتالي", "A single unit's attack-move order must be clearly distinguished from a direct attack")
+	var no_units: Array[Dictionary] = []
+	_expect(game._selected_group_order_summary(no_units) == "لا توجد قوات حية", "An empty selection must produce a safe empty-state label")
+	var destroyed: Array[Dictionary] = [{"team": "player", "kind": "tank", "hp": 0}]
+	_expect(game._selected_group_order_summary(destroyed) == "لا توجد قوات حية", "Destroyed selected units must not be reported as active forces")
+	var attack_move: Array[Dictionary] = [{"team": "player", "kind": "tank", "hp": 180, "attack_move_active": true}]
+	_expect(game._selected_group_order_summary(attack_move) == "الأمر: تقدم قتالي", "A single unit's attack-move order must be clearly distinguished from a direct attack")
 
 
 func _test_live_combined_arms_advance(game: Node) -> void:

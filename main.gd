@@ -3518,14 +3518,11 @@ func _issue_group_attack_order(target_index: int) -> void:
 		notice_time = 1.8
 
 
-func _selected_group_order_summary(selected_indices: Array[int]) -> String:
-	# A compact Zero Hour-style command readout for the selected force.
+func _selected_group_order_summary(selected_units: Array[Dictionary]) -> String:
+	# Summarize only the live player units already filtered by the selected-force dossier.
 	var order_counts: Dictionary = {}
 	var live_count := 0
-	for unit_index in selected_indices:
-		if unit_index < 0 or unit_index >= units.size():
-			continue
-		var unit: Dictionary = units[unit_index]
+	for unit in selected_units:
 		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
 			continue
 		live_count += 1
