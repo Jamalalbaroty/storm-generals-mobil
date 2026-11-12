@@ -51,18 +51,26 @@ func _run() -> void:
 			"attack_cd": 0.0,
 			"aircraft_ammo": 12,
 			"attack_target": 1,
-			"attack_focus_pos": Vector2(550.0, 360.0)
+			"attack_focus_pos": Vector2(520.0, 360.0)
 		}
 		var target := {
 			"kind": "infantry",
 			"team": "enemy",
 			"faction": "الصيني",
 			"hp": TARGET_HP,
-			"pos": Vector2(550.0, 360.0),
+			"pos": Vector2(520.0, 360.0),
 			"attack_cd": 10.0
 		}
-		var live_units: Array = [helicopter, target]
-		game.set("units", live_units)
+		var live_units: Array[Dictionary] = [helicopter, target]
+		(game.get("units") as Array[Dictionary]).assign(live_units)
+		_expect((game.get("units") as Array[Dictionary]).size() == 2,
+			"%s test fixture must install both live combat units before simulation" % army)
+		if failures > 0:
+			_cleanup_audio(game)
+			game.queue_free()
+			await process_frame
+			quit(1)
+			return
 
 		var expected_raw_damage: int = int(game.call("_helicopter_damage", helicopter))
 		var expected_damage: int = int(game.call("_terrain_adjusted_damage", target, expected_raw_damage))
@@ -73,7 +81,14 @@ func _run() -> void:
 		# Exercise the actual player-aircraft branch in main.gd, not a calculated TTK model.
 		game.call("_process", 0.1)
 
-		var actual_units: Array = game.get("units")
+		var actual_units: Array[Dictionary] = game.get("units")
+		if actual_units.size() < 2:
+			_expect(false, "%s live combat loop unexpectedly removed the test units" % army)
+			_cleanup_audio(game)
+			game.queue_free()
+			await process_frame
+			quit(1)
+			return
 		var actual_helicopter: Dictionary = actual_units[0]
 		var actual_target: Dictionary = actual_units[1]
 		_expect(int(actual_target.get("hp", TARGET_HP)) == TARGET_HP - expected_damage,
