@@ -264,7 +264,7 @@ func _test_enemy_counterattack_focuses_artillery_threat(game: Node) -> void:
 		{"team": "player", "kind": "artillery", "hp": 110, "pos": Vector2(690.0, 330.0)},
 		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(670.0, 360.0)}
 	])
-	var target_index := game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
+	var target_index: int = game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
 	_expect(target_index == 2, "Enemy counterattack must prioritize nearby player artillery over closer infantry and armor in a breached perimeter")
 
 
