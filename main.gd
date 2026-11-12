@@ -3,10 +3,10 @@ extends Node2D
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 # Presentation-only identity data. Gameplay faction keys and commander save data stay unchanged.
 const FACTION_PRESENTATION := [
-	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
-	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
-	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
-	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
+	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "emblem": "star", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
+	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "emblem": "dragon", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
+	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "emblem": "falcon", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
+	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "emblem": "shield", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
 ]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
@@ -3325,9 +3325,7 @@ func _draw_faction_picker(size: Vector2) -> void:
 		draw_rect(r, accent_color, false, 2.0)
 		draw_rect(Rect2(r.position, Vector2(5.0, r.size.y)), accent_color, true)
 		var emblem_center := r.position + Vector2(25.0, r.size.y * 0.43)
-		draw_circle(emblem_center, 16.0, Color("#11191d"))
-		draw_arc(emblem_center, 16.0, 0.0, TAU, 32, accent_color, 2.0)
-		draw_string(ThemeDB.fallback_font, emblem_center + Vector2(-14.0, 4.0), String(identity.mark), HORIZONTAL_ALIGNMENT_CENTER, 28.0, 10, accent_color)
+		_draw_faction_emblem(emblem_center, i, accent_color)
 		var text_left := r.position.x + 46.0
 		var text_width := r.size.x - 51.0
 		draw_string(ThemeDB.fallback_font, Vector2(text_left, r.position.y + r.size.y * 0.30), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, text_width, clampi(int(size.x * 0.018), 12, 19), Color.WHITE)
@@ -3342,6 +3340,55 @@ func _faction_presentation(index: int) -> Dictionary:
 	if index < 0 or index >= FACTION_PRESENTATION.size():
 		return FACTION_PRESENTATION[0]
 	return FACTION_PRESENTATION[index]
+
+func _draw_faction_emblem(center: Vector2, faction_index: int, accent: Color) -> void:
+	draw_circle(center, 16.0, Color("#11191d"))
+	draw_arc(center, 16.0, 0.0, TAU, 32, accent, 2.0)
+	match faction_index:
+		0:
+			var star := PackedVector2Array()
+			for point_index in range(10):
+				var angle := -PI * 0.5 + TAU * float(point_index) / 10.0
+				var radius := 9.0 if point_index % 2 == 0 else 4.0
+				star.append(center + Vector2(cos(angle), sin(angle)) * radius)
+			draw_colored_polygon(star, accent)
+		1:
+			var dragon_mark := PackedVector2Array([
+				center + Vector2(0.0, -10.0),
+				center + Vector2(8.0, -2.0),
+				center + Vector2(3.0, 1.0),
+				center + Vector2(8.0, 8.0),
+				center + Vector2(0.0, 5.0),
+				center + Vector2(-8.0, 8.0),
+				center + Vector2(-3.0, 1.0),
+				center + Vector2(-8.0, -2.0)
+			])
+			draw_colored_polygon(dragon_mark, accent)
+			draw_line(center + Vector2(-5.0, 0.0), center + Vector2(5.0, 0.0), Color("#11191d"), 2.0)
+		2:
+			draw_line(center + Vector2(-11.0, -5.0), center + Vector2(-3.0, 0.0), accent, 3.0)
+			draw_line(center + Vector2(-3.0, 0.0), center + Vector2(-10.0, 6.0), accent, 3.0)
+			draw_line(center + Vector2(11.0, -5.0), center + Vector2(3.0, 0.0), accent, 3.0)
+			draw_line(center + Vector2(3.0, 0.0), center + Vector2(10.0, 6.0), accent, 3.0)
+			draw_colored_polygon(PackedVector2Array([
+				center + Vector2(0.0, -9.0),
+				center + Vector2(4.0, 2.0),
+				center + Vector2(0.0, 9.0),
+				center + Vector2(-4.0, 2.0)
+			]), accent)
+		3:
+			draw_colored_polygon(PackedVector2Array([
+				center + Vector2(0.0, -11.0),
+				center + Vector2(9.0, -6.0),
+				center + Vector2(7.0, 4.0),
+				center + Vector2(0.0, 11.0),
+				center + Vector2(-7.0, 4.0),
+				center + Vector2(-9.0, -6.0)
+			]), accent)
+			draw_line(center + Vector2(0.0, -6.0), center + Vector2(0.0, 6.0), Color("#11191d"), 2.0)
+		_:
+			draw_circle(center, 6.0, accent)
+
 
 func _campaign_start_rect(size: Vector2) -> Rect2:
 	return Rect2(Vector2(size.x * 0.55, size.y * 0.64), Vector2(size.x * 0.34, 52))
