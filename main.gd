@@ -2573,7 +2573,7 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 
 
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
-	# Select aircraft that threaten valuable installations, while retaining fighter-first priority.
+	# Prioritize immediate air combat and aircraft threatening strategic assets; avoid redundant lethal focus.
 	var protected_assets: Array = buildings if target_team == "enemy" else enemy_buildings
 	var best_index := -1
 	var best_score := INF
@@ -2600,7 +2600,12 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 				asset_threat_distance = threat_distance
 				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
 		var kind_priority := 34.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
-		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
+		# A transport aircraft becomes urgent when it is close to a critical installation.
+		if candidate_kind == "transport_helicopter" and asset_threat_distance <= 180.0:
+			asset_priority += 35.0
+		# One anti-air volley deals 34 damage; prefer another viable contact over wasting a second volley on a near-destroyed target.
+		var lethal_overkill_penalty := 85.0 if int(candidate.get("hp", 0)) <= 34 else 0.0
+		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority + lethal_overkill_penalty
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
