@@ -99,6 +99,9 @@ jobs:
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
 
+      - name: Run spatial ground-unit collision equivalence regression
+        run: timeout 90s godot --headless --path . --script tests/ground_spacing_spatial_regression_test.gd
+
       - name: Run long-match endurance simulation
         run: timeout 180s godot --headless --path . --script tests/long_match_endurance_test.gd
 

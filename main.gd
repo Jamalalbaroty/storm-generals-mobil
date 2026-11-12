@@ -1507,18 +1507,78 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 		units[unit_index] = unit
 
 
+func _ground_spacing_cell_key(position: Vector2, team: String) -> String:
+	const CELL_SIZE := 32.0
+	return "%s:%d:%d" % [team, floori(position.x / CELL_SIZE), floori(position.y / CELL_SIZE)]
+
+
+func _ground_spacing_update_bucket(unit_index: int, old_key: String, new_key: String, buckets: Dictionary, cell_keys: Array[String]) -> void:
+	if old_key == new_key:
+		return
+	if not old_key.is_empty() and buckets.has(old_key):
+		var old_bucket: Array = buckets[old_key]
+		old_bucket.erase(unit_index)
+		if old_bucket.is_empty():
+			buckets.erase(old_key)
+	if not new_key.is_empty():
+		if not buckets.has(new_key):
+			buckets[new_key] = []
+		var new_bucket: Array = buckets[new_key]
+		new_bucket.append(unit_index)
+	cell_keys[unit_index] = new_key
+
+
 func _resolve_ground_unit_spacing() -> void:
 	# Keep friendly ground formations readable without changing orders or combat ranges.
+	# A 32px spatial grid limits pair checks to neighboring cells while preserving
+	# the original ascending pair order and refreshing buckets after every correction.
 	var excluded_kinds := ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
 	for pass_index in range(2):
+		var buckets: Dictionary = {}
+		var cell_keys: Array[String] = []
+		for unit_index in range(units.size()):
+			var unit: Dictionary = units[unit_index]
+			var cell_key := ""
+			if int(unit.get("hp", 0)) > 0 and String(unit.get("kind", "")) not in excluded_kinds:
+				cell_key = _ground_spacing_cell_key(unit.pos, String(unit.get("team", "")))
+				if not buckets.has(cell_key):
+					buckets[cell_key] = []
+				var bucket: Array = buckets[cell_key]
+				bucket.append(unit_index)
+			cell_keys.append(cell_key)
 		for first_index in range(units.size()):
 			var first: Dictionary = units[first_index]
 			if int(first.get("hp", 0)) <= 0 or String(first.get("kind", "")) in excluded_kinds:
 				continue
-			for second_index in range(first_index + 1, units.size()):
+			var first_team := String(first.get("team", ""))
+			var first_key := _ground_spacing_cell_key(first.pos, first_team)
+			if cell_keys[first_index] != first_key:
+				_ground_spacing_update_bucket(first_index, cell_keys[first_index], first_key, buckets, cell_keys)
+			var candidate_cursor := first_index
+			while true:
+				first = units[first_index]
+				first_key = _ground_spacing_cell_key(first.pos, first_team)
+				if cell_keys[first_index] != first_key:
+					_ground_spacing_update_bucket(first_index, cell_keys[first_index], first_key, buckets, cell_keys)
+				var center_x := floori(first.pos.x / 32.0)
+				var center_y := floori(first.pos.y / 32.0)
+				var candidates: Array[int] = []
+				for cell_x in range(center_x - 1, center_x + 2):
+					for cell_y in range(center_y - 1, center_y + 2):
+						var neighbor_key := "%s:%d:%d" % [first_team, cell_x, cell_y]
+						if not buckets.has(neighbor_key):
+							continue
+						var neighbor_bucket: Array = buckets[neighbor_key]
+						for candidate_variant in neighbor_bucket:
+							var candidate_index := int(candidate_variant)
+							if candidate_index > candidate_cursor:
+							candidates.append(candidate_index)
+				if candidates.is_empty():
+					break
+				candidates.sort()
+				var second_index := candidates[0]
+				candidate_cursor = second_index
 				var second: Dictionary = units[second_index]
-				if String(first.get("team", "")) != String(second.get("team", "")):
-					continue
 				if int(second.get("hp", 0)) <= 0 or String(second.get("kind", "")) in excluded_kinds:
 					continue
 				var offset: Vector2 = second.pos - first.pos
@@ -1533,10 +1593,14 @@ func _resolve_ground_unit_spacing() -> void:
 				var fallback_angle := float(first_index * 37 + second_index * 17) * 2.39996323
 				var direction := offset / distance if distance > 0.001 else Vector2(cos(fallback_angle), sin(fallback_angle))
 				var correction := (minimum_distance - distance) * 0.5
+				var old_first_key := cell_keys[first_index]
+				var old_second_key := cell_keys[second_index]
 				first.pos -= direction * correction
 				second.pos += direction * correction
 				units[first_index] = first
 				units[second_index] = second
+				_ground_spacing_update_bucket(first_index, old_first_key, _ground_spacing_cell_key(first.pos, first_team), buckets, cell_keys)
+				_ground_spacing_update_bucket(second_index, old_second_key, _ground_spacing_cell_key(second.pos, String(second.get("team", ""))), buckets, cell_keys)
 
 
 func _resolve_battle_result() -> bool:
