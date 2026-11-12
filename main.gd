@@ -2581,7 +2581,11 @@ func _draw() -> void:
 			draw_arc(building.pos, 41.0, 0.0, TAU, 48, Color("#8be0a0"), 3.0)
 		if float(building.get("build_progress", 1.0)) < 1.0:
 			_draw_construction_progress(building.pos, float(building.get("build_progress", 0.0)))
-		_draw_building_health(building.pos, int(building.get("hp", 400)), _building_max_hp(building))
+		var player_building_hp := int(building.get("hp", 400))
+		var player_building_max_hp := _building_max_hp(building)
+		_draw_building_health(building.pos, player_building_hp, player_building_max_hp)
+		if _building_needs_repair_warning(player_building_hp, player_building_max_hp):
+			_draw_building_repair_warning(building.pos)
 	for building_index in enemy_buildings.size():
 		var building: Dictionary = enemy_buildings[building_index]
 		_draw_building(building.pos, building.kind, true)
@@ -5053,6 +5057,17 @@ func _order_destroy_selected_building() -> void:
 	else:
 		notice = "صدرت أوامر تدمير المبنى للقوات المحددة!"
 	notice_time = 3.0
+
+func _building_needs_repair_warning(hp: int, max_hp: int) -> bool:
+	return hp > 0 and float(hp) / float(maxi(1, max_hp)) <= 0.35
+
+
+func _draw_building_repair_warning(p: Vector2) -> void:
+	var warning_pos := p + Vector2(34.0, -29.0)
+	draw_circle(warning_pos, 9.0, Color("#341d1b"))
+	draw_circle(warning_pos, 7.0, Color("#e34c42"))
+	draw_string(ThemeDB.fallback_font, warning_pos + Vector2(-2.8, 4.0), "!", HORIZONTAL_ALIGNMENT_LEFT, 8, 11, Color("#fff4e8"))
+
 
 func _draw_building_health(p: Vector2, hp: int, max_hp: int = 400) -> void:
 	var ratio = clampf(float(hp) / float(maxi(1, max_hp)), 0.0, 1.0)
