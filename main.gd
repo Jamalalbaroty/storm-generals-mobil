@@ -52,13 +52,13 @@ const MISSILE_COST := 650
 const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
 const FACTION_BALANCE := {
 	# China fields efficient armor and submarines, trading some air/artillery cost.
-	"الصيني": {"production_speed": 1.05, "helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
+	"الصيني": {"production_speed": 1.05, "tank_damage_taken": 0.96, "infantry_damage_taken": 1.0, "helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
 	# American forces retain the baseline combined-arms economy.
-	"الأمريكي": {"production_speed": 1.0, "helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
+	"الأمريكي": {"production_speed": 1.0, "tank_damage_taken": 1.0, "infantry_damage_taken": 1.0, "helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
 	# Arab forces emphasize affordable infantry and field artillery.
-	"الجيش العربي": {"production_speed": 1.0, "helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
+	"الجيش العربي": {"production_speed": 1.0, "tank_damage_taken": 1.0, "infantry_damage_taken": 0.94, "helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
 	# Watan fields elite equipment with a deliberate economy and reinforcement premium.
-	"وطن": {"production_speed": 0.92, "helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
+	"وطن": {"production_speed": 0.92, "tank_damage_taken": 0.92, "infantry_damage_taken": 1.0, "helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
 }
 const ECONOMY_BALANCE := {
 	"building_costs": {
@@ -1617,7 +1617,7 @@ func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 	# Units stationed near a friendly objective also gain a tactical garrison defense bonus.
 	var kind := String(target.get("kind", ""))
 	var team := String(target.get("team", ""))
-	var damage_multiplier := 1.0
+	var damage_multiplier := _faction_ground_damage_multiplier(target)
 	if team == "player":
 		for fortification in buildings:
 			if String(fortification.get("kind", "")) != "bunker" or float(fortification.get("build_progress", 1.0)) < 1.0 or int(fortification.get("hp", 0)) <= 0:
@@ -1699,6 +1699,17 @@ func _faction_profile(army: String) -> Dictionary:
 
 func _faction_production_speed(army: String) -> float:
 	return clampf(float(_faction_profile(army).get("production_speed", 1.0)), 0.85, 1.10)
+
+
+func _faction_ground_damage_multiplier(unit: Dictionary) -> float:
+	var army := String(unit.get("faction", faction if String(unit.get("team", "player")) == "player" else _enemy_faction()))
+	var profile := _faction_profile(army)
+	match String(unit.get("kind", "")):
+		"tank":
+			return clampf(float(profile.get("tank_damage_taken", 1.0)), 0.88, 1.0)
+		"infantry":
+			return clampf(float(profile.get("infantry_damage_taken", 1.0)), 0.90, 1.0)
+	return 1.0
 
 
 func _helicopter_cost(army: String) -> int:
