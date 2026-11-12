@@ -206,6 +206,7 @@ func _save_aircraft_resume_order(unit: Dictionary) -> void:
 func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 	var resume_order: Dictionary = unit.get("airfield_resume_order", {})
 	unit.erase("airfield_resume_order")
+	unit.erase("airfield_repair_progress")
 	if resume_order.is_empty():
 		return
 	for order_key in ["target", "attack_base", "attack_focus_pos", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
@@ -235,6 +236,118 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 			unit["attack_building"] = restored_building
 
 
+func _update_player_airfield_recovery(unit: Dictionary, delta: float) -> bool:
+	if String(unit.get("kind", "")) not in ["fighter", "helicopter"]:
+		return false
+	var aircraft_ammo := int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12))
+	var aircraft_max_hp: int = _unit_repair_max_hp(unit)
+	var aircraft_needs_repair: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
+	var aircraft_emergency_recovery: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.25
+	var aircraft_has_active_order: bool = unit.has("target") or unit.has("attack_target") or unit.has("attack_building") or unit.has("air_patrol_points") or bool(unit.get("attack_base", false))
+	if not bool(unit.get("airfield_returning", false)) and (aircraft_ammo <= 0 or aircraft_emergency_recovery or (not aircraft_has_active_order and aircraft_needs_repair)):
+		var nearest_airfield := -1
+		var nearest_airfield_distance := INF
+		for airfield_index in range(buildings.size()):
+			var recovery_airfield: Dictionary = buildings[airfield_index]
+			if String(recovery_airfield.get("kind", "")) != "airfield" or float(recovery_airfield.get("build_progress", 1.0)) < 1.0 or int(recovery_airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
+				continue
+			var recovery_distance: float = unit.pos.distance_to(recovery_airfield.pos)
+			if recovery_distance < nearest_airfield_distance:
+				nearest_airfield_distance = recovery_distance
+				nearest_airfield = airfield_index
+		if nearest_airfield >= 0:
+			var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
+			var recovery_slot := 0
+			for queued_aircraft in units:
+				if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
+					recovery_slot += 1
+			_save_aircraft_resume_order(unit)
+			unit["airfield_returning"] = true
+			unit["airfield_landed"] = false
+			unit["airfield_rearm_progress"] = 0.0
+			unit["airfield_repair_progress"] = 0.0
+			unit["airfield_recovery_id"] = recovery_id
+			unit["airfield_recovery_slot"] = recovery_slot
+			unit.erase("target")
+			unit.erase("attack_target")
+			unit.erase("attack_focus_pos")
+			unit.erase("attack_base")
+			unit.erase("attack_building")
+	if bool(unit.get("airfield_returning", false)):
+		var recovery_index := -1
+		for airfield_index in range(buildings.size()):
+			var recovery_airfield: Dictionary = buildings[airfield_index]
+			if String(recovery_airfield.get("kind", "")) == "airfield" and int(recovery_airfield.get("production_id", -2)) == int(unit.get("airfield_recovery_id", -1)) and int(recovery_airfield.get("hp", 0)) > 0 and float(recovery_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
+				recovery_index = airfield_index
+				break
+		if recovery_index < 0:
+			unit.erase("airfield_returning")
+			unit.erase("airfield_landed")
+			unit.erase("airfield_recovery_id")
+			unit.erase("airfield_recovery_slot")
+			unit.erase("airfield_rearm_progress")
+			unit.erase("airfield_repair_progress")
+			_restore_aircraft_resume_order(unit)
+		else:
+			var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
+			var landing_slot := int(unit.get("airfield_recovery_slot", 0))
+			var landing_column := landing_slot % 3 - 1
+			var landing_row := int(landing_slot / 3)
+			var landing_spot := recovery_airfield_pos + Vector2(float(landing_column) * 24.0, 30.0 + float(landing_row) * 20.0)
+			var recovery_distance: float = unit.pos.distance_to(landing_spot)
+			if recovery_distance > 14.0:
+				unit.pos += (landing_spot - unit.pos).normalized() * delta * (92.0 if unit.kind == "fighter" else 68.0)
+			else:
+				unit.pos = landing_spot
+				unit["airfield_landed"] = true
+				var repair_rate := 24.0 if unit.kind == "fighter" else 30.0
+				var repair_progress := float(unit.get("airfield_repair_progress", 0.0)) + delta * repair_rate
+				var repaired_hp_points := int(floor(repair_progress))
+				if repaired_hp_points > 0:
+					unit["hp"] = mini(aircraft_max_hp, int(unit.hp) + repaired_hp_points)
+					repair_progress -= float(repaired_hp_points)
+				unit["airfield_repair_progress"] = repair_progress
+				var rearm_duration := 4.5
+				var rearm_progress := minf(rearm_duration, float(unit.get("airfield_rearm_progress", 0.0)) + delta)
+				unit["airfield_rearm_progress"] = rearm_progress
+				if rearm_progress >= rearm_duration:
+					unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
+				if rearm_progress >= rearm_duration and float(unit.hp) >= float(aircraft_max_hp) * 0.92:
+					unit["airfield_sortie_ready"] = true
+					unit["airfield_sortie_launch"] = true
+					unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
+					unit.erase("airfield_returning")
+					unit.erase("airfield_landed")
+					unit.erase("airfield_recovery_id")
+					unit.erase("airfield_recovery_slot")
+					unit.erase("airfield_rearm_progress")
+					unit.erase("airfield_repair_progress")
+		return true
+	if bool(unit.get("airfield_sortie_launch", false)):
+		var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
+		var sortie_airfield_index := -1
+		for sortie_index in range(buildings.size()):
+			if String(buildings[sortie_index].get("kind", "")) == "airfield" and int(buildings[sortie_index].get("production_id", -2)) == sortie_airfield_id and int(buildings[sortie_index].get("hp", 0)) > 0:
+				sortie_airfield_index = sortie_index
+				break
+		if sortie_airfield_index < 0:
+			unit.erase("airfield_sortie_launch")
+			unit.erase("airfield_sortie_ready")
+			unit.erase("airfield_sortie_airfield_id")
+			_restore_aircraft_resume_order(unit)
+		else:
+			var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
+			var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
+			if unit.pos.distance_to(sortie_launch_spot) > 8.0:
+				unit.pos += (sortie_launch_spot - unit.pos).normalized() * delta * (48.0 if unit.kind == "fighter" else 38.0)
+				return true
+			unit.pos = sortie_launch_spot
+			unit.erase("airfield_sortie_launch")
+			unit.erase("airfield_sortie_ready")
+			unit.erase("airfield_sortie_airfield_id")
+			_restore_aircraft_resume_order(unit)
+		return true
+	return false
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
 	# It also invalidates any old combined-arms lane before a new order is applied.
@@ -768,81 +881,6 @@ func _process(delta: float) -> void:
 					continue
 				if unit.kind in ["tank", "infantry", "artillery"] and _update_enemy_ground_assault(unit, i, delta):
 					continue
-				# Damaged player aircraft automatically recover at a powered, completed airfield.
-				if unit.kind in ["fighter", "helicopter"]:
-					var aircraft_ammo := int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12))
-					var aircraft_max_hp: int = _unit_repair_max_hp(unit)
-					var aircraft_needs_repair: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
-					if not bool(unit.get("airfield_returning", false)) and (aircraft_ammo <= 0 or (not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_needs_repair)):
-						var nearest_airfield := -1
-						var nearest_airfield_distance := INF
-						for airfield_index in range(buildings.size()):
-							var recovery_airfield: Dictionary = buildings[airfield_index]
-							if String(recovery_airfield.get("kind", "")) != "airfield" or float(recovery_airfield.get("build_progress", 1.0)) < 1.0 or int(recovery_airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
-								continue
-							var recovery_distance: float = unit.pos.distance_to(recovery_airfield.pos)
-							if recovery_distance < nearest_airfield_distance:
-								nearest_airfield_distance = recovery_distance
-								nearest_airfield = airfield_index
-						if nearest_airfield >= 0:
-							var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
-							var recovery_slot := 0
-							for queued_aircraft in units:
-								if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
-									recovery_slot += 1
-							_save_aircraft_resume_order(unit)
-							unit["airfield_returning"] = true
-							unit["airfield_landed"] = false
-							unit["airfield_rearm_progress"] = 0.0
-							unit["airfield_recovery_id"] = recovery_id
-							unit["airfield_recovery_slot"] = recovery_slot
-							unit.erase("target")
-							unit.erase("attack_target")
-							unit.erase("attack_focus_pos")
-							unit.erase("attack_base")
-							unit.erase("attack_building")
-				if bool(unit.get("airfield_returning", false)):
-					var recovery_index := -1
-					for airfield_index in range(buildings.size()):
-						var recovery_airfield: Dictionary = buildings[airfield_index]
-						if String(recovery_airfield.get("kind", "")) == "airfield" and int(recovery_airfield.get("production_id", -2)) == int(unit.get("airfield_recovery_id", -1)) and int(recovery_airfield.get("hp", 0)) > 0 and float(recovery_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
-							recovery_index = airfield_index
-							break
-					if recovery_index < 0:
-						unit.erase("airfield_returning")
-						unit.erase("airfield_landed")
-						unit.erase("airfield_recovery_id")
-						unit.erase("airfield_recovery_slot")
-						unit.erase("airfield_rearm_progress")
-						_restore_aircraft_resume_order(unit)
-					else:
-						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
-						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
-						var landing_column := landing_slot % 3 - 1
-						var landing_row := int(landing_slot / 3)
-						var landing_spot := recovery_airfield_pos + Vector2(float(landing_column) * 24.0, 30.0 + float(landing_row) * 20.0)
-						var recovery_distance: float = unit.pos.distance_to(landing_spot)
-						if recovery_distance > 14.0:
-							unit.pos += (landing_spot - unit.pos).normalized() * delta * (92.0 if unit.kind == "fighter" else 68.0)
-						else:
-							unit.pos = landing_spot
-							unit["airfield_landed"] = true
-							var rearm_duration := 4.5
-							var rearm_progress := minf(rearm_duration, float(unit.get("airfield_rearm_progress", 0.0)) + delta)
-							unit["airfield_rearm_progress"] = rearm_progress
-							if rearm_progress >= rearm_duration:
-								unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
-							if rearm_progress >= rearm_duration and float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
-								# Launch only after rearming and field repairs are both complete.
-								unit["airfield_sortie_ready"] = true
-								unit["airfield_sortie_launch"] = true
-								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
-								unit.erase("airfield_returning")
-								unit.erase("airfield_landed")
-								unit.erase("airfield_recovery_id")
-								unit.erase("airfield_recovery_slot")
-								unit.erase("airfield_rearm_progress")
-					continue
 				# Amphibious landing support is disabled with the naval system.
 				# Never let this legacy automation replace a player's direct land-unit orders.
 				if NAVAL_SYSTEM_ENABLED and (unit.kind == "tank" or unit.kind == "artillery"):
@@ -867,33 +905,10 @@ func _process(delta: float) -> void:
 						unit.erase("landing_support_active")
 						unit.erase("attack_target")
 						unit.erase("attack_focus_pos")
-				# Recovered aircraft taxi clear of the landing area before resuming flight.
-				if unit.kind in ["fighter", "helicopter"] and bool(unit.get("airfield_sortie_launch", false)):
-					var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
-					var sortie_airfield_index := -1
-					for sortie_index in range(buildings.size()):
-						if String(buildings[sortie_index].get("kind", "")) == "airfield" and int(buildings[sortie_index].get("production_id", -2)) == sortie_airfield_id and int(buildings[sortie_index].get("hp", 0)) > 0:
-							sortie_airfield_index = sortie_index
-							break
-					if sortie_airfield_index < 0:
-						unit.erase("airfield_sortie_launch")
-						unit.erase("airfield_sortie_ready")
-						unit.erase("airfield_sortie_airfield_id")
-						_restore_aircraft_resume_order(unit)
-					else:
-						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
-						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
-						if unit.pos.distance_to(sortie_launch_spot) > 8.0:
-							unit.pos += (sortie_launch_spot - unit.pos).normalized() * delta * (48.0 if unit.kind == "fighter" else 38.0)
-							continue
-						unit.pos = sortie_launch_spot
-						unit.erase("airfield_sortie_launch")
-						unit.erase("airfield_sortie_ready")
-						unit.erase("airfield_sortie_airfield_id")
-						_restore_aircraft_resume_order(unit)
-					continue
 			if unit.team == "player":
 				if unit.kind in ["tank", "infantry", "artillery"] and _update_player_ground_fallback(unit, i, delta):
+					continue
+				if unit.kind in ["fighter", "helicopter"] and _update_player_airfield_recovery(unit, delta):
 					continue
 				# Player aircraft use dedicated air-combat movement and weapons.
 				# This branch handles explicit player orders only; enemy doctrine is untouched.
@@ -2570,6 +2585,18 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 	return -1
 
 
+func _enemy_air_defense_risk_at_position(target_pos: Vector2) -> float:
+	var total_risk := 0.0
+	for defense_index in range(enemy_buildings.size()):
+		var defense: Dictionary = enemy_buildings[defense_index]
+		if String(defense.get("kind", "")) != "anti_air" or int(defense.get("hp", 0)) <= 0 or not _is_enemy_building_powered(defense_index):
+			continue
+		var distance: float = target_pos.distance_to(defense.pos)
+		if distance <= 320.0:
+			var defense_risk := 250.0 if distance <= 110.0 else (150.0 if distance <= 220.0 else 65.0)
+			total_risk = minf(360.0, total_risk + defense_risk)
+	return total_risk
+
 func _select_player_air_combat_target(from_pos: Vector2, attacker_kind: String, max_distance: float, attacker_index: int = -1) -> int:
 	# Assign different viable contacts across friendly aircraft while matching fighter/helicopter roles.
 	var best_index := -1
@@ -2614,7 +2641,7 @@ func _select_player_air_combat_target(from_pos: Vector2, attacker_kind: String, 
 				continue
 			if int(friendly.get("attack_target", -1)) == candidate_index:
 				assigned_aircraft += 1
-		var score: float = distance - role_priority + float(assigned_aircraft) * 135.0
+		var score: float = distance - role_priority + float(assigned_aircraft) * 135.0 + _enemy_air_defense_risk_at_position(candidate.pos)
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
