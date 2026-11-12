@@ -3356,10 +3356,16 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 	var completed := int(progress.get(faction, 0))
 	var mission_number := mini(completed, CAMPAIGN_MISSIONS.size() - 1)
 	var mission: Dictionary = CAMPAIGN_MISSIONS[mission_number]
+	var faction_index := FACTIONS.find(faction)
+	var identity: Dictionary = _faction_presentation(faction_index)
+	var faction_color := Color(String(identity.color))
+	var accent_color := Color(String(identity.accent))
 	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.66)
 	draw_rect(panel, Color(0.03, 0.06, 0.07, 0.97), true)
-	draw_rect(panel, Color("#b18b45"), false, 2.0)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.30), "قيادة حملة: %s" % faction, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 23, Color("#f4d77a"))
+	draw_rect(panel, accent_color, false, 2.0)
+	draw_rect(Rect2(panel.position, Vector2(5.0, panel.size.y)), faction_color, true)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.30), "قيادة حملة: %s" % faction, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.029), 16, 23), accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.35), "%s  |  %s" % [String(identity.title), String(identity.doctrine)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.016), 10, 13), Color("#d8e2e5"))
 	if completed >= CAMPAIGN_MISSIONS.size():
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.40), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color("#a8e6b0"))
 		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.48), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color.WHITE)
@@ -3373,10 +3379,13 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 	for i in CAMPAIGN_MISSIONS.size():
 		var dot_x := size.x * 0.32 + float(i) * size.x * 0.09
 		draw_circle(Vector2(dot_x, size.y * 0.59), 5.0, Color("#a8e6b0") if i < completed else Color("#657477"))
+	# Reinforce faction identity in the briefing without changing mission flow or controls.
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.755), "ميزة الجيش: %s" % String(identity.strength), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.014), 9, 11), accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.805), "نقطة الضعف: %s" % String(identity.weakness), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.014), 9, 11), Color("#d6b2a8"))
 	var start_rect := _campaign_start_rect(size)
 	var back_rect := _campaign_back_rect(size)
 	draw_rect(start_rect, Color("#73552d"), true)
-	draw_rect(start_rect, Color("#f4d77a"), false, 2.0)
+	draw_rect(start_rect, accent_color, false, 2.0)
 	draw_string(ThemeDB.fallback_font, start_rect.position + Vector2(0, 32), "ابدأ العملية", HORIZONTAL_ALIGNMENT_CENTER, start_rect.size.x, 18, Color.WHITE)
 	draw_rect(back_rect, Color("#28445a"), true)
 	draw_rect(back_rect, Color("#b7c6d1"), false, 2.0)
