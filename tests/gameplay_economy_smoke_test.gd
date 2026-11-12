@@ -103,7 +103,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	for faction_index in range(expected_factions.size()):
 		var identity: Dictionary = game.call("_faction_presentation", faction_index)
 		_expect(not String(identity.get("color", "")).is_empty() and not String(identity.get("accent", "")).is_empty(), "Every army needs primary and accent identity colors")
-		_expect(not String(identity.get("mark", "")).is_empty() and not String(identity.get("doctrine", "")).is_empty(), "Every army needs an emblem mark and doctrine label")
+		_expect(not String(identity.get("mark", "")).is_empty() and not String(identity.get("emblem", "")).is_empty() and not String(identity.get("doctrine", "")).is_empty(), "Every army needs a distinct emblem identity and doctrine label")
 		_expect(not String(identity.get("strength", "")).is_empty() and not String(identity.get("weakness", "")).is_empty(), "Every army identity must communicate a strength and a counterbalance")
 
 	for faction_index in range(expected_factions.size()):
