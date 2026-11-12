@@ -29,11 +29,6 @@ func _run() -> void:
 		"hp": 500,
 		"build_progress": 1.0
 	})
-	print("Economy fixture: power=%d demand=%d factory_powered=%s" % [
-		int(game.call("_player_power_capacity")),
-		int(game.call("_player_power_demand")),
-		str(game.call("_is_player_building_powered", 0))
-	])
 	game.get("units").clear()
 	game.get("production_orders").clear()
 
@@ -85,10 +80,11 @@ func _run() -> void:
 
 	# A full team blocks new orders even when no queue exists.
 	game.get("production_orders").clear()
-	game.get("units").append({
-		"kind": "infantry", "team": "player", "hp": 60,
-		"pos": Vector2(900.0, 500.0)
-	})
+	for index in range(2):
+		game.get("units").append({
+			"kind": "infantry", "team": "player", "hp": 60,
+			"pos": Vector2(900.0 + float(index) * 30.0, 500.0)
+		})
 	var credits_at_full := int(game.get("credits"))
 	var supplies_at_full := int(game.get("supplies"))
 	game.call("_enqueue_unit", "tank")
@@ -98,6 +94,7 @@ func _run() -> void:
 		"Full-force rejection must leave the economy unchanged")
 
 	# Legacy shipyard presence must never reopen naval production in this release.
+	game.get("production_orders").clear()
 	game.get("units").clear()
 	game.get("buildings").append({
 		"kind": "shipyard", "pos": Vector2(700.0, 320.0),
