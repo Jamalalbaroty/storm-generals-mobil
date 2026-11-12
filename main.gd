@@ -3249,7 +3249,7 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(Rect2(0, deck_top, size.x, 2), Color("#b89450"))
 	for tab_index in range(_command_tab_count()):
 		var tab_rect := _command_tab_rect(tab_index, size)
-		var is_active_tab := tab_index == command_tab
+		var is_active_tab := tab_index == _command_active_tab_index()
 		draw_rect(tab_rect, Color("#3a3020") if is_active_tab else Color("#142630"), true)
 		draw_rect(tab_rect, Color("#e4c477") if is_active_tab else Color("#49616b"), false, 1.5)
 		if is_active_tab:
@@ -3261,6 +3261,7 @@ func _draw_hud(size: Vector2) -> void:
 		var r := _button_rect(slot, size)
 		draw_rect(Rect2(r.position + Vector2(0, 2), r.size), Color(0.0, 0.0, 0.0, 0.28), true)
 		draw_rect(r, Color("#263d50"), true)
+		draw_rect(Rect2(r.position + Vector2(1, 5), Vector2(3, r.size.y - 10)), _command_action_accent(action_id), true)
 		draw_rect(r, Color("#79919a"), false, 1.2)
 		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2(r.size.x - 2, 2)), Color("#91a9b2", 0.72))
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, _command_button_font_size(r.size.x), Color("#f2f5ed"))
@@ -3355,6 +3356,22 @@ func _has_only_selected_builders() -> bool:
 
 func _command_tab_count() -> int:
 	return 4 if _has_only_selected_builders() else COMMAND_TAB_LABELS.size()
+
+
+func _command_active_tab_index() -> int:
+	# Keep a valid highlighted tab when selection changes from the five-tab
+	# general palette to the four-tab builder palette.
+	return clampi(command_tab, 0, _command_tab_count() - 1)
+
+
+func _command_action_accent(action_id: int) -> Color:
+	if action_id in [2, 3, 6, 13, 14, 21, 22]:
+		return Color("#d8b76a")
+	if action_id in [4, 8, 23, 24, 25, 26, 27]:
+		return Color("#78c7b5")
+	if action_id in [0, 1, 5, 7, 9, 17, 18, 19]:
+		return Color("#83bfe8")
+	return Color("#b59ad8")
 
 
 func _command_tab_label(index: int) -> String:
