@@ -2737,10 +2737,14 @@ func _draw() -> void:
 			var rank_color := Color("#f0c85a") if veterancy == 1 else Color("#8be4ff")
 			draw_circle(u.pos + Vector2(18, -19), 5.0, rank_color)
 			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else "★★", HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
-		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
-		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
+		var unit_health_bar := Rect2(u.pos + Vector2(-17, -26), Vector2(34, 6))
+		var unit_health_color := Color("#65d18a") if hp_ratio > 0.6 else (Color("#e7bd61") if hp_ratio > 0.3 else Color("#e85c4a"))
+		draw_rect(unit_health_bar, Color("#172126"))
+		draw_rect(Rect2(unit_health_bar.position + Vector2(1, 1), Vector2(32.0 * hp_ratio, 4)), unit_health_color)
+		draw_rect(unit_health_bar, Color("#aab8b5", 0.85), false, 0.8)
 		if selected.has(i):
-			draw_arc(u.pos, 17, 0, TAU, 32, Color("#ffe45c"), 3)
+			draw_arc(u.pos, 18.5, 0, TAU, 40, Color("#ffe45c"), 2.5)
+			draw_arc(u.pos, 22.0, 0.15, TAU - 0.15, 40, Color("#ffe45c", 0.42), 1.0)
 	_draw_environment_particles()
 	for effect in visual_effects:
 		var progress = 1.0 - clampf(float(effect.life) / float(effect.duration), 0.0, 1.0)
