@@ -3068,7 +3068,7 @@ func _battle_pointer_target(pos: Vector2, size: Vector2) -> String:
 		if _button_rect(slot, size).has_point(pos):
 			return "button:%d" % int(visible_actions[slot])
 	# Resource, production and selected-unit panels are informational only.
-	if pos.y >= 0.0 and pos.y <= 252.0:
+	if build_mode.is_empty() and pos.y >= 0.0 and pos.y <= 252.0:
 		return "hud"
 	return ""
 
