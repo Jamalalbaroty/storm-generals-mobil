@@ -72,6 +72,18 @@ func _run() -> void:
 			quit(1)
 			return
 
+	# Watan's premium ground forces must translate their higher reinforcement cost into a modest per-unit firepower edge.
+	var ground_base_damage := {"infantry": 10, "tank": 20, "artillery": 48}
+	for ground_kind in ground_base_damage.keys():
+		var base_damage: int = int(ground_base_damage[ground_kind])
+		var watan_ground_damage: int = int(game._unit_damage_with_veterancy({"faction": "وطن"}, base_damage))
+		for army in FACTIONS:
+			var faction_ground_damage: int = int(game._unit_damage_with_veterancy({"faction": army}, base_damage))
+			if army != "وطن" and watan_ground_damage <= faction_ground_damage:
+				push_error("Watan elite %s firepower must exceed %s" % [ground_kind, army])
+				quit(1)
+				return
+
 	# Missile output and cooldown must follow the selected faction, not the active player's faction.
 	var watan_missile_dps: float = float(game._missile_damage("وطن")) / game._missile_cooldown("وطن")
 	for army in FACTIONS:

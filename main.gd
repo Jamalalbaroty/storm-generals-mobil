@@ -1689,8 +1689,11 @@ func _player_armor_penetration_damage(target: Dictionary, base_damage: int, atta
 
 func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	var rank := int(unit.get("veterancy", 0))
-	var multiplier := 1.25 if rank >= 3 else (1.15 if rank == 2 else (1.08 if rank == 1 else 1.0))
-	return maxi(1, roundi(float(base_damage) * multiplier))
+	var veterancy_multiplier := 1.25 if rank >= 3 else (1.15 if rank == 2 else (1.08 if rank == 1 else 1.0))
+	# Watan's elite land doctrine improves per-unit firepower; premium reinforcement costs
+	# and slower massing preserve a meaningful economic counterweight.
+	var faction_multiplier := 1.08 if String(unit.get("faction", faction)) == "وطن" else 1.0
+	return maxi(1, roundi(float(base_damage) * veterancy_multiplier * faction_multiplier))
 
 
 func _ground_building_attack_range(unit_kind: String) -> float:
