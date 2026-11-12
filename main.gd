@@ -1719,6 +1719,9 @@ func _faction_ground_attack_damage(attacker: Dictionary, target: Dictionary, bas
 			multiplier = float(profile.get("ground_infantry_armor_damage", 1.0))
 	elif attacker_kind == "tank":
 		multiplier = float(profile.get("ground_tank_damage", 1.0))
+		# Chinese level-3 factories specialize tank crews for anti-infantry support.
+		if String(attacker.get("faction", "")) == "الصيني" and int(attacker.get("factory_level", 1)) >= 3:
+			multiplier += 0.04
 	return maxi(1, roundi(float(base_damage) * clampf(multiplier, 1.0, 1.15)))
 
 
@@ -4495,6 +4498,8 @@ func _upgrade_selected_building() -> void:
 	var level_name := "الثاني" if level + 1 == 2 else "الثالث"
 	if kind == "factory" and level + 1 == 3 and faction == "الأمريكي":
 		notice = "اكتمل تطوير المصنع — فُعّل نظام ضبط نيران مضاد للدروع للدبابات الأمريكية الجديدة"
+	elif kind == "factory" and level + 1 == 3 and faction == "الصيني":
+		notice = "اكتمل تطوير المصنع — فُعّلت عقيدة الإسناد المدرع ضد المشاة للدبابات الصينية الجديدة"
 	else:
 		notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
 	notice_time = 2.8
