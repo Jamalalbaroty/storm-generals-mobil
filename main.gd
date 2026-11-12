@@ -1717,6 +1717,9 @@ func _faction_ground_attack_damage(attacker: Dictionary, target: Dictionary, bas
 				multiplier += 0.04
 		elif attacker_kind == "infantry":
 			multiplier = float(profile.get("ground_infantry_armor_damage", 1.0))
+			# Arab level-3 barracks unlock veteran anti-armor ambush drills.
+			if String(attacker.get("faction", "")) == "الجيش العربي" and int(attacker.get("barracks_level", 1)) >= 3:
+				multiplier += 0.03
 	elif attacker_kind == "tank":
 		multiplier = float(profile.get("ground_tank_damage", 1.0))
 		# Chinese level-3 factories specialize tank crews for anti-infantry support.
@@ -4500,6 +4503,8 @@ func _upgrade_selected_building() -> void:
 		notice = "اكتمل تطوير المصنع — فُعّل نظام ضبط نيران مضاد للدروع للدبابات الأمريكية الجديدة"
 	elif kind == "factory" and level + 1 == 3 and faction == "الصيني":
 		notice = "اكتمل تطوير المصنع — فُعّلت عقيدة الإسناد المدرع ضد المشاة للدبابات الصينية الجديدة"
+	elif kind == "barracks" and level + 1 == 3 and faction == "الجيش العربي":
+		notice = "اكتمل تطوير الثكنة — فُعّلت تدريبات الكمائن المضادة للدروع للمشاة العربية الجديدة"
 	else:
 		notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
 	notice_time = 2.8
@@ -6771,6 +6776,15 @@ func _factory_level_for_producer(producer_id: int) -> int:
 	return 1
 
 
+func _barracks_level_for_producer(producer_id: int) -> int:
+	if producer_id < 0:
+		return 1
+	for producer in buildings:
+		if int(producer.get("production_id", -2)) == producer_id and String(producer.get("kind", "")) == "barracks":
+			return clampi(int(producer.get("level", 1)), 1, 3)
+	return 1
+
+
 func _production_building_for(kind: String) -> String:
 	if kind in ["infantry", "builder"]:
 		return "barracks"
@@ -7078,6 +7092,8 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
 	if kind == "tank":
 		spawned_unit["factory_level"] = _factory_level_for_producer(producer_id)
+	elif kind == "infantry":
+		spawned_unit["barracks_level"] = _barracks_level_for_producer(producer_id)
 	if kind in ["fighter", "helicopter"]:
 		spawned_unit["aircraft_ammo"] = 8 if kind == "fighter" else 12
 	if aircraft_launch:
