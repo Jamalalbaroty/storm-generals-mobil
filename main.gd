@@ -2119,8 +2119,8 @@ func _update_player_ground_fallback(unit: Dictionary, unit_index: int, delta: fl
 
 
 func _toggle_selected_auto_retreat() -> void:
-	var eligible := 0
-	var enabled_count := 0
+	var eligible_indices: Array[int] = []
+	var all_enabled := true
 	for raw_index in selected:
 		var unit_index := int(raw_index)
 		if unit_index < 0 or unit_index >= units.size():
@@ -2130,23 +2130,23 @@ func _toggle_selected_auto_retreat() -> void:
 			continue
 		if String(unit.get("kind", "")) not in ["tank", "infantry", "artillery"]:
 			continue
-			
-		eligible += 1
+		eligible_indices.append(unit_index)
 		if not bool(unit.get("auto_retreat_enabled", false)):
-			unit["auto_retreat_enabled"] = true
-			enabled_count += 1
-		else:
-			unit["auto_retreat_enabled"] = false
+			all_enabled = false
+	var should_enable := not all_enabled
+	for unit_index in eligible_indices:
+		var unit: Dictionary = units[unit_index]
+		unit["auto_retreat_enabled"] = should_enable
+		if not should_enable:
 			unit.erase("player_tactical_fallback_active")
-	if eligible == 0:
+	if eligible_indices.is_empty():
 		notice = "حدد دبابات أو مشاة أو مدفعية لتفعيل الانسحاب الذكي"
-	elif enabled_count == eligible:
+	elif should_enable:
 		notice = "تم تفعيل الانسحاب الذكي للقوات المحددة — تراجع عند 25٪ صحة وتحت ضغط قريب"
 	else:
 		notice = "تم إيقاف الانسحاب الذكي للقوات المحددة"
 	notice_time = 3.0
 	queue_redraw()
-
 
 func _enemy_assault_rally_ready(unit_index: int, target_pos: Vector2) -> bool:
 	# Small forces and immediate engagements must never be stalled by rally logic.
