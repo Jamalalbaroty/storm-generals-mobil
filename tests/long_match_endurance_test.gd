@@ -155,8 +155,15 @@ func _run() -> void:
 			_expect(not stress_id.is_empty(), "Every live unit must receive a stable identity during density ramp")
 			_expect(not seen_stress_ids.has(stress_id), "Unit identities must remain unique as battlefield density increases")
 			seen_stress_ids[stress_id] = true
+		# Record simulation-update cost separately from rendered FPS: this headless
+		# benchmark helps compare density growth without pretending to be a device test.
+		var density_start_usec := Time.get_ticks_usec()
 		for stress_frame in range(100):
 			game.call("_process", 0.1)
+		var density_elapsed_ms := float(Time.get_ticks_usec() - density_start_usec) / 1000.0
+		var density_average_frame_ms := density_elapsed_ms / 100.0
+		_expect(is_finite(density_average_frame_ms) and density_average_frame_ms >= 0.0, "Density benchmark must report a valid simulation-update duration")
+		print("DENSITY UPDATE BENCH: %d staged units/team | %d live units | %.3f ms/update" % [int(stage_count), units.size(), density_average_frame_ms])
 		_expect(String(game.get("battle_result")) == "", "A staged high-density match must remain active during the stress window")
 		_expect(int(game.get("credits")) >= 0 and int(game.get("enemy_credits")) >= 0, "Both economies must remain non-negative during density stress")
 		_expect(int(game.get("supplies")) >= 0 and int(game.get("enemy_supplies")) >= 0, "Both supply pools must remain non-negative during density stress")
