@@ -11,6 +11,7 @@ on:
 
 # Keep only the newest queued PR validation; rapid commits must not create a CI backlog.
 # Live air and ground combat are mandatory four-faction release gates.
+# Faction balance regressions cover Watan's elite land firepower premium.
 concurrency:
   # Versioned group isolates new validation from stale queued runs created by the previous workflow generation.
   group: storm-generals-regression-v2-${{ github.event.pull_request.number || github.ref }}
