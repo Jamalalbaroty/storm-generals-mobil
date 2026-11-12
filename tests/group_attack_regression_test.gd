@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_enemy_artillery_support_role(game)
 	_test_enemy_defensive_flank_selection(game)
 	_test_enemy_infantry_flank_screen(game)
+	_test_enemy_assault_distributes_targets(game)
 	_test_enemy_critical_fallback(game)
 	_test_enemy_counterattack_prioritizes_group_breach(game)
 	_test_enemy_counterattack_focuses_artillery_threat(game)
@@ -314,3 +315,16 @@ func _test_enemy_infantry_flank_screen(game: Node) -> void:
 	var infantry_slot: Vector2 = game._enemy_infantry_support_position(game.units[1].pos, target, origin, 1)
 	_expect(infantry_slot.x > game.units[0].pos.x, "Enemy infantry must remain slightly behind its armor screen")
 	_expect(absf(infantry_slot.y - game.units[0].pos.y) >= 60.0, "Enemy infantry must occupy a wide lateral escort lane to screen the armor's flank")
+
+
+func _test_enemy_assault_distributes_targets(game: Node) -> void:
+	game.enemy_base = Vector2(1000.0, 330.0)
+	game.buildings.clear()
+	game.enemy_buildings.clear()
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(620.0, 300.0), "attack_focus_pos": Vector2(600.0, 300.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(600.0, 300.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(630.0, 360.0)}
+	])
+	var selected_index: int = game._select_enemy_ground_assault_target(Vector2(615.0, 330.0))
+	_expect(selected_index == 2, "Enemy assault target selection should spread a new attacker to a nearby unassigned threat instead of stacking onto an already focused tank")

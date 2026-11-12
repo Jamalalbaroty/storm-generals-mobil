@@ -2333,7 +2333,19 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 				elif String(candidate.kind) == "infantry":
 					threat_priority += 22.0
 		var defensive_risk := _enemy_ground_target_defense_risk(candidate.pos)
-		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority
+		# Avoid piling every assault unit onto a single defender when several threats are
+		# exposed. Existing live attackers create a bounded load penalty for that target.
+		var assigned_attackers := 0
+		for attacker in units:
+			if attacker.team != "enemy" or int(attacker.get("hp", 0)) <= 0:
+				continue
+			if String(attacker.get("kind", "")) not in ["infantry", "tank", "artillery"]:
+				continue
+			var assigned_focus: Vector2 = attacker.get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
+			if assigned_focus.distance_to(candidate.pos) <= 95.0 and attacker.pos.distance_to(candidate.pos) <= 260.0:
+				assigned_attackers += 1
+		var load_penalty: float = minf(float(assigned_attackers) * 52.0, 156.0)
+		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority + load_penalty
 		if score < best_score:
 			best_score = score
 			best_index = candidate_index
