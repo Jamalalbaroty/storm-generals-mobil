@@ -90,6 +90,9 @@ jobs:
       - name: Run coordinated group attack regression test
         run: timeout 60s godot --headless --path . --script tests/group_attack_regression_test.gd
 
+      - name: Run mobile touch ownership and gesture regression
+        run: timeout 180s godot --headless --path . --script tests/mobile_touch_input_regression_test.gd
+
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
 
