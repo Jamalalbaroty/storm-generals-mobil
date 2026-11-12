@@ -78,6 +78,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 			faction_rects.append(faction_rect)
 		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
 		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
+		var briefing_start: Rect2 = game.call("_campaign_start_rect", picker_viewport)
+		var briefing_back: Rect2 = game.call("_campaign_back_rect", picker_viewport)
+		_expect(briefing_start.position.x >= 0.0 and briefing_start.position.y >= 0.0 and briefing_start.end.x <= picker_viewport.x and briefing_start.end.y <= picker_viewport.y, "Campaign start control must fit the briefing viewport %s" % picker_viewport)
+		_expect(briefing_back.position.x >= 0.0 and briefing_back.position.y >= 0.0 and briefing_back.end.x <= picker_viewport.x and briefing_back.end.y <= picker_viewport.y, "Campaign back control must fit the briefing viewport %s" % picker_viewport)
+		_expect(not briefing_start.intersects(briefing_back), "Campaign start and back controls must never overlap")
 	# Command-deck hit targets and responsive label sizes must remain usable on compact phones.
 	for command_viewport in picker_viewports:
 		var tab_rects: Array[Rect2] = []
