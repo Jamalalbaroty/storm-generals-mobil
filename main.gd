@@ -3439,7 +3439,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		var release_target := _battle_pointer_target(pos, size)
 		# A press/release pair belongs to one target. Never let a drag that
 		# crosses between the command deck and battlefield become a stray order.
-		if pointer_start_target != release_target:
+		if pointer_start_target != release_target or release_target == "hud":
 			pointer_start_target = ""
 			queue_redraw()
 			return
