@@ -1744,6 +1744,19 @@ const COMMANDER_PROFILE_TEST_PATH := "user://storm_generals_profile_regression.c
 
 
 func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
+	# Rebuild defaults on every load so malformed files cannot preserve stale in-memory values.
+	commander_profile = {
+		"battles_played": 0,
+		"victories": 0,
+		"defeats": 0,
+		"total_kills": 0,
+		"air_kills": 0,
+		"armor_kills": 0,
+		"naval_kills": 0,
+		"earned_medals": [],
+		"campaign_progress": {},
+		"campaign_funds": 0
+	}
 	var config := ConfigFile.new()
 	var load_error := config.load(path)
 	if load_error != OK:
