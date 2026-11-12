@@ -1572,7 +1572,7 @@ func _resolve_ground_unit_spacing() -> void:
 						for candidate_variant in neighbor_bucket:
 							var candidate_index := int(candidate_variant)
 							if candidate_index > candidate_cursor:
-							candidates.append(candidate_index)
+								candidates.append(candidate_index)
 				if candidates.is_empty():
 					break
 				candidates.sort()
