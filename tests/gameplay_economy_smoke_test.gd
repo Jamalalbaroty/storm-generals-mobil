@@ -1220,6 +1220,43 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(0.0, 270.0)})
 	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 270.0), "fighter", 320.0, 3)) == 1, "Friendly fighters should distribute assignments instead of stacking on one target")
 
+	# Aircraft target selection should weigh active enemy anti-air coverage without hard-locking the player out of a sole target.
+	game.get("units").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(150.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(150.0, 590.0)})
+	game.get("enemy_buildings").append({"kind": "anti_air", "hp": 380, "build_progress": 1.0, "pos": Vector2(150.0, 260.0)})
+	_expect(is_equal_approx(float(game.call("_enemy_air_defense_risk_at_position", Vector2(150.0, 260.0))), 250.0), "A powered anti-air battery should report severe risk at its center")
+	_expect(is_equal_approx(float(game.call("_enemy_air_defense_risk_at_position", Vector2(150.0, 590.0))), 0.0), "Aircraft should not be penalized for a target outside anti-air coverage")
+	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 260.0), "fighter", 400.0, -1)) == 1, "Fighters should prefer a viable target outside a powered anti-air envelope when its tactical role is equal")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(150.0, 260.0)})
+	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 260.0), "fighter", 400.0, -1)) == 0, "Anti-air risk should discourage exposed targets without making the only viable contact untargetable")
+
+	# Emergency aircraft recovery must run for player aircraft, repair/rearm them, and restore their saved mission.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	var recovery_focus := Vector2(620.0, 260.0)
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 25, "pos": Vector2(100.0, 260.0), "attack_target": 1, "attack_focus_pos": recovery_focus, "aircraft_ammo": 3})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": recovery_focus})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "build_progress": 1.0, "production_id": 77, "pos": Vector2(300.0, 300.0)})
+	var recovery_unit: Dictionary = game.get("units")[0]
+	_expect(bool(game.call("_update_player_airfield_recovery", recovery_unit, 0.1)), "A critically damaged player fighter should enter the airfield recovery flow even during an active attack order")
+	_expect(bool(recovery_unit.get("airfield_returning", false)) and recovery_unit.has("airfield_resume_order") and not recovery_unit.has("attack_target"), "Emergency recovery should suspend combat safely while preserving the mission")
+	recovery_unit["pos"] = Vector2(276.0, 330.0)
+	for recovery_tick in range(5):
+		game.call("_update_player_airfield_recovery", recovery_unit, 1.0)
+	_expect(int(recovery_unit.get("hp", 0)) >= 110 and int(recovery_unit.get("aircraft_ammo", 0)) == 8 and bool(recovery_unit.get("airfield_sortie_launch", false)), "A landed fighter should repair and rearm before becoming sortie-ready")
+	for launch_tick in range(3):
+		game.call("_update_player_airfield_recovery", recovery_unit, 1.0)
+	_expect(not bool(recovery_unit.get("airfield_sortie_launch", false)) and not bool(recovery_unit.get("airfield_returning", false)), "Recovered aircraft should taxi clear of the airfield before resuming flight")
+	var restored_air_focus: Vector2 = recovery_unit.get("attack_focus_pos", Vector2.ZERO)
+	_expect(recovery_unit.has("attack_focus_pos") and restored_air_focus.distance_to(recovery_focus) < 0.1 and not recovery_unit.has("attack_target"), "Recovered aircraft should restore its saved attack focus for safe target reacquisition")
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+
 	# Infantry should follow an active assault tank as a screening/support element.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
