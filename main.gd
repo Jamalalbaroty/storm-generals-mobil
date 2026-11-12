@@ -1736,7 +1736,11 @@ func _faction_ground_damage_multiplier(unit: Dictionary) -> float:
 	var profile := _faction_profile(army)
 	match String(unit.get("kind", "")):
 		"tank":
-			return clampf(float(profile.get("tank_damage_taken", 1.0)), 0.88, 1.0)
+			var damage_taken := float(profile.get("tank_damage_taken", 1.0))
+			# Watan level-3 factories fit newly produced tanks with elite composite armor.
+			if army == "وطن" and int(unit.get("factory_level", 1)) >= 3:
+				damage_taken -= 0.03
+			return clampf(damage_taken, 0.88, 1.0)
 		"infantry":
 			return clampf(float(profile.get("infantry_damage_taken", 1.0)), 0.90, 1.0)
 	return 1.0
@@ -4505,6 +4509,8 @@ func _upgrade_selected_building() -> void:
 		notice = "اكتمل تطوير المصنع — فُعّلت عقيدة الإسناد المدرع ضد المشاة للدبابات الصينية الجديدة"
 	elif kind == "barracks" and level + 1 == 3 and faction == "الجيش العربي":
 		notice = "اكتمل تطوير الثكنة — فُعّلت تدريبات الكمائن المضادة للدروع للمشاة العربية الجديدة"
+	elif kind == "factory" and level + 1 == 3 and faction == "وطن":
+		notice = "اكتمل تطوير مصنع وطن — فُعّل الدرع المركب للدبابات الجديدة"
 	else:
 		notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
 	notice_time = 2.8
