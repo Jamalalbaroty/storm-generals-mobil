@@ -16,13 +16,14 @@ const CAMPAIGN_MISSIONS := [
 	{"name": "حصار المدينة", "map": "المدينة الساحلية", "brief": "نسق القوات البرية والجوية لاختراق دفاعات العدو وتدمير مركز قيادته", "reward": 550, "secondary": "امتلك وحدة جوية ووحدة مدرعة حية على الأقل", "bonus": 200},
 	{"name": "العاصفة الكبرى", "map": "الساحل الصحراوي", "brief": "المواجهة الحاسمة: دمر قاعدة العدو وأثبت سيادتك", "reward": 750, "secondary": "أنه المعركة مع بقاء 60٪ من صحة قاعدتك", "bonus": 300}
 ]
-const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "التحصينات", "الإنزال الجوي"]
+const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتيجية", "التحصينات", "الإنزال الجوي", "قيادة القوات"]
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
 	[10, 11, 12, 13, 14, 15],
 	[23, 24, 25, 26, 27],
-	[28, 29, 30, 31]
+	[28, 29, 30, 31],
+	[32, 33, 34]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -3232,7 +3233,7 @@ func _draw_hud(size: Vector2) -> void:
 			doctrine_summary = "%s%s%s" % [doctrine_summary, " | " if not doctrine_summary.is_empty() else "", "%s ×%d" % [String(doctrine_name), doctrine_count] if selected_player_units.size() > 1 else String(doctrine_name)]
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 45), "العقيدة: %s" % (doctrine_summary if not doctrine_summary.is_empty() else "لا توجد ترقية عقائدية مفعّلة"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#e5c36f") if not doctrine_summary.is_empty() else Color("#84999b"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 63), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "حراسة المواقع", "تجمع عند القاعدة", "إلغاء الأوامر"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3887,6 +3888,47 @@ func _issue_group_attack_order(target_index: int) -> void:
 		notice_time = 1.8
 
 
+func _issue_selected_force_order(order_type: String) -> void:
+	var active_indices: Array[int] = []
+	var group_center := Vector2.ZERO
+	for raw_index in selected:
+		var unit_index := int(raw_index)
+		if unit_index < 0 or unit_index >= units.size() or active_indices.has(unit_index):
+			continue
+		var unit: Dictionary = units[unit_index]
+		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		active_indices.append(unit_index)
+		group_center += unit.pos
+	if active_indices.is_empty():
+		notice = "حدد قواتك أولاً لإصدار أمر تكتيكي"
+		notice_time = 2.0
+		return
+	group_center /= float(active_indices.size())
+	var formation_offsets := _group_attack_formation_offsets(active_indices, base_pos)
+	var order_keys := ["target", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]
+	for unit_index in active_indices:
+		var unit: Dictionary = units[unit_index]
+		_cancel_airfield_recovery(unit)
+		for key in order_keys:
+			unit.erase(key)
+		if order_type == "guard":
+			unit["guard_position"] = unit.pos
+			unit["guard_radius"] = 300.0 if String(unit.get("kind", "")) == "artillery" else (190.0 if String(unit.get("kind", "")) == "tank" else 155.0)
+			unit["guard_active"] = true
+		elif order_type == "regroup":
+			var offset: Vector2 = formation_offsets.get(unit_index, Vector2.ZERO)
+			unit["target"] = base_pos + offset
+	if order_type == "guard":
+		notice = "القوات المحددة اتخذت مواقع الحراسة — ستشتبك داخل نطاقها"
+	elif order_type == "regroup":
+		notice = "أمر تجمع — تعود القوات إلى القاعدة بتشكيل منظم"
+	else:
+		notice = "أُلغيت أوامر القوات المحددة — عادت إلى الوضع الحر"
+	notice_time = 2.2
+	queue_redraw()
+
+
 func _selected_group_order_summary(selected_units: Array[Dictionary]) -> String:
 	# Summarize only the live player units already filtered by the selected-force dossier.
 	var order_counts: Dictionary = {}
@@ -4120,6 +4162,12 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_prepare_transport_rooftop_landing()
 			elif i == 31:
 				_cancel_transport_order()
+			elif i == 32:
+				_issue_selected_force_order("guard")
+			elif i == 33:
+				_issue_selected_force_order("regroup")
+			elif i == 34:
+				_issue_selected_force_order("cancel")
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
