@@ -1174,6 +1174,20 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(200.0, 260.0))) == 0, "Left assault group should select its nearby ground threat")
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(800.0, 260.0))) == 1, "Right assault group should select its own nearby ground threat")
 	_expect(int(game.call("_select_enemy_ground_assault_target", Vector2(500.0, 260.0))) >= 0, "Ground assault target selection should remain valid for units between threats")
+	# Player ground units should select targets that match their combat role rather than distance alone.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(45.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(100.0, 260.0)})
+	_expect(int(game.call("_select_player_ground_combat_target", Vector2(0.0, 260.0), "tank", 220.0)) == 1, "Player tanks should prioritize hostile armor over a closer infantry target")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(40.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(70.0, 260.0)})
+	_expect(int(game.call("_select_player_ground_combat_target", Vector2(0.0, 260.0), "infantry", 220.0)) == 1, "Player infantry should screen against nearby hostile infantry instead of chasing armor")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(90.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100, "pos": Vector2(100.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(112.0, 260.0)})
+	_expect(int(game.call("_select_player_ground_combat_target", Vector2(0.0, 260.0), "artillery", 420.0)) == 1, "Player artillery should prioritize clustered hostile units for splash damage")
 
 	# Infantry should follow an active assault tank as a screening/support element.
 	game.get("units").clear()
