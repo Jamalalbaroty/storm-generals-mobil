@@ -1284,7 +1284,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").clear()
 	game.get("units").append({"pos": game.get("base_pos") + Vector2(250.0, 0.0), "team": "enemy", "kind": "artillery", "hp": 100, "attack_cd": 0.0})
 	game.call("_process", 0.1)
-	_expect(String(game.get("battle_result")).contains("هُزمت"), "Enemy artillery destroying the player base should resolve a defeat")
+	_expect(String(game.get("battle_result")).contains("هُزمت"), "Enemy artillery without a frontline escort must retain its direct base-fire behavior and resolve a defeat")
 
 	# Run supply capture and ownership changes through the real frame loop, not direct helper calls.
 	game.set("game_started", true)

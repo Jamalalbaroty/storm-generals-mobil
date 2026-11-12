@@ -2004,6 +2004,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 		unit.erase("attack_focus_pos")
 		if unit_kind == "artillery":
 			# Guns support the assault instead of racing armor and infantry for supply nodes.
+			# Without a frontline anchor, preserve the original direct-fire lane to the enemy base.
 			var support_anchor_index := _enemy_nearest_ground_assault_anchor(unit.pos)
 			if support_anchor_index >= 0:
 				var support_anchor_pos: Vector2 = units[support_anchor_index].pos
@@ -2011,16 +2012,17 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				if unit.pos.distance_to(support_goal) > 24.0:
 					var support_direction := _ground_navigation_direction(unit, unit_index, support_goal, delta, 22.0)
 					unit.pos += support_direction * delta * 22.0
-			return true
-		var supply_objective_index := _enemy_best_supply_objective(unit.pos)
-		if supply_objective_index >= 0:
-			var supply_objective_pos: Vector2 = supply_points[supply_objective_index].pos
-			var objective_distance: float = unit.pos.distance_to(supply_objective_pos)
-			if objective_distance > 48.0:
-				var objective_speed := 55.0 if unit_kind == "infantry" else 36.0
-				var objective_direction := _ground_navigation_direction(unit, unit_index, supply_objective_pos, delta, objective_speed)
-				unit.pos += objective_direction * delta * objective_speed
-			return true
+				return true
+		else:
+			var supply_objective_index := _enemy_best_supply_objective(unit.pos)
+			if supply_objective_index >= 0:
+				var supply_objective_pos: Vector2 = supply_points[supply_objective_index].pos
+				var objective_distance: float = unit.pos.distance_to(supply_objective_pos)
+				if objective_distance > 48.0:
+					var objective_speed := 55.0 if unit_kind == "infantry" else 36.0
+					var objective_direction := _ground_navigation_direction(unit, unit_index, supply_objective_pos, delta, objective_speed)
+					unit.pos += objective_direction * delta * objective_speed
+				return true
 	var target_pos: Vector2 = base_pos
 	if target_index >= 0:
 		target_pos = units[target_index].pos
