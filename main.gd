@@ -3391,11 +3391,13 @@ func _draw_faction_emblem(center: Vector2, emblem_type: String, accent: Color) -
 
 
 func _campaign_start_rect(size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x * 0.55, size.y * 0.64), Vector2(size.x * 0.34, 52))
+	var button_height := clampf(size.y * 0.075, 42.0, 52.0)
+	return Rect2(Vector2(size.x * 0.55, size.y * 0.80), Vector2(size.x * 0.34, button_height))
 
 
 func _campaign_back_rect(size: Vector2) -> Rect2:
-	return Rect2(Vector2(size.x * 0.11, size.y * 0.64), Vector2(size.x * 0.34, 52))
+	var button_height := clampf(size.y * 0.075, 42.0, 52.0)
+	return Rect2(Vector2(size.x * 0.11, size.y * 0.80), Vector2(size.x * 0.34, button_height))
 
 
 func _draw_campaign_briefing(size: Vector2) -> void:
@@ -3407,36 +3409,50 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 	var identity: Dictionary = _faction_presentation(faction_index)
 	var faction_color := Color(String(identity.color))
 	var accent_color := Color(String(identity.accent))
-	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.66)
-	draw_rect(panel, Color(0.03, 0.06, 0.07, 0.97), true)
-	draw_rect(panel, accent_color, false, 2.0)
+	var panel := Rect2(size.x * 0.06, size.y * 0.13, size.x * 0.88, size.y * 0.80)
+	draw_rect(panel, Color("#0b1218"), true)
+	draw_rect(panel, Color("#53636d"), false, 2.0)
 	draw_rect(Rect2(panel.position, Vector2(5.0, panel.size.y)), faction_color, true)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.30), "قيادة حملة: %s" % faction, HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.029), 16, 23), accent_color)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.35), "%s  |  %s" % [String(identity.title), String(identity.doctrine)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.016), 10, 13), Color("#d8e2e5"))
+	draw_rect(Rect2(panel.position + Vector2(5.0, 0.0), Vector2(panel.size.x - 5.0, 3.0)), accent_color, true)
+
+	# Zero Hour-inspired command dossier: faction identity first, operation orders second.
+	var emblem_center := Vector2(size.x * 0.19, size.y * 0.275)
+	_draw_faction_emblem(emblem_center, String(identity.emblem), accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.29, size.y * 0.245), "INTELLIGENCE / قيادة العمليات", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.54, clampi(int(size.x * 0.017), 11, 16), accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.29, size.y * 0.295), String(identity.title), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.54, clampi(int(size.x * 0.026), 16, 23), Color.WHITE)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.355), "%s  |  العقيدة: %s" % [faction, String(identity.doctrine)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.016), 10, 14), Color("#c8d5dc"))
+
+	# Mission order panel.
+	var mission_panel := Rect2(size.x * 0.10, size.y * 0.385, size.x * 0.80, size.y * 0.275)
+	draw_rect(mission_panel, Color("#17242d"), true)
+	draw_rect(mission_panel, Color("#455966"), false, 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.425), "أوامر المهمة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 13, accent_color)
 	if completed >= CAMPAIGN_MISSIONS.size():
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.40), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color("#a8e6b0"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.48), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.475), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 18, Color("#a8e6b0"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.525), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 14, Color.WHITE)
 	else:
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.39), "العملية %d من %d: %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 19, Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.47), "المسرح: %s  |  مكافأة الإنجاز: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 14, Color("#c4dce8"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.53), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 15, Color("#d8e6c2"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.58), "الهدف الإضافي: %s — مكافأة %d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.63), "الطقس: مشمس ربيعي صافٍ دائماً", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#bce5f2"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.68), "التقدم: %d / %d عمليات" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, 12, Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.475), "العملية %d / %d — %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.019), 12, 18), Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.525), "المسرح: %s    |    المكافأة: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#c4dce8"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.575), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#d8e6c2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.625), "الهدف الإضافي: %s  |  +%d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.012), 9, 12), Color("#f4d77a"))
+
+	# Campaign progress and faction matchup notes.
+	var progress_y := size.y * 0.675
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, progress_y), "تقدم الحملة: %d / %d" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 11, Color("#e8e1cb"))
 	for i in CAMPAIGN_MISSIONS.size():
-		var dot_x := size.x * 0.32 + float(i) * size.x * 0.09
-		draw_circle(Vector2(dot_x, size.y * 0.59), 5.0, Color("#a8e6b0") if i < completed else Color("#657477"))
-	# Reinforce faction identity in the briefing without changing mission flow or controls.
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.755), "ميزة الجيش: %s" % String(identity.strength), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.014), 9, 11), accent_color)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.805), "نقطة الضعف: %s" % String(identity.weakness), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.014), 9, 11), Color("#d6b2a8"))
+		var dot_x := size.x * 0.38 + float(i) * size.x * 0.06
+		draw_circle(Vector2(dot_x, progress_y + 13.0), 4.0, accent_color if i < completed else Color("#657477"))
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.735), "ميزة ميدانية: %s" % String(identity.strength), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.013), 9, 12), accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.775), "قيد التوازن: %s" % String(identity.weakness), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.013), 9, 12), Color("#d6b2a8"))
+
 	var start_rect := _campaign_start_rect(size)
 	var back_rect := _campaign_back_rect(size)
-	draw_rect(start_rect, Color("#73552d"), true)
+	draw_rect(start_rect, faction_color.darkened(0.25), true)
 	draw_rect(start_rect, accent_color, false, 2.0)
-	draw_string(ThemeDB.fallback_font, start_rect.position + Vector2(0, 32), "ابدأ العملية", HORIZONTAL_ALIGNMENT_CENTER, start_rect.size.x, 18, Color.WHITE)
-	draw_rect(back_rect, Color("#28445a"), true)
-	draw_rect(back_rect, Color("#b7c6d1"), false, 2.0)
-	draw_string(ThemeDB.fallback_font, back_rect.position + Vector2(0, 32), "عودة", HORIZONTAL_ALIGNMENT_CENTER, back_rect.size.x, 18, Color.WHITE)
+	draw_string(ThemeDB.fallback_font, start_rect.position + Vector2(0, start_rect.size.y * 0.65), "ابدأ العملية", HORIZONTAL_ALIGNMENT_CENTER, start_rect.size.x, clampi(int(size.x * 0.017), 12, 18), Color.WHITE)
+	draw_rect(back_rect, Color("#263946"), true)
+	draw_rect(back_rect, Color("#aebdc5"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, back_rect.position + Vector2(0, back_rect.size.y * 0.65), "عودة لاختيار الجيش", HORIZONTAL_ALIGNMENT_CENTER, back_rect.size.x, clampi(int(size.x * 0.015), 11, 16), Color.WHITE)
 
 func _faction_rect(i: int, size: Vector2) -> Rect2:
 	var panel_left := size.x * 0.06
