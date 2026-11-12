@@ -77,7 +77,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Regroup command should replace guard with a return-to-base movement order")
 	game.call("_issue_selected_force_order", "cancel")
 	_expect(not game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Cancel command should clear movement and guard orders")
-	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37], "Tactical command tab should include the three formation choices")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical command tab should include all four formation choices")
 	game.call("_issue_selected_formation_order", "assault")
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "assault", "Assault formation should be saved on each selected live unit")
 	game.call("_issue_selected_formation_order", "defensive")
