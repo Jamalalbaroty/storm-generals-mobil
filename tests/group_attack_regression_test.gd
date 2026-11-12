@@ -333,6 +333,8 @@ func _test_enemy_assault_rally_staging(game: Node) -> void:
 	_expect(not game._enemy_assault_rally_ready(0, target_pos), "A dispersed three-unit assault group must wait for its nearby support to close before advancing")
 	_expect(staged_goal == game.units[0].pos, "An advanced tank must hold its position rather than push alone beyond the rally line")
 	game.units[1].pos = Vector2(700.0, 330.0)
+	_expect(not game._enemy_assault_rally_ready(0, target_pos), "The assault must not launch while only one of two supporting elements has joined")
+	game.units[2].pos = Vector2(700.0, 360.0)
 	var released_goal: Vector2 = game._enemy_assault_rally_movement_goal(0, target_pos, formation_goal)
 	_expect(game._enemy_assault_rally_ready(0, target_pos), "The assault must become ready once a supporting unit closes within rally distance")
 	_expect(released_goal == formation_goal, "A gathered assault group must resume its assigned formation advance")

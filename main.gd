@@ -2017,7 +2017,7 @@ func _enemy_ground_unit_should_fallback(unit: Dictionary) -> bool:
 func _enemy_assault_rally_ready(unit_index: int, target_pos: Vector2) -> bool:
 	# Small forces and immediate engagements must never be stalled by rally logic.
 	var nearby_force := 0
-	var nearest_support_distance := INF
+	var gathered_support := 0
 	var lead_pos: Vector2 = units[unit_index].pos
 	for candidate_index in range(units.size()):
 		if candidate_index == unit_index:
@@ -2025,18 +2025,23 @@ func _enemy_assault_rally_ready(unit_index: int, target_pos: Vector2) -> bool:
 		var candidate: Dictionary = units[candidate_index]
 		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
 			continue
-		if String(candidate.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+		var candidate_kind := String(candidate.get("kind", ""))
+		if candidate_kind not in ["tank", "infantry", "artillery"]:
 			continue
 		if bool(candidate.get("defense_guard", false)) or bool(candidate.get("retreating", false)) or bool(candidate.get("tactical_fallback_active", false)) or bool(candidate.get("counterattack_active", false)) or bool(candidate.get("landing_support_active", false)):
 			continue
 		if candidate.pos.distance_to(target_pos) > 420.0:
 			continue
 		nearby_force += 1
-		nearest_support_distance = minf(nearest_support_distance, lead_pos.distance_to(candidate.pos))
-	# Fewer than three available elements retain the existing aggressive behavior.
+		# Guns stay farther back by design, so give artillery a wider support radius.
+		var support_radius := 285.0 if candidate_kind == "artillery" else 205.0
+		if lead_pos.distance_to(candidate.pos) <= support_radius:
+			gathered_support += 1
+	# Small forces retain the existing aggressive behavior. Larger formations
+	# wait until both available supporting elements have joined the rally line.
 	if nearby_force < 2:
 		return true
-	return nearest_support_distance <= 205.0
+	return gathered_support >= mini(2, nearby_force)
 
 
 func _enemy_assault_rally_movement_goal(unit_index: int, target_pos: Vector2, formation_goal: Vector2) -> Vector2:
