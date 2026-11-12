@@ -2341,8 +2341,11 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 				continue
 			if String(attacker.get("kind", "")) not in ["infantry", "tank", "artillery"]:
 				continue
+			if bool(attacker.get("defense_guard", false)) or bool(attacker.get("retreating", false)) or bool(attacker.get("tactical_fallback_active", false)) or bool(attacker.get("counterattack_active", false)):
+				continue
 			var assigned_focus: Vector2 = attacker.get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
-			if assigned_focus.distance_to(candidate.pos) <= 95.0 and attacker.pos.distance_to(candidate.pos) <= 260.0:
+			# Count committed attackers even while they are still crossing the map to the objective.
+			if assigned_focus.distance_to(candidate.pos) <= 95.0:
 				assigned_attackers += 1
 		var load_penalty: float = minf(float(assigned_attackers) * 52.0, 156.0)
 		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority + load_penalty
