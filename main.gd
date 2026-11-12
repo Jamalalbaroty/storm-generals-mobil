@@ -3019,19 +3019,23 @@ func _draw_hud(size: Vector2) -> void:
 		var progress := progress_total / float(selected_player_units.size())
 		var average_health := total_hp_ratio / float(selected_player_units.size())
 		var rank_label := "نخبة" if highest_rank >= 2 else ("مخضرم" if highest_rank == 1 else "مجند")
-		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 48))
-		draw_rect(dossier, Color("#10232b", 0.94), true)
+		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 58))
+		draw_rect(dossier, Color("#10232b", 0.96), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d | بحرية %d" % [infantry_count, ground_support_count, aircraft_count, naval_count]
 		var health_label := "سلامة %d%%" % int(round(average_health * 100.0))
 		var damage_label := " | متضررة %d" % damaged_count if damaged_count > 0 else " | سليمة"
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | %s%s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, health_label, damage_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9 if selected_player_units.size() > 1 else 11, Color("#f2e8ca"))
-		var xp_bar := Rect2(dossier.position + Vector2(8, 26), Vector2(size.x - 36, 9))
+		var health_bar := Rect2(dossier.position + Vector2(8, 23), Vector2(size.x - 36, 6))
+		draw_rect(health_bar, Color("#293b40"), true)
+		var health_color := Color("#65d18a") if average_health > 0.6 else (Color("#e7bd61") if average_health > 0.3 else Color("#e85c4a"))
+		draw_rect(Rect2(health_bar.position, Vector2(health_bar.size.x * average_health, health_bar.size.y)), health_color, true)
+		var xp_bar := Rect2(dossier.position + Vector2(8, 33), Vector2(size.x - 36, 6))
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 53), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
