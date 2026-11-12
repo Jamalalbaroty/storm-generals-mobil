@@ -549,10 +549,10 @@ func _process(delta: float) -> void:
 		if battle_result != "":
 			return
 		income_timer += delta
-		if income_timer >= 1.0:
-			var completed_income_seconds := int(floor(income_timer))
+		if income_timer >= 0.9999:
+			var completed_income_seconds := int(floor(income_timer + 0.0001))
 			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * float(completed_income_seconds)))
-			income_timer = fmod(income_timer, 1.0)
+			income_timer = maxf(0.0, income_timer - float(completed_income_seconds))
 		_update_supply_control(delta)
 		_update_supply_depots(delta)
 		_update_building_construction(delta)
@@ -566,10 +566,10 @@ func _process(delta: float) -> void:
 		if _resolve_battle_result():
 			return
 		enemy_income_timer += delta
-		if enemy_income_timer >= 1.0:
-			var completed_enemy_income_seconds := int(floor(enemy_income_timer))
+		if enemy_income_timer >= 0.9999:
+			var completed_enemy_income_seconds := int(floor(enemy_income_timer + 0.0001))
 			enemy_credits = mini(MAX_CREDITS, enemy_credits + int(PASSIVE_INCOME * float(completed_enemy_income_seconds)))
-			enemy_income_timer = fmod(enemy_income_timer, 1.0)
+			enemy_income_timer = maxf(0.0, enemy_income_timer - float(completed_enemy_income_seconds))
 		enemy_timer += delta
 		if enemy_timer >= 12.0:
 			enemy_timer = 0.0
