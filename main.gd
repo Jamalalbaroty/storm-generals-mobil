@@ -3325,7 +3325,7 @@ func _draw_faction_picker(size: Vector2) -> void:
 		draw_rect(r, accent_color, false, 2.0)
 		draw_rect(Rect2(r.position, Vector2(5.0, r.size.y)), accent_color, true)
 		var emblem_center := r.position + Vector2(25.0, r.size.y * 0.43)
-		_draw_faction_emblem(emblem_center, i, accent_color)
+		_draw_faction_emblem(emblem_center, String(identity.emblem), accent_color)
 		var text_left := r.position.x + 46.0
 		var text_width := r.size.x - 51.0
 		draw_string(ThemeDB.fallback_font, Vector2(text_left, r.position.y + r.size.y * 0.30), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, text_width, clampi(int(size.x * 0.018), 12, 19), Color.WHITE)
@@ -3341,18 +3341,18 @@ func _faction_presentation(index: int) -> Dictionary:
 		return FACTION_PRESENTATION[0]
 	return FACTION_PRESENTATION[index]
 
-func _draw_faction_emblem(center: Vector2, faction_index: int, accent: Color) -> void:
+func _draw_faction_emblem(center: Vector2, emblem_type: String, accent: Color) -> void:
 	draw_circle(center, 16.0, Color("#11191d"))
 	draw_arc(center, 16.0, 0.0, TAU, 32, accent, 2.0)
-	match faction_index:
-		0:
+	match emblem_type:
+		"star":
 			var star := PackedVector2Array()
 			for point_index in range(10):
 				var angle := -PI * 0.5 + TAU * float(point_index) / 10.0
 				var radius := 9.0 if point_index % 2 == 0 else 4.0
 				star.append(center + Vector2(cos(angle), sin(angle)) * radius)
 			draw_colored_polygon(star, accent)
-		1:
+		"dragon":
 			var dragon_mark := PackedVector2Array([
 				center + Vector2(0.0, -10.0),
 				center + Vector2(8.0, -2.0),
@@ -3365,7 +3365,7 @@ func _draw_faction_emblem(center: Vector2, faction_index: int, accent: Color) ->
 			])
 			draw_colored_polygon(dragon_mark, accent)
 			draw_line(center + Vector2(-5.0, 0.0), center + Vector2(5.0, 0.0), Color("#11191d"), 2.0)
-		2:
+		"falcon":
 			draw_line(center + Vector2(-11.0, -5.0), center + Vector2(-3.0, 0.0), accent, 3.0)
 			draw_line(center + Vector2(-3.0, 0.0), center + Vector2(-10.0, 6.0), accent, 3.0)
 			draw_line(center + Vector2(11.0, -5.0), center + Vector2(3.0, 0.0), accent, 3.0)
@@ -3376,7 +3376,7 @@ func _draw_faction_emblem(center: Vector2, faction_index: int, accent: Color) ->
 				center + Vector2(0.0, 9.0),
 				center + Vector2(-4.0, 2.0)
 			]), accent)
-		3:
+		"shield":
 			draw_colored_polygon(PackedVector2Array([
 				center + Vector2(0.0, -11.0),
 				center + Vector2(9.0, -6.0),
