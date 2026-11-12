@@ -1257,6 +1257,22 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("buildings").clear()
 	game.get("enemy_buildings").clear()
 
+	# Enemy AI aircraft launch in coordinated pairs, with a bounded solo sortie fallback.
+	game.get("units").clear()
+	var staged_enemy_fighter: Dictionary = {"team": "enemy", "kind": "fighter", "hp": 120, "air_wave_staging": true, "air_wave_wait": 0.0}
+	var staged_enemy_helicopter: Dictionary = {"team": "enemy", "kind": "helicopter", "hp": 180, "air_wave_staging": true, "air_wave_wait": 0.0}
+	game.get("units").append(staged_enemy_fighter)
+	game.get("units").append(staged_enemy_helicopter)
+	_expect(not bool(game.call("_update_enemy_air_wave_staging", staged_enemy_fighter, 0.1)), "A second live AI aircraft should release the staged air wave")
+	_expect(not bool(staged_enemy_fighter.get("air_wave_staging", true)) and not bool(staged_enemy_helicopter.get("air_wave_staging", true)), "All members of a released air wave should launch together")
+	_expect(bool(staged_enemy_fighter.get("air_wave_launched", false)) and bool(staged_enemy_helicopter.get("air_wave_launched", false)), "Released air-wave members should retain their launched state")
+	game.get("units").clear()
+	var solo_enemy_aircraft: Dictionary = {"team": "enemy", "kind": "fighter", "hp": 120, "air_wave_staging": true, "air_wave_wait": 0.0}
+	game.get("units").append(solo_enemy_aircraft)
+	_expect(bool(game.call("_update_enemy_air_wave_staging", solo_enemy_aircraft, 17.9)), "A lone AI aircraft should wait briefly for a wingman")
+	_expect(not bool(game.call("_update_enemy_air_wave_staging", solo_enemy_aircraft, 0.2)) and bool(solo_enemy_aircraft.get("air_wave_launched", false)), "A lone AI aircraft should launch after the bounded 18-second staging window")
+	game.get("units").clear()
+
 	# Infantry should follow an active assault tank as a screening/support element.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
