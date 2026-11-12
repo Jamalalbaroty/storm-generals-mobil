@@ -3,10 +3,10 @@ extends Node2D
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 # Presentation-only identity data. Gameplay faction keys and commander save data stay unchanged.
 const FACTION_PRESENTATION := [
-	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "emblem": "star", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "traits": ["دعم جوي", "دروع متوازنة", "تشكيل مشترك"], "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
-	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "emblem": "dragon", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "traits": ["دبابات أوفر", "صواريخ", "غواصات أوفر"], "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
-	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "emblem": "falcon", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "traits": ["مشاة أوفر", "مدفعية", "مروحيات هجومية"], "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
-	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "emblem": "shield", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "traits": ["مروحيات نخبة", "صواريخ قوية", "عتاد فاخر"], "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
+	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "emblem": "star", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "traits": ["جو متوازن", "دروع متوازنة", "مرونة تكتيكية"], "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
+	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "emblem": "dragon", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "traits": ["دبابات أوفر", "تعزيز أسرع", "صواريخ"], "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
+	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "emblem": "falcon", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "traits": ["مشاة أوفر", "مدفعية أوفر", "مروحيات أقوى"], "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
+	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "emblem": "shield", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "traits": ["مروحيات نخبة", "صواريخ قوية", "تعزيز أبطأ"], "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
 ]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
@@ -52,13 +52,13 @@ const MISSILE_COST := 650
 const MISSILE_DEFENSE_INTERCEPT_COOLDOWN := 0.75
 const FACTION_BALANCE := {
 	# China fields efficient armor and submarines, trading some air/artillery cost.
-	"الصيني": {"helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
+	"الصيني": {"production_speed": 1.05, "helicopter_cost": 650, "helicopter_damage": 30, "helicopter_cooldown": 1.35, "missile_cost": 650, "missile_damage": 185, "missile_cooldown": 14.0, "naval_damage": 40, "unit_costs": {"infantry": 100, "tank": 270, "builder": 600, "artillery": 480, "fighter": 520, "destroyer": 900, "carrier": 1600, "submarine": 1050, "landing_craft": 800}},
 	# American forces retain the baseline combined-arms economy.
-	"الأمريكي": {"helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
+	"الأمريكي": {"production_speed": 1.0, "helicopter_cost": 650, "helicopter_damage": 32, "helicopter_cooldown": 1.25, "missile_cost": 650, "missile_damage": 195, "missile_cooldown": 13.0, "naval_damage": 44, "unit_costs": {"infantry": 100, "tank": 300, "builder": 600, "artillery": 450, "fighter": 500, "destroyer": 900, "carrier": 1600, "submarine": 1100, "landing_craft": 800}},
 	# Arab forces emphasize affordable infantry and field artillery.
-	"الجيش العربي": {"helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
+	"الجيش العربي": {"production_speed": 1.0, "helicopter_cost": 650, "helicopter_damage": 34, "helicopter_cooldown": 1.20, "missile_cost": 650, "missile_damage": 205, "missile_cooldown": 12.0, "naval_damage": 42, "unit_costs": {"infantry": 90, "tank": 315, "builder": 600, "artillery": 430, "fighter": 500, "destroyer": 950, "carrier": 1700, "submarine": 1150, "landing_craft": 800}},
 	# Watan fields elite equipment with a deliberate economy and reinforcement premium.
-	"وطن": {"helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
+	"وطن": {"production_speed": 0.92, "helicopter_cost": 850, "helicopter_damage": 38, "helicopter_cooldown": 1.10, "missile_cost": 850, "missile_damage": 230, "missile_cooldown": 11.0, "naval_damage": 50, "unit_costs": {"infantry": 110, "tank": 360, "builder": 650, "artillery": 520, "fighter": 575, "destroyer": 1080, "carrier": 1900, "submarine": 1320, "landing_craft": 920}}
 }
 const ECONOMY_BALANCE := {
 	"building_costs": {
@@ -1695,6 +1695,10 @@ func _apply_artillery_blast(center: Vector2, radius: float, base_damage: int, ta
 func _faction_profile(army: String) -> Dictionary:
 	var profile: Dictionary = FACTION_BALANCE.get(army, FACTION_BALANCE["الصيني"])
 	return profile
+
+
+func _faction_production_speed(army: String) -> float:
+	return clampf(float(_faction_profile(army).get("production_speed", 1.0)), 0.85, 1.10)
 
 
 func _helicopter_cost(army: String) -> int:
@@ -6786,7 +6790,8 @@ func _enqueue_unit(kind: String) -> void:
 		return
 	credits -= cost
 	supplies -= supply_cost
-	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "producer_id": producer_id, "kind": kind, "remaining": _production_duration(kind), "duration": _production_duration(kind)})
+	var faction_duration := _production_duration(kind) / _faction_production_speed(faction)
+	production_orders.append({"producer_pos": producer_pos, "producer_kind": producer_kind, "producer_id": producer_id, "kind": kind, "remaining": faction_duration, "duration": faction_duration})
 	notice = "أضيفت الوحدة إلى طابور الإنتاج"
 	notice_time = 2.0
 	queue_redraw()
