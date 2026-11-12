@@ -1078,7 +1078,7 @@ func _process(delta: float) -> void:
 				var current_attack_target := int(unit.get("attack_target", -1))
 				var has_live_attack_target: bool = current_attack_target >= 0 and current_attack_target < units.size() and String(units[current_attack_target].get("team", "")) == "enemy" and int(units[current_attack_target].get("hp", 0)) > 0
 				if not has_live_attack_target:
-					var attack_move_unit_target := _nearest_enemy_ground_unit(unit.pos, 420.0 if unit.kind == "artillery" else 235.0)
+					var attack_move_unit_target := _select_player_ground_combat_target(unit.pos, String(unit.get("kind", "")), 420.0 if unit.kind == "artillery" else 235.0)
 					var attack_move_unit_distance := INF
 					if attack_move_unit_target >= 0:
 						attack_move_unit_distance = unit.pos.distance_to(units[attack_move_unit_target].pos)
@@ -1144,7 +1144,7 @@ func _process(delta: float) -> void:
 				if unit.has("attack_focus_pos"):
 					enemy_target = _nearest_enemy_to_focus(unit.attack_focus_pos, 300.0)
 				if enemy_target < 0:
-					enemy_target = _nearest_enemy_ground_unit(unit.pos, 420.0 if unit.kind == "artillery" else 220.0)
+					enemy_target = _select_player_ground_combat_target(unit.pos, String(unit.get("kind", "")), 420.0 if unit.kind == "artillery" else 220.0)
 				if enemy_target >= 0:
 					unit.attack_target = enemy_target
 			if enemy_target >= 0:
@@ -2664,6 +2664,51 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 		if distance < best_distance:
 			best_distance = distance
 			best_index = i
+	return best_index
+
+func _select_player_ground_combat_target(from_pos: Vector2, attacker_kind: String, max_distance: float = 420.0) -> int:
+	# Role-aware selection: armor hunts armor/support guns, infantry screens infantry, artillery favors clusters.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+			continue
+		var distance := from_pos.distance_to(candidate.pos)
+		if distance > max_distance:
+			continue
+		var priority := 0.0
+		match attacker_kind:
+			"tank":
+				match String(candidate.get("kind", "")):
+					"tank": priority = 82.0
+					"artillery": priority = 70.0
+					"infantry": priority = 18.0
+			"infantry":
+				match String(candidate.get("kind", "")):
+					"artillery": priority = 68.0
+					"infantry": priority = 48.0
+					"tank": priority = 24.0
+			"artillery":
+				match String(candidate.get("kind", "")):
+					"artillery": priority = 92.0
+					"tank": priority = 66.0
+					"infantry": priority = 42.0
+				var nearby_ground_targets := 0
+				for splash_candidate in units:
+					if String(splash_candidate.get("team", "")) != "enemy" or int(splash_candidate.get("hp", 0)) <= 0:
+						continue
+					if String(splash_candidate.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+						continue
+					if candidate.pos.distance_to(splash_candidate.pos) <= 76.0:
+						nearby_ground_targets += 1
+				priority += minf(float(maxi(0, nearby_ground_targets - 1)) * 24.0, 72.0)
+		var score := distance - priority
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
 	return best_index
 
 func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
