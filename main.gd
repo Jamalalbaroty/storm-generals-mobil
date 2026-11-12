@@ -1988,11 +1988,48 @@ func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vec
 	return left_flank if left_risk < right_risk else right_flank
 
 
+func _enemy_ground_threat_distance(unit_pos: Vector2) -> float:
+	var nearest_distance := INF
+	for candidate in units:
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["tank", "infantry", "artillery"]:
+			continue
+		nearest_distance = minf(nearest_distance, unit_pos.distance_to(candidate.pos))
+	return nearest_distance
+
+
+func _enemy_ground_unit_should_fallback(unit: Dictionary) -> bool:
+	var unit_kind := String(unit.get("kind", ""))
+	var max_hp := _unit_repair_max_hp(unit)
+	if unit_kind == "infantry":
+		max_hp = 60
+	elif unit_kind == "tank":
+		max_hp = maxi(max_hp, 180)
+	elif unit_kind == "artillery":
+		max_hp = maxi(max_hp, 110)
+	if max_hp <= 0 or int(unit.get("hp", 0)) <= 0:
+		return false
+	return float(unit.get("hp", 0)) <= float(max_hp) * 0.25 and _enemy_ground_threat_distance(unit.pos) <= 145.0
+
+
 func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: float) -> bool:
 	# Execute the enemy's land doctrine: armor leads, infantry screens, artillery stays in support.
 	var unit_kind := String(unit.get("kind", ""))
 	if unit_kind not in ["tank", "infantry", "artillery"]:
 		return false
+	var fallback_active := bool(unit.get("tactical_fallback_active", false))
+	if fallback_active and _enemy_ground_threat_distance(unit.pos) > 210.0:
+		unit.erase("tactical_fallback_active")
+		fallback_active = false
+	if fallback_active or _enemy_ground_unit_should_fallback(unit):
+		unit["tactical_fallback_active"] = true
+		unit.erase("attack_target")
+		unit.erase("attack_focus_pos")
+		if unit.pos.distance_to(enemy_base) > 65.0:
+			var fallback_direction := _ground_navigation_direction(unit, unit_index, enemy_base, delta, 42.0 if unit_kind == "tank" else 48.0)
+			unit.pos += fallback_direction * delta * (42.0 if unit_kind == "tank" else 48.0)
+		return true
 	var preferred_pos: Vector2 = unit.get("attack_focus_pos", Vector2(-1000000.0, -1000000.0))
 	var target_index := _select_enemy_ground_assault_target(unit.pos, preferred_pos)
 	# When the nearest hostile is far from the frontline, secure income first.

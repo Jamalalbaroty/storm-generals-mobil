@@ -21,6 +21,7 @@ func _run() -> void:
 	_test_artillery_standoff(game)
 	_test_enemy_artillery_support_role(game)
 	_test_enemy_defensive_flank_selection(game)
+	_test_enemy_critical_fallback(game)
 
 	game.queue_free()
 	await process_frame
@@ -209,6 +210,31 @@ func _test_enemy_defensive_flank_selection(game: Node) -> void:
 	var odd_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 1)
 	_expect(even_flank.distance_to(right_flank) < 0.1 and odd_flank.distance_to(left_flank) < 0.1, "Enemy assault units must split evenly defended approaches across opposite flanks")
 	game.buildings.clear()
+
+
+func _test_enemy_critical_fallback(game: Node) -> void:
+	game.enemy_base = Vector2(900.0, 330.0)
+	game.base_pos = Vector2(150.0, 330.0)
+	game.buildings.clear()
+	game.enemy_buildings.clear()
+	game.supply_points.clear()
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 30, "pos": Vector2(500.0, 330.0), "attack_cd": 10.0},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(400.0, 330.0)}
+	])
+	var damaged_start: Vector2 = game.units[0].pos
+	_expect(game._update_enemy_ground_assault(game.units[0], 0, 1.0), "A critically damaged enemy tank must remain controlled while falling back")
+	_expect(bool(game.units[0].get("tactical_fallback_active", false)), "A critically damaged enemy unit under nearby ground pressure must enter tactical fallback")
+	_expect(game.units[0].pos.x > damaged_start.x, "A damaged enemy tank must retreat toward its own base instead of remaining exposed")
+	_expect(not game.units[0].has("attack_target"), "A retreating enemy unit must release its offensive target lock")
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 120, "pos": Vector2(500.0, 330.0), "attack_cd": 10.0},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(400.0, 330.0)}
+	])
+	var healthy_start: Vector2 = game.units[0].pos
+	game._update_enemy_ground_assault(game.units[0], 0, 1.0)
+	_expect(not game.units[0].has("tactical_fallback_active"), "Healthy enemy armor must not retreat solely because a player unit is nearby")
+	_expect(game.units[0].pos == healthy_start, "Healthy enemy armor must retain its firing position instead of triggering fallback")
 
 
 func _cleanup_audio(game: Node) -> void:
