@@ -3147,6 +3147,7 @@ func _draw_hud(size: Vector2) -> void:
 			if String(selected_unit.get("team", "")) == "player" and int(selected_unit.get("hp", 0)) > 0:
 				selected_player_units.append(selected_unit)
 	if not selected_player_units.is_empty():
+		var doctrine_counts: Dictionary = {}
 		var total_xp := 0.0
 		var total_kills := 0
 		var total_medals := 0
@@ -3162,6 +3163,9 @@ func _draw_hud(size: Vector2) -> void:
 		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "transport_helicopter": "مروحية النقل", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
 		var dossier_name := String(kind_labels.get(String(selected_player_units[0].get("kind", "")), "الوحدة"))
 		for selected_unit in selected_player_units:
+			var doctrine_label := _unit_doctrine_label(selected_unit)
+			if not doctrine_label.is_empty():
+				doctrine_counts[doctrine_label] = int(doctrine_counts.get(doctrine_label, 0)) + 1
 			var selected_kind := String(selected_unit.get("kind", ""))
 			var selected_max_hp := 520.0 if selected_kind == "carrier" else (260.0 if selected_kind == "destroyer" else (250.0 if selected_kind == "transport_helicopter" else (220.0 if selected_kind == "builder" or selected_kind == "landing_craft" else (210.0 if selected_kind == "submarine" else (180.0 if selected_kind == "helicopter" else (120.0 if selected_kind == "fighter" else (150.0 if selected_kind == "tank" else (100.0 if selected_kind == "artillery" or String(selected_unit.get("team", "")) == "player" else 60.0))))))))
 			var selected_hp_ratio := clampf(float(selected_unit.get("hp", 0)) / selected_max_hp, 0.0, 1.0)
@@ -3194,7 +3198,7 @@ func _draw_hud(size: Vector2) -> void:
 		var progress := progress_total / float(selected_player_units.size())
 		var average_health := total_hp_ratio / float(selected_player_units.size())
 		var rank_label := "نخبة" if highest_rank >= 2 else ("مخضرم" if highest_rank == 1 else "مجند")
-		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 58))
+		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 68))
 		draw_rect(dossier, Color("#10232b", 0.96), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d | بحرية %d" % [infantry_count, ground_support_count, aircraft_count, naval_count]
@@ -3211,7 +3215,12 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("ترقية المجموعة" if selected_player_units.size() > 1 else ("ترقية عند 250 خبرة" if highest_rank == 1 else "ترقية عند 100 خبرة"))
 		var order_summary := _selected_group_order_summary(selected_player_units)
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 53), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
+		var doctrine_summary := ""
+		for doctrine_name in doctrine_counts.keys():
+			var doctrine_count := int(doctrine_counts[doctrine_name])
+			doctrine_summary = "%s%s%s" % [doctrine_summary, " | " if not doctrine_summary.is_empty() else "", "%s ×%d" % [String(doctrine_name), doctrine_count] if selected_player_units.size() > 1 else String(doctrine_name)]
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 45), "العقيدة: %s" % (doctrine_summary if not doctrine_summary.is_empty() else "لا توجد ترقية عقائدية مفعّلة"), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#e5c36f") if not doctrine_summary.is_empty() else Color("#84999b"))
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 63), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
@@ -3252,6 +3261,21 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(view_button, Color("#284b43"), true)
 	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
+
+func _unit_doctrine_label(unit: Dictionary) -> String:
+	# Show only doctrines actually unlocked on this specific produced unit.
+	var army := String(unit.get("faction", ""))
+	var kind := String(unit.get("kind", ""))
+	if army == "الأمريكي" and kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
+		return "ضبط نيران مضاد للدروع"
+	if army == "الصيني" and kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
+		return "إسناد مدرع ضد المشاة"
+	if army == "الجيش العربي" and kind == "infantry" and int(unit.get("barracks_level", 1)) >= 3:
+		return "كمائن مضادة للدروع"
+	if army == "وطن" and kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
+		return "درع مركب للنخبة"
+	return ""
+
 
 func _hud_faction_accent() -> Color:
 	match faction:
