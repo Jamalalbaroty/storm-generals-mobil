@@ -3695,6 +3695,26 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				player_building_found = i
 				break
 		if player_building_found >= 0:
+			var assigned_repairers := 0
+			for selected_index in selected:
+				if selected_index < 0 or selected_index >= units.size():
+					continue
+				var selected_unit: Dictionary = units[selected_index]
+				if String(selected_unit.get("team", "")) != "player" or String(selected_unit.get("kind", "")) != "builder" or int(selected_unit.get("hp", 0)) <= 0:
+					continue
+				selected_unit["repair_building"] = player_building_found
+				selected_unit["target"] = buildings[player_building_found].pos
+				for order_key in ["build_target", "attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+					selected_unit.erase(order_key)
+				units[selected_index] = selected_unit
+				assigned_repairers += 1
+			if assigned_repairers > 0:
+				selected_player_building = -1
+				selected_enemy_building = -1
+				notice = "تم إرسال %d جرافة لإصلاح المنشأة وحمايتها من الانهيار" % assigned_repairers
+				notice_time = 3.0
+				queue_redraw()
+				return
 			selected_player_building = player_building_found
 			selected_enemy_building = -1
 			selected.clear()
@@ -4826,6 +4846,77 @@ func _update_field_repairs(delta: float) -> void:
 		if float(builder.field_repair_fx_cd) <= 0.0:
 			_add_visual_effect("repair", builder.pos, target_unit.pos, Color("#8ce6a0"), 0.32, 0.0)
 			builder["field_repair_fx_cd"] = 0.75
+	# Idle or explicitly assigned dozers automatically service damaged friendly structures.
+	for builder_index in range(units.size()):
+		var builder: Dictionary = units[builder_index]
+		if String(builder.get("team", "")) != "player" or String(builder.get("kind", "")) != "builder" or int(builder.get("hp", 0)) <= 0:
+			continue
+		if builder.has("build_target") or builder.has("target"):
+			continue
+		var repair_building_index := int(builder.get("repair_building", -1))
+		if repair_building_index < 0 or repair_building_index >= buildings.size():
+			repair_building_index = -1
+			var closest_building_distance := 112.0
+			for candidate_index in range(buildings.size()):
+				var candidate_building: Dictionary = buildings[candidate_index]
+				if String(candidate_building.get("team", "player")) != "player" or float(candidate_building.get("build_progress", 1.0)) < 1.0:
+					continue
+				var candidate_max_hp := _building_max_hp(candidate_building)
+				var candidate_hp := int(candidate_building.get("hp", candidate_max_hp))
+				if candidate_hp <= 0 or candidate_hp >= candidate_max_hp:
+					continue
+				var candidate_distance: float = builder.pos.distance_to(candidate_building.pos)
+				if candidate_distance < closest_building_distance:
+					closest_building_distance = candidate_distance
+					repair_building_index = candidate_index
+			if repair_building_index >= 0:
+				builder["repair_building"] = repair_building_index
+				builder["target"] = buildings[repair_building_index].pos
+				units[builder_index] = builder
+				continue
+		var target_building: Dictionary = buildings[repair_building_index]
+		var target_max_hp := _building_max_hp(target_building)
+		var target_hp := int(target_building.get("hp", target_max_hp))
+		if target_hp <= 0 or target_hp >= target_max_hp or float(target_building.get("build_progress", 1.0)) < 1.0:
+			builder.erase("repair_building")
+			builder.erase("repair_building_work")
+			builder.erase("repair_building_cost_buffer")
+			units[builder_index] = builder
+			continue
+		var target_distance: float = builder.pos.distance_to(target_building.pos)
+		if target_distance > 48.0:
+			builder["target"] = target_building.pos
+			units[builder_index] = builder
+			continue
+		builder.erase("target")
+		var repair_work := minf(3.0, float(builder.get("repair_building_work", 0.0)) + delta * 5.0)
+		var repair_points := mini(int(floor(repair_work)), target_max_hp - target_hp)
+		if repair_points <= 0:
+			builder["repair_building_work"] = repair_work
+			units[builder_index] = builder
+			continue
+		var repair_cost_buffer := float(builder.get("repair_building_cost_buffer", 0.0)) + float(repair_points) * 0.5
+		var whole_repair_cost := int(floor(repair_cost_buffer))
+		if whole_repair_cost > credits:
+			builder["repair_building_work"] = repair_work
+			units[builder_index] = builder
+			continue
+		credits -= whole_repair_cost
+		builder["repair_building_work"] = repair_work - float(repair_points)
+		builder["repair_building_cost_buffer"] = repair_cost_buffer - float(whole_repair_cost)
+		target_building["hp"] = mini(target_max_hp, target_hp + repair_points)
+		buildings[repair_building_index] = target_building
+		builder["repair_building_fx_cd"] = maxf(0.0, float(builder.get("repair_building_fx_cd", 0.0)) - delta)
+		if float(builder["repair_building_fx_cd"]) <= 0.0:
+			_add_visual_effect("repair", builder.pos, target_building.pos, Color("#8ce6a0"), 0.32, 0.0)
+			builder["repair_building_fx_cd"] = 0.7
+		if int(target_building["hp"]) >= target_max_hp:
+			builder.erase("repair_building")
+			builder.erase("repair_building_work")
+			builder.erase("repair_building_cost_buffer")
+			builder.erase("target")
+		units[builder_index] = builder
+
 	for airfield_index in range(buildings.size()):
 		var airfield: Dictionary = buildings[airfield_index]
 		if String(airfield.get("kind", "")) != "airfield" or String(airfield.get("team", "player")) != "player":

@@ -260,7 +260,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 				produced_infantry += 1
 		_expect(produced_infantry == 1 and game.get("production_orders").is_empty(), "Completed infantry production should spawn exactly one friendly soldier")
 		# Multiple dozers can be queued from the barracks, just like Zero Hour reinforcements.
-		var builder_cost := game.call("_unit_cost", "builder", game.get("faction"))
+		var builder_cost: int = int(game.call("_unit_cost", "builder", game.get("faction")))
 		var builder_credits_before := int(game.get("credits"))
 		game.call("_enqueue_unit", "builder")
 		game.call("_enqueue_unit", "builder")
