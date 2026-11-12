@@ -266,6 +266,13 @@ func _test_enemy_counterattack_focuses_artillery_threat(game: Node) -> void:
 	])
 	var target_index: int = game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
 	_expect(target_index == 2, "Enemy counterattack must prioritize nearby player artillery over closer infantry and armor in a breached perimeter")
+	game.units[3].pos = Vector2(651.0, 330.0)
+	game.enemy_strategy = "armor_breaker"
+	var armor_target_index: int = game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
+	_expect(armor_target_index == 3, "Armor-breaker doctrine must reprioritize a nearby tank threat")
+	game.enemy_strategy = "area_denial"
+	var artillery_target_index: int = game._enemy_counterattack_priority_target(Vector2(650.0, 330.0), game.units[0].pos, 205.0)
+	_expect(artillery_target_index == 2, "Area-denial doctrine must prioritize artillery even when armor is closer")
 
 
 func _cleanup_audio(game: Node) -> void:
