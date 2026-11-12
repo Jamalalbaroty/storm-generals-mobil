@@ -3846,13 +3846,19 @@ func _input(event: InputEvent) -> void:
 		# Android may cancel an active touch when the app is interrupted or the
 		# system takes focus. Abort the gesture instead of treating it as a tap.
 		if event.canceled:
+			# In 3D mode, cancellation of either finger aborts the complete
+			# multi-touch gesture. The parent owns the command pointer while the
+			# battlefield child owns pinch state, so both layers must reset together.
+			if use_3d_view:
+				if is_instance_valid(battlefield_3d) and battlefield_3d.has_method("_reset_touch_gesture_state"):
+					battlefield_3d.call("_reset_touch_gesture_state")
+				dragging = false
+				active_touch_index = -1
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
 			if event.index != active_touch_index:
 				return
-			# In 3D mode the parent receives input before the battlefield's
-			# _unhandled_input callback. Clear its gesture state here as well,
-			# because marking this event handled prevents the child from seeing it.
-			if use_3d_view and is_instance_valid(battlefield_3d) and battlefield_3d.has_method("_reset_touch_gesture_state"):
-				battlefield_3d.call("_reset_touch_gesture_state")
 			dragging = false
 			active_touch_index = -1
 			queue_redraw()

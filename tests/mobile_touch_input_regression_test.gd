@@ -13,6 +13,7 @@ func _initialize() -> void:
 func _run() -> void:
 	await _test_2d_touch_ownership_and_cancellation()
 	await _test_3d_pinch_zoom_and_cancellation()
+	await _test_parent_secondary_finger_cancellation()
 	if failures > 0:
 		push_error("Mobile touch input regression failed with %d assertion(s)." % failures)
 		quit(1)
@@ -127,6 +128,54 @@ func _test_3d_pinch_zoom_and_cancellation() -> void:
 	battlefield.queue_free()
 	await process_frame
 
+
+
+func _test_parent_secondary_finger_cancellation() -> void:
+	var game: Node = MAIN_SCENE.instantiate()
+	root.add_child(game)
+	await process_frame
+	_cleanup_audio(game)
+	game.set("game_started", true)
+	game.call("_set_3d_view_enabled", true)
+	_expect(bool(game.get("use_3d_view")), "The 3D input cancellation test must activate the live battlefield bridge")
+	var battlefield: Node = game.get("battlefield_3d")
+	_expect(is_instance_valid(battlefield), "The 3D battlefield bridge must exist for parent-child touch routing")
+	if not is_instance_valid(battlefield):
+		_cleanup_audio(game)
+		game.queue_free()
+		await process_frame
+		return
+
+	var primary := InputEventScreenTouch.new()
+	primary.index = 0
+	primary.position = Vector2(100.0, 100.0)
+	primary.pressed = true
+	game.call("_input", primary)
+	battlefield.call("_unhandled_input", primary)
+
+	var secondary := InputEventScreenTouch.new()
+	secondary.index = 1
+	secondary.position = Vector2(200.0, 100.0)
+	secondary.pressed = true
+	game.call("_input", secondary)
+	battlefield.call("_unhandled_input", secondary)
+	_expect(int(game.get("active_touch_index")) == 0, "The parent must retain its first-finger owner while 3D pinch starts")
+	_expect((battlefield.get("touch_points") as Dictionary).size() == 2, "The 3D child must receive both fingers for pinch handling")
+
+	var secondary_cancel := InputEventScreenTouch.new()
+	secondary_cancel.index = 1
+	secondary_cancel.position = Vector2(200.0, 100.0)
+	secondary_cancel.canceled = true
+	game.call("_input", secondary_cancel)
+	battlefield.call("_unhandled_input", secondary_cancel)
+	_expect(int(game.get("active_touch_index")) == -1,
+		"Cancellation of the secondary pinch finger must release the parent's stale primary pointer")
+	_expect((battlefield.get("touch_points") as Dictionary).is_empty(),
+		"Cancellation of either pinch finger must clear the child's complete gesture state")
+
+	_cleanup_audio(game)
+	game.queue_free()
+	await process_frame
 
 func _cleanup_audio(game: Node) -> void:
 	var players: Array = game.get("audio_players")
