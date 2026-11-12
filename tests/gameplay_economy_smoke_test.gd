@@ -1173,6 +1173,27 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("player_base_hp")) == base_health_before_intercept, "An intercepted missile must not damage the player base")
 	_expect(is_equal_approx(float(game.get("buildings")[0]["attack_cd"]), 0.75), "Missile defense should observe its 0.75-second intercept cooldown")
 
+	# Delayed frames must pay only completed income seconds, for both sides.
+	game.set("game_started", true)
+	game.set("paused", false)
+	game.set("battle_result", "")
+	game.set("credits", 100)
+	game.set("enemy_credits", 100)
+	game.set("income_timer", 0.0)
+	game.set("enemy_income_timer", 0.0)
+	game.set("enemy_timer", 0.0)
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("supply_points").clear()
+	game.get("production_orders").clear()
+	game.get("missiles").clear()
+	game.call("_process", 1.9)
+	_expect(int(game.get("credits")) == 106 and int(game.get("enemy_credits")) == 106, "A 1.9-second frame should grant one second of passive income to each side, not fractional income twice")
+	_expect(is_equal_approx(float(game.get("income_timer")), 0.9) and is_equal_approx(float(game.get("enemy_income_timer")), 0.9), "Both income clocks should preserve the uncompleted 0.9-second remainder")
+	game.call("_process", 0.1)
+	_expect(int(game.get("credits")) == 112 and int(game.get("enemy_credits")) == 112, "Completing the second elapsed second should grant exactly one more income payment to both sides")
+
 	# Full match lifecycle: resolve a player victory through live helicopter combat.
 	game.get("units").clear()
 	game.get("buildings").clear()

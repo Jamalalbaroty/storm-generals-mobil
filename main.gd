@@ -550,7 +550,8 @@ func _process(delta: float) -> void:
 			return
 		income_timer += delta
 		if income_timer >= 1.0:
-			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * income_timer))
+			var completed_income_seconds := int(floor(income_timer))
+			credits = mini(MAX_CREDITS, credits + int(PASSIVE_INCOME * float(completed_income_seconds)))
 			income_timer = fmod(income_timer, 1.0)
 		_update_supply_control(delta)
 		_update_supply_depots(delta)
@@ -566,7 +567,8 @@ func _process(delta: float) -> void:
 			return
 		enemy_income_timer += delta
 		if enemy_income_timer >= 1.0:
-			enemy_credits = mini(MAX_CREDITS, enemy_credits + int(PASSIVE_INCOME * enemy_income_timer))
+			var completed_enemy_income_seconds := int(floor(enemy_income_timer))
+			enemy_credits = mini(MAX_CREDITS, enemy_credits + int(PASSIVE_INCOME * float(completed_enemy_income_seconds)))
 			enemy_income_timer = fmod(enemy_income_timer, 1.0)
 		enemy_timer += delta
 		if enemy_timer >= 12.0:
