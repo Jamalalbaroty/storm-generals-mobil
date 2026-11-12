@@ -43,6 +43,9 @@ jobs:
       - name: Run six pairwise faction air-combat matchup matrix
         run: timeout 90s godot --headless --path . --script tests/faction_matchup_matrix_test.gd
 
+      - name: Run live four-faction helicopter combat regression
+        run: timeout 90s godot --headless --path . --script tests/live_faction_air_combat_test.gd
+
       - name: Run isolated four-faction team registry regression
         run: timeout 60s godot --headless --path . --script tests/battle_team_registry_test.gd
 
