@@ -2003,8 +2003,8 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 		unit.erase("attack_target")
 		unit.erase("attack_focus_pos")
 		if unit_kind == "artillery":
-			# Guns support the assault instead of racing armor and infantry for supply nodes.
-			# Without a frontline anchor, preserve the original direct-fire lane to the enemy base.
+			# Artillery never races alone for supply nodes. It follows an allied frontline
+			# when available; otherwise it advances to a protected base-facing firing lane.
 			var support_anchor_index := _enemy_nearest_ground_assault_anchor(unit.pos)
 			if support_anchor_index >= 0:
 				var support_anchor_pos: Vector2 = units[support_anchor_index].pos
@@ -2012,10 +2012,6 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				if unit.pos.distance_to(support_goal) > 24.0:
 					var support_direction := _ground_navigation_direction(unit, unit_index, support_goal, delta, 22.0)
 					unit.pos += support_direction * delta * 22.0
-				return true
-			# With no escort, artillery may defend its current firing lane but must not
-			# cross the battlefield alone to chase the player's base or supply nodes.
-			if unit.pos.distance_to(base_pos) > 360.0:
 				return true
 		else:
 			var supply_objective_index := _enemy_best_supply_objective(unit.pos)

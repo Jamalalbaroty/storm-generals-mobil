@@ -167,7 +167,7 @@ func _test_enemy_artillery_support_role(game: Node) -> void:
 		{"team": "enemy", "kind": "artillery", "hp": 110, "pos": Vector2(800.0, 400.0)}
 	])
 	game.supply_points.assign([
-		{"owner": "player", "kind": "supply", "pos": Vector2(500.0, 330.0)}
+		{"owner": "player", "kind": "supply", "pos": Vector2(500.0, 330.0), "payout": 0.0, "supply_payout": 0.0}
 	])
 	game.enemy_base = Vector2(900.0, 330.0)
 	game.base_pos = Vector2(150.0, 330.0)
