@@ -100,6 +100,7 @@ var dragging := false
 var active_touch_index := -1
 var drag_start := Vector2.ZERO
 var drag_end := Vector2.ZERO
+var pointer_start_target := ""
 var base_pos := Vector2(180, 330)
 var enemy_base := Vector2(1090, 330)
 var player_base_hp := 1000
@@ -3053,6 +3054,25 @@ func _command_tab_font_size(tab_width: float) -> int:
 func _command_button_font_size(button_width: float) -> int:
 	return clampi(int(floor(button_width * 0.12)), 9, 15)
 
+func _battle_pointer_target(pos: Vector2, size: Vector2) -> String:
+	# Explicit command targets take priority over the non-interactive HUD band.
+	if _pause_rect(size).has_point(pos):
+		return "pause"
+	if _three_d_view_toggle_rect(size).has_point(pos):
+		return "view"
+	for tab_index in range(COMMAND_TAB_LABELS.size()):
+		if _command_tab_rect(tab_index, size).has_point(pos):
+			return "tab:%d" % tab_index
+	var visible_actions: Array = _command_action_ids()
+	for slot in range(visible_actions.size()):
+		if _button_rect(slot, size).has_point(pos):
+			return "button:%d" % int(visible_actions[slot])
+	# Resource, production and selected-unit panels are informational only.
+	if pos.y >= 0.0 and pos.y <= 252.0:
+		return "hud"
+	return ""
+
+
 
 
 func _command_tab_rect(index: int, size: Vector2) -> Rect2:
@@ -3410,10 +3430,20 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		dragging = true
 		drag_start = pos
 		drag_end = pos
+		pointer_start_target = _battle_pointer_target(pos, size) if game_started and battle_result == "" else ""
 		return
 	if not dragging:
 		return
 	dragging = false
+	if game_started and battle_result == "":
+		var release_target := _battle_pointer_target(pos, size)
+		# A press/release pair belongs to one target. Never let a drag that
+		# crosses between the command deck and battlefield become a stray order.
+		if pointer_start_target != release_target:
+			pointer_start_target = ""
+			queue_redraw()
+			return
+	pointer_start_target = ""
 	if battle_result != "":
 		if _restart_rect(size).has_point(pos):
 			_set_3d_view_enabled(false)

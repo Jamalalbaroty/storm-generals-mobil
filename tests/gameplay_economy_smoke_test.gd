@@ -152,6 +152,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.call("_handle_pointer", builder_position, true)
 	game.call("_handle_pointer", builder_position, false)
 	_expect(game.get("selected").size() == 1 and int(game.get("selected")[0]) == 0, "Touching the starting builder should select it")
+	# Crossing between battlefield and command UI must cancel the gesture,
+	# not turn the release location into a different command.
+	var initial_order_count := (game.get("production_orders") as Array).size()
+	var infantry_button: Vector2 = game.call("_button_rect", 0, battle_viewport).get_center()
+	game.call("_handle_pointer", infantry_button, true)
+	game.call("_handle_pointer", Vector2(450.0, 430.0), false)
+	_expect((game.get("production_orders") as Array).size() == initial_order_count, "Dragging from a command button into the battlefield must not enqueue a unit")
+	game.call("_handle_pointer", builder_position, true)
+	game.call("_handle_pointer", infantry_button, false)
+	_expect((game.get("production_orders") as Array).size() == initial_order_count, "Dragging from the battlefield onto a command button must not activate that command")
+	var builder_target_before_hud_tap: Vector2 = game.get("units")[0].get("target", Vector2.ZERO)
+	game.call("_handle_pointer", Vector2(160.0, 120.0), true)
+	game.call("_handle_pointer", Vector2(160.0, 120.0), false)
+	_expect(game.get("units")[0].get("target", Vector2.ZERO) == builder_target_before_hud_tap, "Tapping the informational HUD must not issue a battlefield move order")
+
 	var move_target := Vector2(450.0, 430.0)
 	game.call("_handle_pointer", move_target, true)
 	game.call("_handle_pointer", move_target, false)
