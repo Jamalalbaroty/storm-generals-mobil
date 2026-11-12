@@ -323,9 +323,9 @@ func _test_enemy_assault_rally_staging(game: Node) -> void:
 	game.units.assign([
 		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(550.0, 330.0)},
 		{"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(760.0, 330.0)},
-		{"team": "enemy", "kind": "artillery", "hp": 110, "pos": Vector2(760.0, 360.0)},
+		{"team": "enemy", "kind": "artillery", "hp": 110, "pos": Vector2(840.0, 360.0)},
 		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(540.0, 330.0), "retreating": true},
-		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(350.0, 330.0)}
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(450.0, 330.0)}
 	])
 	var target_pos: Vector2 = game.units[4].pos
 	var formation_goal := Vector2(600.0, 330.0)
