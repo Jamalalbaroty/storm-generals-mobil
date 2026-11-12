@@ -15,18 +15,25 @@ func _run() -> void:
 	await process_frame
 	_disable_audio(game)
 	game.set("faction", "وطن")
-	game.set("buildings", [{
+	game.get("buildings").clear()
+	game.get("buildings").append({
 		"kind": "factory",
 		"pos": Vector2(420.0, 320.0),
 		"hp": 500,
 		"build_progress": 1.0,
 		"production_id": 41
-	}, {
+	})
+	game.get("buildings").append({
 		"kind": "power_plant",
 		"pos": Vector2(300.0, 320.0),
 		"hp": 500,
 		"build_progress": 1.0
-	}])
+	})
+	print("Economy fixture: power=%d demand=%d factory_powered=%s" % [
+		int(game.call("_player_power_capacity")),
+		int(game.call("_player_power_demand")),
+		str(game.call("_is_player_building_powered", 0))
+	])
 	game.get("units").clear()
 	game.get("production_orders").clear()
 
