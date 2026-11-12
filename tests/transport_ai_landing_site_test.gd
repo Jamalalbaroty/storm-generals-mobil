@@ -1,5 +1,7 @@
 extends SceneTree
 
+var failures := 0
+
 func _initialize() -> void:
 	call_deferred("_run")
 
