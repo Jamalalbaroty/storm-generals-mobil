@@ -1456,6 +1456,18 @@ func _run_gameplay_economy_smoke_test() -> void:
 			_expect(moving_unit.target.distance_to(prior_target) > 10.0, "A second group move should preserve distinct formation slots")
 		second_formation_targets.append(moving_unit.target)
 
+	# An idle dozer repairs a nearby damaged friendly structure automatically, with no player order.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("units").append({"kind": "builder", "team": "player", "hp": 100, "pos": Vector2(300.0, 300.0)})
+	game.get("buildings").append({"kind": "barracks", "team": "player", "hp": 200, "pos": Vector2(330.0, 300.0), "build_progress": 1.0})
+	game.set("credits", 500)
+	game.call("_update_field_repairs", 0.5)
+	game.call("_update_field_repairs", 0.5)
+	_expect(int(game.get("buildings")[0].get("hp", 0)) > 200, "An idle dozer near a damaged building should start repairing it automatically without a command")
+	_expect(int(game.get("credits")) < 500, "Automatic building repair should consume credits gradually")
+	_expect(game.get("units")[0].has("repair_building"), "Dozer should retain its automatic building repair assignment while the structure is damaged")
+
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):
 		audio_player.stop()

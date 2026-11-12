@@ -3695,26 +3695,6 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				player_building_found = i
 				break
 		if player_building_found >= 0:
-			var assigned_repairers := 0
-			for selected_index in selected:
-				if selected_index < 0 or selected_index >= units.size():
-					continue
-				var selected_unit: Dictionary = units[selected_index]
-				if String(selected_unit.get("team", "")) != "player" or String(selected_unit.get("kind", "")) != "builder" or int(selected_unit.get("hp", 0)) <= 0:
-					continue
-				selected_unit["repair_building"] = player_building_found
-				selected_unit["target"] = buildings[player_building_found].pos
-				for order_key in ["build_target", "attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
-					selected_unit.erase(order_key)
-				units[selected_index] = selected_unit
-				assigned_repairers += 1
-			if assigned_repairers > 0:
-				selected_player_building = -1
-				selected_enemy_building = -1
-				notice = "تم إرسال %d جرافة لإصلاح المنشأة وحمايتها من الانهيار" % assigned_repairers
-				notice_time = 3.0
-				queue_redraw()
-				return
 			selected_player_building = player_building_found
 			selected_enemy_building = -1
 			selected.clear()
@@ -4851,7 +4831,7 @@ func _update_field_repairs(delta: float) -> void:
 		var builder: Dictionary = units[builder_index]
 		if String(builder.get("team", "")) != "player" or String(builder.get("kind", "")) != "builder" or int(builder.get("hp", 0)) <= 0:
 			continue
-		if builder.has("build_target") or builder.has("target"):
+		if builder.has("build_target") or (builder.has("target") and not builder.has("repair_building")):
 			continue
 		var repair_building_index := int(builder.get("repair_building", -1))
 		if repair_building_index < 0 or repair_building_index >= buildings.size():
