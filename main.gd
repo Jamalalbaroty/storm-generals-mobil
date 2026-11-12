@@ -1146,7 +1146,7 @@ func _process(delta: float) -> void:
 				formation_goal.y = clampf(formation_goal.y, 24.0, map_size.y - 24.0)
 				var formation_distance: float = unit.pos.distance_to(formation_goal)
 				# Group-ordered artillery keeps a useful 185–330px standoff band instead of charging into close combat.
-				var artillery_outside_support_band := has_group_attack_formation and unit.kind == "artillery" and (distance < 185.0 or distance > 330.0)
+				var artillery_outside_support_band: bool = has_group_attack_formation and unit.kind == "artillery" and (distance < 185.0 or distance > 330.0)
 				if not artillery_outside_support_band and distance <= attack_range:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
