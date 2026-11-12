@@ -2013,6 +2013,10 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 					var support_direction := _ground_navigation_direction(unit, unit_index, support_goal, delta, 22.0)
 					unit.pos += support_direction * delta * 22.0
 				return true
+			# With no escort, artillery may defend its current firing lane but must not
+			# cross the battlefield alone to chase the player's base or supply nodes.
+			if unit.pos.distance_to(base_pos) > 360.0:
+				return true
 		else:
 			var supply_objective_index := _enemy_best_supply_objective(unit.pos)
 			if supply_objective_index >= 0:

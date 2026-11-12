@@ -120,7 +120,8 @@ func _test_live_combined_arms_advance(game: Node) -> void:
 		{"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(180.0, 450.0)},
 		{"team": "enemy", "kind": "tank", "hp": 1000, "pos": Vector2(760.0, 330.0)}
 	])
-	game.selected = [0, 1, 2, 3]
+	var selected_group: Array[int] = [0, 1, 2, 3]
+	game.selected = selected_group
 	game.game_started = true
 	game.paused = false
 	game.battle_result = ""
@@ -151,7 +152,8 @@ func _test_artillery_standoff(game: Node) -> void:
 		{"team": "player", "kind": "artillery", "hp": 110, "pos": Vector2(300.0, 330.0)},
 		{"team": "enemy", "kind": "tank", "hp": 500, "pos": Vector2(390.0, 330.0)}
 	])
-	game.selected = [0]
+	var selected_artillery: Array[int] = [0]
+	game.selected = selected_artillery
 	game.enemy_timer = 0.0
 	var target_hp_before := int(game.units[1].hp)
 	game._issue_group_attack_order(1)
