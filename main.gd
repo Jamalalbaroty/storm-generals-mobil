@@ -2414,15 +2414,15 @@ func _nearest_player_unit(from_pos: Vector2, air_only: bool = false) -> int:
 	return best_index
 
 func _nearest_enemy_to_focus(focus_pos: Vector2, max_distance: float) -> int:
-	# Reacquire one common target near the last squad focus point so a commanded
-	# group stays together after its original target is destroyed.
+	# Ground formations reacquire only targets their weapons can engage.
+	# Air and naval contacts must not repeatedly steal a ground squad's focus.
 	var best_index := -1
 	var best_distance := max_distance
 	for candidate_index in range(units.size()):
 		var candidate: Dictionary = units[candidate_index]
 		if candidate.team != "enemy" or candidate.get("hp", 0) <= 0:
 			continue
-		if candidate.kind == "submarine" and not _is_submarine_detected(candidate, "player"):
+		if String(candidate.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]:
 			continue
 		var distance: float = focus_pos.distance_to(candidate.pos)
 		if distance < best_distance:

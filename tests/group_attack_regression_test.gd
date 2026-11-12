@@ -74,10 +74,13 @@ func _test_group_order_and_reacquisition(game: Node) -> void:
 
 	# After the original target is destroyed, all members resolve the same nearby replacement from the shared focus.
 	game.units[4]["hp"] = 0
+	# A closer aircraft must not steal a ground formation's reacquisition focus.
+	game.units[6]["pos"] = focus + Vector2(2.0, 1.0)
 	var reacquired: int = game._nearest_enemy_to_focus(focus, 300.0)
-	_expect(reacquired == 5, "Group focus-fire must reacquire a nearby living ground target")
+	_expect(reacquired == 5, "Ground group focus-fire must ignore closer air contacts and reacquire a living ground target")
 	var reacquired_again: int = game._nearest_enemy_to_focus(focus, 300.0)
 	_expect(reacquired_again == reacquired, "All members must resolve the same replacement target from the shared focus")
+	game.units[6]["pos"] = focus + Vector2(120.0, -110.0)
 
 	# Invalid and destroyed targets must never overwrite current valid orders.
 	game._issue_group_attack_order(99)
