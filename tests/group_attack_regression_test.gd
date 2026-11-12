@@ -22,6 +22,7 @@ func _run() -> void:
 	_test_enemy_artillery_support_role(game)
 	_test_enemy_defensive_flank_selection(game)
 	_test_enemy_infantry_flank_screen(game)
+	_test_enemy_assault_rally_staging(game)
 	_test_enemy_assault_distributes_targets(game)
 	_test_enemy_critical_fallback(game)
 	_test_enemy_counterattack_prioritizes_group_breach(game)
@@ -326,7 +327,7 @@ func _test_enemy_assault_rally_staging(game: Node) -> void:
 		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(540.0, 330.0), "retreating": true},
 		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(350.0, 330.0)}
 	])
-	var target_pos := game.units[4].pos
+	var target_pos: Vector2 = game.units[4].pos
 	var formation_goal := Vector2(600.0, 330.0)
 	var staged_goal: Vector2 = game._enemy_assault_rally_movement_goal(0, target_pos, formation_goal)
 	_expect(not game._enemy_assault_rally_ready(0, target_pos), "A dispersed three-unit assault group must wait for its nearby support to close before advancing")
