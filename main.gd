@@ -5895,8 +5895,13 @@ func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delt
 	var threat: Dictionary = units[threat_index]
 	var distance: float = unit.pos.distance_to(threat.pos)
 	var weapon_range := 150.0 if String(unit.get("kind", "")) == "tank" else 105.0
-	if distance > weapon_range and unit.pos.distance_to(anchor) < 225.0:
-		var move_speed := 36.0 if String(unit.get("kind", "")) == "tank" else 55.0
+	var move_speed := 36.0 if String(unit.get("kind", "")) == "tank" else 55.0
+	if unit.pos.distance_to(anchor) >= 225.0:
+		# Reserves can be assigned to assets up to 300 units away; close the
+		# deployment gap before pursuing threats inside the defended perimeter.
+		var anchor_direction := _ground_navigation_direction(unit, unit_index, anchor, delta, move_speed)
+		unit.pos += anchor_direction * delta * move_speed
+	elif distance > weapon_range:
 		var direction := _ground_navigation_direction(unit, unit_index, threat.pos, delta, move_speed)
 		unit.pos += direction * delta * move_speed
 	elif distance <= weapon_range:

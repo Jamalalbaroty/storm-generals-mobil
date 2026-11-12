@@ -24,6 +24,7 @@ func _run() -> void:
 	_test_enemy_critical_fallback(game)
 	_test_enemy_counterattack_prioritizes_group_breach(game)
 	_test_enemy_counterattack_focuses_artillery_threat(game)
+	_test_enemy_counterattack_reserve_closes_deployment_gap(game)
 
 	game.queue_free()
 	await process_frame
@@ -289,3 +290,14 @@ func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		push_error("Coordinated group attack regression failed: " + message)
+
+
+func _test_enemy_counterattack_reserve_closes_deployment_gap(game: Node) -> void:
+	game.enemy_base = Vector2(900.0, 330.0)
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(400.0, 330.0), "counterattack_active": true, "counterattack_anchor": Vector2(700.0, 330.0)},
+		{"team": "player", "kind": "artillery", "hp": 110, "pos": Vector2(680.0, 330.0)}
+	])
+	var reserve_start: Vector2 = game.units[0].pos
+	_expect(game._update_enemy_counterattack_reserve(game.units[0], 0, 1.0), "A distant active reserve must remain under counterattack control while deploying")
+	_expect(game.units[0].pos.distance_to(Vector2(700.0, 330.0)) < reserve_start.distance_to(Vector2(700.0, 330.0)), "A reserve assigned to a distant breached asset must advance toward its anchor instead of remaining idle")
