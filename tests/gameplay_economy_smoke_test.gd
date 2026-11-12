@@ -1208,7 +1208,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var faction_names: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 	for army_name in faction_names:
 		var profile: Dictionary = game.call("_faction_profile", army_name)
-		_expect(profile.has("unit_costs") and profile.has("helicopter_damage") and profile.has("missile_damage") and profile.has("naval_damage"), "%s must define a complete faction balance profile" % army_name)
+		_expect(profile.has("unit_costs") and profile.has("helicopter_damage") and profile.has("missile_damage") and profile.has("naval_damage") and profile.has("production_speed"), "%s must define a complete faction balance profile" % army_name)
+		_expect(float(profile.get("production_speed", 0.0)) >= 0.85 and float(profile.get("production_speed", 0.0)) <= 1.10, "%s production speed must stay inside the faction balance safety band" % army_name)
 		_expect(int(game.call("_unit_cost", "tank", army_name)) > 0 and int(game.call("_unit_cost", "infantry", army_name)) > 0, "%s must have valid ground unit costs" % army_name)
 		_expect(float(profile.get("helicopter_cooldown", 0.0)) > 0.0, "%s helicopter cooldown must be positive" % army_name)
 	_expect(int(game.call("_unit_cost", "tank", "الصيني")) < int(game.call("_unit_cost", "tank", "الأمريكي")), "Chinese armor should retain its economy advantage")
@@ -1216,6 +1217,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_unit_cost", "artillery", "الجيش العربي")) < int(game.call("_unit_cost", "artillery", "الأمريكي")), "Arab artillery should retain its affordability advantage")
 	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")), "Watan elite armor should carry a resource premium")
 	_expect(int(game.call("_unit_cost", "fighter", "وطن")) > int(game.call("_unit_cost", "fighter", "الأمريكي")), "Watan elite air units should carry a resource premium")
+	_expect(float(game.call("_faction_production_speed", "الصيني")) > float(game.call("_faction_production_speed", "الأمريكي")), "Chinese reinforcement tempo should be faster than the combined-arms baseline")
+	_expect(float(game.call("_faction_production_speed", "وطن")) < float(game.call("_faction_production_speed", "الأمريكي")), "Watan elite reinforcement tempo should be slower than the baseline")
 	var watan_helicopter: Dictionary = {"faction": "وطن"}
 	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
 	_expect(int(game.call("_helicopter_damage", watan_helicopter)) > int(game.call("_helicopter_damage", american_helicopter)), "Watan helicopter should retain elite damage")
