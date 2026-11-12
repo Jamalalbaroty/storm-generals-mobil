@@ -1712,6 +1712,9 @@ func _faction_ground_attack_damage(attacker: Dictionary, target: Dictionary, bas
 	if target_kind in ["tank", "artillery"]:
 		if attacker_kind == "tank":
 			multiplier = float(profile.get("ground_tank_armor_damage", 1.0))
+			# American level-3 factories unlock calibrated anti-armor fire control.
+			if String(attacker.get("faction", "")) == "الأمريكي" and int(attacker.get("factory_level", 1)) >= 3:
+				multiplier += 0.04
 		elif attacker_kind == "infantry":
 			multiplier = float(profile.get("ground_infantry_armor_damage", 1.0))
 	elif attacker_kind == "tank":
@@ -4489,7 +4492,10 @@ func _upgrade_selected_building() -> void:
 	building["hp"] = mini(_building_max_hp(building), int(building.get("hp", 0)) + 80)
 	buildings[index] = building
 	var level_name := "الثاني" if level + 1 == 2 else "الثالث"
-	notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
+	if kind == "factory" and level + 1 == 3 and faction == "الأمريكي":
+		notice = "اكتمل تطوير المصنع — فُعّل نظام ضبط نيران مضاد للدروع للدبابات الأمريكية الجديدة"
+	else:
+		notice = "تم تطوير المنشأة إلى المستوى %s — التكلفة %d" % [level_name, upgrade_cost]
 	notice_time = 2.8
 	queue_redraw()
 
@@ -6750,6 +6756,15 @@ func _team_unit_count(team: String) -> int:
 	return count
 
 
+func _factory_level_for_producer(producer_id: int) -> int:
+	if producer_id < 0:
+		return 1
+	for producer in buildings:
+		if int(producer.get("production_id", -2)) == producer_id and String(producer.get("kind", "")) == "factory":
+			return clampi(int(producer.get("level", 1)), 1, 3)
+	return 1
+
+
 func _production_building_for(kind: String) -> String:
 	if kind in ["infantry", "builder"]:
 		return "barracks"
@@ -7055,6 +7070,8 @@ func _spawn_unit(kind: String, already_paid: bool = false, producer_id: int = -1
 	var naval_hp := 520 if kind == "carrier" else (210 if kind == "submarine" else (220 if kind == "landing_craft" else 260))
 	var unit_hp := naval_hp if kind in ["carrier", "submarine", "landing_craft", "destroyer"] else (250 if kind == "transport_helicopter" else (220 if kind == "builder" else (180 if kind == "helicopter" else (120 if kind == "fighter" else (150 if kind == "tank" else 100)))))
 	var spawned_unit: Dictionary = {"pos": unit_spawn, "team": "player", "kind": kind, "faction": faction, "hp": unit_hp, "attack_cd": 0.0, "launch_cd": 16.0, "combat_xp": 0.0, "veterancy": 0, "combat_kills": 0, "air_kills": 0, "armor_kills": 0, "naval_kills": 0, "combat_medals": [], "facing": 0.0, "turret_facing": 0.0}
+	if kind == "tank":
+		spawned_unit["factory_level"] = _factory_level_for_producer(producer_id)
 	if kind in ["fighter", "helicopter"]:
 		spawned_unit["aircraft_ammo"] = 8 if kind == "fighter" else 12
 	if aircraft_launch:
