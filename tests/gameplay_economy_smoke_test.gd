@@ -32,7 +32,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		[10, 11, 12, 13, 14, 15],
 		[23, 24, 25, 26, 27],
 		[28, 29, 30, 31],
-		[32, 33, 34, 35, 36, 37]
+		[32, 33, 34, 35, 36, 37, 38]
 	]
 	var covered_actions: Dictionary = {}
 	for tab_index in range(expected_command_tabs.size()):
@@ -41,7 +41,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 33, "The six compact command tabs should retain access to all 33 gameplay actions")
+	_expect(covered_actions.size() == 34, "The six compact command tabs should retain access to all 33 gameplay actions")
 	# Selecting only a living builder opens a dedicated construction palette.
 	game.get("units").assign([{"team": "player", "kind": "builder", "hp": 100, "pos": Vector2(180.0, 330.0)}])
 	game.get("selected").assign([0])
@@ -69,7 +69,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("selected").assign([0])
 	game.set("command_tab", 5)
 	_expect(game.call("_command_tab_label", 5) == "قيادة القوات", "The sixth command tab should be dedicated to tactical force orders")
-	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37], "Tactical command tab should expose guard, regroup, cancel, and three formation orders")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical command tab should expose guard, regroup, cancel, and three formation orders")
 	game.call("_issue_selected_force_order", "guard")
 	_expect(bool(game.get("units")[0].get("guard_active", false)), "Guard command should anchor the selected unit at its current position")
 	_expect(not game.get("units")[0].has("target"), "Guard command should clear stale movement destinations")
@@ -84,6 +84,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "defensive", "Defensive formation should replace the previous stance")
 	game.call("_issue_selected_formation_order", "spread")
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "spread", "Spread formation should be available as a selectable stance")
+	game.call("_issue_selected_formation_order", "protect")
+	_expect(String(game.get("units")[0].get("formation_mode", "")) == "protect", "Artillery protection formation should be saved on selected live units")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical palette should expose the artillery protection formation")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "spread")), 79.2), "Spread formation should increase role spacing by 65 percent")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "assault")), 42.24), "Assault formation should tighten spacing for a focused push")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "defensive")), 53.76), "Defensive formation should widen the line for flank coverage")
