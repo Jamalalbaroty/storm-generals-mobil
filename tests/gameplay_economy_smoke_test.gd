@@ -1189,6 +1189,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"team": "enemy", "kind": "infantry", "hp": 60, "pos": Vector2(112.0, 260.0)})
 	_expect(int(game.call("_select_player_ground_combat_target", Vector2(0.0, 260.0), "artillery", 420.0)) == 1, "Player artillery should prioritize clustered hostile units for splash damage")
 
+	# Anti-air batteries should intercept transports on a close strategic-asset approach.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("enemy_buildings").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(200.0, 100.0)})
+	game.get("units").append({"team": "enemy", "kind": "transport_helicopter", "hp": 180, "pos": Vector2(100.0, 100.0)})
+	game.get("buildings").append({"kind": "airfield", "hp": 500, "pos": Vector2(110.0, 100.0)})
+	_expect(int(game.call("_priority_air_target", Vector2(0.0, 100.0), "enemy", 320.0)) == 1, "Anti-air should prioritize an incoming transport helicopter near a strategic installation")
+	# Batteries should avoid spending a full volley on an aircraft already within one-hit range when another contact is available.
+	game.get("units").clear()
+	game.get("buildings").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 20, "pos": Vector2(50.0, 100.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(100.0, 100.0)})
+	_expect(int(game.call("_priority_air_target", Vector2(0.0, 100.0), "enemy", 320.0)) == 1, "Anti-air target selection should avoid redundant volleys against a nearly destroyed aircraft")
+
 	# Infantry should follow an active assault tank as a screening/support element.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
