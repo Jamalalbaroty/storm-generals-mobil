@@ -803,6 +803,8 @@ func _process(delta: float) -> void:
 					else:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
+				if unit.kind in ["fighter", "helicopter"] and _update_enemy_air_wave_staging(unit, delta):
+					continue
 				if unit.kind == "helicopter":
 					var heli_target = _nearest_unit_by_priority(unit.pos, 760.0, "player", ["tank", "artillery", "infantry"])
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
@@ -6619,6 +6621,33 @@ func _enemy_retreat_destination(from_pos: Vector2) -> Vector2:
 	return safest_destination
 
 
+func _update_enemy_air_wave_staging(unit: Dictionary, delta: float) -> bool:
+	# Enemy fighters and attack helicopters wait briefly so the AI commits a coordinated sortie.
+	if not bool(unit.get("air_wave_staging", false)):
+		return false
+	var staged_count := 0
+	for candidate in units:
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) in ["fighter", "helicopter"] and bool(candidate.get("air_wave_staging", false)):
+			staged_count += 1
+	if staged_count >= 2:
+		for candidate in units:
+			if String(candidate.get("team", "")) == "enemy" and String(candidate.get("kind", "")) in ["fighter", "helicopter"] and bool(candidate.get("air_wave_staging", false)):
+				candidate["air_wave_staging"] = false
+				candidate["air_wave_launched"] = true
+				candidate.erase("air_wave_wait")
+		return false
+	var wait_time := float(unit.get("air_wave_wait", 0.0)) + delta
+	if wait_time >= 18.0:
+		unit["air_wave_staging"] = false
+		unit["air_wave_launched"] = true
+		unit.erase("air_wave_wait")
+		return false
+	unit["air_wave_wait"] = wait_time
+	return true
+
+
 func _enemy_ai_turn() -> void:
 	var player_air_threat = 0
 	var player_heavy_ground_threat = 0
@@ -6812,12 +6841,12 @@ func _enemy_ai_turn() -> void:
 	elif _enemy_has_powered_building("airfield") and enemy_credits >= _unit_cost("fighter", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("fighter") and enemy_fighters < (4 if player_air_threat >= 2 else 2):
 		enemy_credits -= _unit_cost("fighter", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("fighter")
-		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "fighter", "faction": _enemy_faction(), "hp": 120, "target": base_pos, "attack_cd": 0.0, "air_wave_staging": true, "air_wave_wait": 0.0})
 	elif _enemy_has_powered_building("airfield") and enemy_credits >= _helicopter_cost(_enemy_faction()) and enemy_supplies >= _unit_supply_cost("helicopter") and enemy_helicopters < (3 if player_heavy_ground_threat >= 3 else 2):
 		enemy_credits -= _helicopter_cost(_enemy_faction())
 		enemy_supplies -= _unit_supply_cost("helicopter")
 		var rival_faction := _enemy_faction()
-		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0})
+		units.append({"pos": enemy_base + Vector2(-90, randf_range(-75, 75)), "team": "enemy", "kind": "helicopter", "faction": rival_faction, "hp": 180, "target": base_pos, "attack_cd": 0.0, "air_wave_staging": true, "air_wave_wait": 0.0})
 	elif _enemy_has_powered_building("factory") and enemy_credits >= _unit_cost("artillery", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("artillery") and (enemy_tanks >= 2 or player_infantry_threat >= 6) and enemy_artillery < min(3, max(1, int(ceil(float(enemy_tanks) / 2.0)))):
 		enemy_credits -= _unit_cost("artillery", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("artillery")
