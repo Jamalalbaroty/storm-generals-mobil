@@ -2874,12 +2874,19 @@ func _draw_base(p: Vector2, color: Color, label: String) -> void:
 	draw_string(ThemeDB.fallback_font, p + Vector2(-48, 66), label, HORIZONTAL_ALIGNMENT_CENTER, 96, 16, Color.WHITE)
 
 func _draw_hud(size: Vector2) -> void:
-	# Compact mobile command deck: resources, grid power, threat state and production.
-	draw_rect(Rect2(0, 0, size.x, 58), Color(0.035, 0.055, 0.065, 0.96))
+	# Premium command header: restrained steel/navy layers with the game's gold identity.
+	draw_rect(Rect2(0, 0, size.x, 58), Color("#09151b"))
+	draw_rect(Rect2(0, 0, size.x, 3), Color("#c7a45b"))
+	draw_rect(Rect2(0, 3, size.x, 55), Color(0.035, 0.055, 0.065, 0.97))
 	draw_line(Vector2(0, 58), Vector2(size.x, 58), Color("#71858a"), 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(14, 36), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, minf(210.0, size.x * 0.48), _hud_brand_font_size(size), Color("#f4d77a"))
+	draw_rect(Rect2(10, 12, 3, 32), Color("#e0bd68"))
+	draw_string(ThemeDB.fallback_font, Vector2(20, 36), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, minf(210.0, size.x * 0.48), _hud_brand_font_size(size), Color("#f4d77a"))
 	if not game_started:
 		return
+	var faction_tint := _hud_faction_accent()
+	draw_string(ThemeDB.fallback_font, Vector2(size.x - 12, 35), faction, HORIZONTAL_ALIGNMENT_RIGHT, size.x * 0.38, clampi(int(size.x * 0.018), 11, 16), faction_tint)
+	draw_circle(Vector2(size.x - 12, 15), 3.5, Color("#8bd5a0"))
+	draw_string(ThemeDB.fallback_font, Vector2(size.x - 22, 19), "LIVE", HORIZONTAL_ALIGNMENT_RIGHT, 55, 9, Color("#a9c5b6"))
 	var margin := 10.0
 	var gap := 6.0
 	var metric_width := (size.x - margin * 2.0 - gap * 3.0) / 4.0
@@ -2896,8 +2903,11 @@ func _draw_hud(size: Vector2) -> void:
 				nearby_threats += 1
 	for metric_index in range(4):
 		var metric_rect := Rect2(Vector2(margin + metric_index * (metric_width + gap), metric_y), Vector2(metric_width, metric_h))
+		draw_rect(Rect2(metric_rect.position + Vector2(0, 2), metric_rect.size), Color(0.015, 0.035, 0.045, 0.45), true)
 		draw_rect(metric_rect, Color("#17272d"), true)
 		draw_rect(metric_rect, Color("#425b62"), false, 1.0)
+		var metric_accents := [Color("#e2bd67"), Color("#83d9c5"), Color("#91c9e8"), Color("#e47c70")]
+		draw_rect(Rect2(metric_rect.position, Vector2(3, metric_rect.size.y)), metric_accents[metric_index])
 	var metric_values := [
 		{"label": "الموارد", "value": str(credits), "color": Color("#f2d47b")},
 		{"label": "الإمداد", "value": "%d / %d" % [supplies, _player_supply_capacity()], "color": Color("#9fe6d2")},
@@ -2915,8 +2925,10 @@ func _draw_hud(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(12, 145), power_state, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 12, Color("#a8e6b0") if power_demand <= power_capacity else Color("#ff9c82"))
 	# Production panel remains visible even when the queue is empty.
 	var production_rect := Rect2(Vector2(10, 154), Vector2(size.x - 20, 43))
-	draw_rect(production_rect, Color(0.035, 0.055, 0.065, 0.86), true)
-	draw_rect(production_rect, Color("#425b62"), false, 1.0)
+	draw_rect(Rect2(production_rect.position + Vector2(0, 2), production_rect.size), Color(0.015, 0.035, 0.045, 0.42), true)
+	draw_rect(production_rect, Color("#101f26", 0.96), true)
+	draw_rect(production_rect, Color("#526b70"), false, 1.0)
+	draw_rect(Rect2(production_rect.position, Vector2(3, production_rect.size.y)), Color("#c7a45b"))
 	if production_orders.is_empty():
 		# Building construction is a separate queue from unit production.
 		# Report active construction here instead of claiming the base is idle.
@@ -3014,18 +3026,27 @@ func _draw_hud(size: Vector2) -> void:
 		labels[12] = "إلغاء البناء"
 	else:
 		labels[12] = "ترقية / إلغاء"
+	# The lower command deck is a visual layer only; hit rectangles remain unchanged.
+	var deck_top := size.y - 172.0
+	draw_rect(Rect2(0, deck_top, size.x, size.y - deck_top), Color(0.025, 0.045, 0.055, 0.94), true)
+	draw_rect(Rect2(0, deck_top, size.x, 2), Color("#b89450"))
 	for tab_index in range(_command_tab_count()):
 		var tab_rect := _command_tab_rect(tab_index, size)
-		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
-		draw_rect(tab_rect, Color("#f4d77a") if tab_index == command_tab else Color("#58717b"), false, 1.5)
-		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), _command_tab_label(tab_index), HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color.WHITE)
+		var is_active_tab := tab_index == command_tab
+		draw_rect(tab_rect, Color("#3a3020") if is_active_tab else Color("#142630"), true)
+		draw_rect(tab_rect, Color("#e4c477") if is_active_tab else Color("#49616b"), false, 1.5)
+		if is_active_tab:
+			draw_rect(Rect2(tab_rect.position + Vector2(7, tab_rect.size.y - 3), Vector2(tab_rect.size.x - 14, 2)), Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), _command_tab_label(tab_index), HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color("#ffe6a6") if is_active_tab else Color("#d4e0df"))
 	var visible_actions: Array = _command_action_ids()
 	for slot in range(visible_actions.size()):
 		var action_id := int(visible_actions[slot])
 		var r := _button_rect(slot, size)
+		draw_rect(Rect2(r.position + Vector2(0, 2), r.size), Color(0.0, 0.0, 0.0, 0.28), true)
 		draw_rect(r, Color("#263d50"), true)
-		draw_rect(r, Color("#8fa8b8"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, _command_button_font_size(r.size.x), Color.WHITE)
+		draw_rect(r, Color("#79919a"), false, 1.2)
+		draw_rect(Rect2(r.position + Vector2(1, 1), Vector2(r.size.x - 2, 2)), Color("#91a9b2", 0.72))
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, _command_button_font_size(r.size.x), Color("#f2f5ed"))
 	var pause_button := _pause_rect(size)
 	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
@@ -3034,6 +3055,20 @@ func _draw_hud(size: Vector2) -> void:
 	draw_rect(view_button, Color("#284b43"), true)
 	draw_rect(view_button, Color("#8bd5a0"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, view_button.position + Vector2(0, 30), "عرض 3D", HORIZONTAL_ALIGNMENT_CENTER, view_button.size.x, 16, Color.WHITE)
+
+func _hud_faction_accent() -> Color:
+	match faction:
+		"الأمريكي":
+			return Color("#8fc7ef")
+		"الصيني":
+			return Color("#e77b72")
+		"الجيش العربي":
+			return Color("#9bd29b")
+		"وطن":
+			return Color("#e5c36f")
+		_:
+			return Color("#d8e6c2")
+
 
 func _has_only_selected_builders() -> bool:
 	var has_builder := false
