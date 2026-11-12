@@ -1739,16 +1739,47 @@ func _tank_reload_cooldown_with_veterancy(unit: Dictionary, base_cooldown: float
 	return base_cooldown * multiplier
 
 
-func _load_commander_profile() -> void:
+const COMMANDER_PROFILE_PATH := "user://storm_generals_profile.cfg"
+const COMMANDER_PROFILE_TEST_PATH := "user://storm_generals_profile_regression.cfg"
+
+
+func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
 	var config := ConfigFile.new()
-	var load_error := config.load("user://storm_generals_profile.cfg")
+	var load_error := config.load(path)
 	if load_error != OK:
 		return
 	var stored: Variant = config.get_value("commander", "profile", {})
-	if stored is Dictionary:
-		for key in commander_profile:
-			if stored.has(key):
-				commander_profile[key] = stored[key]
+	if not stored is Dictionary:
+		return
+	# Treat the profile as untrusted persisted input: one malformed field must not
+	# poison typed campaign state or crash the faction picker after an app update.
+	for key in ["battles_played", "victories", "defeats", "total_kills", "air_kills", "armor_kills", "naval_kills", "campaign_funds"]:
+		if not stored.has(key):
+			continue
+		var raw_value: Variant = stored[key]
+		if (raw_value is int or raw_value is float) and is_finite(float(raw_value)) and float(raw_value) >= 0.0:
+			commander_profile[key] = int(minf(float(raw_value), 2147483647.0))
+	var stored_progress: Variant = stored.get("campaign_progress", {})
+	if stored_progress is Dictionary:
+		var safe_progress: Dictionary = {}
+		for army_name in FACTIONS:
+			var raw_progress: Variant = stored_progress.get(army_name, 0)
+			if raw_progress is int and int(raw_progress) >= 0:
+				safe_progress[army_name] = clampi(int(raw_progress), 0, CAMPAIGN_MISSIONS.size())
+		commander_profile["campaign_progress"] = safe_progress
+	var stored_medals: Variant = stored.get("earned_medals", [])
+	if stored_medals is Array:
+		var safe_medals: Array[String] = []
+		for medal_variant in stored_medals:
+			if not medal_variant is String:
+				continue
+			var medal := String(medal_variant).strip_edges()
+			if medal.is_empty() or medal.length() > 64 or safe_medals.has(medal):
+				continue
+			safe_medals.append(medal)
+			if safe_medals.size() >= 100:
+				break
+		commander_profile["earned_medals"] = safe_medals
 
 
 func _save_commander_profile() -> void:

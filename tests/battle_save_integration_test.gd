@@ -866,6 +866,31 @@ func _run_battle_save_integration_test() -> void:
 	var saved_objective_buildings: Array = game.get("buildings").duplicate(true)
 	var saved_objective_units: Array = game.get("units").duplicate(true)
 
+	# Corrupt or stale commander-profile fields must be sanitized before campaign UI reads them.
+	var profile_fixture := ConfigFile.new()
+	var profile_fixture_data := {
+		"battles_played": "many",
+		"victories": -4,
+		"defeats": 3,
+		"total_kills": 12.0,
+		"campaign_funds": -900,
+		"campaign_progress": {"وطن": 999, "الصيني": -2, "الأمريكي": "unknown", "جهة مجهولة": 4},
+		"earned_medals": ["وسام الصمود", 42, "", "وسام الصمود", "قاهر الميدان"]
+	}
+	profile_fixture.set_value("commander", "profile", profile_fixture_data)
+	_expect(profile_fixture.save("user://storm_generals_profile_regression.cfg") == OK, "Test should write an isolated malformed commander profile")
+	game.call("_load_commander_profile", "user://storm_generals_profile_regression.cfg")
+	var sanitized_profile: Dictionary = game.get("commander_profile")
+	_expect(int(sanitized_profile.get("battles_played", -1)) == 0 and int(sanitized_profile.get("victories", -1)) == 0, "Malformed or negative career counters must retain safe defaults")
+	_expect(int(sanitized_profile.get("defeats", -1)) == 3 and int(sanitized_profile.get("total_kills", -1)) == 12, "Valid numeric career counters must survive profile loading")
+	_expect(int(sanitized_profile.get("campaign_funds", -1)) == 0, "Negative campaign funds must be rejected")
+	_expect(int(sanitized_profile.get("campaign_progress", {}).get("وطن", -1)) == 5, "Campaign progress beyond the final mission must clamp to the completed state")
+	_expect(not sanitized_profile.get("campaign_progress", {}).has("الصيني") and not sanitized_profile.get("campaign_progress", {}).has("الأمريكي"), "Negative and non-integer mission progress must be ignored")
+	_expect(sanitized_profile.get("earned_medals", []) == ["وسام الصمود", "قاهر الميدان"], "Profile medal loading must filter invalid entries and duplicates")
+	var profile_test_absolute := ProjectSettings.globalize_path("user://storm_generals_profile_regression.cfg")
+	if FileAccess.file_exists("user://storm_generals_profile_regression.cfg"):
+		DirAccess.remove_absolute(profile_test_absolute)
+
 	# Campaign secondary objectives expose live, deterministic progress for every mission.
 	game.set("campaign_mission_index", 0)
 	game.set("player_base_hp", 499)
