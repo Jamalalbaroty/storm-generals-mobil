@@ -1227,6 +1227,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "الأمريكي"}, {"kind": "tank"}, 20)) == 22, "American tanks should specialize in anti-armor engagements")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "الصيني"}, {"kind": "tank"}, 20)) == 21, "Chinese tanks should gain restrained anti-armor pressure")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "faction": "الجيش العربي"}, {"kind": "tank"}, 10)) == 11, "Arab infantry should counter armor through close ambush pressure")
+	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "faction": "الجيش العربي", "barracks_level": 2}, {"kind": "tank"}, 100)) == 112, "Arab barracks level 2 must not unlock veteran anti-armor drills")
+	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "faction": "الجيش العربي", "barracks_level": 3}, {"kind": "tank"}, 100)) == 115, "Arab level-3 barracks should unlock capped anti-armor ambush damage")
+	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "team": "enemy", "faction": "الجيش العربي", "barracks_level": 3}, {"kind": "artillery", "team": "player"}, 100)) == 115, "Enemy Arab infantry with level-3 barracks technology must use the same doctrine")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "faction": "وطن"}, {"kind": "infantry"}, 20)) == 21, "Watan elite tanks should gain a small general ground advantage")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "tank", "team": "enemy", "faction": "الصيني"}, {"kind": "tank", "team": "player"}, 20)) == 21, "Enemy Chinese tanks must receive the same faction anti-armor doctrine as player tanks")
 	_expect(int(game.call("_faction_ground_attack_damage", {"kind": "infantry", "team": "enemy", "faction": "الجيش العربي"}, {"kind": "tank", "team": "player"}, 10)) == 11, "Enemy Arab infantry must retain its anti-armor ambush doctrine")
@@ -1242,6 +1245,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("buildings").append({"kind": "factory", "production_id": 73, "level": 3, "hp": 500, "build_progress": 1.0})
 	_expect(int(game.call("_factory_level_for_producer", 73)) == 3, "Tank production must read the exact factory's upgrade level")
 	_expect(int(game.call("_factory_level_for_producer", 74)) == 1, "Missing producer IDs must safely fall back to factory level 1")
+	game.get("buildings").append({"kind": "barracks", "production_id": 75, "level": 3, "hp": 400, "build_progress": 1.0})
+	_expect(int(game.call("_barracks_level_for_producer", 75)) == 3, "Infantry production must read the exact barracks upgrade level")
+	_expect(int(game.call("_barracks_level_for_producer", 76)) == 1, "Missing barracks producer IDs must safely fall back to level 1")
 	game.get("buildings").clear()
 	var watan_helicopter: Dictionary = {"faction": "وطن"}
 	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
