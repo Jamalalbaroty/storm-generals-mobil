@@ -212,7 +212,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("credits", 5000)
 	game.set("supplies", 20)
 
-	var barracks_command: Vector2 = game.call("_button_rect", 2, build_loop_viewport).get_center()
+	var barracks_command: Vector2 = game.call("_button_rect", 1, build_loop_viewport).get_center()
 	game.call("_handle_pointer", barracks_command, true)
 	game.call("_handle_pointer", barracks_command, false)
 	var barracks_site: Vector2 = game.get("base_pos") + Vector2(120.0, 80.0)
@@ -257,7 +257,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 				produced_infantry += 1
 		_expect(produced_infantry == 1 and game.get("production_orders").is_empty(), "Completed infantry production should spawn exactly one friendly soldier")
 
-		var factory_command: Vector2 = game.call("_button_rect", 3, build_loop_viewport).get_center()
+		var factory_command: Vector2 = game.call("_button_rect", 2, build_loop_viewport).get_center()
 		game.call("_handle_pointer", factory_command, true)
 		game.call("_handle_pointer", factory_command, false)
 		var factory_site: Vector2 = game.get("base_pos") + Vector2(145.0, -90.0)
