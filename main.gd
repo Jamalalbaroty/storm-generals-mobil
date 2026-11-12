@@ -3,10 +3,10 @@ extends Node2D
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 # Presentation-only identity data. Gameplay faction keys and commander save data stay unchanged.
 const FACTION_PRESENTATION := [
-	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "emblem": "star", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
-	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "emblem": "dragon", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
-	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "emblem": "falcon", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
-	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "emblem": "shield", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
+	{"color": "#365B7C", "accent": "#8EC5E8", "mark": "US", "emblem": "star", "title": "القوة المشتركة", "doctrine": "تفوق جوي ومدرعات", "traits": ["دعم جوي", "دروع متوازنة", "تشكيل مشترك"], "strength": "إسناد جوي متقدم", "weakness": "كلفة تشغيل مرتفعة"},
+	{"color": "#743C3B", "accent": "#E5B85C", "mark": "CN", "emblem": "dragon", "title": "التنين الصيني", "doctrine": "كتلة مدرعة وصواريخ", "traits": ["دبابات أوفر", "صواريخ", "غواصات أوفر"], "strength": "قوة مدرعة كثيفة", "weakness": "مرونة جوية أقل"},
+	{"color": "#526B45", "accent": "#C18A4B", "mark": "AR", "emblem": "falcon", "title": "قوة الصحراء", "doctrine": "مناورة وكمائن", "traits": ["مشاة أوفر", "مدفعية", "مروحيات هجومية"], "strength": "مشاة ومدفعية", "weakness": "طيران محدود"},
+	{"color": "#176B52", "accent": "#C7A45A", "mark": "WT", "emblem": "shield", "title": "درع الوطن", "doctrine": "تقنية ودفاع متكامل", "traits": ["مروحيات نخبة", "صواريخ قوية", "عتاد فاخر"], "strength": "وحدات نخبة", "weakness": "تعزيز أبطأ وكلفة أعلى"}
 ]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
@@ -3422,22 +3422,38 @@ func _draw_campaign_briefing(size: Vector2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.29, size.y * 0.295), String(identity.title), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.54, clampi(int(size.x * 0.026), 16, 23), Color.WHITE)
 	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.12, size.y * 0.355), "%s  |  العقيدة: %s" % [faction, String(identity.doctrine)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.76, clampi(int(size.x * 0.016), 10, 14), Color("#c8d5dc"))
 
+	# Three concise faction traits, grounded in each army's current balance profile.
+	var trait_panel := Rect2(size.x * 0.10, size.y * 0.375, size.x * 0.80, size.y * 0.075)
+	draw_rect(trait_panel, Color("#14212a"), true)
+	draw_rect(trait_panel, Color("#455966"), false, 1.0)
+	var traits: Array = identity.get("traits", [])
+	for trait_index in range(mini(traits.size(), 3)):
+		var trait_rect := Rect2(
+			trait_panel.position.x + float(trait_index) * trait_panel.size.x / 3.0 + 3.0,
+			trait_panel.position.y + 4.0,
+			trait_panel.size.x / 3.0 - 6.0,
+			trait_panel.size.y - 8.0
+		)
+		draw_rect(trait_rect, faction_color.darkened(0.48), true)
+		draw_rect(trait_rect, accent_color.darkened(0.25), false, 1.0)
+		draw_string(ThemeDB.fallback_font, Vector2(trait_rect.position.x, trait_rect.position.y + trait_rect.size.y * 0.66), String(traits[trait_index]), HORIZONTAL_ALIGNMENT_CENTER, trait_rect.size.x, clampi(int(size.x * 0.012), 9, 12), Color("#f0f3f4"))
+
 	# Mission order panel.
-	var mission_panel := Rect2(size.x * 0.10, size.y * 0.385, size.x * 0.80, size.y * 0.275)
+	var mission_panel := Rect2(size.x * 0.10, size.y * 0.465, size.x * 0.80, size.y * 0.205)
 	draw_rect(mission_panel, Color("#17242d"), true)
 	draw_rect(mission_panel, Color("#455966"), false, 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.425), "أوامر المهمة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 13, accent_color)
+	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.495), "أوامر المهمة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 13, accent_color)
 	if completed >= CAMPAIGN_MISSIONS.size():
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.475), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 18, Color("#a8e6b0"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.525), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 14, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.535), "أكملت جميع عمليات الحملة!", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 18, Color("#a8e6b0"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.575), "يمكنك إعادة خوض العملية الأخيرة", HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 14, Color.WHITE)
 	else:
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.475), "العملية %d / %d — %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.019), 12, 18), Color.WHITE)
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.525), "المسرح: %s    |    المكافأة: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#c4dce8"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.575), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#d8e6c2"))
-		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.625), "الهدف الإضافي: %s  |  +%d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.012), 9, 12), Color("#f4d77a"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.535), "العملية %d / %d — %s" % [completed + 1, CAMPAIGN_MISSIONS.size(), String(mission.name)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.019), 12, 18), Color.WHITE)
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.575), "المسرح: %s    |    المكافأة: %d" % [String(mission.map), int(mission.reward)], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#c4dce8"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.615), String(mission.brief), HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.014), 10, 13), Color("#d8e6c2"))
+		draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, size.y * 0.655), "الهدف الإضافي: %s  |  +%d" % [String(mission.get("secondary", "")), int(mission.get("bonus", 0))], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, clampi(int(size.x * 0.012), 9, 12), Color("#f4d77a"))
 
 	# Campaign progress and faction matchup notes.
-	var progress_y := size.y * 0.675
+	var progress_y := size.y * 0.690
 	draw_string(ThemeDB.fallback_font, Vector2(size.x * 0.14, progress_y), "تقدم الحملة: %d / %d" % [completed, CAMPAIGN_MISSIONS.size()], HORIZONTAL_ALIGNMENT_CENTER, size.x * 0.72, 11, Color("#e8e1cb"))
 	for i in CAMPAIGN_MISSIONS.size():
 		var dot_x := size.x * 0.38 + float(i) * size.x * 0.06
