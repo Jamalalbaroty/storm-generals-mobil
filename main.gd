@@ -3034,8 +3034,9 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
-		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 53), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
+		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("ترقية المجموعة" if selected_player_units.size() > 1 else ("ترقية عند 250 خبرة" if highest_rank == 1 else "ترقية عند 100 خبرة"))
+		var order_summary := _selected_group_order_summary(selected_player_units)
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 53), "%s  |  %s" % [order_summary, progress_label], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
 	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
@@ -3515,6 +3516,44 @@ func _issue_group_attack_order(target_index: int) -> void:
 	if not issued_indices.is_empty():
 		notice = "أمر هجوم جماعي — تموضع تكتيكي حسب دور كل وحدة مع تركيز النيران"
 		notice_time = 1.8
+
+
+func _selected_group_order_summary(selected_indices: Array[int]) -> String:
+	# A compact Zero Hour-style command readout for the selected force.
+	var order_counts: Dictionary = {}
+	var live_count := 0
+	for unit_index in selected_indices:
+		if unit_index < 0 or unit_index >= units.size():
+			continue
+		var unit: Dictionary = units[unit_index]
+		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		live_count += 1
+		var order_label := "خامل"
+		if unit.has("attack_target") or unit.has("attack_building") or bool(unit.get("attack_base", false)):
+			order_label = "هجوم"
+		elif bool(unit.get("attack_move_active", false)):
+			order_label = "تقدم قتالي"
+		elif bool(unit.get("guard_active", false)):
+			order_label = "حراسة"
+		elif bool(unit.get("escort_active", false)):
+			order_label = "مرافقة"
+		elif unit.has("air_patrol_points"):
+			order_label = "دورية"
+		elif unit.has("repair_building"):
+			order_label = "إصلاح"
+		elif unit.has("target"):
+			order_label = "تحرك"
+		order_counts[order_label] = int(order_counts.get(order_label, 0)) + 1
+	if live_count == 0:
+		return "لا توجد قوات حية"
+	var summaries: Array[String] = []
+	for order_label in ["هجوم", "تقدم قتالي", "حراسة", "مرافقة", "دورية", "إصلاح", "تحرك", "خامل"]:
+		var count := int(order_counts.get(order_label, 0))
+		if count <= 0:
+			continue
+		summaries.append("%s %d" % [order_label, count] if live_count > 1 else "الأمر: %s" % order_label)
+	return " | ".join(summaries)
 
 
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
