@@ -314,6 +314,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.get("credits")) == 48, "Contested port must stop paying credits")
 	_expect(int(game.get("supplies")) == 1, "Contested port must stop paying supplies")
 
+	# A full reserve must discard idle depot time rather than banking a free refill.
+	game.get("buildings").clear()
+	var depot_cap_probe: Dictionary = {"kind": "supply_depot", "hp": 300, "build_progress": 1.0, "level": 1, "supply_timer": 0.0, "pos": Vector2(700.0, 500.0)}
+	game.get("buildings").append(depot_cap_probe)
+	var depot_capacity: int = int(game.call("_player_supply_capacity"))
+	game.set("supplies", depot_capacity)
+	game.call("_update_supply_depots", 5.0)
+	_expect(float(game.get("buildings")[0].get("supply_timer", -1.0)) == 0.0, "Supply depots at full capacity must discard idle production time")
+	game.set("supplies", depot_capacity - 1)
+	game.call("_update_supply_depots", 11.0)
+	_expect(int(game.get("supplies")) == depot_capacity - 1, "A depot must not pay early using time accumulated while the reserve was full")
+	game.call("_update_supply_depots", 1.0)
+	_expect(int(game.get("supplies")) == depot_capacity, "A depot should pay after a fresh complete production interval")
+	game.get("buildings").clear()
+
 	# Capture, contest, and recapture lifecycle: ownership changes must reset fractional income and transfer payouts to the new owner.
 	live_units = game.get("units")
 	live_units[0]["hp"] = 0

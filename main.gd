@@ -4624,6 +4624,12 @@ func _update_supply_depots(delta: float) -> void:
 		var depot: Dictionary = buildings[i]
 		if String(depot.get("kind", "")) != "supply_depot" or int(depot.get("hp", 0)) <= 0 or float(depot.get("build_progress", 1.0)) < 1.0:
 			continue
+		var supply_cap := _player_supply_capacity()
+		# A depot at capacity must not bank idle production time for an instant refill later.
+		if supplies >= supply_cap:
+			depot["supply_timer"] = 0.0
+			buildings[i] = depot
+			continue
 		depot["supply_timer"] = float(depot.get("supply_timer", 0.0)) + delta
 		var interval := maxf(7.0, 12.0 - float(maxi(1, int(depot.get("level", 1))) - 1) * 1.5)
 		if float(depot["supply_timer"]) >= interval:
