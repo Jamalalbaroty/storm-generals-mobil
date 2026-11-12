@@ -59,6 +59,24 @@ func _run_gameplay_economy_smoke_test() -> void:
 			faction_rects.append(faction_rect)
 		_expect(faction_rects[0].position.x < faction_rects[1].position.x, "First army row should use two columns")
 		_expect(faction_rects[2].position.y > faction_rects[0].position.y, "Second army row should be reachable below the first")
+	# Command-deck hit targets and responsive label sizes must remain usable on compact phones.
+	for command_viewport in picker_viewports:
+		var tab_rects: Array[Rect2] = []
+		for tab_index in range(5):
+			var tab_rect: Rect2 = game.call("_command_tab_rect", tab_index, command_viewport)
+			_expect(tab_rect.position.x >= 0.0 and tab_rect.position.y >= 0.0 and tab_rect.end.x <= command_viewport.x and tab_rect.end.y <= command_viewport.y, "Command tab touch target must fit viewport %s" % command_viewport)
+			_expect(int(game.call("_command_tab_font_size", tab_rect.size.x)) >= 9, "Command tab labels must retain a legible minimum font size")
+			for previous_tab in tab_rects:
+				_expect(not tab_rect.intersects(previous_tab), "Command tab touch targets must not overlap")
+			tab_rects.append(tab_rect)
+		for button_slot in range(6):
+			var button_rect: Rect2 = game.call("_button_rect", button_slot, command_viewport)
+			_expect(button_rect.position.x >= 0.0 and button_rect.position.y >= 0.0 and button_rect.end.x <= command_viewport.x and button_rect.end.y <= command_viewport.y, "Command button touch target must fit viewport %s" % command_viewport)
+			_expect(int(game.call("_command_button_font_size", button_rect.size.x)) >= 9, "Command button labels must retain a legible minimum font size")
+	var narrow_metric_width := (320.0 - 20.0 - 18.0) / 4.0
+	_expect(int(game.call("_hud_metric_value_font_size", narrow_metric_width)) <= 14 and int(game.call("_hud_metric_value_font_size", narrow_metric_width)) >= 9, "Resource values should scale down on narrow screens")
+	_expect(int(game.call("_hud_brand_font_size", Vector2(320.0, 568.0))) < 19, "The title font should scale down on narrow screens")
+
 	# Exercise the real press/release path, including the campaign briefing between faction selection and battle start.
 	var active_viewport: Vector2 = game.get_viewport_rect().size
 	var expected_factions: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]

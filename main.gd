@@ -2872,7 +2872,7 @@ func _draw_hud(size: Vector2) -> void:
 	# Compact mobile command deck: resources, grid power, threat state and production.
 	draw_rect(Rect2(0, 0, size.x, 58), Color(0.035, 0.055, 0.065, 0.96))
 	draw_line(Vector2(0, 58), Vector2(size.x, 58), Color("#71858a"), 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(14, 36), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, minf(210.0, size.x * 0.48), 19, Color("#f4d77a"))
+	draw_string(ThemeDB.fallback_font, Vector2(14, 36), "STORM GENERALS", HORIZONTAL_ALIGNMENT_LEFT, minf(210.0, size.x * 0.48), _hud_brand_font_size(size), Color("#f4d77a"))
 	if not game_started:
 		return
 	var margin := 10.0
@@ -2902,8 +2902,8 @@ func _draw_hud(size: Vector2) -> void:
 	for metric_index in range(metric_values.size()):
 		var metric_rect := Rect2(Vector2(margin + metric_index * (metric_width + gap), metric_y), Vector2(metric_width, metric_h))
 		var metric: Dictionary = metric_values[metric_index]
-		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 15), String(metric.label), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, 11, Color("#b6c7c8"))
-		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 34), String(metric.value), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, 14, metric.color)
+		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 15), String(metric.label), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, _hud_metric_label_font_size(metric_width), Color("#b6c7c8"))
+		draw_string(ThemeDB.fallback_font, metric_rect.position + Vector2(5, 34), String(metric.value), HORIZONTAL_ALIGNMENT_LEFT, metric_width - 10, _hud_metric_value_font_size(metric_width), metric.color)
 	var theatre_text := "%s  |  %s" % [map_type, _terrain_effect_label()]
 	draw_string(ThemeDB.fallback_font, Vector2(12, 126), theatre_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 12, Color("#d8e6c2"))
 	var power_state := "شبكة الطاقة مستقرة" if power_demand <= power_capacity else "تحذير: عجز الطاقة — بعض المنشآت متوقفة"
@@ -3013,14 +3013,14 @@ func _draw_hud(size: Vector2) -> void:
 		var tab_rect := _command_tab_rect(tab_index, size)
 		draw_rect(tab_rect, Color("#73552d") if tab_index == command_tab else Color("#172a35"), true)
 		draw_rect(tab_rect, Color("#f4d77a") if tab_index == command_tab else Color("#58717b"), false, 1.5)
-		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), COMMAND_TAB_LABELS[tab_index], HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), COMMAND_TAB_LABELS[tab_index], HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color.WHITE)
 	var visible_actions: Array = _command_action_ids()
 	for slot in range(visible_actions.size()):
 		var action_id := int(visible_actions[slot])
 		var r := _button_rect(slot, size)
 		draw_rect(r, Color("#263d50"), true)
 		draw_rect(r, Color("#8fa8b8"), false, 2)
-		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, 15, Color.WHITE)
+		draw_string(ThemeDB.fallback_font, r.position + Vector2(2, 30), labels[action_id], HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, _command_button_font_size(r.size.x), Color.WHITE)
 	var pause_button := _pause_rect(size)
 	draw_rect(pause_button, Color("#73552d") if paused else Color("#263d50"), true)
 	draw_rect(pause_button, Color("#f4d77a") if paused else Color("#8fa8b8"), false, 2)
@@ -3032,6 +3032,27 @@ func _draw_hud(size: Vector2) -> void:
 
 func _command_action_ids() -> Array:
 	return COMMAND_ACTIONS[clampi(command_tab, 0, COMMAND_ACTIONS.size() - 1)]
+
+# Keep Arabic labels legible without clipping on narrow Android viewports.
+func _hud_brand_font_size(size: Vector2) -> int:
+	return clampi(int(round(size.x * 0.05)), 12, 19)
+
+
+func _hud_metric_label_font_size(metric_width: float) -> int:
+	return clampi(int(floor(metric_width * 0.15)), 8, 11)
+
+
+func _hud_metric_value_font_size(metric_width: float) -> int:
+	return clampi(int(floor(metric_width * 0.18)), 9, 14)
+
+
+func _command_tab_font_size(tab_width: float) -> int:
+	return clampi(int(floor(tab_width * 0.11)), 9, 15)
+
+
+func _command_button_font_size(button_width: float) -> int:
+	return clampi(int(floor(button_width * 0.12)), 9, 15)
+
 
 
 func _command_tab_rect(index: int, size: Vector2) -> Rect2:
