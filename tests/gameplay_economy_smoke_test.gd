@@ -1356,7 +1356,18 @@ func _run_gameplay_economy_smoke_test() -> void:
 	]
 	for group_record in group_records:
 		game.get("units").append(group_record)
+	# Reverse-direction drag selection must normalize its rectangle and ignore destroyed/enemy units.
+	game.get("units").append({"kind": "tank", "team": "player", "faction": "الأمريكي", "hp": 0, "pos": Vector2(215.0, 215.0)})
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 150, "pos": Vector2(225.0, 225.0)})
+	game.set("selected", [])
+	game.call("_handle_pointer", Vector2(270.0, 270.0), true)
+	game.call("_handle_pointer", Vector2(170.0, 170.0), false)
+	var reverse_drag_selection: Array = game.get("selected")
+	_expect(reverse_drag_selection.size() == 8, "Reverse-direction drag should select all living friendly units inside the selection box")
+	_expect(not reverse_drag_selection.has(8), "Drag selection must ignore destroyed friendly units")
+	_expect(not reverse_drag_selection.has(9), "Drag selection must ignore enemy units")
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
+	game.set("selected", group_selection)
 	game.set("selected", group_selection)
 	var group_destination := Vector2(650.0, 320.0)
 	game.call("_handle_pointer", group_destination, true)

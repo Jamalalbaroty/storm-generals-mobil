@@ -2812,8 +2812,8 @@ func _draw() -> void:
 			draw_circle(effect.finish + Vector2(-blast_radius * 0.25, -blast_radius * 0.35), blast_radius * 0.28, Color(0.24, 0.22, 0.2, fade * 0.45))
 	_draw_hud(size)
 	if dragging:
-		draw_rect(Rect2(drag_start, drag_end - drag_start), Color(0.3, 0.8, 1, 0.13), true)
-		draw_rect(Rect2(drag_start, drag_end - drag_start), Color("#9fe7ff"), false, 2)
+		draw_rect(Rect2(drag_start, drag_end - drag_start).abs(), Color(0.3, 0.8, 1, 0.13), true)
+		draw_rect(Rect2(drag_start, drag_end - drag_start).abs(), Color("#9fe7ff"), false, 2)
 	if not game_started:
 		_draw_faction_picker(size)
 	elif battle_result != "":
@@ -3653,7 +3653,7 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		selected.clear()
 		var area := Rect2(drag_start, pos - drag_start).abs()
 		for i in units.size():
-			if units[i].team == "player" and area.has_point(units[i].pos):
+			if units[i].team == "player" and int(units[i].get("hp", 0)) > 0 and area.has_point(units[i].pos):
 				selected.append(i)
 	else:
 		var player_building_found := -1
