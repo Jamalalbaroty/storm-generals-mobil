@@ -25,7 +25,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	# Mobile command deck exposes all 30 unique actions across six tabs.
+	# Mobile command deck exposes all 33 unique actions across six tabs.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
@@ -69,7 +69,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("selected").assign([0])
 	game.set("command_tab", 5)
 	_expect(game.call("_command_tab_label", 5) == "قيادة القوات", "The sixth command tab should be dedicated to tactical force orders")
-	_expect(game.call("_command_action_ids") == [32, 33, 34], "Tactical command tab should expose guard, regroup, and cancel orders")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37], "Tactical command tab should expose guard, regroup, cancel, and three formation orders")
 	game.call("_issue_selected_force_order", "guard")
 	_expect(bool(game.get("units")[0].get("guard_active", false)), "Guard command should anchor the selected unit at its current position")
 	_expect(not game.get("units")[0].has("target"), "Guard command should clear stale movement destinations")
