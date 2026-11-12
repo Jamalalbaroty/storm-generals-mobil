@@ -329,9 +329,9 @@ func _test_enemy_assault_distributes_targets(game: Node) -> void:
 	var selected_index: int = game._select_enemy_ground_assault_target(Vector2(615.0, 330.0))
 	_expect(selected_index == 2, "Enemy assault target selection should spread a new attacker to a nearby unassigned threat instead of stacking onto an already focused tank")
 	game.units.assign([
-		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(180.0, 300.0), "attack_focus_pos": Vector2(600.0, 300.0)},
-		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(600.0, 300.0)},
-		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(610.0, 320.0)}
+		{"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(180.0, 300.0), "attack_focus_pos": Vector2(600.0, 280.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(600.0, 280.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(600.0, 400.0)}
 	])
-	selected_index = game._select_enemy_ground_assault_target(Vector2(602.0, 302.0))
+	selected_index = game._select_enemy_ground_assault_target(Vector2(600.0, 340.0))
 	_expect(selected_index == 2, "Enemy assault should count a committed attacker traveling toward its focus so distant reinforcements do not duplicate the same target")
