@@ -3211,7 +3211,11 @@ func _draw_hud(size: Vector2) -> void:
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d | بحرية %d" % [infantry_count, ground_support_count, aircraft_count, naval_count]
 		var health_label := "سلامة %d%%" % int(round(average_health * 100.0))
 		var damage_label := " | متضررة %d" % damaged_count if damaged_count > 0 else " | سليمة"
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | %s%s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, health_label, damage_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9 if selected_player_units.size() > 1 else 11, Color("#f2e8ca"))
+		var identity_summary := ""
+		if selected_player_units.size() == 1:
+			var focused_unit: Dictionary = selected_player_units[0]
+			identity_summary = "%s | %s | " % [_unit_identity_label(focused_unit), _unit_facility_upgrade_label(focused_unit)]
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s%s | %s | %s%s | خبرة %.0f | قتلى %d | أوسمة %d" % [identity_summary, unit_label, rank_label, health_label, damage_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9 if selected_player_units.size() > 1 else 10, Color("#f2e8ca"))
 		var health_bar := Rect2(dossier.position + Vector2(8, 23), Vector2(size.x - 36, 6))
 		draw_rect(health_bar, Color("#293b40"), true)
 		var health_color := Color("#65d18a") if average_health > 0.6 else (Color("#e7bd61") if average_health > 0.3 else Color("#e85c4a"))
@@ -3282,6 +3286,25 @@ func _unit_doctrine_label(unit: Dictionary) -> String:
 	if army == "وطن" and kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
 		return "درع مركب للنخبة"
 	return ""
+
+
+func _unit_identity_label(unit: Dictionary) -> String:
+	var army := String(unit.get("faction", ""))
+	var army_labels := {"الأمريكي": "الأمريكي", "الصيني": "الصيني", "الجيش العربي": "العربي", "وطن": "وطن"}
+	return String(army_labels.get(army, "جيش غير محدد"))
+
+
+func _unit_facility_upgrade_label(unit: Dictionary) -> String:
+	var kind := String(unit.get("kind", ""))
+	if kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
+		return "مصنع III"
+	if kind == "infantry" and int(unit.get("barracks_level", 1)) >= 3:
+		return "ثكنة III"
+	if kind == "tank" and int(unit.get("factory_level", 1)) == 2:
+		return "مصنع II"
+	if kind == "infantry" and int(unit.get("barracks_level", 1)) == 2:
+		return "ثكنة II"
+	return "المستوى الأساسي"
 
 
 func _unit_upgrade_badge(unit: Dictionary) -> String:
