@@ -2597,7 +2597,7 @@ func _select_player_air_combat_target(from_pos: Vector2, attacker_kind: String, 
 			elif candidate_kind == "infantry":
 				role_priority = 42.0
 			else:
-			continue
+				continue
 		else:
 			continue
 		var distance: float = from_pos.distance_to(candidate.pos)
