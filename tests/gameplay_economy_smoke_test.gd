@@ -1208,7 +1208,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var faction_names: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 	for army_name in faction_names:
 		var profile: Dictionary = game.call("_faction_profile", army_name)
-		_expect(profile.has("unit_costs") and profile.has("helicopter_damage") and profile.has("missile_damage") and profile.has("naval_damage") and profile.has("production_speed"), "%s must define a complete faction balance profile" % army_name)
+		_expect(profile.has("unit_costs") and profile.has("helicopter_damage") and profile.has("missile_damage") and profile.has("naval_damage") and profile.has("production_speed") and profile.has("tank_damage_taken") and profile.has("infantry_damage_taken"), "%s must define a complete faction balance profile" % army_name)
 		_expect(float(profile.get("production_speed", 0.0)) >= 0.85 and float(profile.get("production_speed", 0.0)) <= 1.10, "%s production speed must stay inside the faction balance safety band" % army_name)
 		_expect(int(game.call("_unit_cost", "tank", army_name)) > 0 and int(game.call("_unit_cost", "infantry", army_name)) > 0, "%s must have valid ground unit costs" % army_name)
 		_expect(float(profile.get("helicopter_cooldown", 0.0)) > 0.0, "%s helicopter cooldown must be positive" % army_name)
@@ -1219,6 +1219,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_unit_cost", "fighter", "وطن")) > int(game.call("_unit_cost", "fighter", "الأمريكي")), "Watan elite air units should carry a resource premium")
 	_expect(float(game.call("_faction_production_speed", "الصيني")) > float(game.call("_faction_production_speed", "الأمريكي")), "Chinese reinforcement tempo should be faster than the combined-arms baseline")
 	_expect(float(game.call("_faction_production_speed", "وطن")) < float(game.call("_faction_production_speed", "الأمريكي")), "Watan elite reinforcement tempo should be slower than the baseline")
+	_expect(is_equal_approx(float(game.call("_faction_ground_damage_multiplier", {"kind": "tank", "faction": "الصيني"})), 0.96), "Chinese tanks should gain a restrained 4% ground-damage reduction")
+	_expect(is_equal_approx(float(game.call("_faction_ground_damage_multiplier", {"kind": "infantry", "faction": "الجيش العربي"})), 0.94), "Arab infantry should gain a restrained 6% ground-damage reduction")
+	_expect(is_equal_approx(float(game.call("_faction_ground_damage_multiplier", {"kind": "tank", "faction": "وطن"})), 0.92), "Watan elite tanks should gain a 8% ground-damage reduction")
+	_expect(is_equal_approx(float(game.call("_faction_ground_damage_multiplier", {"kind": "tank", "faction": "الأمريكي"})), 1.0), "American armor should remain the baseline")
+	_expect(is_equal_approx(float(game.call("_faction_ground_damage_multiplier", {"kind": "artillery", "faction": "وطن"})), 1.0), "Ground protection must not leak onto unrelated unit classes")
 	var watan_helicopter: Dictionary = {"faction": "وطن"}
 	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
 	_expect(int(game.call("_helicopter_damage", watan_helicopter)) > int(game.call("_helicopter_damage", american_helicopter)), "Watan helicopter should retain elite damage")
