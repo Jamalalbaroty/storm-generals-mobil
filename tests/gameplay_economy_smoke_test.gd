@@ -1245,11 +1245,11 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(bool(game.call("_update_player_airfield_recovery", recovery_unit, 0.1)), "A critically damaged player fighter should enter the airfield recovery flow even during an active attack order")
 	_expect(bool(recovery_unit.get("airfield_returning", false)) and recovery_unit.has("airfield_resume_order") and not recovery_unit.has("attack_target"), "Emergency recovery should suspend combat safely while preserving the mission")
 	recovery_unit["pos"] = Vector2(276.0, 330.0)
-	for recovery_tick in range(5):
-		game.call("_update_player_airfield_recovery", recovery_unit, 1.0)
+	for recovery_tick in range(45):
+		game.call("_update_player_airfield_recovery", recovery_unit, 0.1)
 	_expect(int(recovery_unit.get("hp", 0)) >= 110 and int(recovery_unit.get("aircraft_ammo", 0)) == 8 and bool(recovery_unit.get("airfield_sortie_launch", false)), "A landed fighter should repair and rearm before becoming sortie-ready")
-	for launch_tick in range(3):
-		game.call("_update_player_airfield_recovery", recovery_unit, 1.0)
+	for launch_tick in range(20):
+		game.call("_update_player_airfield_recovery", recovery_unit, 0.1)
 	_expect(not bool(recovery_unit.get("airfield_sortie_launch", false)) and not bool(recovery_unit.get("airfield_returning", false)), "Recovered aircraft should taxi clear of the airfield before resuming flight")
 	var restored_air_focus: Vector2 = recovery_unit.get("attack_focus_pos", Vector2.ZERO)
 	_expect(recovery_unit.has("attack_focus_pos") and restored_air_focus.distance_to(recovery_focus) < 0.1 and not recovery_unit.has("attack_target"), "Recovered aircraft should restore its saved attack focus for safe target reacquisition")
