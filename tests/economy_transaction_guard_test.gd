@@ -21,6 +21,11 @@ func _run() -> void:
 		"hp": 500,
 		"build_progress": 1.0,
 		"production_id": 41
+	}, {
+		"kind": "power_plant",
+		"pos": Vector2(300.0, 320.0),
+		"hp": 500,
+		"build_progress": 1.0
 	}])
 	game.get("units").clear()
 	game.get("production_orders").clear()
