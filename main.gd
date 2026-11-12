@@ -2194,6 +2194,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				var hp_before := int(threat.get("hp", 0))
 				var base_damage := 20 if unit_kind == "tank" else 10
 				var damage := _unit_damage_with_veterancy(unit, base_damage)
+				damage = _faction_ground_attack_damage(unit, threat, damage)
 				threat["hp"] = maxi(0, hp_before - _terrain_adjusted_damage(threat, damage))
 				_award_unit_experience(unit, hp_before - int(threat["hp"]))
 				_register_unit_kill(unit, threat, hp_before)
