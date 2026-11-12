@@ -1759,13 +1759,19 @@ func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
 	}
 	var config := ConfigFile.new()
 	var load_error := config.load(path)
-	if load_error != OK:
+	if load_error != OK or not config.has_section_key("commander", "profile"):
 		# A previous process may have stopped while replacing the profile. Recover
 		# the last complete copy instead of silently resetting the commander's career.
+		var backup_path := path + ".bak"
 		var backup_config := ConfigFile.new()
-		if backup_config.load(path + ".bak") != OK:
+		if backup_config.load(backup_path) != OK or not backup_config.has_section_key("commander", "profile"):
 			return
 		config = backup_config
+		# Promote the verified backup so the next save can safely rotate it again.
+		_remove_commander_profile_file(path)
+		var restore_error := DirAccess.rename_absolute(ProjectSettings.globalize_path(backup_path), ProjectSettings.globalize_path(path))
+		if restore_error != OK:
+			push_warning("Could not promote recovered commander profile: %s" % error_string(restore_error))
 	var stored: Variant = config.get_value("commander", "profile", {})
 	if not stored is Dictionary:
 		return
