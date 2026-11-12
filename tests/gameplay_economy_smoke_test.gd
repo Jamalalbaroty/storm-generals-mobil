@@ -25,13 +25,14 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	# Mobile command deck exposes all 27 unique actions across five tabs.
+	# Mobile command deck exposes all 30 unique actions across six tabs.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
 		[10, 11, 12, 13, 14, 15],
 		[23, 24, 25, 26, 27],
-		[28, 29, 30, 31]
+		[28, 29, 30, 31],
+		[32, 33, 34]
 	]
 	var covered_actions: Dictionary = {}
 	for tab_index in range(expected_command_tabs.size()):
@@ -40,7 +41,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 27, "The five compact command tabs should retain access to all 27 gameplay actions")
+	_expect(covered_actions.size() == 30, "The six compact command tabs should retain access to all 30 gameplay actions")
 	# Selecting only a living builder opens a dedicated construction palette.
 	game.get("units").assign([{"team": "player", "kind": "builder", "hp": 100, "pos": Vector2(180.0, 330.0)}])
 	game.get("selected").assign([0])
@@ -64,8 +65,22 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.call("_command_action_accent", 1) == Color("#83bfe8"), "Combat production actions should use the command deck blue accent")
 	game.get("selected").clear()
 	game.get("units").clear()
+	game.get("units").assign([{"team": "player", "kind": "tank", "hp": 150, "pos": Vector2(220.0, 240.0)}])
+	game.get("selected").assign([0])
+	game.set("command_tab", 5)
+	_expect(game.call("_command_tab_label", 5) == "قيادة القوات", "The sixth command tab should be dedicated to tactical force orders")
+	_expect(game.call("_command_action_ids") == [32, 33, 34], "Tactical command tab should expose guard, regroup, and cancel orders")
+	game.call("_issue_selected_force_order", "guard")
+	_expect(bool(game.get("units")[0].get("guard_active", false)), "Guard command should anchor the selected unit at its current position")
+	_expect(not game.get("units")[0].has("target"), "Guard command should clear stale movement destinations")
+	game.call("_issue_selected_force_order", "regroup")
+	_expect(game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Regroup command should replace guard with a return-to-base movement order")
+	game.call("_issue_selected_force_order", "cancel")
+	_expect(not game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Cancel command should clear movement and guard orders")
+	game.get("selected").clear()
+	game.get("units").clear()
 	game.set("command_tab", 0)
-	_expect(int(game.call("_command_tab_count")) == 5, "Clearing builder selection should restore all five standard command tabs")
+	_expect(int(game.call("_command_tab_count")) == 6, "Clearing builder selection should restore all six standard command tabs")
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
@@ -92,7 +107,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Command-deck hit targets and responsive label sizes must remain usable on compact phones.
 	for command_viewport in picker_viewports:
 		var tab_rects: Array[Rect2] = []
-		for tab_index in range(5):
+		for tab_index in range(6):
 			var tab_rect: Rect2 = game.call("_command_tab_rect", tab_index, command_viewport)
 			_expect(tab_rect.position.x >= 0.0 and tab_rect.position.y >= 0.0 and tab_rect.end.x <= command_viewport.x and tab_rect.end.y <= command_viewport.y, "Command tab touch target must fit viewport %s" % command_viewport)
 			_expect(int(game.call("_command_tab_font_size", tab_rect.size.x)) >= 9, "Command tab labels must retain a legible minimum font size")
