@@ -32,7 +32,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		[10, 11, 12, 13, 14, 15],
 		[23, 24, 25, 26, 27],
 		[28, 29, 30, 31],
-		[32, 33, 34, 35, 36, 37, 38]
+		[32, 33, 34, 35, 36, 37, 38, 39]
 	]
 	var covered_actions: Dictionary = {}
 	for tab_index in range(expected_command_tabs.size()):
@@ -41,7 +41,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 34, "The six compact command tabs should retain access to all 33 gameplay actions")
+	_expect(covered_actions.size() == 35, "The six compact command tabs should retain access to all 33 gameplay actions")
 	# Selecting only a living builder opens a dedicated construction palette.
 	game.get("units").assign([{"team": "player", "kind": "builder", "hp": 100, "pos": Vector2(180.0, 330.0)}])
 	game.get("selected").assign([0])
@@ -69,7 +69,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("selected").assign([0])
 	game.set("command_tab", 5)
 	_expect(game.call("_command_tab_label", 5) == "قيادة القوات", "The sixth command tab should be dedicated to tactical force orders")
-	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical command tab should expose guard, regroup, cancel, and three formation orders")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38, 39], "Tactical command tab should expose force orders, four formations, and smart retreat")
 	game.call("_issue_selected_force_order", "guard")
 	_expect(bool(game.get("units")[0].get("guard_active", false)), "Guard command should anchor the selected unit at its current position")
 	_expect(not game.get("units")[0].has("target"), "Guard command should clear stale movement destinations")
@@ -77,7 +77,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Regroup command should replace guard with a return-to-base movement order")
 	game.call("_issue_selected_force_order", "cancel")
 	_expect(not game.get("units")[0].has("target") and not bool(game.get("units")[0].get("guard_active", false)), "Cancel command should clear movement and guard orders")
-	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical command tab should include all four formation choices")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38, 39], "Tactical command tab should include the smart retreat toggle")
 	game.call("_issue_selected_formation_order", "assault")
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "assault", "Assault formation should be saved on each selected live unit")
 	game.call("_issue_selected_formation_order", "defensive")
@@ -86,7 +86,14 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "spread", "Spread formation should be available as a selectable stance")
 	game.call("_issue_selected_formation_order", "protect")
 	_expect(String(game.get("units")[0].get("formation_mode", "")) == "protect", "Artillery protection formation should be saved on selected live units")
-	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38], "Tactical palette should expose the artillery protection formation")
+	_expect(game.call("_command_action_ids") == [32, 33, 34, 35, 36, 37, 38, 39], "Tactical palette should expose artillery protection and smart retreat")
+	game.call("_toggle_selected_auto_retreat")
+	_expect(bool(game.get("units")[0].get("auto_retreat_enabled", false)), "Smart retreat should be enabled only on selected eligible ground units")
+	game.get("units")[0]["hp"] = 30
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(260.0, 240.0)})
+	_expect(bool(game.call("_player_ground_unit_should_fallback", game.get("units")[0])), "A critically damaged selected tank should retreat when an enemy ground threat is close")
+	game.call("_toggle_selected_auto_retreat")
+	_expect(not bool(game.get("units")[0].get("auto_retreat_enabled", true)), "Smart retreat should be independently disableable")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "spread")), 79.2), "Spread formation should increase role spacing by 65 percent")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "assault")), 42.24), "Assault formation should tighten spacing for a focused push")
 	_expect(is_equal_approx(float(game.call("_group_formation_spacing_for_mode", 48.0, "defensive")), 53.76), "Defensive formation should widen the line for flank coverage")
