@@ -20,14 +20,14 @@ func _run() -> void:
 
 	# A legacy or pre-existing shipyard must not let enemy AI resume naval production.
 	game.get("enemy_buildings").assign([
-		{"kind": "barracks", "hp": 400, "build_progress": 1.0},
-		{"kind": "factory", "hp": 500, "build_progress": 1.0},
-		{"kind": "airfield", "hp": 450, "build_progress": 1.0},
-		{"kind": "shipyard", "hp": 500, "build_progress": 1.0},
-		{"kind": "anti_air", "hp": 380, "build_progress": 1.0},
-		{"kind": "missile_silo", "hp": 500, "build_progress": 1.0},
-		{"kind": "missile_defense", "hp": 450, "build_progress": 1.0},
-		{"kind": "power_plant", "hp": 400, "build_progress": 1.0},
+		{"kind": "barracks", "hp": 400, "build_progress": 1.0, "pos": Vector2(1000.0, 200.0)},
+		{"kind": "factory", "hp": 500, "build_progress": 1.0, "pos": Vector2(1040.0, 200.0)},
+		{"kind": "airfield", "hp": 450, "build_progress": 1.0, "pos": Vector2(1080.0, 200.0)},
+		{"kind": "shipyard", "hp": 500, "build_progress": 1.0, "pos": Vector2(1120.0, 200.0)},
+		{"kind": "anti_air", "hp": 380, "build_progress": 1.0, "pos": Vector2(1000.0, 240.0)},
+		{"kind": "missile_silo", "hp": 500, "build_progress": 1.0, "pos": Vector2(1040.0, 240.0)},
+		{"kind": "missile_defense", "hp": 450, "build_progress": 1.0, "pos": Vector2(1080.0, 240.0)},
+		{"kind": "power_plant", "hp": 400, "build_progress": 1.0, "pos": Vector2(1120.0, 240.0)},
 		{"kind": "power_plant", "hp": 400, "build_progress": 1.0}
 	])
 	game.get("units").assign([

@@ -5677,7 +5677,7 @@ func _transport_ai_select_emergency_escort_threat(transport_id: int, escort_inde
 			continue
 		var claimed := false
 		for other_index in range(units.size()):
-			if other_index == escort_index or other_index == candidate_index:
+			if other_index == candidate_index:
 				continue
 			var other_escort: Dictionary = units[other_index]
 			if bool(other_escort.get("escort_active", false)) and bool(other_escort.get("escort_auto_target", false)) and int(other_escort.get("escort_target_id", -1)) == transport_id and int(other_escort.get("attack_target", -1)) == candidate_index:
@@ -5774,6 +5774,15 @@ func _transport_ai_sync_escort_formation(target_id: int) -> void:
 		var escort: Dictionary = units[index]
 		if bool(escort.get("escort_active", false)) and int(escort.get("escort_target_id", -1)) == target_id and int(escort.get("hp", 0)) > 0 and String(escort.get("team", "")) == "player":
 			members.append(index)
+	# Preserve already occupied slots when a reassigned escort joins a formation;
+	# dead or missing members are still compacted into the first available slots.
+	members.sort_custom(func(a: int, b: int) -> bool:
+		var slot_a := int(units[a].get("escort_formation_slot", 2147483647))
+		var slot_b := int(units[b].get("escort_formation_slot", 2147483647))
+		if slot_a == slot_b:
+			return a < b
+		return slot_a < slot_b
+	)
 	var formation_size := members.size()
 	for slot in range(formation_size):
 		var escort: Dictionary = units[members[slot]]

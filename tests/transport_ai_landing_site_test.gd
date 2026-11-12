@@ -717,10 +717,10 @@ func _run() -> void:
 	game.get("units").append({"team": "player", "kind": "transport_helicopter", "hp": 200, "pos": Vector2(800.0, 300.0), "3d_sync_id": 82, "transport_state": "inbound"})
 	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(650.0, 300.0), "3d_sync_id": 83})
 	game.get("selected").clear()
-	game.get("selected").append(2)
-	var priority_transport_indices: Array[int] = [0, 1]
+	game.get("selected").append(3)
+	var priority_transport_indices: Array[int] = [1, 2]
 	var priority_assigned := int(game.call("_transport_ai_assign_selected_air_escorts", priority_transport_indices))
-	_expect(priority_assigned == 1 and int(game.get("units")[2].get("escort_target_id", -1)) == 81, "The selected escort should protect the more threatened transport when travel distance is comparable")
+	_expect(priority_assigned == 1 and int(game.get("units")[3].get("escort_target_id", -1)) == 81, "The selected escort should protect the more threatened transport when travel distance is comparable")
 	# A live escort should transfer only when another transport is materially more threatened.
 	game.get("units").clear()
 	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 100, "pos": Vector2(500.0, 300.0)})
@@ -742,11 +742,15 @@ func _run() -> void:
 	game.get("units").clear()
 	game.get("selected").clear()
 
+	if failures > 0:
+		push_error("Transport AI landing-site regression failed with %d assertion(s)." % failures)
+		quit(1)
+		return
 	print("Transport AI landing-site regression passed")
 	quit(0)
 
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
+		failures += 1
 		push_error(message)
-		quit(1)
