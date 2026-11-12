@@ -99,6 +99,14 @@ func _run_gameplay_economy_smoke_test() -> void:
 	# Exercise the real press/release path, including the campaign briefing between faction selection and battle start.
 	var active_viewport: Vector2 = game.get_viewport_rect().size
 	var expected_factions: Array[String] = ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
+	# The picker must expose a distinct, complete visual identity for every existing save-compatible faction key.
+	for faction_index in range(expected_factions.size()):
+		var identity: Dictionary = game.call("_faction_presentation", faction_index)
+		_expect(not String(identity.get("color", "")).is_empty() and not String(identity.get("accent", "")).is_empty(), "Every army needs primary and accent identity colors")
+		_expect(not String(identity.get("mark", "")).is_empty() and not String(identity.get("doctrine", "")).is_empty(), "Every army needs an emblem mark and doctrine label")
+		_expect(not String(identity.get("strength", "")).is_empty() and not String(identity.get("weakness", "")).is_empty(), "Every army identity must communicate a strength and a counterbalance")
+	_expect(game.get("FACTIONS") == expected_factions, "Faction identity work must preserve campaign and save-data faction keys")
+
 	for faction_index in range(expected_factions.size()):
 		game.set("game_started", false)
 		game.set("campaign_briefing", false)
