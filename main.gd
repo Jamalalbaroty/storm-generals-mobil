@@ -2917,6 +2917,13 @@ func _draw() -> void:
 		draw_rect(unit_health_bar, Color("#172126"))
 		draw_rect(Rect2(unit_health_bar.position + Vector2(1, 1), Vector2(32.0 * hp_ratio, 4)), unit_health_color)
 		draw_rect(unit_health_bar, Color("#aab8b5", 0.85), false, 0.8)
+		var upgrade_badge := _unit_upgrade_badge(u)
+		if not upgrade_badge.is_empty():
+			var badge_rect := Rect2(u.pos + Vector2(-11, -42), Vector2(22, 12))
+			var badge_accent := _unit_upgrade_badge_color(u)
+			draw_rect(badge_rect, Color("#11191d", 0.94))
+			draw_rect(badge_rect, badge_accent, false, 1.2)
+			draw_string(ThemeDB.fallback_font, badge_rect.position + Vector2(0, 9), upgrade_badge, HORIZONTAL_ALIGNMENT_CENTER, badge_rect.size.x, 9, badge_accent)
 		if selected.has(i):
 			draw_arc(u.pos, 18.5, 0, TAU, 40, Color("#ffe45c"), 2.5)
 			draw_arc(u.pos, 22.0, 0.15, TAU - 0.15, 40, Color("#ffe45c", 0.42), 1.0)
@@ -3275,6 +3282,24 @@ func _unit_doctrine_label(unit: Dictionary) -> String:
 	if army == "وطن" and kind == "tank" and int(unit.get("factory_level", 1)) >= 3:
 		return "درع مركب للنخبة"
 	return ""
+
+
+func _unit_upgrade_badge(unit: Dictionary) -> String:
+	return "III" if not _unit_doctrine_label(unit).is_empty() else ""
+
+
+func _unit_upgrade_badge_color(unit: Dictionary) -> Color:
+	match String(unit.get("faction", "")):
+		"الأمريكي":
+			return Color("#8fc7ef")
+		"الصيني":
+			return Color("#e77b72")
+		"الجيش العربي":
+			return Color("#c18a4b")
+		"وطن":
+			return Color("#e5c36f")
+		_:
+			return Color("#aab8b5")
 
 
 func _hud_faction_accent() -> Color:
