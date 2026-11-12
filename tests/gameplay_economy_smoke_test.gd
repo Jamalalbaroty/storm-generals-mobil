@@ -112,8 +112,8 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(not String(identity.get("strength", "")).is_empty() and not String(identity.get("weakness", "")).is_empty(), "Every army identity must communicate a strength and a counterbalance")
 		var traits: Array = identity.get("traits", [])
 		_expect(traits.size() == 3, "Every army briefing must expose exactly three combat identity traits")
-		for trait in traits:
-			_expect(not String(trait).strip_edges().is_empty(), "Faction combat traits must never be blank")
+		for trait_text in traits:
+			_expect(not String(trait_text).strip_edges().is_empty(), "Faction combat traits must never be blank")
 
 	for faction_index in range(expected_factions.size()):
 		game.set("game_started", false)
