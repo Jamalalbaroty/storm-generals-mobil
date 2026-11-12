@@ -2000,14 +2000,24 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 	if target_index >= 0 and unit.pos.distance_to(units[target_index].pos) > 360.0:
 		target_index = -1
 	if target_index < 0:
+		unit.erase("attack_target")
+		unit.erase("attack_focus_pos")
+		if unit_kind == "artillery":
+			# Guns support the assault instead of racing armor and infantry for supply nodes.
+			var support_anchor_index := _enemy_nearest_ground_assault_anchor(unit.pos)
+			if support_anchor_index >= 0:
+				var support_anchor_pos: Vector2 = units[support_anchor_index].pos
+				var support_goal := _enemy_artillery_support_position(support_anchor_pos, enemy_base, _enemy_artillery_formation_rank(unit_index))
+				if unit.pos.distance_to(support_goal) > 24.0:
+					var support_direction := _ground_navigation_direction(unit, unit_index, support_goal, delta, 22.0)
+					unit.pos += support_direction * delta * 22.0
+			return true
 		var supply_objective_index := _enemy_best_supply_objective(unit.pos)
 		if supply_objective_index >= 0:
-			unit.erase("attack_target")
-			unit.erase("attack_focus_pos")
 			var supply_objective_pos: Vector2 = supply_points[supply_objective_index].pos
 			var objective_distance: float = unit.pos.distance_to(supply_objective_pos)
 			if objective_distance > 48.0:
-				var objective_speed := 22.0 if unit_kind == "artillery" else (55.0 if unit_kind == "infantry" else 36.0)
+				var objective_speed := 55.0 if unit_kind == "infantry" else 36.0
 				var objective_direction := _ground_navigation_direction(unit, unit_index, supply_objective_pos, delta, objective_speed)
 				unit.pos += objective_direction * delta * objective_speed
 			return true
@@ -3923,6 +3933,24 @@ func _update_supply_control(delta: float) -> void:
 			if supply_points[i].supply_payout >= supply_interval:
 				enemy_supplies = mini(99, enemy_supplies + int(supply_points[i].supply_payout / supply_interval))
 				supply_points[i].supply_payout = fmod(supply_points[i].supply_payout, supply_interval)
+
+
+func _enemy_nearest_ground_assault_anchor(from_pos: Vector2, max_distance: float = 360.0) -> int:
+	# Artillery follows the nearest living armor/infantry element; it never abandons
+	# the fire-support role to capture a distant income point by itself.
+	var best_index := -1
+	var best_distance := max_distance
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if candidate.team != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		if String(candidate.get("kind", "")) not in ["tank", "infantry"]:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = candidate_index
+	return best_index
 
 
 func _enemy_best_supply_objective(unit_pos: Vector2) -> int:

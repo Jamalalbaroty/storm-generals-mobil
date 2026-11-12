@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_selected_group_order_summary(game)
 	_test_live_combined_arms_advance(game)
 	_test_artillery_standoff(game)
+	_test_enemy_artillery_support_role(game)
 
 	game.queue_free()
 	await process_frame
@@ -157,6 +158,26 @@ func _test_artillery_standoff(game: Node) -> void:
 	game._process(0.1)
 	_expect(game.units[0].pos.x < 300.0, "Group-ordered artillery must reposition backward when a target is inside its minimum support range")
 	_expect(int(game.units[1].hp) == target_hp_before, "Artillery must not fire while forced inside the minimum standoff band")
+
+
+func _test_enemy_artillery_support_role(game: Node) -> void:
+	game.units.assign([
+		{"team": "enemy", "kind": "artillery", "hp": 110, "pos": Vector2(800.0, 400.0)}
+	])
+	game.supply_points.assign([
+		{"owner": "player", "kind": "supply", "pos": Vector2(500.0, 330.0)}
+	])
+	game.enemy_base = Vector2(900.0, 330.0)
+	game.base_pos = Vector2(150.0, 330.0)
+	var artillery_start: Vector2 = game.units[0].pos
+	_expect(game._update_enemy_ground_assault(game.units[0], 0, 0.5), "Enemy artillery without a frontline anchor must remain under AI control")
+	_expect(game.units[0].pos == artillery_start, "Enemy artillery must not abandon its support role to capture a supply point alone")
+
+	game.units.append({"team": "enemy", "kind": "tank", "hp": 180, "pos": Vector2(700.0, 300.0)})
+	var anchor_index: int = game._enemy_nearest_ground_assault_anchor(artillery_start)
+	_expect(anchor_index == 1, "Enemy artillery must identify nearby friendly armor as its support anchor")
+	game._update_enemy_ground_assault(game.units[0], 0, 0.5)
+	_expect(game.units[0].pos.distance_to(artillery_start) > 0.1, "Enemy artillery must reposition behind its advancing armor when an assault anchor exists")
 
 
 func _cleanup_audio(game: Node) -> void:
