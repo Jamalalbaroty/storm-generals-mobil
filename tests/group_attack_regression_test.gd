@@ -207,7 +207,7 @@ func _test_enemy_defensive_flank_selection(game: Node) -> void:
 	])
 	var even_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 0)
 	var odd_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 1)
-	_expect(even_flank.distance_to(left_flank) < 0.1 and odd_flank.distance_to(right_flank) < 0.1, "Enemy assault units must split evenly defended approaches across opposite flanks")
+	_expect(even_flank.distance_to(right_flank) < 0.1 and odd_flank.distance_to(left_flank) < 0.1, "Enemy assault units must split evenly defended approaches across opposite flanks")
 	game.buildings.clear()
 
 
