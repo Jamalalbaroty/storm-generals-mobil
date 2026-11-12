@@ -20,6 +20,7 @@ func _run() -> void:
 	_test_live_combined_arms_advance(game)
 	_test_artillery_standoff(game)
 	_test_enemy_artillery_support_role(game)
+	_test_enemy_defensive_flank_selection(game)
 
 	game.queue_free()
 	await process_frame
@@ -180,6 +181,34 @@ func _test_enemy_artillery_support_role(game: Node) -> void:
 	_expect(anchor_index == 1, "Enemy artillery must identify nearby friendly armor as its support anchor")
 	game._update_enemy_ground_assault(game.units[0], 0, 0.5)
 	_expect(game.units[0].pos.distance_to(artillery_start) > 0.1, "Enemy artillery must reposition behind its advancing armor when an assault anchor exists")
+
+
+func _test_enemy_defensive_flank_selection(game: Node) -> void:
+	var target := Vector2(500.0, 330.0)
+	var origin := Vector2(900.0, 330.0)
+	var left_flank := Vector2(500.0, 215.0)
+	var right_flank := Vector2(500.0, 445.0)
+
+	# Two central defenses make the target fortified; an extra left-side turret
+	# should force the assault to route around the weaker right flank.
+	game.buildings.assign([
+		{"team": "player", "kind": "turret", "hp": 300, "build_progress": 1.0, "pos": target},
+		{"team": "player", "kind": "turret", "hp": 300, "build_progress": 1.0, "pos": target},
+		{"team": "player", "kind": "turret", "hp": 300, "build_progress": 1.0, "pos": left_flank}
+	])
+	var selected_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 0)
+	_expect(selected_flank.distance_to(right_flank) < 0.1, "Enemy ground assault must choose the less defended flank around a fortified target")
+	_expect(game._enemy_ground_target_defense_risk(left_flank) > game._enemy_ground_target_defense_risk(right_flank), "Flank routing fixture must expose a clear defensive-risk difference")
+
+	# If both sides are equally defended, units split lanes instead of stacking.
+	game.buildings.assign([
+		{"team": "player", "kind": "turret", "hp": 300, "build_progress": 1.0, "pos": target},
+		{"team": "player", "kind": "turret", "hp": 300, "build_progress": 1.0, "pos": target}
+	])
+	var even_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 0)
+	var odd_flank: Vector2 = game._enemy_ground_assault_flank_anchor(target, origin, 1)
+	_expect(even_flank.distance_to(left_flank) < 0.1 and odd_flank.distance_to(right_flank) < 0.1, "Enemy assault units must split evenly defended approaches across opposite flanks")
+	game.buildings.clear()
 
 
 func _cleanup_audio(game: Node) -> void:
