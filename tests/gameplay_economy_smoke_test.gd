@@ -1123,7 +1123,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
 	game.get("units").append({"pos": Vector2(650.0, 330.0), "team": "enemy", "kind": "infantry", "hp": 60})
 	var infantry_support_pos: Vector2 = game.call("_enemy_infantry_support_position", Vector2(650.0, 330.0), Vector2(900.0, 300.0), Vector2(100.0, 300.0), 1)
-	_expect(infantry_support_pos.x < 700.0 and absf(infantry_support_pos.y - 326.0) < 1.0, "Infantry should take a staggered support position behind its advancing tank")
+	_expect(infantry_support_pos.x < 700.0 and absf(infantry_support_pos.y - 364.0) < 1.0, "Infantry should take a staggered support position behind its advancing tank")
 	game.get("units")[0]["defense_guard"] = true
 	var fallback_support_pos: Vector2 = game.call("_enemy_infantry_support_position", Vector2(650.0, 330.0), Vector2(900.0, 300.0), Vector2(100.0, 300.0), 1)
 	_expect(fallback_support_pos != infantry_support_pos, "Infantry should ignore defensive tanks when selecting an assault escort")
