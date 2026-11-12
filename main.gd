@@ -2982,10 +2982,17 @@ func _draw_hud(size: Vector2) -> void:
 		var ground_support_count := 0
 		var aircraft_count := 0
 		var naval_count := 0
+		var damaged_count := 0
+		var total_hp_ratio := 0.0
 		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "transport_helicopter": "مروحية النقل", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
 		var dossier_name := String(kind_labels.get(String(selected_player_units[0].get("kind", "")), "الوحدة"))
 		for selected_unit in selected_player_units:
 			var selected_kind := String(selected_unit.get("kind", ""))
+			var selected_max_hp := 520.0 if selected_kind == "carrier" else (260.0 if selected_kind == "destroyer" else (250.0 if selected_kind == "transport_helicopter" else (220.0 if selected_kind == "builder" or selected_kind == "landing_craft" else (210.0 if selected_kind == "submarine" else (180.0 if selected_kind == "helicopter" else (120.0 if selected_kind == "fighter" else (150.0 if selected_kind == "tank" else (100.0 if selected_kind == "artillery" or String(selected_unit.get("team", "")) == "player" else 60.0))))))))
+			var selected_hp_ratio := clampf(float(selected_unit.get("hp", 0)) / selected_max_hp, 0.0, 1.0)
+			total_hp_ratio += selected_hp_ratio
+			if selected_hp_ratio < 0.999:
+				damaged_count += 1
 			if selected_kind == "infantry":
 				infantry_count += 1
 			elif selected_kind in ["tank", "artillery", "builder"]:
@@ -3010,12 +3017,15 @@ func _draw_hud(size: Vector2) -> void:
 				progress_total += clampf(unit_xp / 100.0, 0.0, 1.0)
 		var average_xp := total_xp / float(selected_player_units.size())
 		var progress := progress_total / float(selected_player_units.size())
+		var average_health := total_hp_ratio / float(selected_player_units.size())
 		var rank_label := "نخبة" if highest_rank >= 2 else ("مخضرم" if highest_rank == 1 else "مجند")
 		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 48))
 		draw_rect(dossier, Color("#10232b", 0.94), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
 		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d | بحرية %d" % [infantry_count, ground_support_count, aircraft_count, naval_count]
-		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 10 if selected_player_units.size() > 1 else 12, Color("#f2e8ca"))
+		var health_label := "سلامة %d%%" % int(round(average_health * 100.0))
+		var damage_label := " | متضررة %d" % damaged_count if damaged_count > 0 else " | سليمة"
+		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 16), "%s | %s | %s%s | خبرة %.0f | قتلى %d | أوسمة %d" % [unit_label, rank_label, health_label, damage_label, average_xp, total_kills, total_medals], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9 if selected_player_units.size() > 1 else 11, Color("#f2e8ca"))
 		var xp_bar := Rect2(dossier.position + Vector2(8, 26), Vector2(size.x - 36, 9))
 		draw_rect(xp_bar, Color("#293b40"), true)
 		var xp_color := Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#8bd5a0"))
