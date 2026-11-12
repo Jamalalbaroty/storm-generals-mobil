@@ -2013,6 +2013,10 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 					var support_direction := _ground_navigation_direction(unit, unit_index, support_goal, delta, 22.0)
 					unit.pos += support_direction * delta * 22.0
 				return true
+			# Hold the current firing lane while an unescorted gun has an income
+			# objective nearby; do not let it drift off alone to capture it.
+			if not supply_points.is_empty():
+				return true
 		else:
 			var supply_objective_index := _enemy_best_supply_objective(unit.pos)
 			if supply_objective_index >= 0:
