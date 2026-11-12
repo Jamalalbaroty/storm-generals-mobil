@@ -42,6 +42,9 @@ jobs:
       - name: Run four-faction combat and economy balance regression
         run: timeout 90s godot --headless --path . --script tests/faction_balance_regression_test.gd
 
+      - name: Run naval-disabled land-and-air release gate
+        run: timeout 90s godot --headless --path . --script tests/naval_release_gate_test.gd
+
       - name: Run six pairwise faction air-combat matchup matrix
         run: timeout 90s godot --headless --path . --script tests/faction_matchup_matrix_test.gd
 
