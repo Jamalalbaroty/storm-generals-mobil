@@ -1204,6 +1204,22 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(100.0, 100.0)})
 	_expect(int(game.call("_priority_air_target", Vector2(0.0, 100.0), "enemy", 320.0)) == 1, "Anti-air target selection should avoid redundant volleys against a nearly destroyed aircraft")
 
+	# Air units should split assignments and choose contacts that match their mission.
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "transport_helicopter", "hp": 180, "pos": Vector2(90.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(60.0, 260.0)})
+	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 260.0), "fighter", 245.0, -1)) == 1, "Friendly fighters should prioritize enemy fighters over a closer transport when both are available")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "tank", "hp": 150, "pos": Vector2(100.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "artillery", "hp": 100, "pos": Vector2(65.0, 260.0)})
+	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 260.0), "helicopter", 320.0, -1)) == 1, "Friendly helicopters should prioritize nearby hostile artillery over armor")
+	game.get("units").clear()
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(40.0, 260.0)})
+	game.get("units").append({"team": "enemy", "kind": "fighter", "hp": 120, "pos": Vector2(100.0, 260.0)})
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(0.0, 250.0), "attack_target": 0})
+	game.get("units").append({"team": "player", "kind": "fighter", "hp": 120, "pos": Vector2(0.0, 270.0)})
+	_expect(int(game.call("_select_player_air_combat_target", Vector2(0.0, 270.0), "fighter", 320.0, 3)) == 1, "Friendly fighters should distribute assignments instead of stacking on one target")
+
 	# Infantry should follow an active assault tank as a screening/support element.
 	game.get("units").clear()
 	game.get("units").append({"pos": Vector2(700.0, 300.0), "team": "enemy", "kind": "tank", "hp": 150})
