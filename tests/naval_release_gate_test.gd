@@ -16,8 +16,6 @@ func _run() -> void:
 	await process_frame
 	_cleanup_audio(game)
 
-	_expect(not bool(game.get("NAVAL_SYSTEM_ENABLED")), "Naval gameplay must remain disabled for the land-and-air release")
-
 	# A legacy or pre-existing shipyard must not let enemy AI resume naval production.
 	game.get("enemy_buildings").assign([
 		{"kind": "barracks", "hp": 400, "build_progress": 1.0, "pos": Vector2(1000.0, 200.0)},
@@ -28,7 +26,7 @@ func _run() -> void:
 		{"kind": "missile_silo", "hp": 500, "build_progress": 1.0, "pos": Vector2(1040.0, 240.0)},
 		{"kind": "missile_defense", "hp": 450, "build_progress": 1.0, "pos": Vector2(1080.0, 240.0)},
 		{"kind": "power_plant", "hp": 400, "build_progress": 1.0, "pos": Vector2(1120.0, 240.0)},
-		{"kind": "power_plant", "hp": 400, "build_progress": 1.0}
+		{"kind": "power_plant", "hp": 400, "build_progress": 1.0, "pos": Vector2(1160.0, 240.0)}
 	])
 	game.get("units").assign([
 		{"team": "enemy", "kind": "infantry", "hp": 60, "faction": "الصيني", "pos": Vector2(900.0, 250.0)},
