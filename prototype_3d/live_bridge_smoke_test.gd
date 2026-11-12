@@ -984,7 +984,7 @@ func _initialize() -> void:
 	# Critically damaged mobile troops should fall back to the nearest completed friendly asset.
 	var retreat_units: Array[Dictionary] = [
 		{"pos": Vector2(500.0, 330.0), "team": "enemy", "kind": "tank", "hp": 30, "attack_cd": 0.0},
-		{"pos": Vector2(450.0, 330.0), "team": "player", "kind": "tank", "hp": 150}
+		{"pos": Vector2(450.0, 330.0), "team": "player", "kind": "tank", "hp": 150, "attack_cd": 99.0}
 	]
 	var retreat_assets: Array[Dictionary] = [
 		{"pos": Vector2(820.0, 330.0), "kind": "factory", "hp": 500, "build_progress": 1.0},
