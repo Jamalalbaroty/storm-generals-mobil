@@ -943,7 +943,7 @@ func _process(delta: float) -> void:
 						var patrol_points: Array = unit.get("air_patrol_points", [])
 						if patrol_points.size() >= 2:
 							var patrol_threat_kinds: Array[String] = ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
-							var patrol_threat := _nearest_unit_by_priority(unit.pos, 245.0, "enemy", patrol_threat_kinds)
+							var patrol_threat := _select_player_air_combat_target(unit.pos, String(unit.get("kind", "")), 245.0, i)
 							if patrol_threat >= 0:
 								unit["attack_target"] = patrol_threat
 								unit["attack_focus_pos"] = units[patrol_threat].pos
@@ -952,7 +952,7 @@ func _process(delta: float) -> void:
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
 							var air_preferred_kinds := ["fighter", "helicopter", "transport_helicopter"] if unit.kind == "fighter" else ["tank", "artillery", "infantry"]
-							air_enemy_target = _nearest_unit_by_priority(unit.attack_focus_pos, 320.0, "enemy", air_preferred_kinds)
+							air_enemy_target = _select_player_air_combat_target(unit.attack_focus_pos, String(unit.get("kind", "")), 320.0, i)
 						if air_enemy_target >= 0:
 							unit.attack_target = air_enemy_target
 						else:
@@ -2571,6 +2571,56 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 			return best_index
 	return -1
 
+
+func _select_player_air_combat_target(from_pos: Vector2, attacker_kind: String, max_distance: float, attacker_index: int = -1) -> int:
+	# Assign different viable contacts across friendly aircraft while matching fighter/helicopter roles.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var candidate_kind := String(candidate.get("kind", ""))
+		var role_priority := 0.0
+		if attacker_kind == "fighter":
+			if candidate_kind == "fighter":
+				role_priority = 78.0
+			elif candidate_kind == "transport_helicopter":
+				role_priority = 62.0
+			elif candidate_kind == "helicopter":
+				role_priority = 48.0
+			else:
+				continue
+		elif attacker_kind == "helicopter":
+			if candidate_kind == "artillery":
+				role_priority = 76.0
+			elif candidate_kind == "tank":
+				role_priority = 64.0
+			elif candidate_kind == "infantry":
+				role_priority = 42.0
+			else:
+			continue
+		else:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance > max_distance:
+			continue
+		var assigned_aircraft := 0
+		for friendly_index in range(units.size()):
+			if friendly_index == attacker_index:
+				continue
+			var friendly: Dictionary = units[friendly_index]
+			if String(friendly.get("team", "")) != "player" or int(friendly.get("hp", 0)) <= 0:
+				continue
+			if String(friendly.get("kind", "")) not in ["fighter", "helicopter"]:
+				continue
+			if int(friendly.get("attack_target", -1)) == candidate_index:
+				assigned_aircraft += 1
+		var score: float = distance - role_priority + float(assigned_aircraft) * 135.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
 
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
 	# Prioritize immediate air combat and aircraft threatening strategic assets; avoid redundant lethal focus.
