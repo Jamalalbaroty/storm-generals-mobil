@@ -46,13 +46,16 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.get("selected").assign([0])
 	game.set("command_tab", 0)
 	_expect(bool(game.call("_has_only_selected_builders")), "A selected builder should activate the construction palette")
-	_expect(int(game.call("_command_tab_count")) == 3, "Builder selection should show three focused construction categories")
+	_expect(int(game.call("_command_tab_count")) == 4, "Builder selection should show four focused construction and reinforcement categories")
 	_expect(game.call("_command_tab_label", 0) == "المنشآت" and game.call("_command_tab_label", 1) == "الدفاعات" and game.call("_command_tab_label", 2) == "التحصينات", "Builder tabs should clearly separate structures, defenses, and fortifications")
+	_expect(game.call("_command_tab_label", 3) == "مركبات البناء", "Builder palette should expose a dedicated reinforcement tab")
 	_expect(game.call("_command_action_ids") == [22, 2, 3, 6, 13, 14], "Builder structures tab should expose power, barracks, factory, airfield, silo, and missile defense")
 	game.set("command_tab", 1)
 	_expect(game.call("_command_action_ids") == [4, 8, 23, 24, 25, 26], "Builder defenses tab should expose turret, anti-air, bunker, supply depot, and wall pieces")
 	game.set("command_tab", 2)
 	_expect(game.call("_command_action_ids") == [27, 24, 25, 26, 23, 12], "Builder fortifications tab should expose gates, walls, bunker, and cancel")
+	game.set("command_tab", 3)
+	_expect(game.call("_command_action_ids") == [21], "Builder reinforcement tab should offer additional dozers")
 	game.get("selected").clear()
 	game.get("units").clear()
 	game.set("command_tab", 0)
@@ -256,6 +259,20 @@ func _run_gameplay_economy_smoke_test() -> void:
 			if String(loop_unit.get("kind", "")) == "infantry" and String(loop_unit.get("team", "")) == "player":
 				produced_infantry += 1
 		_expect(produced_infantry == 1 and game.get("production_orders").is_empty(), "Completed infantry production should spawn exactly one friendly soldier")
+		# Multiple dozers can be queued from the barracks, just like Zero Hour reinforcements.
+		var builder_cost := game.call("_unit_cost", "builder", game.get("faction"))
+		var builder_credits_before := int(game.get("credits"))
+		game.call("_enqueue_unit", "builder")
+		game.call("_enqueue_unit", "builder")
+		_expect(game.get("production_orders").size() == 2, "Barracks should accept multiple dozer production orders")
+		_expect(int(game.get("credits")) == builder_credits_before - builder_cost * 2, "Each additional dozer should reserve its own faction-specific cost")
+		game.call("_update_production_queues", 8.0)
+		game.call("_update_production_queues", 8.0)
+		var produced_builders := 0
+		for produced_unit in game.get("units"):
+			if String(produced_unit.get("kind", "")) == "builder" and String(produced_unit.get("team", "")) == "player":
+				produced_builders += 1
+		_expect(produced_builders == 3 and game.get("production_orders").is_empty(), "Two queued dozers should complete sequentially alongside the starting builder")
 
 		var factory_command: Vector2 = game.call("_button_rect", 2, build_loop_viewport).get_center()
 		game.call("_handle_pointer", factory_command, true)

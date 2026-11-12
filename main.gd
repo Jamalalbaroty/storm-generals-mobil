@@ -3046,12 +3046,12 @@ func _has_only_selected_builders() -> bool:
 
 
 func _command_tab_count() -> int:
-	return 3 if _has_only_selected_builders() else COMMAND_TAB_LABELS.size()
+	return 4 if _has_only_selected_builders() else COMMAND_TAB_LABELS.size()
 
 
 func _command_tab_label(index: int) -> String:
 	if _has_only_selected_builders():
-		var builder_labels: Array[String] = ["المنشآت", "الدفاعات", "التحصينات"]
+		var builder_labels: Array[String] = ["المنشآت", "الدفاعات", "التحصينات", "مركبات البناء"]
 		return builder_labels[clampi(index, 0, builder_labels.size() - 1)]
 	return COMMAND_TAB_LABELS[clampi(index, 0, COMMAND_TAB_LABELS.size() - 1)]
 
@@ -3061,7 +3061,8 @@ func _command_action_ids() -> Array:
 		var builder_actions: Array = [
 			[22, 2, 3, 6, 13, 14],
 			[4, 8, 23, 24, 25, 26],
-			[27, 24, 25, 26, 23, 12]
+			[27, 24, 25, 26, 23, 12],
+			[21]
 		]
 		return builder_actions[clampi(command_tab, 0, builder_actions.size() - 1)]
 	return COMMAND_ACTIONS[clampi(command_tab, 0, COMMAND_ACTIONS.size() - 1)]
