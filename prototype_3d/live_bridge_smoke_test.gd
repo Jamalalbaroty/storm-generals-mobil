@@ -646,7 +646,7 @@ func _initialize() -> void:
 	for army in faction_names:
 		var army_profile: Dictionary = game.call("_faction_profile", army)
 		var army_unit_costs: Dictionary = army_profile.get("unit_costs", {})
-		if army_profile.size() != 9 or army_unit_costs.is_empty():
+		if army_profile.size() != 11 or army_unit_costs.is_empty():
 			push_error("Faction balance profile is missing combat stats or its unit-cost table for " + army)
 			quit(1)
 			return
@@ -656,7 +656,7 @@ func _initialize() -> void:
 			push_error("Faction combat helpers do not apply the balance profile consistently for " + army)
 			quit(1)
 			return
-		var army_signature := str(army_profile["production_speed"]) + ":" + str(army_profile["helicopter_cost"]) + ":" + str(army_profile["helicopter_damage"]) + ":" + str(army_profile["helicopter_cooldown"]) + ":" + str(army_profile["missile_cost"]) + ":" + str(army_profile["missile_damage"]) + ":" + str(army_profile["missile_cooldown"]) + ":" + str(army_profile["naval_damage"])
+		var army_signature := str(army_profile["production_speed"]) + ":" + str(army_profile["tank_damage_taken"]) + ":" + str(army_profile["infantry_damage_taken"]) + ":" + str(army_profile["helicopter_cost"]) + ":" + str(army_profile["helicopter_damage"]) + ":" + str(army_profile["helicopter_cooldown"]) + ":" + str(army_profile["missile_cost"]) + ":" + str(army_profile["missile_damage"]) + ":" + str(army_profile["missile_cooldown"]) + ":" + str(army_profile["naval_damage"])
 		if faction_signatures.has(army_signature):
 			push_error("Two armies unexpectedly share the same faction balance profile")
 			quit(1)
