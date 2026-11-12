@@ -1702,7 +1702,10 @@ func _faction_production_speed(army: String) -> float:
 
 
 func _faction_ground_damage_multiplier(unit: Dictionary) -> float:
-	var army := String(unit.get("faction", faction if String(unit.get("team", "player")) == "player" else _enemy_faction()))
+	# Legacy/test proxy units without an explicit faction keep baseline damage behavior.
+	if not unit.has("faction"):
+		return 1.0
+	var army := String(unit.get("faction", ""))
 	var profile := _faction_profile(army)
 	match String(unit.get("kind", "")):
 		"tank":
