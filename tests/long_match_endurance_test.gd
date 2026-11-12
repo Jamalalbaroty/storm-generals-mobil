@@ -122,6 +122,52 @@ func _run() -> void:
 	_expect(enemy_helicopters >= 1, "Armor-breaker doctrine should field at least one helicopter counter through the live AI loop")
 	_expect(game.get("production_orders").is_empty(), "No completed player production order should remain stuck after the endurance run")
 
+	# Gradually increase live battlefield density after the economy/endurance checks.
+	# Keep health high so this phase measures sustained update/identity handling,
+	# not which side wins the deliberately crowded engagement.
+	for stage_count in [8, 16, 24, 32, 40, 48]:
+		for team in ["player", "enemy"]:
+			for stage_index in range(8):
+				var unit_number: int = int(stage_count) - 8 + stage_index
+				var unit_kind := "tank"
+				if unit_number % 4 == 2:
+					unit_kind = "fighter"
+				elif unit_number % 4 == 3:
+					unit_kind = "helicopter"
+				# Pack each side into an 8-column grid that stays inside the
+				# 1280x720 test viewport even at the 48-unit-per-team stage.
+				var grid_column: int = unit_number % 8
+				var grid_row: int = int(unit_number / 8)
+				var side_origin_x := 180.0 if team == "player" else 700.0
+				var side_x := side_origin_x + float(grid_column) * 50.0
+				var side_y := 140.0 + float(grid_row) * 75.0
+				units.append({
+					"kind": unit_kind, "team": team,
+					"faction": "الأمريكي" if team == "player" else "الصيني",
+					"hp": 100000, "pos": Vector2(side_x, side_y),
+					"attack_cd": 10.0
+				})
+		game.set("units", units)
+		game.call("_ensure_stable_unit_identities")
+		var seen_stress_ids: Dictionary = {}
+		for stress_unit in units:
+			var stress_id := String(stress_unit.get("unit_id", ""))
+			_expect(not stress_id.is_empty(), "Every live unit must receive a stable identity during density ramp")
+			_expect(not seen_stress_ids.has(stress_id), "Unit identities must remain unique as battlefield density increases")
+			seen_stress_ids[stress_id] = true
+		# Record simulation-update cost separately from rendered FPS: this headless
+		# benchmark helps compare density growth without pretending to be a device test.
+		var density_start_usec := Time.get_ticks_usec()
+		for stress_frame in range(100):
+			game.call("_process", 0.1)
+		var density_elapsed_ms := float(Time.get_ticks_usec() - density_start_usec) / 1000.0
+		var density_average_frame_ms := density_elapsed_ms / 100.0
+		_expect(is_finite(density_average_frame_ms) and density_average_frame_ms >= 0.0, "Density benchmark must report a valid simulation-update duration")
+		print("DENSITY UPDATE BENCH: %d staged units/team | %d live units | %.3f ms/update" % [int(stage_count), units.size(), density_average_frame_ms])
+		_expect(String(game.get("battle_result")) == "", "A staged high-density match must remain active during the stress window")
+		_expect(int(game.get("credits")) >= 0 and int(game.get("enemy_credits")) >= 0, "Both economies must remain non-negative during density stress")
+		_expect(int(game.get("supplies")) >= 0 and int(game.get("enemy_supplies")) >= 0, "Both supply pools must remain non-negative during density stress")
+
 	# Confirm both port economies continue to accrue even after repeated AI turns.
 	var player_port_state: Dictionary = game.get("supply_points")[0]
 	var enemy_port_state: Dictionary = game.get("supply_points")[1]
@@ -143,7 +189,7 @@ func _run() -> void:
 		push_error("Long-match endurance test failed with %d assertion(s)." % failure_count)
 		quit(1)
 		return
-	print("Long-match endurance test passed: 98 seconds of live economy, production, AI, combat, and supply simulation.")
+	print("Long-match endurance test passed: 158 seconds of live economy, production, AI, combat, supply, and staged battlefield-density simulation.")
 	quit()
 
 

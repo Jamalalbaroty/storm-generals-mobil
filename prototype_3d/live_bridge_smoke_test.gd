@@ -93,6 +93,38 @@ func _initialize() -> void:
 		quit(1)
 		return
 	game.call("_set_3d_view_enabled", true)
+	# Exercise Android cancellation through the parent input handler. The parent
+	# marks the event handled, so the 3D child's unhandled-input callback cannot
+	# clear its own pointer state unless the parent explicitly forwards the reset.
+	var parent_cancelled_press := InputEventScreenTouch.new()
+	parent_cancelled_press.index = 7
+	parent_cancelled_press.pressed = true
+	parent_cancelled_press.position = Vector2(320.0, 280.0)
+	game._input(parent_cancelled_press)
+	bridge.call("_unhandled_input", parent_cancelled_press)
+	var emulated_mouse_press := InputEventMouseButton.new()
+	emulated_mouse_press.button_index = MOUSE_BUTTON_LEFT
+	emulated_mouse_press.pressed = true
+	emulated_mouse_press.position = Vector2(360.0, 300.0)
+	game._input(emulated_mouse_press)
+	if not game.get_viewport().is_input_handled() or bool(bridge.get("selection_gesture_active")):
+		push_error("A synthetic mouse click escaped the parent while an Android finger owned the pointer")
+		quit(1)
+		return
+	if int(game.get("active_touch_index")) != 7 or not (bridge.get("touch_points") as Dictionary).has(7):
+		push_error("The parent/3D bridge did not establish the same active Android touch")
+		quit(1)
+		return
+	var parent_cancelled_release := InputEventScreenTouch.new()
+	parent_cancelled_release.index = 7
+	parent_cancelled_release.pressed = false
+	parent_cancelled_release.canceled = true
+	parent_cancelled_release.position = Vector2(320.0, 280.0)
+	game._input(parent_cancelled_release)
+	if int(game.get("active_touch_index")) != -1 or not (bridge.get("touch_points") as Dictionary).is_empty() or not (bridge.get("touch_start_positions") as Dictionary).is_empty() or not (bridge.get("touch_moved") as Dictionary).is_empty() or bool(bridge.get("touch_multi_gesture")) or float(bridge.get("last_pinch_distance")) != 0.0:
+		push_error("A parent-intercepted Android cancellation left stale 3D camera gesture state")
+		quit(1)
+		return
 	# Two-finger gestures must enter pinch mode and must not become a unit-selection tap.
 	var touch_one := InputEventScreenTouch.new()
 	touch_one.index = 0
@@ -138,6 +170,27 @@ func _initialize() -> void:
 	bridge.call("_handle_world_tap", player_screen)
 	if bridge.get("selected_tank") != player_tank:
 		push_error("Tapping a friendly live unit did not select it after an enemy was selected")
+		quit(1)
+		return
+	# A platform-cancelled touch must clear all pointer state and must never issue an attack tap.
+	logical_units = game.get("units")
+	logical_units[0].erase("attack_target")
+	logical_units[0].erase("attack_focus_pos")
+	game.set("units", logical_units)
+	var cancelled_press := InputEventScreenTouch.new()
+	cancelled_press.index = 2
+	cancelled_press.pressed = true
+	cancelled_press.position = enemy_screen
+	bridge.call("_unhandled_input", cancelled_press)
+	var cancelled_release := InputEventScreenTouch.new()
+	cancelled_release.index = 2
+	cancelled_release.pressed = false
+	cancelled_release.canceled = true
+	cancelled_release.position = enemy_screen
+	bridge.call("_unhandled_input", cancelled_release)
+	logical_units = game.get("units")
+	if logical_units[0].has("attack_target") or not (bridge.get("touch_points") as Dictionary).is_empty() or not (bridge.get("touch_start_positions") as Dictionary).is_empty() or not (bridge.get("touch_moved") as Dictionary).is_empty() or bool(bridge.get("touch_multi_gesture")) or float(bridge.get("last_pinch_distance")) != 0.0:
+		push_error("A cancelled Android touch was treated as a command or left stale gesture state")
 		quit(1)
 		return
 	bridge.call("_handle_world_tap", enemy_screen)
@@ -1155,9 +1208,10 @@ func _initialize() -> void:
 	var all_unit_families: Array[Dictionary] = [
 		{"pos": Vector2(180.0, 180.0), "team": "player", "kind": "infantry", "faction": "الجيش العربي", "hp": 55.0, "max_hp": 60.0},
 		{"pos": Vector2(260.0, 180.0), "team": "player", "kind": "artillery", "faction": "وطن", "hp": 95.0, "max_hp": 110.0},
-		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0}
+		{"pos": Vector2(340.0, 180.0), "team": "player", "kind": "helicopter", "faction": "الأمريكي", "hp": 170.0, "max_hp": 180.0},
+		{"pos": Vector2(660.0, 180.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0}
 	]
-	var expected_live_keys: Array[String] = ["player|1|infantry", "player|2|artillery", "player|3|helicopter"]
+	var expected_live_keys: Array[String] = ["player|1|infantry", "player|2|artillery", "player|3|helicopter", "enemy|4|fighter"]
 	if bool(bridge.get_script().get_script_constant_map().get("NAVAL_PRESENTATION_ENABLED", false)):
 		all_unit_families.append_array([
 			{"pos": Vector2(420.0, 180.0), "team": "enemy", "kind": "destroyer", "faction": "الصيني", "hp": 240.0, "max_hp": 260.0},
@@ -1178,6 +1232,78 @@ func _initialize() -> void:
 			push_error("Live bridge lost unit-family identity or health metadata for %s" % expected_live_keys[family_index])
 			quit(1)
 			return
+
+	# Switching between 2D and 3D is presentation-only: preserve live selection,
+	# authoritative simulation state, and stable visual proxies across repeated toggles.
+	var preserved_infantry := bridge.game_unit_nodes.get("player|1|infantry") as Node3D
+	var preserved_artillery := bridge.game_unit_nodes.get("player|2|artillery") as Node3D
+	var preserved_enemy := bridge.game_unit_nodes.get("enemy|4|fighter") as Node3D
+	if preserved_infantry == null or preserved_artillery == null or preserved_enemy == null:
+		push_error("Could not locate units for 2D/3D view-switch preservation validation")
+		quit(1)
+		return
+	var preserved_selection: Array[Node3D] = [preserved_infantry, preserved_artillery]
+	bridge.call("_set_live_selection", preserved_selection)
+	bridge.set("attack_target", preserved_enemy)
+	bridge.set("has_selected_destination", true)
+	bridge.set("selected_destination", preserved_infantry.position + Vector3(4.0, 0.0, 0.0))
+	game.set("credits", 875)
+	game.set("player_base_hp", 640)
+	var preserved_unit_position: Vector2 = (game.get("units") as Array)[0].pos
+	var preserved_unit_health: float = float((game.get("units") as Array)[0].hp)
+	for toggle_cycle in range(3):
+		game.call("_set_3d_view_enabled", false)
+		if bridge.visible or bridge.process_mode != Node.PROCESS_MODE_DISABLED:
+			push_error("3D presentation must remain hidden and paused during a 2D toggle cycle")
+			quit(1)
+			return
+		game.call("_set_3d_view_enabled", true)
+		if not bridge.visible or bridge.process_mode == Node.PROCESS_MODE_DISABLED:
+			push_error("3D presentation did not reactivate after a view toggle cycle")
+			quit(1)
+			return
+		var selected_after_toggle: Array = bridge.get("selected_live_units")
+		if selected_after_toggle.size() != 2 or not selected_after_toggle.has(preserved_infantry) or not selected_after_toggle.has(preserved_artillery) or bridge.get("selected_tank") != preserved_infantry:
+			push_error("2D/3D view switching changed the selected friendly unit roster")
+			quit(1)
+			return
+		if bridge.get("attack_target") != preserved_enemy or not bool(bridge.get("has_selected_destination")):
+			push_error("2D/3D view switching discarded the active visual attack target or destination marker state")
+			quit(1)
+			return
+		if bridge.game_unit_nodes.get("player|1|infantry") != preserved_infantry or bridge.game_unit_nodes.get("player|2|artillery") != preserved_artillery:
+			push_error("2D/3D view switching recreated stable live unit proxies")
+			quit(1)
+			return
+		var current_units: Array = game.get("units")
+		if int(game.get("credits")) != 875 or int(game.get("player_base_hp")) != 640 or current_units[0].pos != preserved_unit_position or absf(float(current_units[0].hp) - preserved_unit_health) > 0.001:
+			push_error("Presentation switching mutated authoritative RTS economy, base health, or unit state")
+			quit(1)
+			return
+
+	# A fresh 3D move order after view switching must still reach the authoritative 2D unit record.
+	var post_toggle_order_units: Array = game.get("units")
+	var expected_post_toggle_target := game.get_viewport().get_visible_rect().size * 0.5
+	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "move", Vector3.ZERO, "")
+	post_toggle_order_units = game.get("units")
+	if not post_toggle_order_units[0].has("target") or (post_toggle_order_units[0].target as Vector2).distance_to(expected_post_toggle_target) > 1.0:
+		push_error("A 3D move order issued after repeated view switching failed to update the authoritative 2D unit destination")
+		quit(1)
+		return
+
+	# Attack and guard commands must also survive the same live bridge after view changes.
+	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "attack", Vector3.ZERO, "enemy|4|fighter")
+	post_toggle_order_units = game.get("units")
+	if int(post_toggle_order_units[0].get("attack_target", -1)) != 3 or post_toggle_order_units[0].has("target"):
+		push_error("A 3D attack order after view switching failed to bind the authoritative enemy target")
+		quit(1)
+		return
+	game.call("_on_3d_gameplay_order_issued", "player|1|infantry", "guard", Vector3.ZERO, "")
+	post_toggle_order_units = game.get("units")
+	if not bool(post_toggle_order_units[0].get("guard_active", false)) or post_toggle_order_units[0].has("attack_target") or post_toggle_order_units[0].has("target"):
+		push_error("A 3D guard order after view switching failed to replace the previous combat order")
+		quit(1)
+		return
 
 	# Removing a selected live unit must also clear selection and stale attack targets.
 	var selected_before_cleanup := bridge.game_unit_nodes.get("player|1|infantry") as Node3D

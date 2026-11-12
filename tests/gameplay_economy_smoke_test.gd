@@ -25,13 +25,32 @@ func _run_gameplay_economy_smoke_test() -> void:
 	(game.get("audio_players") as Array).clear()
 	(game.get("audio_streams") as Dictionary).clear()
 
-	# Mobile command deck exposes all 27 unique actions across five tabs.
+	# Stable identities must survive array compaction and distinguish carried passengers.
+	var identity_transport: Dictionary = {"kind": "transport_helicopter", "team": "player", "hp": 160, "pos": Vector2(100.0, 100.0), "unit_id": "unit_00000077", "transport_cargo": [{"kind": "infantry", "team": "player", "hp": 60, "unit_id": "unit_00000077"}]}
+	var identity_enemy: Dictionary = {"kind": "tank", "team": "enemy", "hp": 180, "pos": Vector2(300.0, 100.0), "unit_id": "unit_00000077"}
+	game.get("units").append(identity_transport)
+	game.get("units").append(identity_enemy)
+	game.call("_ensure_stable_unit_identities")
+	var identity_ids: Array[String] = [
+		String(game.get("units")[0].get("unit_id", "")),
+		String(game.get("units")[1].get("unit_id", "")),
+		String(game.get("units")[0].get("transport_cargo", [])[0].get("unit_id", ""))
+	]
+	var unique_identity_ids: Dictionary = {}
+	for identity_id in identity_ids:
+		_expect(not identity_id.is_empty(), "Every field unit and carried passenger should receive a stable identity")
+		unique_identity_ids[identity_id] = true
+	_expect(unique_identity_ids.size() == 3, "Duplicate identities must be repaired across field units and transport cargo")
+	_expect(int(game.get("next_unit_identity")) > 77, "Identity allocator must advance beyond restored numeric IDs")
+	game.get("units").clear()
+
+	# Mobile command deck exposes all 29 unique actions across five tabs.
 	var expected_command_tabs: Array = [
 		[0, 1, 2, 3, 4, 5],
 		[6, 7, 8, 9, 21, 22],
-		[10, 11, 12, 13, 14, 15],
+		[10, 11, 12, 13, 14, 15, 34, 35],
 		[23, 24, 25, 26, 27],
-		[28, 29, 30, 31]
+		[28, 29, 30, 31, 32, 33]
 	]
 	var covered_actions: Dictionary = {}
 	for tab_index in range(expected_command_tabs.size()):
@@ -40,7 +59,45 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(visible_actions == expected_command_tabs[tab_index], "Each command tab should expose its intended gameplay actions")
 		for action_id in visible_actions:
 			covered_actions[int(action_id)] = true
-	_expect(covered_actions.size() == 27, "The five compact command tabs should retain access to all 27 gameplay actions")
+	_expect(covered_actions.size() == 31, "The five compact command tabs should retain access to all 31 gameplay actions")
+	var command_viewports: Array[Vector2] = [Vector2(1280.0, 720.0), Vector2(800.0, 480.0), Vector2(360.0, 800.0), Vector2(320.0, 568.0)]
+	for command_viewport in command_viewports:
+		var save_action_rect: Rect2 = game.call("_button_rect", 6, command_viewport)
+		var load_action_rect: Rect2 = game.call("_button_rect", 7, command_viewport)
+		_expect(save_action_rect.position.x >= 0.0 and save_action_rect.position.y >= 0.0 and save_action_rect.end.x <= command_viewport.x and save_action_rect.end.y <= command_viewport.y, "Save action must fit the mobile command deck on viewport %s" % command_viewport)
+		_expect(load_action_rect.position.x >= 0.0 and load_action_rect.position.y >= 0.0 and load_action_rect.end.x <= command_viewport.x and load_action_rect.end.y <= command_viewport.y, "Restore action must fit the mobile command deck on viewport %s" % command_viewport)
+		_expect(not save_action_rect.intersects(load_action_rect), "Save and restore touch targets must not overlap on viewport %s" % command_viewport)
+
+	# Every command slot and tab must stay visible, reachable, and separated
+	# across compact landscape and portrait fallback viewports.
+	var full_command_viewports: Array[Vector2] = [
+		Vector2(1280.0, 720.0),
+		Vector2(800.0, 480.0),
+		Vector2(640.0, 360.0),
+		Vector2(568.0, 320.0),
+		Vector2(360.0, 800.0)
+	]
+	for command_viewport in full_command_viewports:
+		var tab_rects: Array[Rect2] = []
+		for tab_index in range(expected_command_tabs.size()):
+			var tab_rect: Rect2 = game.call("_command_tab_rect", tab_index, command_viewport)
+			_expect(tab_rect.position.x >= 0.0 and tab_rect.position.y >= 0.0 and tab_rect.end.x <= command_viewport.x and tab_rect.end.y <= command_viewport.y, "Every command tab must fit viewport %s" % command_viewport)
+			for previous_tab in tab_rects:
+				_expect(not tab_rect.intersects(previous_tab), "Command tab touch targets must not overlap on viewport %s" % command_viewport)
+			tab_rects.append(tab_rect)
+		for tab_index in range(expected_command_tabs.size()):
+			game.set("command_tab", tab_index)
+			var visible_actions: Array = game.call("_command_action_ids")
+			var action_rects: Array[Rect2] = []
+			for slot in range(visible_actions.size()):
+				var action_rect: Rect2 = game.call("_button_rect", slot, command_viewport)
+				_expect(action_rect.position.x >= 0.0 and action_rect.position.y >= 0.0 and action_rect.end.x <= command_viewport.x and action_rect.end.y <= command_viewport.y, "Command action %d on tab %d must fit viewport %s" % [int(visible_actions[slot]), tab_index, command_viewport])
+				_expect(action_rect.size.x >= 44.0 and action_rect.size.y >= 44.0, "Command action touch targets should remain at least 44 logical pixels on viewport %s" % command_viewport)
+				for previous_action in action_rects:
+					_expect(not action_rect.intersects(previous_action), "Command action touch targets must not overlap on viewport %s" % command_viewport)
+				action_rects.append(action_rect)
+				for tab_rect in tab_rects:
+					_expect(not action_rect.intersects(tab_rect), "Command actions must not overlap the tab strip on viewport %s" % command_viewport)
 	# The four army choices must remain visible and independently tappable on common phone aspect ratios.
 	var picker_viewports: Array[Vector2] = [
 		Vector2(1280.0, 720.0),
@@ -83,6 +140,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("game_started", false)
 	game.set("campaign_briefing", false)
 	game.get("units").clear()
+
+	# A system-cancelled touch must abort the gesture, not execute its pending tap.
+	game.set("game_started", false)
+	game.set("campaign_briefing", false)
+	game.set("faction", "")
+	var cancelled_touch := InputEventScreenTouch.new()
+	cancelled_touch.index = 2
+	cancelled_touch.pressed = true
+	cancelled_touch.position = game.call("_faction_rect", 0, active_viewport).get_center()
+	game._input(cancelled_touch)
+	cancelled_touch.pressed = false
+	cancelled_touch.canceled = true
+	game._input(cancelled_touch)
+	_expect(int(game.get("active_touch_index")) == -1 and not bool(game.get("dragging")), "A cancelled touch must release pointer ownership and stop dragging")
+	_expect(not bool(game.get("campaign_briefing")) and String(game.get("faction")) == "", "A cancelled faction-card touch must not trigger its tap action")
 
 	# A second finger must not take ownership of an active touch or change its
 	# drag/release target. This protects command taps from accidental multitouch.
@@ -1119,6 +1191,18 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(int(game.call("_unit_cost", "artillery", "الجيش العربي")) < int(game.call("_unit_cost", "artillery", "الأمريكي")), "Arab artillery should retain its affordability advantage")
 	_expect(int(game.call("_unit_cost", "tank", "وطن")) > int(game.call("_unit_cost", "tank", "الأمريكي")), "Watan elite armor should carry a resource premium")
 	_expect(int(game.call("_unit_cost", "fighter", "وطن")) > int(game.call("_unit_cost", "fighter", "الأمريكي")), "Watan elite air units should carry a resource premium")
+	# Validate every purchasable unit class across all four armies, not only the headline ground units.
+	var economy_unit_kinds: Array[String] = ["infantry", "tank", "builder", "artillery", "fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
+	for army_name in faction_names:
+		for unit_kind in economy_unit_kinds:
+			_expect(int(game.call("_unit_cost", unit_kind, army_name)) > 0, "%s %s must have a positive production cost" % [army_name, unit_kind])
+		_expect(int(game.call("_unit_cost", "transport_helicopter", army_name)) > 0, "%s transport helicopter must have a valid cost" % army_name)
+	_expect(int(game.call("_unit_cost", "transport_helicopter", "وطن")) > int(game.call("_unit_cost", "transport_helicopter", "الأمريكي")), "Watan transport aviation should retain its elite reinforcement premium")
+	var economy_building_kinds: Array[String] = ["barracks", "factory", "turret", "airfield", "anti_air", "missile_silo", "missile_defense", "shipyard", "power_plant", "bunker", "supply_depot", "wall", "wall_corner", "wall_gate"]
+	for building_kind in economy_building_kinds:
+		_expect(int(game.call("_building_cost", building_kind)) > 0, "%s must have a positive construction cost" % building_kind)
+	for supply_kind in economy_unit_kinds:
+		_expect(int(game.call("_unit_supply_cost", supply_kind)) >= 0, "%s supply requirement must not be negative" % supply_kind)
 	var watan_helicopter: Dictionary = {"faction": "وطن"}
 	var american_helicopter: Dictionary = {"faction": "الأمريكي"}
 	_expect(int(game.call("_helicopter_damage", watan_helicopter)) > int(game.call("_helicopter_damage", american_helicopter)), "Watan helicopter should retain elite damage")
@@ -1275,6 +1359,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	game.set("battle_result", "")
 	game.set("enemy_base_hp", 1000)
 	game.set("player_base_hp", 1000)
+	# The preceding UI/campaign scenarios may leave a construction command active.
+	# Clear transient input state so this section exercises a ground-move order,
+	# not the building-placement early return in _handle_pointer().
+	game.set("build_mode", "")
+	game.set("dragging", false)
+	game.set("selected_enemy_building", -1)
+	game.set("selected_player_building", -1)
 	var group_records: Array[Dictionary] = [
 		{"kind": "artillery", "team": "player", "faction": "الأمريكي", "hp": 100, "pos": Vector2(180.0, 180.0)},
 		{"kind": "infantry", "team": "player", "faction": "الأمريكي", "hp": 60, "pos": Vector2(190.0, 190.0)},
@@ -1289,7 +1380,7 @@ func _run_gameplay_economy_smoke_test() -> void:
 		game.get("units").append(group_record)
 	var group_selection: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 	game.set("selected", group_selection)
-	var group_destination := Vector2(650.0, 320.0)
+	var group_destination := Vector2(active_viewport.x * 0.58, clampf(active_viewport.y * 0.72, 240.0, 285.0))
 	game.call("_handle_pointer", group_destination, true)
 	game.call("_handle_pointer", group_destination, false)
 	var group_origin := Vector2.ZERO
@@ -1301,24 +1392,27 @@ func _run_gameplay_economy_smoke_test() -> void:
 	var formation_targets: Array[Vector2] = []
 	for group_index in group_selection:
 		var group_unit: Dictionary = game.get("units")[group_index]
-		var group_target: Vector2 = group_unit.get("target", Vector2(-1000000.0, -1000000.0))
-		_expect(group_unit.has("target"), "Every selected unit should receive a formation destination on a ground move")
-		_expect(group_target.x >= 24.0 and group_target.x <= 1128.0 and group_target.y >= 24.0 and group_target.y <= 624.0, "Formation destinations should remain inside the battlefield")
+		var is_transport_unit := String(group_unit.get("kind", "")) == "transport_helicopter"
+		var has_group_target := group_unit.has("transport_target_pos") if is_transport_unit else group_unit.has("target")
+		_expect(has_group_target, "Every selected unit should receive a formation destination on a ground move")
+		var group_target: Vector2 = group_unit.get("transport_target_pos", group_destination) if is_transport_unit else group_unit.get("target", group_destination)
+		if has_group_target:
+			_expect(group_target.x >= 24.0 and group_target.x <= 1128.0 and group_target.y >= 24.0 and group_target.y <= 624.0, "Formation destinations should remain inside the battlefield")
 		for prior_target in formation_targets:
 			_expect(group_target.distance_to(prior_target) > 10.0, "Mixed-unit group movement should not stack selected units on one destination")
 		formation_targets.append(group_target)
-	var artillery_projection: float = (game.get("units")[0].target - group_destination).dot(group_forward)
-	var tank_projection: float = (game.get("units")[3].target - group_destination).dot(group_forward)
-	var helicopter_projection: float = (game.get("units")[5].target - group_destination).dot(group_forward)
-	var transport_projection: float = (game.get("units")[6].target - group_destination).dot(group_forward)
-	var infantry_left_lateral: float = (game.get("units")[1].target - group_destination).dot(group_right)
-	var infantry_right_lateral: float = (game.get("units")[2].target - group_destination).dot(group_right)
+	var artillery_projection: float = (Vector2(game.get("units")[0].get("target", group_destination)) - group_destination).dot(group_forward)
+	var tank_projection: float = (Vector2(game.get("units")[3].get("target", group_destination)) - group_destination).dot(group_forward)
+	var helicopter_projection: float = (Vector2(game.get("units")[5].get("target", group_destination)) - group_destination).dot(group_forward)
+	var transport_projection: float = (Vector2(game.get("units")[6].get("transport_target_pos", group_destination)) - group_destination).dot(group_forward)
+	var infantry_left_lateral: float = (Vector2(game.get("units")[1].get("target", group_destination)) - group_destination).dot(group_right)
+	var infantry_right_lateral: float = (Vector2(game.get("units")[2].get("target", group_destination)) - group_destination).dot(group_right)
 	_expect(tank_projection > artillery_projection + 20.0, "Tanks should form ahead of artillery in a mixed group move")
 	_expect(infantry_left_lateral * infantry_right_lateral < 0.0, "Infantry should spread across opposite flanks of the armor")
 	_expect(helicopter_projection > tank_projection and transport_projection > helicopter_projection, "Aircraft and transport should occupy separate forward support lanes")
 
 	# A direct attack click should synchronize the selected group on one enemy target.
-	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": Vector2(700.0, 320.0)})
+	game.get("units").append({"kind": "tank", "team": "enemy", "faction": "الصيني", "hp": 180, "pos": group_destination + Vector2(42.0, 0.0)})
 	var group_enemy_index: int = game.get("units").size() - 1
 	var group_enemy_position: Vector2 = game.get("units")[group_enemy_index].pos
 	game.call("_handle_pointer", group_enemy_position, true)
@@ -1329,17 +1423,21 @@ func _run_gameplay_economy_smoke_test() -> void:
 		_expect(attacking_unit.get("attack_focus_pos", Vector2.ZERO).distance_to(group_enemy_position) < 0.1, "All selected units should preserve the player's chosen attack focus")
 
 	# A fresh move order should clear the old attack and re-form the group at its new destination.
-	var second_group_destination := Vector2(420.0, 420.0)
+	var second_group_destination := Vector2(active_viewport.x * 0.36, clampf(active_viewport.y * 0.55, 232.0, 278.0))
 	game.call("_handle_pointer", second_group_destination, true)
 	game.call("_handle_pointer", second_group_destination, false)
 	var second_formation_targets: Array[Vector2] = []
 	for group_index in group_selection:
 		var moving_unit: Dictionary = game.get("units")[group_index]
 		_expect(not moving_unit.has("attack_target") and not moving_unit.has("attack_focus_pos"), "A new group move should clear stale attack orders")
-		_expect(moving_unit.get("target", Vector2.ZERO).distance_to(second_group_destination) < 180.0, "Each unit should reform around the new group destination")
+		var moving_is_transport := String(moving_unit.get("kind", "")) == "transport_helicopter"
+		var moving_has_target := moving_unit.has("transport_target_pos") if moving_is_transport else moving_unit.has("target")
+		var moving_target: Vector2 = moving_unit.get("transport_target_pos", second_group_destination) if moving_is_transport else moving_unit.get("target", second_group_destination)
+		_expect(moving_has_target, "Each unit should retain a movement target after a second group move")
+		_expect(moving_target.distance_to(second_group_destination) < 180.0, "Each unit should reform around the new group destination")
 		for prior_target in second_formation_targets:
-			_expect(moving_unit.target.distance_to(prior_target) > 10.0, "A second group move should preserve distinct formation slots")
-		second_formation_targets.append(moving_unit.target)
+			_expect(moving_target.distance_to(prior_target) > 10.0, "A second group move should preserve distinct formation slots")
+		second_formation_targets.append(moving_target)
 
 	# Stop and release generated audio resources before freeing the test scene.
 	for audio_player in game.get("audio_players"):

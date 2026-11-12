@@ -10,9 +10,11 @@ on:
   workflow_dispatch:
 
 # Keep only the newest queued PR validation; rapid commits must not create a CI backlog.
+# Live air and ground combat are mandatory four-faction release gates.
+# Faction balance regressions cover Watan's elite land firepower premium.
 concurrency:
-  # Isolate each PR/branch so unrelated validation runs never cancel one another.
-  group: storm-generals-regression-${{ github.event.pull_request.number || github.ref }}
+  # Versioned group isolates new validation from stale queued runs created by the previous workflow generation.
+  group: storm-generals-regression-v3-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -37,11 +39,53 @@ jobs:
       - name: Run economy, AI, artillery, and production regressions
         run: timeout 240s godot --headless --path . --script tests/production_queue_regression_test.gd
 
+      - name: Run transactional production and force-cap economy regression
+        run: timeout 90s godot --headless --path . --script tests/economy_transaction_guard_test.gd
+
+      - name: Run four-faction combat and economy balance regression
+        run: timeout 90s godot --headless --path . --script tests/faction_balance_regression_test.gd
+
+      - name: Run naval-disabled land-and-air release gate
+        run: timeout 90s godot --headless --path . --script tests/naval_release_gate_test.gd
+
+      - name: Run six pairwise faction air-combat matchup matrix
+        run: timeout 90s godot --headless --path . --script tests/faction_matchup_matrix_test.gd
+
+      - name: Run live four-faction helicopter combat regression
+        run: timeout 90s godot --headless --path . --script tests/live_faction_air_combat_test.gd
+
+      - name: Run live four-faction enemy ground AI combat regression
+        run: timeout 90s godot --headless --path . --script tests/live_enemy_ground_ai_combat_test.gd
+
+      - name: Run live four-faction infantry, tank, and artillery combat regression
+        run: timeout 90s godot --headless --path . --script tests/live_faction_ground_combat_test.gd
+
+      - name: Run isolated four-faction team registry regression
+        run: timeout 60s godot --headless --path . --script tests/battle_team_registry_test.gd
+
+      - name: Run legacy two-side team compatibility regression
+        run: timeout 60s godot --headless --path . --script tests/battle_legacy_team_adapter_test.gd
+
+      - name: Run legacy two-side targeting characterization regression
+        run: timeout 90s godot --headless --path . --script tests/battle_two_side_targeting_characterization_test.gd
+
+      - name: Run legacy two-side capture characterization regression
+        run: timeout 90s godot --headless --path . --script tests/battle_two_side_capture_characterization_test.gd
+
       - name: Run gameplay economy and enemy recovery smoke test
         run: timeout 180s godot --headless --path . --script tests/gameplay_economy_smoke_test.gd
 
+      - name: Run versioned battle save store regression test
+        run: timeout 60s godot --headless --path . --script tests/battle_save_store_test.gd
+
+      - name: Run battle save and restore integration test
+        run: timeout 120s godot --headless --path . --script tests/battle_save_integration_test.gd
+
       - name: Run transport airlift regression test
         run: timeout 180s godot --headless --path . --script tests/transport_airlift_regression_test.gd
+ 
+      - name: Run transport AI landing-site and control-policy regression test
+        run: timeout 180s godot --headless --path . --script tests/transport_ai_landing_site_test.gd
 
       - name: Run combined-arms group formation regression test
         run: timeout 60s godot --headless --path . --script tests/group_formation_regression_test.gd
@@ -49,8 +93,14 @@ jobs:
       - name: Run coordinated group attack regression test
         run: timeout 60s godot --headless --path . --script tests/group_attack_regression_test.gd
 
+      - name: Run mobile touch ownership and gesture regression
+        run: timeout 180s godot --headless --path . --script tests/mobile_touch_input_regression_test.gd
+
       - name: Run live 2D-to-3D gameplay bridge smoke test
         run: timeout 180s godot --headless --path . --script prototype_3d/live_bridge_smoke_test.gd
+
+      - name: Run spatial ground-unit collision equivalence regression
+        run: timeout 90s godot --headless --path . --script tests/ground_spacing_spatial_regression_test.gd
 
       - name: Run long-match endurance simulation
         run: timeout 180s godot --headless --path . --script tests/long_match_endurance_test.gd
@@ -58,7 +108,8 @@ jobs:
   android-candidate:
     name: Export playable Android debug APK
     needs: regression
-    if: needs.regression.result == 'success' && github.event_name == 'workflow_dispatch'
+    # Android packaging is intentionally deferred until overall game progress reaches 80%.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 25
     container:

@@ -279,6 +279,38 @@ func _run() -> void:
 		quit(1)
 		return
 
+
+	# Legacy production orders without producer IDs must retain the default speed,
+	# even when their matching factory has been upgraded.
+	game.credits = 0
+	game.supplies = 0
+	game.buildings.clear()
+	game.buildings.append({
+		"pos": Vector2(300.0, 300.0),
+		"kind": "factory",
+		"hp": 400,
+		"build_progress": 1.0,
+		"level": 3,
+		"production_id": 44
+	})
+	game.production_orders.assign([{
+		"producer_pos": Vector2(300.0, 300.0),
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}])
+	game._update_production_queues(0.1)
+	if game.production_orders.size() != 1:
+		push_error("Legacy production order should remain queued while incomplete")
+		quit(1)
+		return
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.9):
+		push_error("Legacy production order without producer_id must keep default speed on upgraded factories")
+		quit(1)
+		return
+
+	game.production_orders.clear()
+
 	# Power priority: defensive structures take precedence over production buildings.
 	game.buildings.clear()
 	game.production_orders.clear()
@@ -736,6 +768,129 @@ func _run() -> void:
 		push_error("A completed match continued advancing the production queue")
 		quit(1)
 		return
+
+	# Enemy fighters must prioritize landing-craft threats, then safely refresh cached targets after unit indices shift.
+	game.buildings.clear()
+	game.enemy_buildings.clear()
+	game.units.assign([
+		{"unit_id": "enemy_fighter_cache", "pos": Vector2(100, 100), "team": "enemy", "kind": "fighter", "hp": 120},
+		{"unit_id": "enemy_landing_cache", "pos": Vector2(500, 100), "team": "enemy", "kind": "landing_craft", "landing_state": "outbound", "hp": 500},
+		{"unit_id": "player_close_fighter", "pos": Vector2(120, 100), "team": "player", "kind": "fighter", "hp": 120},
+		{"unit_id": "player_landing_threat", "pos": Vector2(550, 100), "team": "player", "kind": "helicopter", "hp": 120}
+	])
+	var fighter_assignment: Dictionary = game._enemy_fighter_cached_assignment(game.units[0], 0, 0.1)
+	if int(fighter_assignment.get("index", -1)) != 3 or String(fighter_assignment.get("mode", "")) != "fighter_landing_defense":
+		push_error("Enemy fighter must prioritize an aircraft threatening an active landing craft over a closer unrelated interceptor")
+		quit(1)
+		return
+	game.units.insert(0, {"unit_id": "inserted_enemy_unit", "pos": Vector2(700, 700), "team": "enemy", "kind": "builder", "hp": 100})
+	fighter_assignment = game._enemy_fighter_cached_assignment(game.units[1], 1, 0.05)
+	if int(fighter_assignment.get("index", -1)) != 4 or String(game.units[4].get("unit_id", "")) != "player_landing_threat":
+		push_error("Enemy fighter cache must reject a stale index and reacquire the same target by stable unit identity")
+		quit(1)
+		return
+	game.units[2].hp = 0
+	game.units[4].hp = 0
+	fighter_assignment = game._enemy_fighter_cached_assignment(game.units[1], 1, 0.05)
+	if int(fighter_assignment.get("index", -1)) != 3 or String(fighter_assignment.get("mode", "")) != "fighter_intercept":
+		push_error("Enemy fighter cache must immediately replace a dead landing threat with a valid air intercept target")
+		quit(1)
+		return
+
+	# Enemy helicopter target caching must also survive index shifts and invalidate destroyed ground targets.
+	game.units.assign([
+		{"unit_id": "enemy_heli_cache", "pos": Vector2(100, 100), "team": "enemy", "kind": "helicopter", "hp": 160},
+		{"unit_id": "player_ground_near", "pos": Vector2(200, 100), "team": "player", "kind": "tank", "hp": 300},
+		{"unit_id": "player_ground_far", "pos": Vector2(300, 100), "team": "player", "kind": "artillery", "hp": 220}
+	])
+	var heli_target_index: int = game._enemy_helicopter_cached_target(game.units[0], 0, 0.1, -1)
+	if heli_target_index != 1 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_near":
+		push_error("Enemy helicopter must retain the existing nearest exposed ground-target selection")
+		quit(1)
+		return
+	game.units.insert(0, {"unit_id": "inserted_enemy_air_unit", "pos": Vector2(500, 500), "team": "enemy", "kind": "fighter", "hp": 120})
+	heli_target_index = game._enemy_helicopter_cached_target(game.units[1], 1, 0.05, -1)
+	if heli_target_index != 2 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_near":
+		push_error("Enemy helicopter cache must reacquire its target after unit-list indices shift")
+		quit(1)
+		return
+	game.units[2].hp = 0
+	heli_target_index = game._enemy_helicopter_cached_target(game.units[1], 1, 0.05, -1)
+	if heli_target_index != 3 or String(game.units[heli_target_index].get("unit_id", "")) != "player_ground_far":
+		push_error("Enemy helicopter cache must invalidate a destroyed target and select the next valid ground target")
+		quit(1)
+		return
+
+	# Combat QA: terrain cover and friendly garrison bonuses must reduce incoming damage deterministically.
+	game.buildings.clear()
+	game.supply_points.clear()
+	game.map_type = "الصحراء"
+	var terrain_infantry: Dictionary = {"team": "player", "kind": "infantry", "hp": 100, "pos": Vector2.ZERO}
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 100:
+		push_error("Open desert should not apply an infantry terrain-cover bonus")
+		quit(1)
+		return
+	game.map_type = "ساحل الغابات"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 72:
+		push_error("Forest coastline should reduce infantry damage by the configured 28 percent")
+		quit(1)
+		return
+	game.map_type = "الساحل الجبلي"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 80:
+		push_error("Mountain coastline should reduce infantry damage by the configured 20 percent")
+		quit(1)
+		return
+	game.map_type = "المدينة الساحلية"
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 76:
+		push_error("Coastal city should reduce infantry damage by the configured 24 percent")
+		quit(1)
+		return
+
+	# Friendly bridge garrisons and completed bunkers stack their intended cover.
+	game.map_type = "الصحراء"
+	game.supply_points.assign([{"owner": "player", "kind": "bridge", "pos": Vector2.ZERO}])
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 82:
+		push_error("Infantry holding a friendly bridge should receive the 18 percent garrison protection")
+		quit(1)
+		return
+	game.buildings.assign([{"kind": "bunker", "hp": 400, "build_progress": 1.0, "level": 1, "pos": Vector2.ZERO}])
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 64:
+		push_error("Completed bunker and friendly bridge cover should combine with deterministic rounding")
+		quit(1)
+		return
+	game.buildings[0]["build_progress"] = 0.5
+	if game._terrain_adjusted_damage(terrain_infantry, 100) != 82:
+		push_error("An unfinished bunker must not grant defensive cover")
+		quit(1)
+		return
+	game.buildings.clear()
+	game.supply_points.clear()
+
+	# Artillery blast falloff must distinguish center, edge, outside radius, air, and friendly units.
+	var artillery_center := Vector2(500.0, 300.0)
+	var artillery_attacker: Dictionary = {"team": "player", "kind": "artillery", "combat_xp": 0.0, "veterancy": 0}
+	game.units.assign([
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center},
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center + Vector2(100.0, 0.0)},
+		{"team": "enemy", "kind": "tank", "hp": 300, "pos": artillery_center + Vector2(100.1, 0.0)},
+		{"team": "enemy", "kind": "fighter", "hp": 200, "pos": artillery_center},
+		{"team": "player", "kind": "tank", "hp": 300, "pos": artillery_center},
+		{"team": "enemy", "kind": "tank", "hp": 0, "pos": artillery_center}
+	])
+	game._apply_artillery_blast(artillery_center, 100.0, 100, "enemy", artillery_attacker)
+	if int(game.units[0]["hp"]) != 200 or int(game.units[1]["hp"]) != 265:
+		push_error("Artillery should deal full damage at impact and 35 percent damage at the blast edge")
+		quit(1)
+		return
+	if int(game.units[2]["hp"]) != 300 or int(game.units[3]["hp"]) != 200 or int(game.units[4]["hp"]) != 300 or int(game.units[5]["hp"]) != 0:
+		push_error("Artillery blast must ignore units outside radius, aircraft, friendly units, and already-destroyed units")
+		quit(1)
+		return
+	if not is_equal_approx(float(artillery_attacker.get("combat_xp", 0.0)), 67.5):
+		push_error("Artillery attacker should receive experience from actual damage dealt across valid ground targets")
+		quit(1)
+		return
+	game.units.clear()
 
 	print("PASS: faction costs, enemy strategy, player/enemy power grids, production recovery, and missile defense")
 	quit(0)

@@ -2483,9 +2483,24 @@ func _pan_camera(screen_delta: Vector2) -> void:
 	camera_focus.z = clampf(camera_focus.z + world_delta.z, -ARENA_SIZE * 0.42, ARENA_SIZE * 0.42)
 	_update_camera_pose()
 
+func _reset_touch_gesture_state() -> void:
+	touch_points.clear()
+	touch_start_positions.clear()
+	touch_moved.clear()
+	last_pinch_distance = 0.0
+	last_pinch_center = Vector2.ZERO
+	touch_multi_gesture = false
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
+		if touch.canceled:
+			# Android can cancel every active pointer when the app loses focus.
+			# Abort the whole gesture so a cancelled press can never become a tap.
+			_reset_touch_gesture_state()
+			get_viewport().set_input_as_handled()
+			return
 		if touch.pressed:
 			touch_points[touch.index] = touch.position
 			touch_start_positions[touch.index] = touch.position

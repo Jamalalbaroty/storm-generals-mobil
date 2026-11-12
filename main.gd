@@ -1,5 +1,7 @@
 extends Node2D
 
+const BattleSaveStoreScript = preload("res://scripts/battle_save_store.gd")
+
 const FACTIONS := ["الأمريكي", "الصيني", "الجيش العربي", "وطن"]
 const MAP_TYPES := ["الساحل الصحراوي", "ساحل الغابات", "الساحل الجبلي", "المدينة الساحلية"]
 const CAMPAIGN_MISSIONS := [
@@ -13,9 +15,9 @@ const COMMAND_TAB_LABELS := ["البرية", "الجوية", "الاستراتي
 const COMMAND_ACTIONS := [
 	[0, 1, 2, 3, 4, 5],
 	[6, 7, 8, 9, 21, 22],
-	[10, 11, 12, 13, 14, 15],
+	[10, 11, 12, 13, 14, 15, 34, 35],
 	[23, 24, 25, 26, 27],
-	[28, 29, 30, 31]
+	[28, 29, 30, 31, 32, 33]
 ]
 const INFANTRY_COST := 100
 const TANK_COST := 300
@@ -119,6 +121,8 @@ var ground_alert_active := false
 var missile_alert_active := false
 var enemy_strategy := "balanced"
 var next_building_production_id := 1
+var next_unit_identity := 1
+var unit_identity_scan_timer := 0.5
 var command_tab := 0
 var commander_profile: Dictionary = {
 	"battles_played": 0,
@@ -133,13 +137,39 @@ var commander_profile: Dictionary = {
 	"campaign_funds": 0
 }
 var commander_profile_saved_result := ""
+var battle_save_store: RefCounted
+var has_resumable_battle := false
 
 func _ready() -> void:
 	randomize()
 	_load_commander_profile()
+	battle_save_store = BattleSaveStoreScript.new()
+	has_resumable_battle = _has_resumable_battle()
 	_setup_battle_audio()
 	get_viewport().size_changed.connect(queue_redraw)
 	queue_redraw()
+
+
+func _has_resumable_battle() -> bool:
+	if battle_save_store == null:
+		return false
+	var snapshot: Dictionary = battle_save_store.call("load_snapshot")
+	if snapshot.is_empty():
+		return false
+	var match_state: Dictionary = snapshot.get("match", {})
+	return bool(match_state.get("game_started", false)) and String(match_state.get("battle_result", "")).is_empty()
+
+
+func _resume_battle_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(size.x * 0.20, size.y * 0.84), Vector2(size.x * 0.60, 42.0))
+
+
+func _notification(what: int) -> void:
+	# Android sends APPLICATION_PAUSED when the app is backgrounded or interrupted.
+	# Desktop sends WM_CLOSE_REQUEST; save synchronously before the scene is torn down.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if game_started and battle_result.is_empty():
+			_save_battle_snapshot()
 
 
 const BATTLEFIELD_3D_SCENE: PackedScene = preload("res://prototype_3d/battlefield_3d.tscn")
@@ -168,6 +198,106 @@ func _ensure_3d_gameplay_bridge() -> bool:
 	if battlefield_3d.has_signal("gameplay_order_issued"):
 		battlefield_3d.connect("gameplay_order_issued", Callable(self, "_on_3d_gameplay_order_issued"))
 	return true
+
+
+func _valid_player_airfield_index(unit: Dictionary, airfield_id: int) -> int:
+	# Keep a per-aircraft index hint, but validate stable identity and live field state
+	# every frame so building removal, destruction, or power loss cannot stale the cache.
+	var cached_index := int(unit.get("airfield_cached_index", -1))
+	if cached_index >= 0 and cached_index < buildings.size():
+		var cached_airfield: Dictionary = buildings[cached_index]
+		if String(cached_airfield.get("kind", "")) == "airfield" and int(cached_airfield.get("production_id", -2)) == airfield_id and int(cached_airfield.get("hp", 0)) > 0 and float(cached_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(cached_index):
+			return cached_index
+	unit.erase("airfield_cached_index")
+	for airfield_index in range(buildings.size()):
+		var candidate: Dictionary = buildings[airfield_index]
+		if String(candidate.get("kind", "")) == "airfield" and int(candidate.get("production_id", -2)) == airfield_id and int(candidate.get("hp", 0)) > 0 and float(candidate.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
+			unit["airfield_cached_index"] = airfield_index
+			return airfield_index
+	return -1
+
+
+func _nearest_powered_player_airfield_index(origin: Vector2, excluded_airfield_id: int = -1) -> int:
+	var nearest_airfield := -1
+	var nearest_distance := INF
+	for airfield_index in range(buildings.size()):
+		var candidate: Dictionary = buildings[airfield_index]
+		if String(candidate.get("kind", "")) != "airfield" or float(candidate.get("build_progress", 1.0)) < 1.0 or int(candidate.get("hp", 0)) <= 0 or int(candidate.get("production_id", -2)) == excluded_airfield_id or not _is_player_building_powered(airfield_index):
+			continue
+		var candidate_distance: float = origin.distance_to(candidate.pos)
+		if candidate_distance < nearest_distance:
+			nearest_distance = candidate_distance
+			nearest_airfield = airfield_index
+	return nearest_airfield
+
+
+func _redirect_aircraft_recovery(unit: Dictionary, failed_airfield_id: int) -> bool:
+	# Keep the saved flight order while moving recovery to another valid friendly field.
+	var alternate_index := _nearest_powered_player_airfield_index(unit.pos, failed_airfield_id)
+	if alternate_index < 0:
+		_abandon_airfield_recovery(unit)
+		return false
+	var alternate_id := int(buildings[alternate_index].get("production_id", -1))
+	unit["airfield_cached_index"] = alternate_index
+	for state_key in ["airfield_landed", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
+		unit.erase(state_key)
+	unit["airfield_returning"] = true
+	unit["airfield_recovery_id"] = alternate_id
+	unit.erase("airfield_recovery_slot")
+	unit["airfield_rearm_progress"] = float(unit.get("airfield_rearm_progress", 0.0))
+	# Publish the new field assignment before calculating a slot, so subsequent aircraft see it.
+	var redirected_unit_id := String(unit.get("unit_id", ""))
+	var redirected_unit_index := -1
+	for unit_index in range(units.size()):
+		if String(units[unit_index].get("unit_id", "")) == redirected_unit_id:
+			redirected_unit_index = unit_index
+			units[unit_index] = unit
+			break
+	unit["airfield_recovery_slot"] = _next_airfield_recovery_slot(alternate_id)
+	if redirected_unit_index >= 0:
+		units[redirected_unit_index] = unit
+	return true
+
+
+func _next_airfield_recovery_slot(recovery_id: int) -> int:
+	# Reuse the lowest free slot; counting aircraft is unsafe when earlier slots become free.
+	var occupied_slots: Dictionary = {}
+	for aircraft in units:
+		if String(aircraft.get("team", "")) != "player" or not bool(aircraft.get("airfield_returning", false)):
+			continue
+		if int(aircraft.get("airfield_recovery_id", -2)) != recovery_id:
+			continue
+		var slot := int(aircraft.get("airfield_recovery_slot", -1))
+		if slot >= 0:
+			occupied_slots[slot] = true
+	var next_slot := 0
+	while occupied_slots.has(next_slot):
+		next_slot += 1
+	return next_slot
+
+
+func _airfield_sortie_launch_delay(airfield_id: int) -> float:
+	# One aircraft uses the launch lane at a time; later ready aircraft wait in order.
+	var queued_launches := 0
+	for aircraft in units:
+		if String(aircraft.get("team", "")) != "player" or not bool(aircraft.get("airfield_sortie_launch", false)):
+			continue
+		if int(aircraft.get("airfield_sortie_airfield_id", -2)) == airfield_id:
+			queued_launches += 1
+	return float(queued_launches) * 1.5
+
+
+func _airfield_sortie_has_launch_predecessor(unit_id: String, airfield_id: int) -> bool:
+	# Resolve the aircraft and its earlier same-runway queue in one ordered pass.
+	var has_predecessor := false
+	for queued_aircraft in units:
+		if String(queued_aircraft.get("unit_id", "")) == unit_id:
+			return has_predecessor
+		if String(queued_aircraft.get("team", "")) != "player" or not bool(queued_aircraft.get("airfield_sortie_launch", false)):
+			continue
+		if int(queued_aircraft.get("airfield_sortie_airfield_id", -2)) == airfield_id:
+			has_predecessor = true
+	return false
 
 
 func _save_aircraft_resume_order(unit: Dictionary) -> void:
@@ -225,15 +355,24 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 			unit["attack_building"] = restored_building
 
 
+func _abandon_airfield_recovery(unit: Dictionary) -> void:
+	# A destroyed or unpowered recovery field must release the aircraft and its queue slot.
+	for state_key in ["airfield_returning", "airfield_landed", "airfield_recovery_id", "airfield_recovery_slot", "airfield_rearm_progress", "airfield_cached_index", "airfield_sortie_ready", "airfield_sortie_launch", "airfield_sortie_airfield_id", "airfield_sortie_launch_wait"]:
+		unit.erase(state_key)
+	_restore_aircraft_resume_order(unit)
+
+
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
 	unit.erase("airfield_returning")
 	unit.erase("airfield_landed")
 	unit.erase("airfield_recovery_id")
 	unit.erase("airfield_recovery_slot")
+	unit.erase("airfield_cached_index")
 	unit.erase("airfield_sortie_ready")
 	unit.erase("airfield_sortie_launch")
 	unit.erase("airfield_sortie_airfield_id")
+	unit.erase("airfield_sortie_launch_wait")
 	unit.erase("airfield_resume_order")
 
 
@@ -278,7 +417,10 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 			move_destination.y = clampf(move_destination.y, 24.0, map_size.y - 24.0)
 			source_unit["air_formation_slot"] = formation_slot
 			source_unit["air_formation_center"] = air_formation_last_center
-		source_unit["target"] = move_destination
+		if String(source_unit.get("kind", "")) == "transport_helicopter":
+			_transport_ai_issue_manual_move(source_unit, move_destination)
+		else:
+			source_unit["target"] = move_destination
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
 		source_unit.erase("guard_radius")
@@ -321,7 +463,8 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		notice = "القوات اتخذت مواقع الحراسة والدفاع"
 		notice_time = 1.8
 	elif order_type == "escort":
-		if String(source_unit.get("kind", "")) != "tank":
+		var escort_kind := String(source_unit.get("kind", ""))
+		if escort_kind not in ["tank", "fighter", "helicopter"]:
 			return
 		var escort_parts := target_key.split("|")
 		if escort_parts.size() < 3 or escort_parts[0] != "player" or not escort_parts[1].is_valid_int():
@@ -330,16 +473,32 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		var escort_target_index := -1
 		for candidate_index in range(units.size()):
 			var candidate: Dictionary = units[candidate_index]
-			if candidate.team == "player" and int(candidate.get("3d_sync_id", -1)) == escort_target_id and String(candidate.get("kind", "")) == "artillery" and int(candidate.get("hp", 0)) > 0:
-				escort_target_index = candidate_index
-				break
+			var candidate_kind := String(candidate.get("kind", ""))
+			if candidate.team != "player" or int(candidate.get("3d_sync_id", -1)) != escort_target_id or int(candidate.get("hp", 0)) <= 0:
+				continue
+			if escort_kind == "tank" and candidate_kind != "artillery":
+				continue
+			if escort_kind in ["fighter", "helicopter"] and candidate_kind not in ["artillery", "transport_helicopter"]:
+				continue
+			escort_target_index = candidate_index
+			break
 		if escort_target_index < 0:
 			return
 		_cancel_airfield_recovery(source_unit)
 		var escort_target: Dictionary = units[escort_target_index]
+		var escort_slot := 0
+		for existing_escort in units:
+			if bool(existing_escort.get("escort_active", false)) and int(existing_escort.get("escort_target_id", -1)) == escort_target_id and int(existing_escort.get("hp", 0)) > 0:
+				escort_slot += 1
+		var escort_offset := _transport_ai_escort_formation_offset(escort_slot)
 		source_unit["escort_target_id"] = escort_target_id
-		source_unit["escort_offset"] = source_unit.pos - escort_target.pos
+		source_unit["escort_target_kind"] = String(escort_target.get("kind", ""))
+		source_unit["escort_offset"] = escort_offset
+		source_unit["escort_formation_slot"] = escort_slot
+		source_unit["escort_formation_size"] = escort_slot + 1
 		source_unit["escort_active"] = true
+		_transport_ai_sync_escort_formation(escort_target_id)
+		source_unit.erase("escort_auto_target")
 		source_unit.erase("target")
 		source_unit.erase("guard_active")
 		source_unit.erase("guard_position")
@@ -349,7 +508,7 @@ func _on_3d_gameplay_order_issued(source_key: String, order_type: String, world_
 		source_unit.erase("attack_focus_pos")
 		source_unit.erase("attack_building")
 		source_unit.erase("attack_base")
-		notice = "الدبابة بدأت مرافقة المدفعية وحمايتها"
+		notice = "تم تكليف الوحدة بمرافقة القوة المحددة وحمايتها"
 		notice_time = 1.8
 	elif order_type == "patrol":
 		if String(source_unit.get("kind", "")) not in ["fighter", "helicopter"]:
@@ -522,7 +681,48 @@ func _play_battle_sound(sound_name: String) -> void:
 			audio_player_cursor = (player_index + 1) % audio_players.size()
 			return
 
+func _ensure_stable_unit_identities() -> void:
+	# Reserve every existing identity before assigning new ones. Otherwise an earlier
+	# unassigned spawn could consume the ID of a later unit and force that live unit to change ID.
+	var all_records: Array[Dictionary] = []
+	for unit_variant in units:
+		if not unit_variant is Dictionary:
+			continue
+		var unit_record: Dictionary = unit_variant
+		all_records.append(unit_record)
+		var cargo: Array = unit_record.get("transport_cargo", [])
+		for passenger_variant in cargo:
+			if passenger_variant is Dictionary:
+				all_records.append(passenger_variant)
+
+	var seen_ids: Dictionary = {}
+	var records_needing_identity: Array[Dictionary] = []
+	for unit_record in all_records:
+		var unit_id := String(unit_record.get("unit_id", ""))
+		if unit_id.is_empty() or seen_ids.has(unit_id):
+			records_needing_identity.append(unit_record)
+			continue
+		seen_ids[unit_id] = true
+		if unit_id.begins_with("unit_"):
+			var numeric_suffix := unit_id.trim_prefix("unit_")
+			if numeric_suffix.is_valid_int():
+				next_unit_identity = maxi(next_unit_identity, numeric_suffix.to_int() + 1)
+
+	for unit_record in records_needing_identity:
+		var generated_id := "unit_%08d" % next_unit_identity
+		while seen_ids.has(generated_id):
+			next_unit_identity += 1
+			generated_id = "unit_%08d" % next_unit_identity
+		next_unit_identity += 1
+		unit_record["unit_id"] = generated_id
+		seen_ids[generated_id] = true
+
+
 func _process(delta: float) -> void:
+	unit_identity_scan_timer -= delta
+	if unit_identity_scan_timer <= 0.0:
+		_ensure_stable_unit_identities()
+		unit_identity_scan_timer = 0.5
 	air_formation_order_clock = maxf(0.0, air_formation_order_clock - delta)
 	if use_3d_view and is_instance_valid(battlefield_3d):
 		battlefield_sync_timer += delta
@@ -592,17 +792,22 @@ func _process(delta: float) -> void:
 			var building: Dictionary = enemy_buildings[defense_index]
 			if not _is_enemy_building_powered(defense_index):
 				continue
-			if building.kind == "turret" or building.kind == "anti_air":
+			if building.kind == "turret" or building.kind == "anti_air" or building.kind == "bunker":
 				building.attack_cd = building.get("attack_cd", 0.0) - delta
-				var target := _priority_air_target(building.pos, "player", 320.0) if building.kind == "anti_air" else _nearest_player_unit(building.pos)
-				var max_range := 320.0 if building.kind == "anti_air" else 230.0
+				var is_enemy_bunker := String(building.get("kind", "")) == "bunker"
+				var enemy_bunker_level := maxi(1, int(building.get("level", 1))) if is_enemy_bunker else 1
+				var enemy_bunker_range := 185.0 + float(enemy_bunker_level - 1) * 30.0
+				var target := _nearest_player_ground_unit(building.pos, enemy_bunker_range) if is_enemy_bunker else (_priority_air_target(building.pos, "player", 320.0) if building.kind == "anti_air" else _nearest_player_unit(building.pos))
+				var max_range := enemy_bunker_range if is_enemy_bunker else (320.0 if building.kind == "anti_air" else 230.0)
 				if target >= 0 and building.pos.distance_to(units[target].pos) <= max_range and building.attack_cd <= 0.0:
 					building["defense_target_pos"] = units[target].pos
-					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], 34 if building.kind == "anti_air" else 16))
+					var enemy_defense_damage := 22 + (enemy_bunker_level - 1) * 5 if is_enemy_bunker else (34 if building.kind == "anti_air" else 18)
+					units[target].hp = maxi(0, int(units[target].hp) - _terrain_adjusted_damage(units[target], enemy_defense_damage))
+					var enemy_defense_color := Color("#c8b58a") if is_enemy_bunker else (Color("#8ee8ff") if building.kind == "anti_air" else Color("#ffb66f"))
 					var enemy_defense_effect_kind := "air_missile" if building.kind == "anti_air" else "tracer"
-					_add_visual_effect(enemy_defense_effect_kind, building.pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff8b72"), 0.22 if building.kind == "anti_air" else 0.16, 0.0)
-					_add_visual_effect("flash", units[target].pos, units[target].pos, Color("#8ee8ff") if building.kind == "anti_air" else Color("#ff704d"), 0.22, 12.0)
-					building.attack_cd = 0.65 if building.kind == "anti_air" else 0.9
+					_add_visual_effect(enemy_defense_effect_kind, building.pos, units[target].pos, enemy_defense_color, 0.22 if building.kind == "anti_air" else 0.16, 0.0)
+					_add_visual_effect("flash", units[target].pos, units[target].pos, enemy_defense_color, 0.22, 13.0)
+					building.attack_cd = maxf(0.85, 1.15 - float(enemy_bunker_level - 1) * 0.10) if is_enemy_bunker else (0.65 if building.kind == "anti_air" else 0.8)
 		var enemy_ground_focus := _select_enemy_ground_assault_target()
 		var wall_collision_origins: Array[Vector2] = []
 		for movement_snapshot in units:
@@ -610,6 +815,8 @@ func _process(delta: float) -> void:
 		for i in units.size():
 			var unit = units[i]
 			if unit.get("hp", 0) <= 0:
+				continue
+			if not NAVAL_SYSTEM_ENABLED and _is_naval_kind(String(unit.get("kind", ""))):
 				continue
 			if unit.kind == "fighter" and _update_carrier_fighter(unit, delta):
 				continue
@@ -674,7 +881,7 @@ func _process(delta: float) -> void:
 						unit.pos += (naval_destination - unit.pos).normalized() * delta * (24.0 if unit.kind == "submarine" else 28.0)
 					continue
 				if unit.kind == "helicopter":
-					var heli_target = _nearest_unit_by_priority(unit.pos, 760.0, "player", ["tank", "artillery", "infantry"])
+					var heli_target := _enemy_helicopter_cached_target(unit, i, delta, enemy_ground_focus)
 					var heli_destination: Vector2 = base_pos if heli_target < 0 else units[heli_target].pos
 					if unit.pos.distance_to(heli_destination) <= 235.0:
 						unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -713,13 +920,15 @@ func _process(delta: float) -> void:
 						continue
 					if bool(unit.get("defense_guard", false)) and _update_enemy_defense_guard(unit, i, delta):
 						continue
+					if unit.kind in ["tank", "infantry"] and _update_enemy_supply_reinforcement(unit, i, delta):
+						continue
 					if unit.kind in ["tank", "infantry"] and _update_enemy_counterattack_reserve(unit, i, delta):
 						continue
 				if unit.kind == "fighter":
-					var air_target = _landing_craft_air_threat_target(unit.pos, "enemy")
-					if air_target < 0:
-						air_target = _nearest_unit_by_priority(unit.pos, FIGHTER_TARGET_RANGE, "player", ["fighter", "helicopter", "transport_helicopter"])
-					if air_target >= 0:
+					var fighter_assignment := _enemy_fighter_cached_assignment(unit, i, delta)
+					var air_target := int(fighter_assignment.get("index", -1))
+					var assignment_mode := String(fighter_assignment.get("mode", "none"))
+					if air_target >= 0 and assignment_mode != "fighter_escort":
 						var air_enemy: Dictionary = units[air_target]
 						if unit.pos.distance_to(air_enemy.pos) <= FIGHTER_ATTACK_RANGE:
 							unit.attack_cd = unit.get("attack_cd", 0.0) - delta
@@ -730,27 +939,16 @@ func _process(delta: float) -> void:
 								unit.attack_cd = FIGHTER_ATTACK_COOLDOWN
 						else:
 							unit.pos += (air_enemy.pos - unit.pos).normalized() * delta * FIGHTER_SPEED
-					else:
-						var escort_heli_index := -1
-						var escort_heli_distance := 260.0
-						for escort_index in range(units.size()):
-							var escort_candidate: Dictionary = units[escort_index]
-							if String(escort_candidate.get("team", "")) != "enemy" or String(escort_candidate.get("kind", "")) != "helicopter" or int(escort_candidate.get("hp", 0)) <= 0:
-								continue
-							var escort_distance: float = unit.pos.distance_to(escort_candidate.pos)
-							if escort_distance < escort_heli_distance:
-								escort_heli_distance = escort_distance
-								escort_heli_index = escort_index
-						if escort_heli_index >= 0:
-							var escort_heli: Dictionary = units[escort_heli_index]
-							var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
-							var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
-							if unit.pos.distance_to(escort_spot) > 18.0:
-								unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
-							else:
-								unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+					elif air_target >= 0 and assignment_mode == "fighter_escort":
+						var escort_heli: Dictionary = units[air_target]
+						var escort_side := -1.0 if unit.pos.y <= escort_heli.pos.y else 1.0
+						var escort_spot: Vector2 = escort_heli.pos + Vector2(-42.0, escort_side * 48.0)
+						if unit.pos.distance_to(escort_spot) > 18.0:
+							unit.pos += (escort_spot - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 						else:
-							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
+							unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED * 0.35
+					else:
+						unit.pos += (enemy_base - unit.pos).normalized() * delta * FIGHTER_PATROL_SPEED
 					continue
 				if unit.kind in ["tank", "infantry", "artillery"] and _update_enemy_ground_assault(unit, i, delta):
 					continue
@@ -760,47 +958,26 @@ func _process(delta: float) -> void:
 					var aircraft_max_hp: int = _unit_repair_max_hp(unit)
 					var aircraft_needs_repair: bool = aircraft_max_hp > 0 and float(unit.hp) <= float(aircraft_max_hp) * 0.30
 					if not bool(unit.get("airfield_returning", false)) and (aircraft_ammo <= 0 or (not unit.has("target") and not unit.has("attack_target") and not unit.has("attack_building") and not bool(unit.get("attack_base", false)) and aircraft_needs_repair)):
-						var nearest_airfield := -1
-						var nearest_airfield_distance := INF
-						for airfield_index in range(buildings.size()):
-							var recovery_airfield: Dictionary = buildings[airfield_index]
-							if String(recovery_airfield.get("kind", "")) != "airfield" or float(recovery_airfield.get("build_progress", 1.0)) < 1.0 or int(recovery_airfield.get("hp", 0)) <= 0 or not _is_player_building_powered(airfield_index):
-								continue
-							var recovery_distance: float = unit.pos.distance_to(recovery_airfield.pos)
-							if recovery_distance < nearest_airfield_distance:
-								nearest_airfield_distance = recovery_distance
-								nearest_airfield = airfield_index
+						var nearest_airfield := _nearest_powered_player_airfield_index(unit.pos)
 						if nearest_airfield >= 0:
 							var recovery_id := int(buildings[nearest_airfield].get("production_id", -1))
-							var recovery_slot := 0
-							for queued_aircraft in units:
-								if String(queued_aircraft.get("team", "")) == "player" and bool(queued_aircraft.get("airfield_returning", false)) and int(queued_aircraft.get("airfield_recovery_id", -2)) == recovery_id:
-									recovery_slot += 1
+							var recovery_slot := _next_airfield_recovery_slot(recovery_id)
 							_save_aircraft_resume_order(unit)
 							unit["airfield_returning"] = true
 							unit["airfield_landed"] = false
 							unit["airfield_rearm_progress"] = 0.0
 							unit["airfield_recovery_id"] = recovery_id
 							unit["airfield_recovery_slot"] = recovery_slot
+							unit["airfield_cached_index"] = nearest_airfield
 							unit.erase("target")
 							unit.erase("attack_target")
 							unit.erase("attack_focus_pos")
 							unit.erase("attack_base")
 							unit.erase("attack_building")
 				if bool(unit.get("airfield_returning", false)):
-					var recovery_index := -1
-					for airfield_index in range(buildings.size()):
-						var recovery_airfield: Dictionary = buildings[airfield_index]
-						if String(recovery_airfield.get("kind", "")) == "airfield" and int(recovery_airfield.get("production_id", -2)) == int(unit.get("airfield_recovery_id", -1)) and int(recovery_airfield.get("hp", 0)) > 0 and float(recovery_airfield.get("build_progress", 1.0)) >= 1.0 and _is_player_building_powered(airfield_index):
-							recovery_index = airfield_index
-							break
+					var recovery_index := _valid_player_airfield_index(unit, int(unit.get("airfield_recovery_id", -1)))
 					if recovery_index < 0:
-						unit.erase("airfield_returning")
-						unit.erase("airfield_landed")
-						unit.erase("airfield_recovery_id")
-						unit.erase("airfield_recovery_slot")
-						unit.erase("airfield_rearm_progress")
-						_restore_aircraft_resume_order(unit)
+						_redirect_aircraft_recovery(unit, int(unit.get("airfield_recovery_id", -1)))
 					else:
 						var recovery_airfield_pos: Vector2 = buildings[recovery_index].pos
 						var landing_slot := int(unit.get("airfield_recovery_slot", 0))
@@ -820,9 +997,12 @@ func _process(delta: float) -> void:
 								unit["aircraft_ammo"] = 8 if unit.kind == "fighter" else 12
 							if rearm_progress >= rearm_duration and float(unit.hp) >= float(_unit_repair_max_hp(unit)) * 0.92:
 								# Launch only after rearming and field repairs are both complete.
+								var sortie_airfield_id := int(unit.get("airfield_recovery_id", -1))
+								var sortie_launch_wait := _airfield_sortie_launch_delay(sortie_airfield_id)
 								unit["airfield_sortie_ready"] = true
 								unit["airfield_sortie_launch"] = true
-								unit["airfield_sortie_airfield_id"] = int(unit.get("airfield_recovery_id", -1))
+								unit["airfield_sortie_airfield_id"] = sortie_airfield_id
+								unit["airfield_sortie_launch_wait"] = sortie_launch_wait
 								unit.erase("airfield_returning")
 								unit.erase("airfield_landed")
 								unit.erase("airfield_recovery_id")
@@ -856,17 +1036,16 @@ func _process(delta: float) -> void:
 				# Recovered aircraft taxi clear of the landing area before resuming flight.
 				if unit.kind in ["fighter", "helicopter"] and bool(unit.get("airfield_sortie_launch", false)):
 					var sortie_airfield_id := int(unit.get("airfield_sortie_airfield_id", -1))
-					var sortie_airfield_index := -1
-					for sortie_index in range(buildings.size()):
-						if String(buildings[sortie_index].get("kind", "")) == "airfield" and int(buildings[sortie_index].get("production_id", -2)) == sortie_airfield_id and int(buildings[sortie_index].get("hp", 0)) > 0:
-							sortie_airfield_index = sortie_index
-							break
+					var sortie_airfield_index := _valid_player_airfield_index(unit, sortie_airfield_id)
 					if sortie_airfield_index < 0:
-						unit.erase("airfield_sortie_launch")
-						unit.erase("airfield_sortie_ready")
-						unit.erase("airfield_sortie_airfield_id")
-						_restore_aircraft_resume_order(unit)
+						_redirect_aircraft_recovery(unit, sortie_airfield_id)
 					else:
+						var launch_wait := float(unit.get("airfield_sortie_launch_wait", 0.0))
+						if launch_wait > 0.0:
+							unit["airfield_sortie_launch_wait"] = maxf(0.0, launch_wait - delta)
+							continue
+						if _airfield_sortie_has_launch_predecessor(String(unit.get("unit_id", "")), sortie_airfield_id):
+							continue
 						var sortie_airfield_pos: Vector2 = buildings[sortie_airfield_index].pos
 						var sortie_launch_spot := sortie_airfield_pos + Vector2(0.0, -28.0)
 						if unit.pos.distance_to(sortie_launch_spot) > 8.0:
@@ -876,6 +1055,7 @@ func _process(delta: float) -> void:
 						unit.erase("airfield_sortie_launch")
 						unit.erase("airfield_sortie_ready")
 						unit.erase("airfield_sortie_airfield_id")
+						unit.erase("airfield_sortie_launch_wait")
 						_restore_aircraft_resume_order(unit)
 					continue
 			if unit.team == "player":
@@ -892,12 +1072,12 @@ func _process(delta: float) -> void:
 							continue
 						var air_building: Dictionary = enemy_buildings[air_building_index]
 						var air_building_distance: float = unit.pos.distance_to(air_building.pos)
-						var air_building_range := 245.0 if unit.kind == "fighter" else 225.0
+						var air_building_range := _air_building_attack_range(String(unit.get("kind", "")))
 						if air_building_distance <= air_building_range:
 							unit.attack_cd = float(unit.get("attack_cd", 0.0)) - delta
 							if unit.attack_cd <= 0.0 and int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) > 0:
 								unit["aircraft_ammo"] = maxi(0, int(unit.get("aircraft_ammo", 8 if unit.kind == "fighter" else 12)) - 1)
-								var air_building_damage := 26 if unit.kind == "fighter" else _helicopter_damage(unit)
+								var air_building_damage := _air_building_attack_damage(unit)
 								var air_building_hp_before := int(air_building.hp)
 								air_building.hp = maxi(0, air_building_hp_before - air_building_damage)
 								_award_unit_experience(unit, air_building_hp_before - int(air_building.hp))
@@ -932,6 +1112,77 @@ func _process(delta: float) -> void:
 								unit["attack_target"] = patrol_threat
 								unit["attack_focus_pos"] = units[patrol_threat].pos
 								unit["air_patrol_resume"] = true
+					# Air escorts hold a formation slot beside their assigned artillery or transport.
+					if bool(unit.get("escort_active", false)):
+						var air_escort_id := int(unit.get("escort_target_id", -1))
+						var air_escort_index := -1
+						for escort_candidate_index in range(units.size()):
+							var escort_candidate: Dictionary = units[escort_candidate_index]
+							var escort_kind := String(escort_candidate.get("kind", ""))
+							if String(escort_candidate.get("team", "")) == "player" and int(escort_candidate.get("3d_sync_id", -1)) == air_escort_id and int(escort_candidate.get("hp", 0)) > 0 and escort_kind in ["artillery", "transport_helicopter"]:
+								air_escort_index = escort_candidate_index
+								break
+						if air_escort_index < 0:
+							if _transport_ai_reassign_air_escort(i):
+								air_escort_id = int(unit.get("escort_target_id", -1))
+								for replacement_index in range(units.size()):
+									var replacement_candidate: Dictionary = units[replacement_index]
+									if String(replacement_candidate.get("team", "")) == "player" and int(replacement_candidate.get("3d_sync_id", -1)) == air_escort_id and int(replacement_candidate.get("hp", 0)) > 0 and String(replacement_candidate.get("kind", "")) == "transport_helicopter":
+										air_escort_index = replacement_index
+										break
+							if air_escort_index < 0:
+								unit.erase("escort_active")
+								unit.erase("escort_target_id")
+								unit.erase("escort_offset")
+								unit.erase("escort_formation_slot")
+								unit.erase("escort_formation_size")
+								if bool(unit.get("escort_auto_target", false)):
+									unit.erase("attack_target")
+									unit.erase("attack_focus_pos")
+								unit.erase("escort_auto_target")
+						else:
+							# Re-evaluate transport protection periodically; the reassigner applies hysteresis and respects player orders.
+							if String(unit.get("escort_target_kind", "")) == "transport_helicopter":
+								var rebalance_timer := float(unit.get("escort_rebalance_timer", 0.0)) - delta
+								if rebalance_timer <= 0.0:
+									unit["escort_rebalance_timer"] = 2.5
+									if _transport_ai_reassign_air_escort(i):
+										air_escort_id = int(unit.get("escort_target_id", -1))
+										air_escort_index = -1
+										for refreshed_index in range(units.size()):
+											var refreshed_transport: Dictionary = units[refreshed_index]
+											if String(refreshed_transport.get("team", "")) == "player" and String(refreshed_transport.get("kind", "")) == "transport_helicopter" and int(refreshed_transport.get("hp", 0)) > 0 and int(refreshed_transport.get("3d_sync_id", -1)) == air_escort_id:
+												air_escort_index = refreshed_index
+												break
+							var air_escort_target: Dictionary = units[air_escort_index]
+							var escort_anchor_pos := _transport_ai_escort_anchor_position(air_escort_target)
+							var escort_enemy_index := int(unit.get("attack_target", -1))
+							if bool(unit.get("escort_auto_target", false)) and (escort_enemy_index < 0 or escort_enemy_index >= units.size() or String(units[escort_enemy_index].get("team", "")) != "enemy" or int(units[escort_enemy_index].get("hp", 0)) <= 0 or _transport_ai_escort_should_release_target(unit.pos, escort_anchor_pos, units[escort_enemy_index].pos)):
+								unit.erase("attack_target")
+								unit.erase("attack_focus_pos")
+								unit.erase("escort_auto_target")
+								escort_enemy_index = -1
+							var emergency_escort_threat := _transport_ai_select_emergency_escort_threat(air_escort_id, i, escort_anchor_pos, 150.0)
+							if emergency_escort_threat >= 0 and not unit.has("attack_building") and (not unit.has("attack_target") or bool(unit.get("escort_auto_target", false))):
+								var current_auto_target := int(unit.get("attack_target", -1))
+								if not bool(unit.get("escort_auto_target", false)) or current_auto_target < 0 or current_auto_target >= units.size() or units[current_auto_target].pos.distance_to(escort_anchor_pos) > 150.0:
+									unit["attack_target"] = emergency_escort_threat
+									unit["attack_focus_pos"] = units[emergency_escort_threat].pos
+									unit["escort_auto_target"] = true
+									escort_enemy_index = emergency_escort_threat
+							if escort_enemy_index < 0 and not unit.has("attack_building"):
+								var nearby_escort_threat := _transport_ai_select_group_escort_threat(air_escort_id, escort_anchor_pos, String(unit.kind), 220.0)
+								if nearby_escort_threat >= 0:
+									unit["attack_target"] = nearby_escort_threat
+									unit["attack_focus_pos"] = units[nearby_escort_threat].pos
+									unit["escort_auto_target"] = true
+									escort_enemy_index = nearby_escort_threat
+							if escort_enemy_index < 0 and not unit.has("attack_building"):
+								var air_escort_offset: Vector2 = unit.get("escort_offset", Vector2(42.0, -38.0))
+								var air_escort_position: Vector2 = escort_anchor_pos + air_escort_offset
+								if unit.pos.distance_to(air_escort_position) > 18.0:
+									unit.pos += (air_escort_position - unit.pos).normalized() * delta * _transport_ai_escort_catchup_speed(String(unit.kind), unit.pos.distance_to(air_escort_position))
+								continue
 					var air_enemy_target := int(unit.get("attack_target", -1))
 					if air_enemy_target < 0 or air_enemy_target >= units.size() or units[air_enemy_target].team != "enemy" or int(units[air_enemy_target].get("hp", 0)) <= 0:
 						if unit.has("attack_focus_pos"):
@@ -1090,11 +1341,11 @@ func _process(delta: float) -> void:
 					continue
 				var target_building: Dictionary = enemy_buildings[building_target]
 				var building_distance: float = unit.pos.distance_to(target_building.pos)
-				var building_range := 350.0 if unit.kind == "artillery" else 75.0
+				var building_range := _ground_building_attack_range(String(unit.get("kind", "")))
 				if building_distance <= building_range:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
-						var building_damage = _unit_damage_with_veterancy(unit, 48 if unit.kind == "artillery" else (32 if unit.kind == "tank" else 8))
+						var building_damage := _ground_building_attack_damage(unit)
 						var building_hp_before := int(target_building.get("hp", 400))
 						target_building.hp = maxi(0, building_hp_before - building_damage)
 						_award_unit_experience(unit, building_hp_before - int(target_building.hp))
@@ -1256,18 +1507,78 @@ func _resolve_fortification_collisions(previous_positions: Array[Vector2]) -> vo
 		units[unit_index] = unit
 
 
+func _ground_spacing_cell_key(position: Vector2, team: String) -> String:
+	const CELL_SIZE := 32.0
+	return "%s:%d:%d" % [team, floori(position.x / CELL_SIZE), floori(position.y / CELL_SIZE)]
+
+
+func _ground_spacing_update_bucket(unit_index: int, old_key: String, new_key: String, buckets: Dictionary, cell_keys: Array[String]) -> void:
+	if old_key == new_key:
+		return
+	if not old_key.is_empty() and buckets.has(old_key):
+		var old_bucket: Array = buckets[old_key]
+		old_bucket.erase(unit_index)
+		if old_bucket.is_empty():
+			buckets.erase(old_key)
+	if not new_key.is_empty():
+		if not buckets.has(new_key):
+			buckets[new_key] = []
+		var new_bucket: Array = buckets[new_key]
+		new_bucket.append(unit_index)
+	cell_keys[unit_index] = new_key
+
+
 func _resolve_ground_unit_spacing() -> void:
 	# Keep friendly ground formations readable without changing orders or combat ranges.
+	# A 32px spatial grid limits pair checks to neighboring cells while preserving
+	# the original ascending pair order and refreshing buckets after every correction.
 	var excluded_kinds := ["fighter", "helicopter", "transport_helicopter", "destroyer", "carrier", "submarine", "landing_craft"]
 	for pass_index in range(2):
+		var buckets: Dictionary = {}
+		var cell_keys: Array[String] = []
+		for unit_index in range(units.size()):
+			var unit: Dictionary = units[unit_index]
+			var cell_key := ""
+			if int(unit.get("hp", 0)) > 0 and String(unit.get("kind", "")) not in excluded_kinds:
+				cell_key = _ground_spacing_cell_key(unit.pos, String(unit.get("team", "")))
+				if not buckets.has(cell_key):
+					buckets[cell_key] = []
+				var bucket: Array = buckets[cell_key]
+				bucket.append(unit_index)
+			cell_keys.append(cell_key)
 		for first_index in range(units.size()):
 			var first: Dictionary = units[first_index]
 			if int(first.get("hp", 0)) <= 0 or String(first.get("kind", "")) in excluded_kinds:
 				continue
-			for second_index in range(first_index + 1, units.size()):
+			var first_team := String(first.get("team", ""))
+			var first_key := _ground_spacing_cell_key(first.pos, first_team)
+			if cell_keys[first_index] != first_key:
+				_ground_spacing_update_bucket(first_index, cell_keys[first_index], first_key, buckets, cell_keys)
+			var candidate_cursor := first_index
+			while true:
+				first = units[first_index]
+				first_key = _ground_spacing_cell_key(first.pos, first_team)
+				if cell_keys[first_index] != first_key:
+					_ground_spacing_update_bucket(first_index, cell_keys[first_index], first_key, buckets, cell_keys)
+				var center_x := floori(first.pos.x / 32.0)
+				var center_y := floori(first.pos.y / 32.0)
+				var candidates: Array[int] = []
+				for cell_x in range(center_x - 1, center_x + 2):
+					for cell_y in range(center_y - 1, center_y + 2):
+						var neighbor_key := "%s:%d:%d" % [first_team, cell_x, cell_y]
+						if not buckets.has(neighbor_key):
+							continue
+						var neighbor_bucket: Array = buckets[neighbor_key]
+						for candidate_variant in neighbor_bucket:
+							var candidate_index := int(candidate_variant)
+							if candidate_index > candidate_cursor:
+								candidates.append(candidate_index)
+				if candidates.is_empty():
+					break
+				candidates.sort()
+				var second_index := candidates[0]
+				candidate_cursor = second_index
 				var second: Dictionary = units[second_index]
-				if String(first.get("team", "")) != String(second.get("team", "")):
-					continue
 				if int(second.get("hp", 0)) <= 0 or String(second.get("kind", "")) in excluded_kinds:
 					continue
 				var offset: Vector2 = second.pos - first.pos
@@ -1282,10 +1593,14 @@ func _resolve_ground_unit_spacing() -> void:
 				var fallback_angle := float(first_index * 37 + second_index * 17) * 2.39996323
 				var direction := offset / distance if distance > 0.001 else Vector2(cos(fallback_angle), sin(fallback_angle))
 				var correction := (minimum_distance - distance) * 0.5
+				var old_first_key := cell_keys[first_index]
+				var old_second_key := cell_keys[second_index]
 				first.pos -= direction * correction
 				second.pos += direction * correction
 				units[first_index] = first
 				units[second_index] = second
+				_ground_spacing_update_bucket(first_index, old_first_key, _ground_spacing_cell_key(first.pos, first_team), buckets, cell_keys)
+				_ground_spacing_update_bucket(second_index, old_second_key, _ground_spacing_cell_key(second.pos, String(second.get("team", ""))), buckets, cell_keys)
 
 
 func _resolve_battle_result() -> bool:
@@ -1440,46 +1755,323 @@ func _player_armor_penetration_damage(target: Dictionary, base_damage: int, atta
 
 func _unit_damage_with_veterancy(unit: Dictionary, base_damage: int) -> int:
 	var rank := int(unit.get("veterancy", 0))
-	var multiplier := 1.0 + (0.08 if rank == 1 else (0.15 if rank >= 2 else 0.0))
-	return maxi(1, roundi(float(base_damage) * multiplier))
+	var veterancy_multiplier := 1.25 if rank >= 3 else (1.15 if rank == 2 else (1.08 if rank == 1 else 1.0))
+	# Watan's elite land doctrine improves per-unit firepower; premium reinforcement costs
+	# and slower massing preserve a meaningful economic counterweight.
+	var faction_multiplier := 1.08 if String(unit.get("faction", faction)) == "وطن" else 1.0
+	return maxi(1, roundi(float(base_damage) * veterancy_multiplier * faction_multiplier))
 
 
-func _load_commander_profile() -> void:
+func _ground_building_attack_range(unit_kind: String) -> float:
+	# Artillery stays at standoff range; direct-fire ground units must close in.
+	return 350.0 if unit_kind == "artillery" else 75.0
+
+
+func _ground_building_attack_damage(unit: Dictionary) -> int:
+	var unit_kind := String(unit.get("kind", ""))
+	var base_damage := 48 if unit_kind == "artillery" else (32 if unit_kind == "tank" else 8)
+	return _unit_damage_with_veterancy(unit, base_damage)
+
+
+func _air_building_attack_range(unit_kind: String) -> float:
+	return 245.0 if unit_kind == "fighter" else (225.0 if unit_kind == "helicopter" else 0.0)
+
+
+func _air_building_attack_damage(unit: Dictionary) -> int:
+	var unit_kind := String(unit.get("kind", ""))
+	return 26 if unit_kind == "fighter" else (_helicopter_damage(unit) if unit_kind == "helicopter" else 0)
+
+
+func _unit_damage_taken_with_veterancy(unit: Dictionary, raw_damage: int) -> int:
+	# Veteran crews use cover and positioning more effectively; keep the defensive edge modest.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 0.91 if rank == 3 else (0.94 if rank == 2 else (0.97 if rank == 1 else 1.0))
+	return maxi(1, roundi(float(raw_damage) * multiplier))
+
+
+func _artillery_blast_radius_with_veterancy(unit: Dictionary, base_radius: float) -> float:
+	# Experienced artillery crews improve dispersion and target coverage without increasing shell damage.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 1.10 if rank == 3 else (1.06 if rank == 2 else (1.03 if rank == 1 else 1.0))
+	return base_radius * multiplier
+
+
+func _tank_reload_cooldown_with_veterancy(unit: Dictionary, base_cooldown: float) -> float:
+	# Veteran tank crews reload more efficiently; the maximum cadence gain is capped at 10 percent.
+	var rank := clampi(int(unit.get("veterancy", 0)), 0, 3)
+	var multiplier := 0.90 if rank == 3 else (0.94 if rank == 2 else (0.97 if rank == 1 else 1.0))
+	return base_cooldown * multiplier
+
+
+const COMMANDER_PROFILE_PATH := "user://storm_generals_profile.cfg"
+const COMMANDER_PROFILE_TEST_PATH := "user://storm_generals_profile_regression.cfg"
+
+
+func _load_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> void:
+	# Rebuild defaults on every load so malformed files cannot preserve stale in-memory values.
+	commander_profile = {
+		"battles_played": 0,
+		"victories": 0,
+		"defeats": 0,
+		"total_kills": 0,
+		"air_kills": 0,
+		"armor_kills": 0,
+		"naval_kills": 0,
+		"earned_medals": [],
+		"campaign_progress": {},
+		"campaign_funds": 0
+	}
 	var config := ConfigFile.new()
-	var load_error := config.load("user://storm_generals_profile.cfg")
-	if load_error != OK:
-		return
+	var load_error := config.load(path)
+	if load_error != OK or not config.has_section_key("commander", "profile"):
+		# A previous process may have stopped while replacing the profile. Recover
+		# the last complete copy instead of silently resetting the commander's career.
+		var backup_path := path + ".bak"
+		var backup_config := ConfigFile.new()
+		if backup_config.load(backup_path) != OK or not backup_config.has_section_key("commander", "profile"):
+			return
+		config = backup_config
+		# Promote the verified backup so the next save can safely rotate it again.
+		_remove_commander_profile_file(path)
+		var restore_error := DirAccess.rename_absolute(ProjectSettings.globalize_path(backup_path), ProjectSettings.globalize_path(path))
+		if restore_error != OK:
+			push_warning("Could not promote recovered commander profile: %s" % error_string(restore_error))
 	var stored: Variant = config.get_value("commander", "profile", {})
-	if stored is Dictionary:
-		for key in commander_profile:
-			if stored.has(key):
-				commander_profile[key] = stored[key]
+	if not stored is Dictionary:
+		return
+	# Treat the profile as untrusted persisted input: one malformed field must not
+	# poison typed campaign state or crash the faction picker after an app update.
+	for key in ["battles_played", "victories", "defeats", "total_kills", "air_kills", "armor_kills", "naval_kills", "campaign_funds"]:
+		if not stored.has(key):
+			continue
+		var raw_value: Variant = stored[key]
+		if (raw_value is int or raw_value is float) and is_finite(float(raw_value)) and float(raw_value) >= 0.0:
+			commander_profile[key] = int(minf(float(raw_value), 2147483647.0))
+	var stored_progress: Variant = stored.get("campaign_progress", {})
+	if stored_progress is Dictionary:
+		var safe_progress: Dictionary = {}
+		for army_name in FACTIONS:
+			var raw_progress: Variant = stored_progress.get(army_name, 0)
+			if raw_progress is int and int(raw_progress) >= 0:
+				safe_progress[army_name] = clampi(int(raw_progress), 0, CAMPAIGN_MISSIONS.size())
+		commander_profile["campaign_progress"] = safe_progress
+	var stored_medals: Variant = stored.get("earned_medals", [])
+	if stored_medals is Array:
+		var safe_medals: Array[String] = []
+		for medal_variant in stored_medals:
+			if not medal_variant is String:
+				continue
+			var medal := String(medal_variant).strip_edges()
+			if medal.is_empty() or medal.length() > 64 or safe_medals.has(medal):
+				continue
+			safe_medals.append(medal)
+			if safe_medals.size() >= 100:
+				break
+		commander_profile["earned_medals"] = safe_medals
 
 
-func _save_commander_profile() -> void:
+func _save_commander_profile(path: String = COMMANDER_PROFILE_PATH) -> bool:
+	var temp_path := path + ".tmp"
+	var backup_path := path + ".bak"
 	var config := ConfigFile.new()
 	config.set_value("commander", "profile", commander_profile)
-	var save_error := config.save("user://storm_generals_profile.cfg")
+	var save_error := config.save(temp_path)
 	if save_error != OK:
-		push_warning("Could not save commander profile: %s" % error_string(save_error))
+		push_warning("Could not write temporary commander profile: %s" % error_string(save_error))
+		return false
+	# Re-open the temporary file before promoting it over the previous profile.
+	var verification := ConfigFile.new()
+	if verification.load(temp_path) != OK or not verification.get_value("commander", "profile", null) is Dictionary:
+		_remove_commander_profile_file(temp_path)
+		return false
+	var profile_absolute := ProjectSettings.globalize_path(path)
+	var temp_absolute := ProjectSettings.globalize_path(temp_path)
+	var backup_absolute := ProjectSettings.globalize_path(backup_path)
+	var had_previous_profile := FileAccess.file_exists(path)
+	if had_previous_profile:
+		_remove_commander_profile_file(backup_path)
+		var backup_error := DirAccess.rename_absolute(profile_absolute, backup_absolute)
+		if backup_error != OK:
+			_remove_commander_profile_file(temp_path)
+			push_warning("Could not protect previous commander profile: %s" % error_string(backup_error))
+			return false
+	var promote_error := DirAccess.rename_absolute(temp_absolute, profile_absolute)
+	if promote_error != OK:
+		if had_previous_profile:
+			DirAccess.rename_absolute(backup_absolute, profile_absolute)
+		_remove_commander_profile_file(temp_path)
+		push_warning("Could not promote commander profile: %s" % error_string(promote_error))
+		return false
+	if had_previous_profile:
+		_remove_commander_profile_file(backup_path)
+	return true
 
 
-func _campaign_secondary_objective_met() -> bool:
+func _remove_commander_profile_file(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _build_battle_snapshot() -> Dictionary:
+	_ensure_stable_unit_identities()
+	return {
+		"schema_version": 1,
+		"match": {
+			"faction": faction,
+			"map_type": map_type,
+			"campaign_mission_index": campaign_mission_index,
+			"game_started": game_started,
+			"credits": credits,
+			"supplies": supplies,
+			"enemy_supplies": enemy_supplies,
+			"income_timer": income_timer,
+			"supply_points": supply_points.duplicate(true),
+			"enemy_credits": enemy_credits,
+			"enemy_income_timer": enemy_income_timer,
+			"enemy_timer": enemy_timer,
+			"enemy_missile_timer": enemy_missile_timer,
+			"enemy_strategy": enemy_strategy,
+			"base_pos": base_pos,
+			"enemy_base": enemy_base,
+			"player_base_hp": player_base_hp,
+			"enemy_base_hp": enemy_base_hp,
+			"battle_result": battle_result,
+			"next_building_production_id": next_building_production_id,
+			"next_unit_identity": next_unit_identity
+		},
+		"units": units.duplicate(true),
+		"buildings": buildings.duplicate(true),
+		"enemy_buildings": enemy_buildings.duplicate(true),
+		"production_orders": production_orders.duplicate(true),
+		"missiles": missiles.duplicate(true)
+	}
+
+
+func _save_battle_snapshot() -> bool:
+	if not game_started or battle_save_store == null:
+		return false
+	var snapshot := _build_battle_snapshot()
+	var saved := bool(battle_save_store.call("save_snapshot", snapshot))
+	if saved:
+		has_resumable_battle = true
+		notice = "تم حفظ المعركة بنجاح"
+		notice_time = 2.5
+	else:
+		notice = "تعذر حفظ المعركة — بقي الحفظ السابق آمناً"
+		notice_time = 3.0
+	queue_redraw()
+	return saved
+
+
+func _load_battle_snapshot() -> bool:
+	if battle_save_store == null:
+		return false
+	var snapshot: Dictionary = battle_save_store.call("load_snapshot")
+	if snapshot.is_empty():
+		notice = "لا يوجد حفظ معركة صالح للاستعادة"
+		notice_time = 3.0
+		return false
+	var match_state: Dictionary = snapshot.get("match", {})
+	var restored_faction := String(match_state.get("faction", ""))
+	var restored_map := String(match_state.get("map_type", ""))
+	var restored_supply_points: Variant = match_state.get("supply_points", [])
+	if restored_faction not in FACTIONS or restored_map not in MAP_TYPES or not restored_supply_points is Array:
+		return false
+	for point_variant in restored_supply_points:
+		if not point_variant is Dictionary:
+			return false
+	for unit_variant in snapshot.get("units", []):
+		if not unit_variant is Dictionary:
+			return false
+	# Stage all arrays before mutating the live match; malformed data cannot half-restore it.
+	var staged_units: Array[Dictionary] = []
+	var staged_buildings: Array[Dictionary] = []
+	var staged_enemy_buildings: Array[Dictionary] = []
+	var staged_production_orders: Array[Dictionary] = []
+	var staged_missiles: Array[Dictionary] = []
+	for unit_variant in snapshot["units"]:
+		staged_units.append((unit_variant as Dictionary).duplicate(true))
+	for building_variant in snapshot["buildings"]:
+		if not building_variant is Dictionary:
+			return false
+		staged_buildings.append((building_variant as Dictionary).duplicate(true))
+	for building_variant in snapshot["enemy_buildings"]:
+		if not building_variant is Dictionary:
+			return false
+		staged_enemy_buildings.append((building_variant as Dictionary).duplicate(true))
+	for order_variant in snapshot["production_orders"]:
+		if not order_variant is Dictionary:
+			return false
+		staged_production_orders.append((order_variant as Dictionary).duplicate(true))
+	for missile_variant in snapshot["missiles"]:
+		if not missile_variant is Dictionary:
+			return false
+		staged_missiles.append((missile_variant as Dictionary).duplicate(true))
+	faction = restored_faction
+	map_type = restored_map
+	campaign_mission_index = clampi(int(match_state.get("campaign_mission_index", 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
+	game_started = bool(match_state.get("game_started", true))
+	credits = int(match_state.get("credits", STARTING_CREDITS))
+	supplies = int(match_state.get("supplies", 5))
+	enemy_supplies = int(match_state.get("enemy_supplies", 5))
+	income_timer = float(match_state.get("income_timer", 0.0))
+	supply_points.clear()
+	for point_variant in restored_supply_points:
+		supply_points.append((point_variant as Dictionary).duplicate(true))
+	enemy_credits = int(match_state.get("enemy_credits", STARTING_CREDITS))
+	enemy_income_timer = float(match_state.get("enemy_income_timer", 0.0))
+	enemy_timer = float(match_state.get("enemy_timer", 0.0))
+	enemy_missile_timer = maxf(0.0, float(match_state.get("enemy_missile_timer", 0.0)))
+	enemy_strategy = String(match_state.get("enemy_strategy", "balanced"))
+	base_pos = match_state.get("base_pos", base_pos)
+	enemy_base = match_state.get("enemy_base", enemy_base)
+	player_base_hp = int(match_state.get("player_base_hp", 1000))
+	enemy_base_hp = int(match_state.get("enemy_base_hp", 1000))
+	battle_result = String(match_state.get("battle_result", ""))
+	next_building_production_id = maxi(1, int(match_state.get("next_building_production_id", 1)))
+	next_unit_identity = maxi(1, int(match_state.get("next_unit_identity", 1)))
+	units = staged_units
+	buildings = staged_buildings
+	enemy_buildings = staged_enemy_buildings
+	production_orders = staged_production_orders
+	missiles = staged_missiles
+	selected.clear()
+	selected_enemy_building = -1
+	selected_player_building = -1
+	build_mode = ""
+	paused = false
+	dragging = false
+	active_touch_index = -1
+	visual_effects.clear()
+	environment_particles.clear()
+	campaign_briefing = false
+	commander_profile_saved_result = battle_result
+	has_resumable_battle = false
+	_ensure_stable_unit_identities()
+	notice = "تمت استعادة المعركة — قواتك ومهمات النقل جاهزة"
+	notice_time = 3.5
+	queue_redraw()
+	return true
+
+
+func _campaign_secondary_objective_status() -> Dictionary:
+	# Derive progress from live match state so the HUD, save/restore, and reward
+	# resolution all agree without maintaining a second mutable counter.
 	match campaign_mission_index:
 		0:
-			return player_base_hp >= 500
+			return {"current": clampi(player_base_hp, 0, 500), "required": 500, "met": player_base_hp >= 500}
 		1:
 			var controlled_points := 0
 			for point in supply_points:
 				if String(point.get("owner", "")) == "player":
 					controlled_points += 1
-			return controlled_points >= 2
+			return {"current": mini(controlled_points, 2), "required": 2, "met": controlled_points >= 2}
 		2:
 			var completed_buildings := 0
 			for building in buildings:
 				if int(building.get("hp", 0)) > 0 and float(building.get("build_progress", 1.0)) >= 1.0:
 					completed_buildings += 1
-			return completed_buildings >= 4
+			return {"current": mini(completed_buildings, 4), "required": 4, "met": completed_buildings >= 4}
 		3:
 			var has_air := false
 			var has_armour := false
@@ -1490,10 +2082,36 @@ func _campaign_secondary_objective_met() -> bool:
 					has_air = true
 				if String(unit.get("kind", "")) in ["tank", "artillery"]:
 					has_armour = true
-			return has_air and has_armour
+			var combined_count := int(has_air) + int(has_armour)
+			return {"current": combined_count, "required": 2, "met": has_air and has_armour}
 		4:
-			return player_base_hp >= 600
-	return false
+			return {"current": clampi(player_base_hp, 0, 600), "required": 600, "met": player_base_hp >= 600}
+	return {"current": 0, "required": 1, "met": false}
+
+
+func _campaign_secondary_objective_met() -> bool:
+	return bool(_campaign_secondary_objective_status().get("met", false))
+
+
+func _campaign_objective_hud_state(viewport_size: Vector2) -> Dictionary:
+	if not game_started or campaign_mission_index < 0 or campaign_mission_index >= CAMPAIGN_MISSIONS.size():
+		return {"visible": false}
+	var mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
+	var status: Dictionary = _campaign_secondary_objective_status()
+	var current := int(status.get("current", 0))
+	var required := maxi(1, int(status.get("required", 1)))
+	var complete := bool(status.get("met", false))
+	var y := 203.0 if selected.is_empty() else 255.0
+	return {
+		"visible": true,
+		"rect": Rect2(Vector2(10.0, y), Vector2(maxf(0.0, viewport_size.x - 20.0), 39.0)),
+		"title": String(mission.get("secondary", "الهدف الإضافي")),
+		"current": current,
+		"required": required,
+		"progress": clampf(float(current) / float(required), 0.0, 1.0),
+		"met": complete,
+		"state": "مكتمل" if complete else "%d / %d" % [current, required]
+	}
 
 
 func _record_battle_result() -> void:
@@ -1572,17 +2190,18 @@ func _register_unit_kill(attacker: Dictionary, target: Dictionary, target_hp_bef
 
 
 func _award_unit_experience(unit: Dictionary, damage_dealt: int) -> void:
-	if String(unit.get("team", "")) != "player" or damage_dealt <= 0:
+	if String(unit.get("team", "")) not in ["player", "enemy"] or damage_dealt <= 0:
 		return
 	var old_rank := int(unit.get("veterancy", 0))
 	var xp := float(unit.get("combat_xp", 0.0)) + float(damage_dealt) * 0.5
 	unit["combat_xp"] = xp
-	var new_rank := 2 if xp >= 250.0 else (1 if xp >= 100.0 else 0)
+	var new_rank := 3 if xp >= 500.0 else (2 if xp >= 250.0 else (1 if xp >= 100.0 else 0))
 	if new_rank > old_rank:
 		unit["veterancy"] = new_rank
-		var rank_name := "نخبة" if new_rank == 2 else "مخضرم"
-		notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
-		notice_time = 2.8
+		if String(unit.get("team", "")) == "player":
+			var rank_name := "بطل" if new_rank == 3 else ("نخبة" if new_rank == 2 else "مخضرم")
+			notice = "ترقية ميدانية! أصبحت الوحدة %s" % rank_name
+			notice_time = 2.8
 
 
 func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
@@ -1625,7 +2244,8 @@ func _terrain_adjusted_damage(target: Dictionary, raw_damage: int) -> int:
 			garrison_multiplier = minf(garrison_multiplier, 0.90)
 		damage_multiplier *= garrison_multiplier
 		break
-	return maxi(1, roundi(float(raw_damage) * damage_multiplier))
+	var terrain_damage := maxi(1, roundi(float(raw_damage) * damage_multiplier))
+	return _unit_damage_taken_with_veterancy(target, terrain_damage)
 
 func _terrain_effect_label() -> String:
 	match map_type:
@@ -1733,6 +2353,88 @@ func _landing_craft_air_threat_target(from_pos: Vector2, team: String) -> int:
 				best_score = score
 				best_target = target_index
 	return best_target
+
+
+func _enemy_air_target_cache_valid(target_index: int, target_id: String, mode: String, from_pos: Vector2) -> bool:
+	if target_index < 0 or target_index >= units.size() or target_id.is_empty():
+		return false
+	var target: Dictionary = units[target_index]
+	if String(target.get("unit_id", "")) != target_id or int(target.get("hp", 0)) <= 0:
+		return false
+	var target_team := String(target.get("team", ""))
+	var target_kind := String(target.get("kind", ""))
+	match mode:
+		"helicopter_assault":
+			return target_team == "player" and target_kind in ["tank", "artillery", "infantry"] and from_pos.distance_to(target.pos) <= 760.0
+		"fighter_landing_defense":
+			return target_team == "player" and target_kind in ["fighter", "helicopter", "transport_helicopter"]
+		"fighter_intercept":
+			return target_team == "player" and target_kind in ["fighter", "helicopter", "transport_helicopter"] and from_pos.distance_to(target.pos) <= FIGHTER_TARGET_RANGE
+		"fighter_escort":
+			return target_team == "enemy" and target_kind == "helicopter"
+	return false
+
+
+func _enemy_helicopter_cached_target(unit: Dictionary, self_index: int, delta: float, ground_focus_index: int) -> int:
+	var refresh_timer := float(unit.get("air_target_refresh_timer", 0.0)) - delta
+	var target_index := int(unit.get("air_target_index", -1))
+	var target_id := String(unit.get("air_target_unit_id", ""))
+	var mode := String(unit.get("air_target_mode", ""))
+	var cache_valid := mode == "none" and target_index < 0
+	if mode != "none":
+		cache_valid = _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos)
+	if refresh_timer > 0.0 and cache_valid:
+		unit["air_target_refresh_timer"] = refresh_timer
+		return target_index
+	var selected_index := _enemy_helicopter_assault_target(unit.pos, ground_focus_index)
+	var selected_id := ""
+	if selected_index >= 0 and selected_index < units.size():
+		selected_id = String(units[selected_index].get("unit_id", ""))
+		if selected_id.is_empty():
+			_ensure_stable_unit_identities()
+			selected_id = String(units[selected_index].get("unit_id", ""))
+	unit["air_target_index"] = selected_index
+	unit["air_target_unit_id"] = selected_id
+	unit["air_target_mode"] = "helicopter_assault" if selected_index >= 0 and not selected_id.is_empty() else "none"
+	unit["air_target_refresh_timer"] = 0.25
+	return selected_index if not selected_id.is_empty() else -1
+
+
+func _enemy_fighter_cached_assignment(unit: Dictionary, self_index: int, delta: float) -> Dictionary:
+	var refresh_timer := float(unit.get("air_target_refresh_timer", 0.0)) - delta
+	var target_index := int(unit.get("air_target_index", -1))
+	var target_id := String(unit.get("air_target_unit_id", ""))
+	var mode := String(unit.get("air_target_mode", "none"))
+	var cache_valid := mode == "none" and target_index < 0
+	if mode != "none":
+		cache_valid = _enemy_air_target_cache_valid(target_index, target_id, mode, unit.pos)
+	if refresh_timer > 0.0 and cache_valid:
+		unit["air_target_refresh_timer"] = refresh_timer
+		return {"index": target_index, "mode": mode}
+	var selected_index := _landing_craft_air_threat_target(unit.pos, "enemy")
+	var selected_mode := "fighter_landing_defense" if selected_index >= 0 else "none"
+	if selected_index < 0:
+		selected_index = _enemy_fighter_select_air_target(unit.pos, self_index)
+		if selected_index >= 0:
+			selected_mode = "fighter_intercept"
+	if selected_index < 0:
+		selected_index = _enemy_fighter_escort_helicopter_index(unit.pos)
+		if selected_index >= 0:
+			selected_mode = "fighter_escort"
+	var selected_id := ""
+	if selected_index >= 0 and selected_index < units.size():
+		selected_id = String(units[selected_index].get("unit_id", ""))
+		if selected_id.is_empty():
+			_ensure_stable_unit_identities()
+			selected_id = String(units[selected_index].get("unit_id", ""))
+	if selected_id.is_empty():
+		selected_index = -1
+		selected_mode = "none"
+	unit["air_target_index"] = selected_index
+	unit["air_target_unit_id"] = selected_id
+	unit["air_target_mode"] = selected_mode
+	unit["air_target_refresh_timer"] = 0.25
+	return {"index": selected_index, "mode": selected_mode}
 
 
 func _update_carrier_fighter(unit: Dictionary, delta: float) -> bool:
@@ -1949,6 +2651,17 @@ func _enemy_artillery_support_position(target_pos: Vector2, assault_origin: Vect
 	return target_pos - attack_direction * 250.0 + lateral_direction * lane_side * lane_offset
 
 
+func _enemy_ground_flank_route_risk(assault_origin: Vector2, flank_anchor: Vector2) -> float:
+	# Score the approach corridor, not just its endpoint, so a safe-looking flank
+	# is not selected when the route itself crosses a defended firing zone.
+	var route_risk := 0.0
+	for sample_index in range(1, 5):
+		var progress := float(sample_index) / 4.0
+		var route_point: Vector2 = assault_origin.lerp(flank_anchor, progress)
+		route_risk += _enemy_ground_target_defense_risk(route_point) * (0.75 + progress * 0.25)
+	return route_risk
+
+
 func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vector2, unit_index: int) -> Vector2:
 	# When a target is covered by several defenses, approach from the less protected flank.
 	if _enemy_ground_target_defense_risk(target_pos) < 1.15:
@@ -1961,8 +2674,8 @@ func _enemy_ground_assault_flank_anchor(target_pos: Vector2, assault_origin: Vec
 	var lateral_direction := Vector2(-attack_direction.y, attack_direction.x)
 	var left_flank: Vector2 = target_pos - lateral_direction * 115.0
 	var right_flank: Vector2 = target_pos + lateral_direction * 115.0
-	var left_risk := _enemy_ground_target_defense_risk(left_flank)
-	var right_risk := _enemy_ground_target_defense_risk(right_flank)
+	var left_risk := _enemy_ground_flank_route_risk(assault_origin, left_flank)
+	var right_risk := _enemy_ground_flank_route_risk(assault_origin, right_flank)
 	if absf(left_risk - right_risk) <= 0.08:
 		return left_flank if unit_index % 2 == 0 else right_flank
 	return left_flank if left_risk < right_risk else right_flank
@@ -2023,7 +2736,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 				_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 				_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-				_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
+				_apply_artillery_blast(threat.pos, _artillery_blast_radius_with_veterancy(unit, 76.0), _unit_damage_with_veterancy(unit, 48), "player", unit)
 				unit["attack_cd"] = 2.4
 			else:
 				var hp_before := int(threat.get("hp", 0))
@@ -2033,7 +2746,7 @@ func _update_enemy_ground_assault(unit: Dictionary, unit_index: int, delta: floa
 				_award_unit_experience(unit, hp_before - int(threat["hp"]))
 				_register_unit_kill(unit, threat, hp_before)
 				_add_visual_effect("tracer" if unit_kind == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-				unit["attack_cd"] = 0.75 if unit_kind == "tank" else 1.0
+				unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if unit_kind == "tank" else 1.0
 		return true
 	if target_index < 0 and target_distance <= (360.0 if unit_kind == "artillery" else (155.0 if unit_kind == "tank" else 105.0)):
 		unit["attack_cd"] = float(unit.get("attack_cd", 0.0)) - delta
@@ -2196,16 +2909,23 @@ func _nearest_player_ground_unit(from_pos: Vector2, max_distance: float = 99999.
 	return best_index
 
 
-func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
-	# Estimate the defensive screen around a player ground target.
-	# Ground assaults should prefer exposed threats over targets covered by several defenses.
+func _defense_risk_from_snapshot(target_pos: Vector2, defenses: Array, radius: float, falloff: float) -> float:
 	var risk := 0.0
-	for defense in buildings:
-		if int(defense.get("hp", 0)) <= 0 or float(defense.get("build_progress", 1.0)) < 1.0:
+	for defense in defenses:
+		var distance_squared: float = target_pos.distance_squared_to(defense.pos)
+		if distance_squared <= radius * radius:
+			risk += float(defense.weight) * (1.0 - sqrt(distance_squared) / falloff)
+	return risk
+
+
+func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
+	# Keep this standalone helper for callers and regression tests.
+	var defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
 			continue
-		var defense_kind := String(defense.get("kind", ""))
 		var weight := 0.0
-		match defense_kind:
+		match String(building.get("kind", "")):
 			"turret":
 				weight = 1.0
 			"anti_air":
@@ -2213,14 +2933,32 @@ func _enemy_ground_target_defense_risk(target_pos: Vector2) -> float:
 			"missile_defense":
 				weight = 0.8
 		if weight > 0.0:
-			var distance: float = defense.pos.distance_to(target_pos)
-			if distance <= 240.0:
-				risk += weight * (1.0 - distance / 300.0)
-	return risk
+			defenses.append({"pos": building.pos, "weight": weight})
+	return _defense_risk_from_snapshot(target_pos, defenses, 240.0, 300.0)
 
 
 func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, preferred_pos: Vector2 = Vector2(-1000000.0, -1000000.0)) -> int:
 	# Ground formations engage ground threats; air threats belong to fighters and anti-air defenses.
+	# Snapshot defensive positions once; candidate scoring reuses this local view.
+	var ground_defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var defense_weight := 0.0
+		match String(building.get("kind", "")):
+			"turret":
+				defense_weight = 1.0
+			"anti_air":
+				defense_weight = 0.65
+			"missile_defense":
+				defense_weight = 0.8
+		if defense_weight > 0.0:
+			ground_defenses.append({"pos": building.pos, "weight": defense_weight})
+	# Snapshot live enemy assets once; candidate scoring only needs their positions.
+	var enemy_asset_positions: Array[Vector2] = []
+	for protected_building in enemy_buildings:
+		if int(protected_building.get("hp", 0)) > 0:
+			enemy_asset_positions.append(protected_building.pos)
 	# A unit-specific distance term distributes attackers across separate threats instead of making every squad chase one global target.
 	var best_index := -1
 	var best_score := INF
@@ -2234,10 +2972,8 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 		if not ["infantry", "tank", "artillery"].has(String(candidate.kind)):
 			continue
 		var asset_distance: float = candidate.pos.distance_to(enemy_base)
-		for protected_building in enemy_buildings:
-			if int(protected_building.get("hp", 0)) <= 0:
-				continue
-			asset_distance = minf(asset_distance, candidate.pos.distance_to(protected_building.pos) + 35.0)
+		for asset_pos in enemy_asset_positions:
+			asset_distance = minf(asset_distance, candidate.pos.distance_to(asset_pos) + 35.0)
 		var threat_priority := 0.0
 		match String(candidate.kind):
 			"artillery":
@@ -2258,7 +2994,7 @@ func _select_enemy_ground_assault_target(from_pos: Vector2 = Vector2.ZERO, prefe
 					threat_priority += 32.0
 				elif String(candidate.kind) == "infantry":
 					threat_priority += 22.0
-		var defensive_risk := _enemy_ground_target_defense_risk(candidate.pos)
+		var defensive_risk := _defense_risk_from_snapshot(candidate.pos, ground_defenses, 240.0, 300.0)
 		var score: float = asset_distance * 0.35 + from_pos.distance_to(candidate.pos) * 0.85 + defensive_risk * 78.0 - threat_priority
 		if score < best_score:
 			best_score = score
@@ -2299,9 +3035,141 @@ func _nearest_unit_by_priority(from_pos: Vector2, max_distance: float, target_te
 	return -1
 
 
+func _player_air_defense_risk(target_pos: Vector2) -> float:
+	# Keep the standalone helper for callers and regression tests.
+	var defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var weight := 0.0
+		match String(building.get("kind", "")):
+			"anti_air":
+				weight = 1.25
+			"missile_defense":
+				weight = 0.85
+			"turret":
+				weight = 0.35
+		if weight > 0.0:
+			defenses.append({"pos": building.pos, "weight": weight})
+	return _defense_risk_from_snapshot(target_pos, defenses, 320.0, 360.0)
+
+
+func _enemy_helicopter_assault_target(from_pos: Vector2, ground_focus_index: int) -> int:
+	# Snapshot the anti-air screen once instead of rescanning buildings per candidate.
+	var air_defenses: Array = []
+	for building in buildings:
+		if int(building.get("hp", 0)) <= 0 or float(building.get("build_progress", 1.0)) < 1.0:
+			continue
+		var defense_weight := 0.0
+		match String(building.get("kind", "")):
+			"anti_air":
+				defense_weight = 1.25
+			"missile_defense":
+				defense_weight = 0.85
+			"turret":
+				defense_weight = 0.35
+		if defense_weight > 0.0:
+			air_defenses.append({"pos": building.pos, "weight": defense_weight})
+	# Preserve ground-command focus, but let exposed targets win when the focus is protected by air defenses.
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) not in ["tank", "artillery", "infantry"]:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance > 760.0:
+			continue
+		# Air-defense exposure must outweigh a modest command-focus bonus when a safer target is available.
+		var score: float = distance * 0.35 + _defense_risk_from_snapshot(candidate.pos, air_defenses, 320.0, 360.0) * 400.0
+		if candidate_index == ground_focus_index:
+			score -= 120.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
+
+func _enemy_fighter_select_air_target(from_pos: Vector2, self_index: int = -1) -> int:
+	# Cache only living friendly interceptors once; avoid rescanning every unit for every candidate.
+	var friendly_fighter_positions: Array[Vector2] = []
+	for friendly_index in range(units.size()):
+		if friendly_index == self_index:
+			continue
+		var friendly: Dictionary = units[friendly_index]
+		if String(friendly.get("team", "")) == "enemy" and String(friendly.get("kind", "")) == "fighter" and int(friendly.get("hp", 0)) > 0:
+			friendly_fighter_positions.append(friendly.pos)
+
+	var best_index := -1
+	var best_score := INF
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var candidate_kind := String(candidate.get("kind", ""))
+		if candidate_kind not in ["fighter", "helicopter", "transport_helicopter"]:
+			continue
+		var distance: float = from_pos.distance_to(candidate.pos)
+		if distance > FIGHTER_TARGET_RANGE:
+			continue
+		var assigned_fighters := 0
+		for friendly_pos in friendly_fighter_positions:
+			if friendly_pos.distance_squared_to(candidate.pos) <= 13225.0:
+				assigned_fighters += 1
+		var score: float = distance + float(assigned_fighters) * 185.0
+		if candidate_kind == "fighter":
+			score -= 24.0
+		if score < best_score:
+			best_score = score
+			best_index = candidate_index
+	return best_index
+
+
+func _enemy_fighter_escort_helicopter_index(from_pos: Vector2) -> int:
+	# Collect hostile aircraft once; score each escort candidate against this compact list.
+	var hostile_air_positions: Array[Vector2] = []
+	for threat in units:
+		if String(threat.get("team", "")) != "player" or int(threat.get("hp", 0)) <= 0:
+			continue
+		if String(threat.get("kind", "")) in ["fighter", "helicopter", "transport_helicopter"]:
+			hostile_air_positions.append(threat.pos)
+
+	var best_index := -1
+	var best_score := INF
+	var fallback_index := -1
+	var fallback_distance := INF
+	for candidate_index in range(units.size()):
+		var helicopter: Dictionary = units[candidate_index]
+		if String(helicopter.get("team", "")) != "enemy" or String(helicopter.get("kind", "")) != "helicopter" or int(helicopter.get("hp", 0)) <= 0:
+			continue
+		var escort_distance: float = from_pos.distance_to(helicopter.pos)
+		if escort_distance < fallback_distance:
+			fallback_distance = escort_distance
+			fallback_index = candidate_index
+		var hostile_air_distance_squared := INF
+		for threat_pos in hostile_air_positions:
+			hostile_air_distance_squared = minf(hostile_air_distance_squared, helicopter.pos.distance_squared_to(threat_pos))
+		if hostile_air_distance_squared <= FIGHTER_TARGET_RANGE * FIGHTER_TARGET_RANGE:
+			var hostile_air_distance: float = sqrt(hostile_air_distance_squared)
+			var score: float = escort_distance * 0.55 + hostile_air_distance * 0.85
+			if score < best_score:
+				best_score = score
+				best_index = candidate_index
+	return best_index if best_index >= 0 else fallback_index
+
+
 func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: float) -> int:
-	# Select aircraft that threaten valuable installations, while retaining fighter-first priority.
-	var protected_assets: Array = buildings if target_team == "enemy" else enemy_buildings
+	# Snapshot only live strategic assets once; candidate scoring reuses their positions and priorities.
+	var source_assets: Array = buildings if target_team == "enemy" else enemy_buildings
+	var protected_assets: Array = []
+	for asset in source_assets:
+		if int(asset.get("hp", 0)) <= 0:
+			continue
+		var asset_kind := String(asset.get("kind", ""))
+		if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
+			continue
+		var asset_priority := 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
+		protected_assets.append({"pos": asset.pos, "priority": asset_priority})
 	var best_index := -1
 	var best_score := INF
 	for candidate_index in range(units.size()):
@@ -2317,16 +3185,11 @@ func _priority_air_target(from_pos: Vector2, target_team: String, max_distance: 
 		var asset_threat_distance := 520.0
 		var asset_priority := 0.0
 		for asset in protected_assets:
-			if int(asset.get("hp", 0)) <= 0:
-				continue
-			var asset_kind := String(asset.get("kind", ""))
-			if asset_kind not in ["airfield", "power_plant", "factory", "missile_silo", "barracks"]:
-				continue
 			var threat_distance: float = candidate.pos.distance_to(asset.pos)
 			if threat_distance < asset_threat_distance:
 				asset_threat_distance = threat_distance
-				asset_priority = 90.0 if asset_kind == "airfield" else (72.0 if asset_kind == "power_plant" else (60.0 if asset_kind == "factory" or asset_kind == "missile_silo" else 42.0))
-		var kind_priority := 34.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
+				asset_priority = float(asset.priority)
+		var kind_priority := 70.0 if candidate_kind == "fighter" else (8.0 if candidate_kind == "helicopter" else -12.0)
 		var score: float = defense_distance * 0.55 + asset_threat_distance * 0.75 - asset_priority - kind_priority
 		if score < best_score:
 			best_score = score
@@ -2709,10 +3572,10 @@ func _draw() -> void:
 		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (250.0 if u.kind == "transport_helicopter" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		var veterancy := int(u.get("veterancy", 0))
-		if u.team == "player" and veterancy > 0:
+		if veterancy > 0:
 			var rank_color := Color("#f0c85a") if veterancy == 1 else Color("#8be4ff")
 			draw_circle(u.pos + Vector2(18, -19), 5.0, rank_color)
-			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else "★★", HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
+			draw_string(ThemeDB.fallback_font, u.pos + Vector2(14, -16), "★" if veterancy == 1 else ("★★" if veterancy == 2 else "★★★"), HORIZONTAL_ALIGNMENT_LEFT, 20, 9, Color("#202a30"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32, 4)), Color("#352c2a"))
 		draw_rect(Rect2(u.pos + Vector2(-16, -25), Vector2(32.0 * hp_ratio, 4)), Color("#5ed16f") if hp_ratio > 0.35 else Color("#e85c4a"))
 		if selected.has(i):
@@ -2924,6 +3787,17 @@ func _draw_hud(size: Vector2) -> void:
 		var bar_rect := Rect2(production_rect.position + Vector2(9, 25), Vector2(size.x - 38, 8))
 		draw_rect(bar_rect, Color("#26383d"), true)
 		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
+	# Draw from the same deterministic HUD state that integration tests inspect.
+	var objective_hud: Dictionary = _campaign_objective_hud_state(size)
+	if bool(objective_hud.get("visible", false)):
+		var objective_rect: Rect2 = objective_hud.rect
+		var objective_met := bool(objective_hud.met)
+		draw_rect(objective_rect, Color("#10232b", 0.94), true)
+		draw_rect(objective_rect, Color("#a8e6b0") if objective_met else Color("#d8b75e"), false, 1.0)
+		draw_string(ThemeDB.fallback_font, objective_rect.position + Vector2(8, 15), "الهدف الإضافي: %s  |  %s" % [String(objective_hud.title), String(objective_hud.state)], HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 11, Color("#f2e8ca"))
+		var objective_bar := Rect2(objective_rect.position + Vector2(8, 24), Vector2(size.x - 36, 7))
+		draw_rect(objective_bar, Color("#293b40"), true)
+		draw_rect(Rect2(objective_bar.position, Vector2(objective_bar.size.x * float(objective_hud.progress), objective_bar.size.y)), Color("#8bd5a0") if objective_met else Color("#d8b75e"), true)
 	# Selected-unit field dossier: rank, accumulated combat XP and progress to the next promotion.
 	var selected_player_units: Array[Dictionary] = []
 	for selected_index in selected:
@@ -2979,7 +3853,19 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(Rect2(xp_bar.position, Vector2(xp_bar.size.x * progress, xp_bar.size.y)), xp_color, true)
 		var progress_label := "أقصى رتبة" if elite_count == selected_player_units.size() else ("تقدم المجموعة نحو الترقية" if selected_player_units.size() > 1 else ("الحد التالي: 250 خبرة" if highest_rank == 1 else "الحد التالي: 100 خبرة"))
 		draw_string(ThemeDB.fallback_font, dossier.position + Vector2(8, 44), progress_label, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, Color("#b9c9c8"))
-	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل"]
+	if _has_selected_transport():
+		var size_for_transport := get_viewport_rect().size
+		var mode_rect := _transport_ai_mode_rect(size_for_transport)
+		var doctrine_rect := _transport_ai_doctrine_rect(size_for_transport)
+		var mode_label := _selected_transport_mode_label()
+		var doctrine_label := _selected_transport_doctrine_label()
+		draw_rect(mode_rect, Color(0.07, 0.18, 0.23, 0.96), true)
+		draw_rect(mode_rect, Color("#83d9f4"), false, 1.2)
+		draw_string(ThemeDB.fallback_font, mode_rect.position + Vector2(5, 21), mode_label, HORIZONTAL_ALIGNMENT_CENTER, mode_rect.size.x - 10, 11, Color.WHITE)
+		draw_rect(doctrine_rect, Color(0.23, 0.20, 0.13, 0.96), true)
+		draw_rect(doctrine_rect, Color("#d8b75e"), false, 1.2)
+		draw_string(ThemeDB.fallback_font, doctrine_rect.position + Vector2(5, 21), doctrine_label, HORIZONTAL_ALIGNMENT_CENTER, doctrine_rect.size.x - 10, 11, Color.WHITE)
+	var labels = ["مشاة 100", "دبابة 300", "ثكنة 250", "مصنع 450", "دفاع 350", "مدفعية 450", "مطار 600", "مقاتلة 500", "مضاد جو 400", "مروحية 650", "سيطرة مبنى", "تدمير مبنى", "إلغاء", "منصة صواريخ 800", "دفاع صاروخي 700", "إطلاق صاروخ %d" % _missile_cost(faction), "حوض سفن 700", "مدمرة 900", "حاملة 1600", "غواصة 1100", "إنزال 800", "مركبة بناء 600", "محطة طاقة 450", "مخبأ دفاعي 520", "مخزن إمداد 550", "جدار 90", "زاوية 120", "بوابة 150", "طائرة نقل 950", "تحميل الجنود", "إنزال على السطح", "إلغاء مهمة النقل", "استدعاء للإخلاء", "عودة إلى القاعدة", "حفظ المعركة", "استعادة المعركة"]
 	if not selected.is_empty() and not _has_selected_player_building():
 		labels[12] = "مسح التحديد"
 	if _has_selected_player_building():
@@ -3024,14 +3910,15 @@ func _button_rect(index: int, size: Vector2) -> Rect2:
 	var column := index % 3
 	var row := int(index / 3)
 	var button_width := (size.x - 40.0) / 3.0
-	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 126.0 + row * 54.0), Vector2(button_width, 48.0))
+	# Three compact rows keep all eight strategy actions reachable on short mobile screens.
+	return Rect2(Vector2(8.0 + column * (button_width + 8.0), size.y - 132.0 + row * 44.0), Vector2(button_width, 44.0))
 
 func _draw_faction_picker(size: Vector2) -> void:
 	if campaign_briefing:
 		_draw_campaign_briefing(size)
 		return
 	# A two-column grid keeps all four armies reachable on both portrait and landscape phones.
-	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.64)
+	var panel := Rect2(size.x * 0.06, size.y * 0.18, size.x * 0.88, size.y * 0.76)
 	draw_rect(panel, Color(0.04, 0.07, 0.08, 0.96), true)
 	draw_rect(panel, Color("#52666c"), false, 2.0)
 	draw_string(ThemeDB.fallback_font, Vector2(panel.position.x + 12.0, size.y * 0.30), "عاصفة الجنرالات", HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 24.0, clampi(int(size.x * 0.03), 24, 38), Color("#f4d77a"))
@@ -3045,6 +3932,11 @@ func _draw_faction_picker(size: Vector2) -> void:
 		var progress_label := "الحملة مكتملة" if completed >= CAMPAIGN_MISSIONS.size() else "المهمة %d / %d" % [completed + 1, CAMPAIGN_MISSIONS.size()]
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.45), FACTIONS[i], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, clampi(int(size.x * 0.018), 14, 22), Color.WHITE)
 		draw_string(ThemeDB.fallback_font, r.position + Vector2(0.0, r.size.y * 0.76), progress_label, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 11, Color("#f4d77a"))
+	if has_resumable_battle:
+		var resume_rect := _resume_battle_rect(size)
+		draw_rect(resume_rect, Color("#315d48"), true)
+		draw_rect(resume_rect, Color("#a8e6b0"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, resume_rect.position + Vector2(0.0, 27.0), "استعادة آخر معركة", HORIZONTAL_ALIGNMENT_CENTER, resume_rect.size.x, 17, Color.WHITE)
 
 
 func _campaign_start_rect(size: Vector2) -> Rect2:
@@ -3104,6 +3996,27 @@ func _input(event: InputEvent) -> void:
 	# Track one finger for the full press/drag/release cycle. Secondary fingers
 	# must not steal a selection or accidentally activate a different command.
 	if event is InputEventScreenTouch:
+		# Android may cancel an active touch when the app is interrupted or the
+		# system takes focus. Abort the gesture instead of treating it as a tap.
+		if event.canceled:
+			# In 3D mode, cancellation of either finger aborts the complete
+			# multi-touch gesture. The parent owns the command pointer while the
+			# battlefield child owns pinch state, so both layers must reset together.
+			if use_3d_view:
+				if is_instance_valid(battlefield_3d) and battlefield_3d.has_method("_reset_touch_gesture_state"):
+					battlefield_3d.call("_reset_touch_gesture_state")
+				dragging = false
+				active_touch_index = -1
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+			if event.index != active_touch_index:
+				return
+			dragging = false
+			active_touch_index = -1
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+			return
 		if event.pressed:
 			if active_touch_index != -1:
 				return
@@ -3131,8 +4044,12 @@ func _input(event: InputEvent) -> void:
 			drag_end = event.position
 			queue_redraw()
 		return
-	# Ignore emulated mouse events while a finger owns the pointer.
+	# Suppress emulated mouse events while a finger owns the pointer. In 3D
+	# mode the child handles unhandled input, so returning alone would still let
+	# a synthetic mouse click become a second world command.
 	if active_touch_index != -1:
+		if event is InputEventMouseButton or event is InputEventMouseMotion:
+			get_viewport().set_input_as_handled()
 		return
 	if use_3d_view:
 		if battle_result != "":
@@ -3151,6 +4068,9 @@ func _input(event: InputEvent) -> void:
 		queue_redraw()
 
 func _begin_campaign_battle(size: Vector2) -> void:
+	if battle_save_store != null:
+		battle_save_store.call("delete_snapshot")
+	has_resumable_battle = false
 	var progress: Dictionary = commander_profile.get("campaign_progress", {})
 	campaign_mission_index = clampi(int(progress.get(faction, 0)), 0, CAMPAIGN_MISSIONS.size() - 1)
 	var mission: Dictionary = CAMPAIGN_MISSIONS[campaign_mission_index]
@@ -3313,6 +4233,82 @@ func _issue_group_attack_order(target_index: int) -> void:
 		notice_time = 1.8
 
 
+func _has_selected_transport() -> bool:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("team", "")) == "player" and String(units[index].get("kind", "")) == "transport_helicopter":
+			return true
+	return false
+
+
+func _transport_ai_mode_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(10.0, 158.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+
+
+func _transport_ai_doctrine_rect(size: Vector2) -> Rect2:
+	return Rect2(Vector2(16.0 + (size.x - 26.0) * 0.5, 158.0), Vector2((size.x - 26.0) * 0.5, 30.0))
+
+
+func _selected_transport_mode() -> String:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("kind", "")) == "transport_helicopter":
+			return _transport_ai_control_mode(units[index])
+	return "MANUAL"
+
+
+func _selected_transport_doctrine() -> String:
+	for index in selected:
+		if index >= 0 and index < units.size() and String(units[index].get("kind", "")) == "transport_helicopter":
+			return String(units[index].get("transport_ai_post_drop_doctrine", "DEFEND")).to_upper()
+	return "DEFEND"
+
+
+func _selected_transport_mode_label() -> String:
+	var mode := _selected_transport_mode()
+	var labels := {"MANUAL": "تحكم يدوي", "ASSISTED": "مساعد ذكي", "AUTONOMOUS": "ذاتي"}
+	return "التحكم: %s" % String(labels.get(mode, "تحكم يدوي"))
+
+
+func _selected_transport_doctrine_label() -> String:
+	return "بعد الإنزال: هجوم" if _selected_transport_doctrine() == "ATTACK_MOVE" else "بعد الإنزال: دفاع"
+
+
+func _set_selected_transport_mode(mode: String) -> int:
+	var normalized := mode.to_upper()
+	if normalized not in ["MANUAL", "ASSISTED", "AUTONOMOUS"]:
+		return 0
+	var changed := 0
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		if String(transport.get("transport_state", "idle")) in ["inbound", "descending", "ai_assessing"]:
+			continue
+		transport["transport_ai_mode"] = normalized
+		transport["transport_ai_player_override"] = false
+		changed += 1
+	return changed
+
+
+func _set_selected_transport_doctrine(doctrine: String) -> int:
+	var normalized := doctrine.to_upper()
+	if normalized not in ["DEFEND", "ATTACK_MOVE"]:
+		return 0
+	var changed := 0
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var transport: Dictionary = units[index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			continue
+		if String(transport.get("transport_state", "idle")) not in ["idle", "loaded"]:
+			continue
+		transport["transport_ai_post_drop_doctrine"] = normalized
+		changed += 1
+	return changed
+
+
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 	var size = get_viewport_rect().size
 	if pressed:
@@ -3327,6 +4323,9 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		if _restart_rect(size).has_point(pos):
 			_set_3d_view_enabled(false)
 			game_started = false
+			if battle_save_store != null:
+				battle_save_store.call("delete_snapshot")
+			has_resumable_battle = false
 			paused = false
 			battle_result = ""
 			faction = ""
@@ -3367,6 +4366,23 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 		return
 	if paused:
 		return
+	if game_started and _has_selected_transport():
+		if _transport_ai_mode_rect(size).has_point(pos):
+			var current_mode := _selected_transport_mode()
+			var next_mode := "ASSISTED" if current_mode == "MANUAL" else ("AUTONOMOUS" if current_mode == "ASSISTED" else "MANUAL")
+			var changed := _set_selected_transport_mode(next_mode)
+			notice = "نمط طائرات النقل: %s" % next_mode if changed > 0 else "لا يمكن تغيير نمط التحكم أثناء تنفيذ مهمة النقل"
+			notice_time = 2.0
+			queue_redraw()
+			return
+		if _transport_ai_doctrine_rect(size).has_point(pos):
+			var current_doctrine := _selected_transport_doctrine()
+			var next_doctrine := "ATTACK_MOVE" if current_doctrine == "DEFEND" else "DEFEND"
+			var changed := _set_selected_transport_doctrine(next_doctrine)
+			notice = "عقيدة ما بعد الإنزال: %s" % ("هجوم أثناء الحركة" if next_doctrine == "ATTACK_MOVE" else "دفاع عن منطقة الإنزال") if changed > 0 else "غيّر العقيدة والطائرة محمّلة أو متوقفة"
+			notice_time = 2.0
+			queue_redraw()
+			return
 	if not game_started:
 		if campaign_briefing:
 			if _campaign_back_rect(size).has_point(pos):
@@ -3378,6 +4394,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_begin_campaign_battle(size)
 				return
 		else:
+			if has_resumable_battle and _resume_battle_rect(size).has_point(pos):
+				if not _load_battle_snapshot():
+					has_resumable_battle = false
+				queue_redraw()
+				return
 			for i in FACTIONS.size():
 				if _faction_rect(i, size).has_point(pos):
 					faction = FACTIONS[i]
@@ -3501,6 +4522,14 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				_prepare_transport_rooftop_landing()
 			elif i == 31:
 				_cancel_transport_order()
+			elif i == 32:
+				_order_transport_pickup()
+			elif i == 33:
+				_order_transport_return_to_base()
+			elif i == 34:
+				_save_battle_snapshot()
+			elif i == 35:
+				_load_battle_snapshot()
 			elif i == 24:
 				var depot_count := 0
 				for building in buildings:
@@ -3606,7 +4635,11 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 				for idx in move_group_indices:
 					if idx >= 0 and idx < units.size() and units[idx].team == "player":
 						_cancel_airfield_recovery(units[idx])
-						units[idx].target = _group_move_destination(idx, move_group_indices, pos)
+						var move_destination: Vector2 = _group_move_destination(idx, move_group_indices, pos)
+						if String(units[idx].get("kind", "")) == "transport_helicopter":
+							_transport_ai_issue_manual_move(units[idx], move_destination)
+						else:
+							units[idx].target = move_destination
 						# A direct group move overrides previous combat and stance orders.
 						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
 							units[idx].erase(order_key)
@@ -3693,6 +4726,25 @@ func _enemy_best_supply_objective(unit_pos: Vector2) -> int:
 	return best_point
 
 
+func _update_enemy_supply_reinforcement(unit: Dictionary, unit_index: int, delta: float) -> bool:
+	# Send only the nearest eligible mobile defender to a threatened enemy-held income point.
+	var objective_index := _enemy_supply_reinforcement_point(unit_index)
+	if objective_index < 0:
+		unit.erase("supply_reinforcement_active")
+		unit.erase("supply_reinforcement_point")
+		return false
+	var objective: Dictionary = supply_points[objective_index]
+	var objective_pos: Vector2 = objective.pos
+	unit["supply_reinforcement_active"] = true
+	unit["supply_reinforcement_point"] = objective_index
+	var distance: float = unit.pos.distance_to(objective_pos)
+	if distance > 42.0:
+		var speed := 36.0 if String(unit.get("kind", "")) == "tank" else 52.0
+		var direction := _ground_navigation_direction(unit, unit_index, objective_pos, delta, speed)
+		unit.pos += direction * delta * speed
+	return true
+
+
 func _enemy_supply_reinforcement_point(unit_index: int) -> int:
 	if unit_index < 0 or unit_index >= units.size():
 		return -1
@@ -3714,7 +4766,7 @@ func _enemy_supply_reinforcement_point(unit_index: int) -> int:
 			var distance: float = other.pos.distance_to(point.pos)
 			if other.team == "player" and distance <= 180.0:
 				player_threat = true
-			elif other.team == "enemy" and distance <= 85.0:
+			elif other.team == "enemy" and other_index != unit_index and distance <= 42.0:
 				enemy_garrisoned = true
 		if not player_threat or enemy_garrisoned:
 			continue
@@ -4022,6 +5074,80 @@ func _sell_selected_building() -> void:
 
 
 
+func _transport_ai_rescue_threat_pressure(infantry_pos: Vector2) -> float:
+	# Estimate immediate battlefield exposure from living hostiles around a casualty.
+	# This is a triage signal only; it does not issue attacks or alter combat simulation.
+	var pressure := 0.0
+	for hostile in units:
+		if String(hostile.get("team", "")) != "enemy" or int(hostile.get("hp", 0)) <= 0:
+			continue
+		var distance: float = infantry_pos.distance_to(hostile.get("pos", infantry_pos))
+		if distance > 180.0:
+			continue
+		var kind := String(hostile.get("kind", ""))
+		var weight := 1.0
+		if kind == "artillery":
+			weight = 2.2
+		elif kind == "tank":
+			weight = 2.0
+		elif kind == "fighter":
+			weight = 1.8
+		elif kind == "helicopter":
+			weight = 1.5
+		pressure += weight * (1.0 - distance / 180.0)
+	return pressure
+
+
+func _transport_ai_rescue_isolation_score(infantry_pos: Vector2) -> float:
+	# Higher score means fewer nearby living friendly infantry and therefore greater isolation.
+	var nearby_friendlies := 0
+	for ally in units:
+		if String(ally.get("team", "")) != "player" or String(ally.get("kind", "")) != "infantry" or int(ally.get("hp", 0)) <= 0:
+			continue
+		if infantry_pos.distance_to(ally.get("pos", infantry_pos)) <= 160.0:
+			nearby_friendlies += 1
+	return 1.0 / float(maxi(1, nearby_friendlies))
+
+
+func _transport_ai_sort_rescue_infantry(infantry_indices: Array[int], transport_pos: Vector2) -> Array[int]:
+	# Zero Hour-style casualty triage: critical wounds first, then higher local threat, then proximity.
+	var ordered: Array[int] = infantry_indices.duplicate()
+	for sort_index in range(ordered.size()):
+		var best_index := sort_index
+		for compare_index in range(sort_index + 1, ordered.size()):
+			var current_unit_index := ordered[compare_index]
+			var best_unit_index := ordered[best_index]
+			if current_unit_index < 0 or current_unit_index >= units.size():
+				continue
+			if best_unit_index < 0 or best_unit_index >= units.size():
+				best_index = compare_index
+				continue
+			var current_unit: Dictionary = units[current_unit_index]
+			var best_unit: Dictionary = units[best_unit_index]
+			var current_hp := int(current_unit.get("hp", 100))
+			var best_hp := int(best_unit.get("hp", 100))
+			var current_pos: Vector2 = current_unit.get("pos", transport_pos)
+			var best_pos: Vector2 = best_unit.get("pos", transport_pos)
+			var current_pressure := _transport_ai_rescue_threat_pressure(current_pos)
+			var best_pressure := _transport_ai_rescue_threat_pressure(best_pos)
+			var current_isolation := _transport_ai_rescue_isolation_score(current_pos)
+			var best_isolation := _transport_ai_rescue_isolation_score(best_pos)
+			var current_distance: float = current_pos.distance_to(transport_pos)
+			var best_distance: float = best_pos.distance_to(transport_pos)
+			var higher_threat := current_pressure > best_pressure and not is_equal_approx(current_pressure, best_pressure)
+			var more_isolated := current_isolation > best_isolation and not is_equal_approx(current_isolation, best_isolation)
+			var nearer := current_distance < best_distance and not is_equal_approx(current_distance, best_distance)
+			var equal_threat := is_equal_approx(current_pressure, best_pressure)
+			var equal_isolation := is_equal_approx(current_isolation, best_isolation)
+			if current_hp < best_hp or (current_hp == best_hp and (higher_threat or (equal_threat and (more_isolated or (equal_isolation and nearer))))):
+				best_index = compare_index
+		if best_index != sort_index:
+			var swap_index := ordered[sort_index]
+			ordered[sort_index] = ordered[best_index]
+			ordered[best_index] = swap_index
+	return ordered
+
+
 func _load_selected_infantry_into_transport() -> void:
 	var transport_index := -1
 	var infantry_indices: Array[int] = []
@@ -4044,6 +5170,38 @@ func _load_selected_infantry_into_transport() -> void:
 		notice_time = 2.2
 		return
 	var transport: Dictionary = units[transport_index]
+	var transport_state := String(transport.get("transport_state", "idle"))
+	if transport_state not in ["idle", "loaded", "pickup_waiting"]:
+		notice = "لا يمكن تحميل الجنود أثناء طيران المروحية أو تنفيذ الإنزال"
+		notice_time = 2.2
+		return
+	# Rescue priority: most wounded first; equal-health soldiers nearest the transport board first.
+	infantry_indices = _transport_ai_sort_rescue_infantry(infantry_indices, transport.pos)
+	# Preserve the full squad list: the nearby subset may be empty while everyone needs rendezvous orders.
+	var selected_infantry_indices := infantry_indices.duplicate()
+	var nearby_infantry: Array[int] = []
+	for infantry_index in selected_infantry_indices:
+		if infantry_index >= 0 and infantry_index < units.size() and units[infantry_index].pos.distance_to(transport.pos) <= 76.0:
+			nearby_infantry.append(infantry_index)
+	infantry_indices = nearby_infantry
+	if infantry_indices.is_empty():
+		# Order a rendezvous instead of silently failing; the player confirms boarding again on arrival.
+		var map_size := get_viewport_rect().size
+		var rendezvous_offsets: Array[Vector2] = [
+			Vector2(-34.0, -24.0), Vector2(34.0, -24.0), Vector2(-34.0, 24.0), Vector2(34.0, 24.0),
+			Vector2(-68.0, 0.0), Vector2(68.0, 0.0), Vector2(0.0, -58.0), Vector2(0.0, 58.0)
+		]
+		for n in range(selected_infantry_indices.size()):
+			var rendezvous_index: int = int(selected_infantry_indices[n])
+			if rendezvous_index < 0 or rendezvous_index >= units.size():
+				continue
+			var rendezvous_unit: Dictionary = units[rendezvous_index]
+			var rendezvous_pos: Vector2 = transport.pos + rendezvous_offsets[n % rendezvous_offsets.size()]
+			rendezvous_unit["target"] = Vector2(clampf(rendezvous_pos.x, 24.0, map_size.x - 24.0), clampf(rendezvous_pos.y, 24.0, map_size.y - 48.0))
+			rendezvous_unit["transport_pickup_rendezvous"] = true
+		notice = "تتحرك فرقة المشاة إلى نقطة الإخلاء — أعد أمر التحميل عند وصولها"
+		notice_time = 3.0
+		return
 	var cargo: Array = transport.get("transport_cargo", [])
 	var available := 8 - cargo.size()
 	if available <= 0:
@@ -4060,6 +5218,10 @@ func _load_selected_infantry_into_transport() -> void:
 		cargo_entry["kind"] = "infantry"
 		cargo_entry["hp"] = int(passenger.get("hp", 100))
 		cargo_entry["combat_medals"] = Array(passenger.get("combat_medals", [])).duplicate(true)
+		# Do not replay the temporary rendezvous movement after the soldier is redeployed.
+		if bool(passenger.get("transport_pickup_rendezvous", false)):
+			cargo_entry.erase("target")
+			cargo_entry.erase("transport_pickup_rendezvous")
 		cargo_entry["cargo_attack_cd"] = randf_range(0.0, 0.35)
 		# Array indices are not stable while passengers are removed; preserve the target position instead.
 		cargo_entry.erase("attack_target")
@@ -4072,6 +5234,12 @@ func _load_selected_infantry_into_transport() -> void:
 		cargo.append(cargo_entry)
 	transport["transport_cargo"] = cargo
 	transport["transport_state"] = "loaded"
+	transport.erase("transport_pickup_waiting")
+	transport["transport_ai_autonomous_active"] = false
+	# A newly loaded sortie starts a fresh task; old manual overrides belong to the previous sortie.
+	transport["transport_ai_player_override"] = false
+	transport.erase("transport_ai_objective_pos")
+	transport.erase("transport_ai_recommendation")
 	var transport_record: Dictionary = transport
 	# Remove only passengers that actually boarded; excess selected infantry stay on the field.
 	var loaded_indices: Array = infantry_indices.slice(0, load_count)
@@ -4107,6 +5275,450 @@ func _load_selected_infantry_into_transport() -> void:
 	notice_time = 2.8
 
 
+func _transport_ai_evaluate_landing_site(candidate: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# Deterministic, simulation-known scoring for the first tactical-director slice.
+	# Hard safety rejection always takes precedence over the numeric score.
+	var site_pos: Vector2 = candidate.get("pos", Vector2(-1.0, -1.0))
+	var is_rooftop := String(candidate.get("landing_type", "ground")) == "rooftop"
+	var bounds := _transport_landing_bounds(is_rooftop)
+	if not bounds.has_point(site_pos):
+		return {"valid": false, "score": -1.0, "reason": "outside_map"}
+	if is_rooftop:
+		var roof_kind := String(candidate.get("building_kind", ""))
+		var roof_found := false
+		for structure in buildings + enemy_buildings:
+			if String(structure.get("kind", "")) == roof_kind and int(structure.get("hp", 0)) > 0 and float(structure.get("build_progress", 1.0)) >= 1.0 and structure.pos.distance_to(site_pos) <= 3.0:
+				roof_found = true
+				break
+		if not roof_found:
+			return {"valid": false, "score": -1.0, "reason": "invalid_rooftop"}
+	else:
+		for structure in buildings + enemy_buildings:
+			if int(structure.get("hp", 0)) > 0 and structure.pos.distance_to(site_pos) < 54.0:
+				return {"valid": false, "score": -1.0, "reason": "structure_blocking"}
+	for occupant in units:
+		# Friendly transport aircraft can hover over the candidate and must not block their own landing search.
+		if String(occupant.get("team", "")) == "player" and String(occupant.get("kind", "")) == "transport_helicopter":
+			continue
+		if int(occupant.get("hp", 0)) > 0 and occupant.pos.distance_to(site_pos) < (24.0 if is_rooftop else 42.0):
+			return {"valid": false, "score": -1.0, "reason": "landing_footprint_occupied"}
+	var threat_penalty := 0.0
+	for hostile_structure in enemy_buildings:
+		if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+			continue
+		var threat_distance: float = hostile_structure.pos.distance_to(site_pos)
+		if threat_distance <= 320.0:
+			threat_penalty = maxf(threat_penalty, 35.0 * (1.0 - threat_distance / 420.0))
+	var route_penalty := 0.0
+	# Sample the approach corridor at several points; a single midpoint can miss a defended flank.
+	for route_fraction in [0.25, 0.5, 0.75]:
+		var route_sample: Vector2 = site_pos.lerp(objective_pos, float(route_fraction))
+		for hostile_structure in enemy_buildings:
+			if int(hostile_structure.get("hp", 0)) <= 0 or String(hostile_structure.get("kind", "")) != "anti_air":
+				continue
+			if hostile_structure.pos.distance_to(route_sample) <= 320.0:
+				route_penalty = maxf(route_penalty, 20.0)
+	var mobile_threat_penalty := 0.0
+	for hostile_unit in units:
+		if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
+			continue
+		var hostile_kind := String(hostile_unit.get("kind", ""))
+		var threat_radius := 240.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 170.0
+		var hostile_distance: float = hostile_unit.pos.distance_to(site_pos)
+		if hostile_distance <= threat_radius:
+			var threat_weight := 18.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 10.0
+			mobile_threat_penalty = maxf(mobile_threat_penalty, threat_weight * (1.0 - hostile_distance / threat_radius))
+	var objective_distance := site_pos.distance_to(objective_pos)
+	var objective_score := 15.0 * (1.0 - clampf(objective_distance / 900.0, 0.0, 1.0))
+	var friendly_support := 0.0
+	for friendly in units:
+		if String(friendly.get("team", "")) == "player" and int(friendly.get("hp", 0)) > 0 and friendly.pos.distance_to(site_pos) <= 260.0:
+			friendly_support = maxf(friendly_support, 10.0)
+	var escape_score := 10.0 if threat_penalty < 12.0 and mobile_threat_penalty < 6.0 else 3.0
+	var score := clampf(35.0 - threat_penalty - mobile_threat_penalty + 20.0 - route_penalty + objective_score + friendly_support + 10.0 + escape_score, 0.0, 100.0)
+	return {"valid": true, "score": score, "reason": "ranked", "site_id": String(candidate.get("id", "")), "distance": objective_distance}
+
+
+func _transport_ai_build_landing_candidates(objective_pos: Vector2) -> Array[Dictionary]:
+	# Build a repeatable candidate set from the current battlefield, not hidden enemy data.
+	var candidates: Array[Dictionary] = []
+	var bounds := _transport_landing_bounds(false)
+	var x := bounds.position.x + 48.0
+	var y_start := bounds.position.y + 48.0
+	var row := 0
+	while y_start + float(row) * 112.0 <= bounds.end.y - 24.0:
+		var column := 0
+		while x + float(column) * 112.0 <= bounds.end.x - 24.0:
+			var point := Vector2(x + float(column) * 112.0, y_start + float(row) * 112.0)
+			candidates.append({"id": "ground_%03d_%03d" % [row, column], "pos": point, "landing_type": "ground"})
+			column += 1
+		row += 1
+	for structure in buildings + enemy_buildings:
+		var kind := String(structure.get("kind", ""))
+		if kind in ["wall", "wall_corner", "wall_gate", "airfield"] or int(structure.get("hp", 0)) <= 0 or float(structure.get("build_progress", 1.0)) < 1.0:
+			continue
+		var roof_pos: Vector2 = structure.get("pos", Vector2.ZERO)
+		candidates.append({
+			"id": "roof_%s_%d_%d" % [kind, roundi(roof_pos.x), roundi(roof_pos.y)],
+			"pos": roof_pos,
+			"landing_type": "rooftop",
+			"building_kind": kind
+		})
+	return candidates
+
+
+func _transport_ai_control_mode(transport: Dictionary) -> String:
+	# Default to MANUAL so existing player-controlled transport behavior never changes silently.
+	var mode := String(transport.get("transport_ai_mode", "MANUAL")).to_upper()
+	if mode not in ["MANUAL", "ASSISTED", "AUTONOMOUS"]:
+		return "MANUAL"
+	return mode
+
+
+func _transport_ai_landing_decision(transport: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# This is a decision contract only: it does not move the aircraft or mutate player orders.
+	if Array(transport.get("transport_cargo", [])).is_empty():
+		return {"valid": false, "reason": "empty_cargo", "mode": _transport_ai_control_mode(transport)}
+	var mode := _transport_ai_control_mode(transport)
+	var landing := _transport_ai_plan_landing(objective_pos)
+	if not bool(landing.get("valid", false)):
+		return {"valid": false, "reason": "no_safe_landing_site", "mode": mode}
+	var player_override := bool(transport.get("transport_ai_player_override", false))
+	var action := "recommend"
+	if player_override or mode == "MANUAL":
+		action = "manual_control"
+	elif mode == "ASSISTED":
+		action = "recommend"
+	elif mode == "AUTONOMOUS":
+		action = "authorize_autonomous"
+	return {
+		"valid": true,
+		"reason": "player_override" if player_override else "site_selected",
+		"mode": mode,
+		"action": action,
+		"can_execute": action == "authorize_autonomous",
+		"landing": landing
+	}
+
+
+func _transport_ai_request_landing(transport: Dictionary, objective_pos: Vector2) -> Dictionary:
+	# Entry point for the tactical director. Manual orders are never replaced.
+	var mode := _transport_ai_control_mode(transport)
+	if Array(transport.get("transport_cargo", [])).is_empty():
+		return {"accepted": false, "reason": "empty_cargo", "mode": mode}
+	if bool(transport.get("transport_ai_player_override", false)) or mode == "MANUAL":
+		return {"accepted": false, "reason": "player_control", "mode": mode}
+	var decision := _transport_ai_landing_decision(transport, objective_pos)
+	if not bool(decision.get("valid", false)):
+		return {"accepted": false, "reason": String(decision.get("reason", "no_safe_landing_site")), "mode": mode}
+	var landing: Dictionary = decision.get("landing", {})
+	transport["transport_ai_recommendation"] = landing.duplicate(true)
+	transport["transport_ai_objective_pos"] = objective_pos
+	if mode == "ASSISTED":
+		return {"accepted": true, "reason": "recommendation_ready", "mode": mode, "landing": landing}
+	transport["transport_state"] = "ai_assessing"
+	return {"accepted": true, "reason": "autonomous_order_queued", "mode": mode, "landing": landing}
+
+
+func _transport_ai_process_pending_landing(transport: Dictionary) -> void:
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", transport.pos)
+	var decision := _transport_ai_landing_decision(transport, objective_pos)
+	if not bool(decision.get("valid", false)) or not bool(decision.get("can_execute", false)):
+		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+		transport.erase("transport_ai_objective_pos")
+		return
+	var landing: Dictionary = decision.get("landing", {})
+	transport["transport_target_pos"] = landing.get("pos", objective_pos)
+	transport["transport_landing_type"] = String(landing.get("landing_type", "ground"))
+	_transport_ai_assign_route(transport, transport["transport_target_pos"])
+	if String(transport["transport_landing_type"]) == "rooftop":
+		transport["transport_target_building_kind"] = String(landing.get("building_kind", ""))
+	else:
+		transport.erase("transport_target_building_kind")
+	transport["transport_drop_index"] = 0
+	transport["transport_drop_timer"] = 0.0
+	transport["transport_state"] = "inbound"
+	transport["transport_ai_last_site_id"] = String(landing.get("site_id", ""))
+	transport["transport_ai_autonomous_active"] = true
+	transport.erase("target")
+
+
+func _transport_ai_issue_manual_move(transport: Dictionary, destination: Vector2) -> void:
+	# A direct player move becomes the authoritative transport destination.
+	# Clear every stale tactical route so autonomous reassessment cannot pull the aircraft away.
+	var map_size := get_viewport_rect().size
+	var safe_destination := Vector2(
+		clampf(destination.x, 24.0, map_size.x - 24.0),
+		clampf(destination.y, 24.0, map_size.y - 48.0)
+	)
+	transport["transport_ai_player_override"] = true
+	transport["transport_ai_autonomous_active"] = false
+	transport["transport_target_pos"] = safe_destination
+	transport["transport_landing_type"] = "ground"
+	transport["transport_state"] = "inbound"
+	transport["transport_drop_index"] = 0
+	transport["transport_drop_timer"] = 0.0
+	transport["transport_ai_reassess_timer"] = 0.0
+	for stale_key in ["transport_ai_objective_pos", "transport_ai_recommendation", "transport_ai_route_points", "transport_ai_route_index", "transport_return_pos", "transport_pickup_waiting", "transport_order_pending", "target"]:
+		transport.erase(stale_key)
+
+
+func _transport_ai_reassess_inbound(transport: Dictionary, delta: float) -> void:
+	if not bool(transport.get("transport_ai_autonomous_active", false)) or bool(transport.get("transport_ai_player_override", false)):
+		return
+	var elapsed := float(transport.get("transport_ai_reassess_timer", 0.0)) + delta
+	if elapsed < 1.25:
+		transport["transport_ai_reassess_timer"] = elapsed
+		return
+	transport["transport_ai_reassess_timer"] = 0.0
+	var current_target: Vector2 = transport.get("transport_target_pos", transport.pos)
+	var max_transport_hp := maxi(1, _unit_repair_max_hp(transport))
+	var current_transport_hp := clampi(int(transport.get("hp", max_transport_hp)), 0, max_transport_hp)
+	if current_transport_hp <= int(floor(float(max_transport_hp) * 0.30)):
+		# Critical damage takes priority over insertion: preserve cargo and recover before the aircraft is lost.
+		var emergency_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+		transport["transport_ai_last_decision_reason"] = "critical_damage"
+		transport.erase("transport_target_pos")
+		transport.erase("transport_ai_objective_pos")
+		if not emergency_airfield.is_empty():
+			var emergency_return_pos: Vector2 = emergency_airfield.pos
+			transport["transport_return_pos"] = emergency_return_pos
+			_transport_ai_assign_route(transport, emergency_return_pos)
+			transport["transport_ai_route_index"] = 0
+			transport["transport_ai_autonomous_active"] = true
+			transport["transport_state"] = "returning"
+			notice = "ضرر حرج — أُلغيت المهمة والطائرة تعود فوراً إلى القاعدة"
+		else:
+			transport.erase("transport_ai_route_points")
+			transport.erase("transport_ai_route_index")
+			transport["transport_ai_autonomous_active"] = false
+			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "ضرر حرج ولا يوجد مطار صالح — توقف آمن مع الحفاظ على الحمولة"
+		notice_time = 3.0
+		return
+	if transport.pos.distance_to(current_target) <= 80.0:
+		return
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", current_target)
+	var current_candidate := {
+		"id": "current_inbound_target",
+		"pos": current_target,
+		"landing_type": String(transport.get("transport_landing_type", "ground")),
+		"building_kind": String(transport.get("transport_target_building_kind", ""))
+	}
+	var current_score := _transport_ai_evaluate_landing_site(current_candidate, objective_pos)
+	var replacement := _transport_ai_plan_landing(objective_pos)
+	var current_valid := bool(current_score.get("valid", false))
+	if not bool(replacement.get("valid", false)):
+		if not current_valid:
+			# Never continue toward a landing zone that has become unsafe when no alternate site exists.
+			var recovery_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+			transport["transport_ai_last_decision_reason"] = "no_safe_landing_site"
+			transport.erase("transport_target_pos")
+			transport.erase("transport_ai_objective_pos")
+			if not recovery_airfield.is_empty():
+				var recovery_pos: Vector2 = recovery_airfield.pos
+				transport["transport_return_pos"] = recovery_pos
+				_transport_ai_assign_route(transport, recovery_pos)
+				transport["transport_ai_autonomous_active"] = true
+				transport["transport_state"] = "returning"
+				notice = "لا يوجد موقع إنزال آمن — الطائرة تعود إلى أقرب مطار"
+			else:
+				transport.erase("transport_ai_route_points")
+				transport.erase("transport_ai_route_index")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+				notice = "لا يوجد موقع إنزال أو مطار آمن — الحمولة محفوظة والطائرة في وضع انتظار"
+			notice_time = 3.0
+		return
+	var should_replan := not current_valid
+	if current_valid:
+		should_replan = float(replacement.get("score", 0.0)) >= float(current_score.get("score", 0.0)) + 14.0
+	if not should_replan or Vector2(replacement.get("pos", current_target)).distance_to(current_target) < 80.0:
+		return
+	transport["transport_target_pos"] = replacement.get("pos", current_target)
+	transport["transport_landing_type"] = String(replacement.get("landing_type", "ground"))
+	_transport_ai_assign_route(transport, transport["transport_target_pos"])
+	if String(transport["transport_landing_type"]) == "rooftop":
+		transport["transport_target_building_kind"] = String(replacement.get("building_kind", ""))
+	else:
+		transport.erase("transport_target_building_kind")
+	transport["transport_ai_last_site_id"] = String(replacement.get("site_id", ""))
+	transport["transport_ai_replanned"] = int(transport.get("transport_ai_replanned", 0)) + 1
+
+
+func _transport_ai_reassess_descending(transport: Dictionary) -> void:
+	if not bool(transport.get("transport_ai_autonomous_active", false)) or bool(transport.get("transport_ai_player_override", false)):
+		return
+	var current_target: Vector2 = transport.get("transport_target_pos", transport.pos)
+	if not _transport_ai_site_has_immediate_threat(current_target):
+		return
+	var objective_pos: Vector2 = transport.get("transport_ai_objective_pos", current_target)
+	var replacement := _transport_ai_plan_safe_alternate_landing(objective_pos)
+	if bool(replacement.get("valid", false)):
+		var replacement_pos: Vector2 = replacement.get("pos", current_target)
+		transport["transport_target_pos"] = replacement_pos
+		transport["transport_landing_type"] = String(replacement.get("landing_type", "ground"))
+		if String(transport["transport_landing_type"]) == "rooftop":
+			transport["transport_target_building_kind"] = String(replacement.get("building_kind", ""))
+		else:
+			transport.erase("transport_target_building_kind")
+		_transport_ai_assign_route(transport, replacement_pos)
+		transport["transport_ai_last_decision_reason"] = "descent_threat_replanned"
+		transport["transport_state"] = "inbound"
+		transport["transport_drop_timer"] = 0.0
+		notice = "رُصد تهديد أثناء الإنزال — أُعيد توجيه الطائرة إلى موقع آمن"
+		notice_time = 3.0
+		return
+	# No safe insertion remains: abort before removing the next passenger from cargo.
+	var recovery_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+	transport["transport_ai_last_decision_reason"] = "descent_threat_no_safe_site"
+	transport.erase("transport_target_pos")
+	transport.erase("transport_ai_objective_pos")
+	transport["transport_drop_timer"] = 0.0
+	if not recovery_airfield.is_empty():
+		var recovery_pos: Vector2 = recovery_airfield.pos
+		transport["transport_return_pos"] = recovery_pos
+		_transport_ai_assign_route(transport, recovery_pos)
+		transport["transport_ai_route_index"] = 0
+		transport["transport_ai_autonomous_active"] = true
+		transport["transport_state"] = "returning"
+		notice = "منطقة الإنزال أصبحت خطرة — أُلغيت العملية والطائرة تنسحب إلى القاعدة"
+	else:
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
+		transport["transport_ai_autonomous_active"] = false
+		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+		notice = "منطقة الإنزال خطرة ولا يوجد مطار — توقف آمن والجنود المتبقون داخل الطائرة"
+	notice_time = 3.0
+
+
+func _transport_ai_route_exposure(points: Array[Vector2]) -> float:
+	# Deterministic, coarse route risk estimate; it never overrides player-directed flight.
+	var exposure := 0.0
+	var sample_count := 0
+	for segment_index in range(points.size() - 1):
+		var segment_start: Vector2 = points[segment_index]
+		var segment_end: Vector2 = points[segment_index + 1]
+		for sample_index in range(1, 6):
+			var sample_pos := segment_start.lerp(segment_end, float(sample_index) / 6.0)
+			sample_count += 1
+			for hostile_building in enemy_buildings:
+				if String(hostile_building.get("kind", "")) != "anti_air" or int(hostile_building.get("hp", 0)) <= 0:
+					continue
+				var threat_distance: float = sample_pos.distance_to(hostile_building.pos)
+				if threat_distance < 320.0:
+					exposure += (320.0 - threat_distance) / 320.0
+			# Mobile enemy aircraft can intercept transports even when no static AA is nearby.
+			for hostile_unit in units:
+				if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
+					continue
+				var hostile_kind := String(hostile_unit.get("kind", ""))
+				if hostile_kind not in ["fighter", "helicopter"]:
+					continue
+				var mobile_threat_distance: float = sample_pos.distance_to(hostile_unit.pos)
+				var mobile_threat_radius := 300.0 if hostile_kind == "fighter" else 255.0
+				if mobile_threat_distance < mobile_threat_radius:
+					var threat_weight := 1.15 if hostile_kind == "fighter" else 0.85
+					exposure += ((mobile_threat_radius - mobile_threat_distance) / mobile_threat_radius) * threat_weight
+			# Mobile anti-air vehicles are supported when represented by the canonical anti_air kind.
+			for hostile_unit in units:
+				if String(hostile_unit.get("team", "")) != "enemy" or String(hostile_unit.get("kind", "")) != "anti_air" or int(hostile_unit.get("hp", 0)) <= 0:
+					continue
+				var mobile_aa_distance: float = sample_pos.distance_to(hostile_unit.pos)
+				if mobile_aa_distance < 280.0:
+					exposure += (280.0 - mobile_aa_distance) / 280.0
+	# Normalize by sample count so adding a waypoint does not inflate risk merely
+	# because the route has more segments; distance remains a separate route cost.
+	return exposure / float(maxi(1, sample_count))
+
+
+func _transport_ai_build_route(start_pos: Vector2, landing_pos: Vector2) -> Array[Vector2]:
+	# Compare a direct corridor with deterministic perpendicular detours around known AA.
+	var routes: Array = []
+	routes.append([landing_pos])
+	var direction := landing_pos - start_pos
+	if direction.length() > 1.0:
+		var perpendicular := Vector2(-direction.normalized().y, direction.normalized().x)
+		for offset in [150.0, -150.0, 380.0, -380.0]:
+			var waypoint: Vector2 = start_pos.lerp(landing_pos, 0.5) + perpendicular * float(offset)
+			var safe_bounds := _transport_landing_bounds(false)
+			waypoint.x = clampf(waypoint.x, safe_bounds.position.x, safe_bounds.end.x)
+			waypoint.y = clampf(waypoint.y, safe_bounds.position.y, safe_bounds.end.y)
+			routes.append([waypoint, landing_pos])
+	var best_route: Array[Vector2] = [landing_pos]
+	var best_cost := INF
+	for route_variant in routes:
+		var candidate_route: Array[Vector2] = [start_pos]
+		for route_point in route_variant:
+			candidate_route.append(route_point)
+		var distance_cost := 0.0
+		for segment_index in range(candidate_route.size() - 1):
+			distance_cost += candidate_route[segment_index].distance_to(candidate_route[segment_index + 1])
+		var cost := _transport_ai_route_exposure(candidate_route) * 180.0 + distance_cost * 0.025
+		if cost < best_cost:
+			best_cost = cost
+			best_route.clear()
+			for route_point in route_variant:
+				best_route.append(route_point)
+	return best_route
+
+
+func _transport_ai_assign_route(transport: Dictionary, landing_pos: Vector2) -> void:
+	var route := _transport_ai_build_route(transport.get("pos", landing_pos), landing_pos)
+	transport["transport_ai_route_points"] = route
+	transport["transport_ai_route_index"] = 0
+
+
+func _transport_ai_plan_landing(objective_pos: Vector2) -> Dictionary:
+	var candidates := _transport_ai_build_landing_candidates(objective_pos)
+	return _transport_ai_choose_landing_site(candidates, objective_pos)
+
+
+func _transport_ai_site_has_immediate_threat(site_pos: Vector2) -> bool:
+	# Immediate danger is checked against simulation-known enemies only.
+	for hostile_unit in units:
+		if String(hostile_unit.get("team", "")) != "enemy" or int(hostile_unit.get("hp", 0)) <= 0:
+			continue
+		var hostile_kind := String(hostile_unit.get("kind", ""))
+		var threat_radius := 240.0 if hostile_kind in ["tank", "artillery", "helicopter", "fighter"] else 170.0
+		if hostile_unit.pos.distance_to(site_pos) <= threat_radius:
+			return true
+	for hostile_structure in enemy_buildings:
+		if String(hostile_structure.get("kind", "")) == "anti_air" and int(hostile_structure.get("hp", 0)) > 0 and hostile_structure.pos.distance_to(site_pos) <= 320.0:
+			return true
+	return false
+
+
+func _transport_ai_plan_safe_alternate_landing(objective_pos: Vector2) -> Dictionary:
+	var safe_candidates: Array[Dictionary] = []
+	for candidate in _transport_ai_build_landing_candidates(objective_pos):
+		if _transport_ai_site_has_immediate_threat(Vector2(candidate.get("pos", Vector2.ZERO))):
+			continue
+		safe_candidates.append(candidate)
+	return _transport_ai_choose_landing_site(safe_candidates, objective_pos)
+
+
+func _transport_ai_choose_landing_site(candidates: Array[Dictionary], objective_pos: Vector2) -> Dictionary:
+	var best: Dictionary = {}
+	for candidate in candidates:
+		var evaluation := _transport_ai_evaluate_landing_site(candidate, objective_pos)
+		if not bool(evaluation.get("valid", false)):
+			continue
+		var score := float(evaluation.get("score", -1.0))
+		var distance := float(evaluation.get("distance", INF))
+		var best_score := float(best.get("score", -1.0))
+		var best_distance := float(best.get("distance", INF))
+		var candidate_id := String(candidate.get("id", ""))
+		var best_id := String(best.get("site_id", ""))
+		var wins_tie := is_equal_approx(score, best_score) and (distance < best_distance or (is_equal_approx(distance, best_distance) and candidate_id < best_id))
+		if score > best_score or wins_tie:
+			best = evaluation.duplicate(true)
+			best["pos"] = candidate.get("pos", Vector2.ZERO)
+			best["landing_type"] = String(candidate.get("landing_type", "ground"))
+			best["building_kind"] = String(candidate.get("building_kind", ""))
+	return best
+
+
 func _prepare_transport_rooftop_landing() -> void:
 	var found_transport := false
 	for index in selected:
@@ -4128,7 +5740,400 @@ func _prepare_transport_rooftop_landing() -> void:
 	notice_time = 2.4
 
 
+func _transport_ai_order_group_ground_insertions(objective_pos: Vector2, transport_indices: Array[int]) -> bool:
+	if transport_indices.size() < 2:
+		return false
+	var candidates := _transport_ai_build_landing_candidates(objective_pos)
+	var reserved_sites: Array[Vector2] = []
+	var assignments: Array[Dictionary] = []
+	# Plan every drop zone before issuing any order, so the group cannot be half-dispatched.
+	for transport_index in transport_indices:
+		if transport_index < 0 or transport_index >= units.size():
+			return false
+		var transport: Dictionary = units[transport_index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			return false
+		if Array(transport.get("transport_cargo", [])).is_empty() or String(transport.get("transport_state", "idle")) not in ["idle", "loaded", "pickup_waiting"]:
+			return false
+		var best_site: Dictionary = {}
+		for candidate in candidates:
+			var candidate_pos: Vector2 = candidate.get("pos", Vector2.ZERO)
+			if String(candidate.get("landing_type", "ground")) != "ground" or candidate_pos.distance_to(objective_pos) > 240.0:
+				continue
+			var separated := true
+			for reserved_pos in reserved_sites:
+				if candidate_pos.distance_to(reserved_pos) < 96.0:
+					separated = false
+					break
+			if not separated:
+				continue
+			var evaluation := _transport_ai_evaluate_landing_site(candidate, objective_pos)
+			if not bool(evaluation.get("valid", false)):
+				continue
+			var score := float(evaluation.get("score", -1.0))
+			if best_site.is_empty() or score > float(best_site.get("score", -1.0)) or (is_equal_approx(score, float(best_site.get("score", -1.0))) and String(candidate.get("id", "")) < String(best_site.get("site_id", ""))):
+				best_site = evaluation.duplicate(true)
+				best_site["pos"] = candidate_pos
+				best_site["site_id"] = String(candidate.get("id", ""))
+		if best_site.is_empty():
+			return false
+		reserved_sites.append(best_site.pos)
+		assignments.append({"unit_index": transport_index, "landing": best_site})
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var landing: Dictionary = assignment.landing
+		var target_pos: Vector2 = landing.pos
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = false
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
+		transport.erase("transport_post_drop_guard_pos")
+		transport["transport_target_pos"] = target_pos
+		transport["transport_landing_type"] = "ground"
+		transport.erase("transport_target_building_kind")
+		transport["transport_state"] = "inbound"
+		transport["transport_order_pending"] = false
+		transport["transport_drop_index"] = 0
+		transport["transport_drop_timer"] = 0.0
+		transport.erase("target")
+	return true
+
+
+func _transport_ai_escort_anchor_position(transport: Dictionary) -> Vector2:
+	# Escorts stage at the drop zone on final approach and hold a short rear guard during extraction.
+	var state := String(transport.get("transport_state", ""))
+	var transport_pos: Vector2 = transport.get("pos", Vector2.ZERO)
+	if state in ["inbound", "descending"] and transport.has("transport_target_pos"):
+		var landing_pos: Vector2 = transport.get("transport_target_pos", transport_pos)
+		if transport_pos.distance_to(landing_pos) <= 320.0:
+			return landing_pos
+	if state == "returning" and transport.has("transport_post_drop_guard_pos"):
+		var post_drop_pos: Vector2 = transport.get("transport_post_drop_guard_pos", transport_pos)
+		if transport_pos.distance_to(post_drop_pos) <= 320.0:
+			return post_drop_pos
+		transport.erase("transport_post_drop_guard_pos")
+	return transport_pos
+
+
+func _transport_ai_escort_catchup_speed(unit_kind: String, slot_distance: float) -> float:
+	var base_speed := FIGHTER_SPEED if unit_kind == "fighter" else 78.0
+	var distance := maxf(0.0, slot_distance)
+	var catchup_factor := clampf(1.0 + maxf(0.0, distance - 18.0) / 520.0, 1.0, 1.4)
+	return base_speed * catchup_factor
+
+
+func _transport_ai_select_emergency_escort_threat(transport_id: int, escort_index: int, transport_pos: Vector2, max_distance: float = 150.0) -> int:
+	# During an immediate threat to the transport, all escorts prioritize the closest unclaimed attacker.
+	var best_index := -1
+	var best_distance := max_distance
+	for candidate_index in range(units.size()):
+		var candidate: Dictionary = units[candidate_index]
+		if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var claimed := false
+		for other_index in range(units.size()):
+			if other_index == candidate_index:
+				continue
+			var other_escort: Dictionary = units[other_index]
+			if bool(other_escort.get("escort_active", false)) and bool(other_escort.get("escort_auto_target", false)) and int(other_escort.get("escort_target_id", -1)) == transport_id and int(other_escort.get("attack_target", -1)) == candidate_index:
+				claimed = true
+				break
+		if claimed:
+			continue
+		var distance: float = transport_pos.distance_to(candidate.pos)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = candidate_index
+	return best_index
+
+
+func _transport_ai_select_group_escort_threat(transport_id: int, from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
+	# Avoid assigning the same automatic target to multiple escorts protecting one transport.
+	var priority_kinds: Array[String] = []
+	if escort_kind == "fighter":
+		priority_kinds.assign(["fighter", "helicopter", "transport_helicopter"])
+	else:
+		priority_kinds.assign(["tank", "artillery", "infantry"])
+	for preferred_kind in priority_kinds:
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) != preferred_kind:
+				continue
+			var claimed := false
+			for escort_index in range(units.size()):
+				if escort_index == candidate_index:
+					continue
+				var other_escort: Dictionary = units[escort_index]
+				if not bool(other_escort.get("escort_active", false)) or not bool(other_escort.get("escort_auto_target", false)) or int(other_escort.get("escort_target_id", -1)) != transport_id:
+					continue
+				if int(other_escort.get("attack_target", -1)) == candidate_index:
+					claimed = true
+					break
+			if claimed:
+				continue
+			var distance: float = from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
+
+
+func _transport_ai_escort_should_release_target(escort_pos: Vector2, transport_pos: Vector2, enemy_pos: Vector2) -> bool:
+	# Keep automatic pursuit inside the transport's defensive bubble.
+	return enemy_pos.distance_to(transport_pos) > 220.0 or escort_pos.distance_to(transport_pos) > 260.0
+
+
+func _transport_ai_select_escort_threat(from_pos: Vector2, escort_kind: String, max_distance: float = 220.0) -> int:
+	var priority_kinds: Array[String] = []
+	if escort_kind == "fighter":
+		priority_kinds.assign(["fighter", "helicopter", "transport_helicopter"])
+	else:
+		priority_kinds.assign(["tank", "artillery", "infantry"])
+	for preferred_kind in priority_kinds:
+		var best_index := -1
+		var best_distance := max_distance
+		for candidate_index in range(units.size()):
+			var candidate: Dictionary = units[candidate_index]
+			if String(candidate.get("team", "")) != "enemy" or int(candidate.get("hp", 0)) <= 0 or String(candidate.get("kind", "")) != preferred_kind:
+				continue
+			var distance: float = from_pos.distance_to(candidate.pos)
+			if distance < best_distance:
+				best_distance = distance
+				best_index = candidate_index
+		if best_index >= 0:
+			return best_index
+	return -1
+
+
+func _transport_ai_escort_formation_offset(slot: int) -> Vector2:
+	var row := int(slot / 2)
+	var side := -1.0 if slot % 2 == 0 else 1.0
+	if slot == 4:
+		return Vector2(0.0, 112.0)
+	if slot > 4:
+		var reserve_row := int((slot - 5) / 2)
+		var reserve_side := -1.0 if (slot - 5) % 2 == 0 else 1.0
+		return Vector2(reserve_side * (96.0 + float(reserve_row) * 16.0), 112.0 + float(reserve_row) * 48.0)
+	return Vector2(side * (54.0 + float(row) * 12.0), -42.0 + float(row) * 54.0)
+
+
+func _transport_ai_sync_escort_formation(target_id: int) -> void:
+	if target_id < 0:
+		return
+	var members: Array[int] = []
+	for index in range(units.size()):
+		var escort: Dictionary = units[index]
+		if bool(escort.get("escort_active", false)) and int(escort.get("escort_target_id", -1)) == target_id and int(escort.get("hp", 0)) > 0 and String(escort.get("team", "")) == "player":
+			members.append(index)
+	# Preserve already occupied slots when a reassigned escort joins a formation;
+	# dead or missing members are still compacted into the first available slots.
+	members.sort_custom(func(a: int, b: int) -> bool:
+		var slot_a := int(units[a].get("escort_formation_slot", 2147483647))
+		var slot_b := int(units[b].get("escort_formation_slot", 2147483647))
+		if slot_a == slot_b:
+			return a < b
+		return slot_a < slot_b
+	)
+	var formation_size := members.size()
+	for slot in range(formation_size):
+		var escort: Dictionary = units[members[slot]]
+		escort["escort_formation_slot"] = slot
+		escort["escort_formation_size"] = formation_size
+		escort["escort_offset"] = _transport_ai_escort_formation_offset(slot)
+
+
+func _transport_ai_reassign_air_escort(escort_index: int) -> bool:
+	if escort_index < 0 or escort_index >= units.size():
+		return false
+	var escort: Dictionary = units[escort_index]
+	if String(escort.get("team", "")) != "player" or String(escort.get("kind", "")) not in ["fighter", "helicopter"] or int(escort.get("hp", 0)) <= 0:
+		return false
+	if String(escort.get("escort_target_kind", "")) != "transport_helicopter":
+		return false
+	# Never redirect a player-issued attack or base-strike order during automatic balancing.
+	if escort.has("attack_building") or bool(escort.get("attack_base", false)) or (escort.has("attack_target") and not bool(escort.get("escort_auto_target", false))):
+		return false
+	var current_target_id := int(escort.get("escort_target_id", -1))
+	var current_cost := INF
+	var best_transport_index := -1
+	var best_cost := INF
+	for transport_index in range(units.size()):
+		var candidate: Dictionary = units[transport_index]
+		if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "transport_helicopter" or int(candidate.get("hp", 0)) <= 0:
+			continue
+		var candidate_id := int(candidate.get("3d_sync_id", -1))
+		if candidate_id < 0:
+			continue
+		var assigned_count := 0
+		for other_index in range(units.size()):
+			if other_index == escort_index:
+				continue
+			var other: Dictionary = units[other_index]
+			if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == candidate_id and int(other.get("hp", 0)) > 0:
+				assigned_count += 1
+		var threat_priority := _transport_ai_transport_threat_score(candidate) * 45.0
+		var cost: float = escort.pos.distance_to(candidate.pos) + float(assigned_count) * 120.0 - threat_priority
+		if candidate_id == current_target_id:
+			current_cost = cost
+		if cost < best_cost:
+			best_cost = cost
+			best_transport_index = transport_index
+	if best_transport_index < 0:
+		return false
+	# Hysteresis prevents oscillation: transfer only for a meaningful improvement.
+	if current_cost < INF and int(units[best_transport_index].get("3d_sync_id", -1)) == current_target_id:
+		return false
+	if current_cost < INF and best_cost + 70.0 >= current_cost:
+		return false
+	var new_target: Dictionary = units[best_transport_index]
+	var new_target_id := int(new_target.get("3d_sync_id", -1))
+	var new_slot := 0
+	for other_index in range(units.size()):
+		if other_index == escort_index:
+			continue
+		var other: Dictionary = units[other_index]
+		if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == new_target_id and int(other.get("hp", 0)) > 0:
+			new_slot += 1
+	escort["escort_target_id"] = new_target_id
+	escort["escort_formation_slot"] = new_slot
+	escort["escort_offset"] = _transport_ai_escort_formation_offset(new_slot)
+	escort["escort_formation_size"] = new_slot + 1
+	escort["escort_active"] = true
+	_transport_ai_sync_escort_formation(new_target_id)
+	if bool(escort.get("escort_auto_target", false)):
+		escort.erase("attack_target")
+		escort.erase("attack_focus_pos")
+	escort.erase("escort_auto_target")
+	for other in units:
+		if bool(other.get("escort_active", false)) and int(other.get("escort_target_id", -1)) == new_target_id and int(other.get("hp", 0)) > 0:
+			other["escort_formation_size"] = new_slot + 1
+	return true
+
+
+func _transport_ai_transport_threat_score(transport: Dictionary) -> float:
+	# Estimate how urgently this transport needs escort coverage around its current tactical anchor.
+	var anchor_pos := _transport_ai_escort_anchor_position(transport)
+	var score := 0.0
+	for enemy in units:
+		if String(enemy.get("team", "")) != "enemy" or int(enemy.get("hp", 0)) <= 0:
+			continue
+		var distance: float = anchor_pos.distance_to(enemy.get("pos", anchor_pos))
+		if distance > 240.0:
+			continue
+		var enemy_kind := String(enemy.get("kind", ""))
+		var weight := 1.0
+		match enemy_kind:
+			"fighter":
+				weight = 2.4
+			"helicopter", "transport_helicopter":
+				weight = 2.0
+			"anti_air":
+				weight = 2.2
+			"tank":
+				weight = 1.8
+			"artillery":
+				weight = 1.6
+		score += weight * clampf(1.0 - distance / 240.0, 0.0, 1.0)
+	# Protect vulnerable aircraft and valuable live cargo, not only the nearest threat.
+	var max_hp := maxi(1, _unit_repair_max_hp(transport))
+	var hp_ratio := clampf(float(transport.get("hp", max_hp)) / float(max_hp), 0.0, 1.0)
+	var vulnerability_priority := (1.0 - hp_ratio) * 0.75
+	var cargo_count := Array(transport.get("transport_cargo", [])).size()
+	var cargo_priority := minf(float(cargo_count), 8.0) * 0.065
+	var mission_state := String(transport.get("transport_state", "idle"))
+	var mission_priority := 0.35 if mission_state in ["inbound", "descending", "ai_assessing"] else (0.12 if mission_state == "returning" else 0.0)
+	return minf(score + vulnerability_priority + cargo_priority + mission_priority, 5.6)
+
+
+func _transport_ai_assign_selected_air_escorts(transport_indices: Array[int]) -> int:
+	if transport_indices.is_empty():
+		return 0
+	var escort_counts: Dictionary = {}
+	var escort_members: Dictionary = {}
+	var assigned := 0
+	for selected_index in selected:
+		if selected_index < 0 or selected_index >= units.size() or transport_indices.has(selected_index):
+			continue
+		var escort: Dictionary = units[selected_index]
+		var escort_kind := String(escort.get("kind", ""))
+		if String(escort.get("team", "")) != "player" or int(escort.get("hp", 0)) <= 0 or escort_kind not in ["fighter", "helicopter"]:
+			continue
+		var best_transport_index := -1
+		var best_cost := INF
+		for transport_index in transport_indices:
+			if transport_index < 0 or transport_index >= units.size():
+				continue
+			var transport: Dictionary = units[transport_index]
+			var sync_id := int(transport.get("3d_sync_id", -1))
+			if sync_id < 0 or String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+				continue
+			var assigned_count := int(escort_counts.get(transport_index, 0))
+			var threat_priority := _transport_ai_transport_threat_score(transport) * 45.0
+			var cost: float = escort.pos.distance_to(transport.pos) + float(assigned_count) * 120.0 - threat_priority
+			if cost < best_cost:
+				best_cost = cost
+				best_transport_index = transport_index
+		if best_transport_index < 0:
+			continue
+		var protected_transport: Dictionary = units[best_transport_index]
+		_cancel_airfield_recovery(escort)
+		var formation_slot := int(escort_counts.get(best_transport_index, 0))
+		var offset := _transport_ai_escort_formation_offset(formation_slot)
+		escort["escort_target_id"] = int(protected_transport.get("3d_sync_id", -1))
+		escort["escort_target_kind"] = "transport_helicopter"
+		escort["escort_offset"] = offset
+		escort["escort_formation_slot"] = formation_slot
+		escort["escort_formation_size"] = formation_slot + 1
+		escort["escort_active"] = true
+		escort.erase("escort_auto_target")
+		for order_key in ["target", "guard_active", "guard_position", "guard_radius", "attack_move_active", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+			escort.erase(order_key)
+		escort_counts[best_transport_index] = int(escort_counts.get(best_transport_index, 0)) + 1
+		var members: Array = escort_members.get(best_transport_index, [])
+		members.append(selected_index)
+		escort_members[best_transport_index] = members
+		assigned += 1
+	for transport_index in escort_members.keys():
+		var formation_size := int(escort_counts.get(transport_index, 0))
+		for escort_index in escort_members[transport_index]:
+			if escort_index >= 0 and escort_index < units.size():
+				units[escort_index]["escort_formation_size"] = formation_size
+	return assigned
+
+
 func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
+	var pending_transports: Array[int] = []
+	for selected_index in selected:
+		if selected_index >= 0 and selected_index < units.size():
+			var selected_transport: Dictionary = units[selected_index]
+			if String(selected_transport.get("kind", "")) == "transport_helicopter" and String(selected_transport.get("team", "")) == "player" and bool(selected_transport.get("transport_order_pending", false)) and not pending_transports.has(selected_index):
+				pending_transports.append(selected_index)
+	if pending_transports.size() > 1:
+		var clicked_rooftop := false
+		for structure in buildings + enemy_buildings:
+			var structure_kind := String(structure.get("kind", ""))
+			if structure_kind not in ["wall", "wall_corner", "wall_gate", "airfield"] and int(structure.get("hp", 0)) > 0 and float(structure.get("build_progress", 1.0)) >= 1.0 and structure.pos.distance_to(world_pos) <= 48.0:
+				clicked_rooftop = true
+				break
+		if clicked_rooftop:
+			notice = "الإنزال الجماعي على سطح واحد غير آمن — اختر منطقة أرضية أو وزّع الطائرات على أسطح منفصلة"
+			notice_time = 2.8
+			return true
+		if _transport_ai_order_group_ground_insertions(world_pos, pending_transports):
+			var escort_count := _transport_ai_assign_selected_air_escorts(pending_transports)
+			notice = "انطلقت %d طائرات نقل إلى مواقع إنزال متباعدة — المرافقة الجوية: %d" % [pending_transports.size(), escort_count]
+		else:
+			notice = "تعذر تأمين مواقع إنزال متباعدة لكل الطائرات — لم تصدر أي مهمة"
+		notice_time = 2.8
+		return true
 	for index in selected:
 		if index < 0 or index >= units.size():
 			continue
@@ -4187,6 +6192,15 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 					notice = "الموقع مزدحم — اختر مساحة مفتوحة للإنزال"
 					notice_time = 2.2
 					return true
+		# A fresh player-issued destination takes priority over any pending AI recommendation.
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = false
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
 		transport["transport_target_pos"] = target_pos
 		transport["transport_landing_type"] = "rooftop" if rooftop_found else "ground"
 		if rooftop_found:
@@ -4203,6 +6217,252 @@ func _issue_transport_rooftop_order(world_pos: Vector2) -> bool:
 		return true
 	return false
 
+func _transport_ai_order_group_pickups(infantry_indices: Array[int], transport_indices: Array[int]) -> Dictionary:
+	# Plan a complete rescue dispatch before changing any aircraft or escort orders.
+	if infantry_indices.is_empty() or transport_indices.size() < 2:
+		return {}
+	var available_transports: Array[int] = []
+	for transport_index in transport_indices:
+		if transport_index < 0 or transport_index >= units.size():
+			return {}
+		var transport: Dictionary = units[transport_index]
+		if String(transport.get("team", "")) != "player" or String(transport.get("kind", "")) != "transport_helicopter":
+			return {}
+		if not Array(transport.get("transport_cargo", [])).is_empty() or String(transport.get("transport_state", "idle")) not in ["idle", "loaded"]:
+			return {}
+		available_transports.append(transport_index)
+	var triage_origin: Vector2 = units[available_transports[0]].get("pos", Vector2.ZERO)
+	var ordered_infantry := _transport_ai_sort_rescue_infantry(infantry_indices, triage_origin)
+	var passenger_groups: Dictionary = {}
+	for transport_index in available_transports:
+		passenger_groups[transport_index] = []
+	for infantry_index in ordered_infantry:
+		if infantry_index < 0 or infantry_index >= units.size():
+			continue
+		var infantry: Dictionary = units[infantry_index]
+		if String(infantry.get("team", "")) != "player" or String(infantry.get("kind", "")) != "infantry" or int(infantry.get("hp", 0)) <= 0:
+			continue
+		var best_transport := -1
+		var best_cost := INF
+		for transport_index in available_transports:
+			var group: Array = passenger_groups[transport_index]
+			if group.size() >= 8:
+				continue
+			var transport: Dictionary = units[transport_index]
+			var cost: float = infantry.get("pos", Vector2.ZERO).distance_to(transport.get("pos", Vector2.ZERO)) + float(group.size()) * 220.0
+			if cost < best_cost:
+				best_cost = cost
+				best_transport = transport_index
+		if best_transport >= 0:
+			var assigned_group: Array = passenger_groups[best_transport]
+			assigned_group.append(infantry_index)
+			passenger_groups[best_transport] = assigned_group
+	var reserved_sites: Array[Vector2] = []
+	var assignments: Array[Dictionary] = []
+	var total_passengers := 0
+	for transport_index in available_transports:
+		var group: Array = passenger_groups[transport_index]
+		if group.is_empty():
+			continue
+		var center := Vector2.ZERO
+		for infantry_index in group:
+			center += units[int(infantry_index)].get("pos", Vector2.ZERO)
+		center /= float(group.size())
+		var candidates := _transport_ai_build_landing_candidates(center)
+		var best_site: Dictionary = {}
+		for candidate in candidates:
+			var candidate_pos: Vector2 = candidate.get("pos", Vector2.ZERO)
+			if candidate_pos.distance_to(center) > 240.0:
+				continue
+			var separated := true
+			for reserved_pos in reserved_sites:
+				if candidate_pos.distance_to(reserved_pos) < 96.0:
+					separated = false
+					break
+			if not separated:
+				continue
+			var evaluation := _transport_ai_evaluate_landing_site(candidate, center)
+			if not bool(evaluation.get("valid", false)):
+				continue
+			var score := float(evaluation.get("score", -1.0))
+			if best_site.is_empty() or score > float(best_site.get("score", -1.0)) or (is_equal_approx(score, float(best_site.get("score", -1.0))) and String(candidate.get("id", "")) < String(best_site.get("site_id", ""))):
+				best_site = evaluation.duplicate(true)
+				best_site["pos"] = candidate_pos
+				best_site["site_id"] = String(candidate.get("id", ""))
+		if best_site.is_empty():
+			return {}
+		reserved_sites.append(best_site.pos)
+		assignments.append({"unit_index": transport_index, "landing": best_site, "passengers": group})
+		total_passengers += group.size()
+	if assignments.is_empty():
+		return {}
+	var dispatched_transports: Array[int] = []
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var landing: Dictionary = assignment.landing
+		var pickup_pos: Vector2 = landing.pos
+		transport["transport_target_pos"] = pickup_pos
+		transport["transport_landing_type"] = String(landing.get("landing_type", "ground"))
+		if String(transport["transport_landing_type"]) == "rooftop":
+			transport["transport_target_building_kind"] = String(landing.get("building_kind", ""))
+		else:
+			transport.erase("transport_target_building_kind")
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = true
+		transport["transport_pickup_waiting"] = true
+		_transport_ai_assign_route(transport, pickup_pos)
+		transport["transport_state"] = "inbound"
+		transport["transport_drop_index"] = 0
+		transport["transport_drop_timer"] = 0.0
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		dispatched_transports.append(int(assignment.unit_index))
+	var escort_count := _transport_ai_assign_selected_air_escorts(dispatched_transports)
+	return {"transport_count": dispatched_transports.size(), "passenger_count": total_passengers, "overflow_count": maxi(0, infantry_indices.size() - total_passengers), "escort_count": escort_count}
+
+
+func _order_transport_pickup() -> void:
+	var transport_indices: Array[int] = []
+	var infantry_indices: Array[int] = []
+	for index in selected:
+		if index < 0 or index >= units.size():
+			continue
+		var candidate: Dictionary = units[index]
+		if String(candidate.get("team", "")) != "player":
+			continue
+		if String(candidate.get("kind", "")) == "transport_helicopter":
+			if not transport_indices.has(index):
+				transport_indices.append(index)
+		elif String(candidate.get("kind", "")) == "infantry" and int(candidate.get("hp", 0)) > 0:
+			infantry_indices.append(index)
+	if transport_indices.is_empty() or infantry_indices.is_empty():
+		notice = "حدد طائرات نقل ومشاة على الأرض لاستدعاء الإخلاء"
+		notice_time = 2.4
+		return
+	if transport_indices.size() > 1:
+		var group_result := _transport_ai_order_group_pickups(infantry_indices, transport_indices)
+		if group_result.is_empty():
+			notice = "تعذر تأمين مواقع إخلاء متباعدة لكل الطائرات — لم تصدر أي مهمة"
+		else:
+			notice = "انطلقت %d طائرات لإنقاذ %d جندياً — بقي %d في الميدان — المرافقة: %d" % [int(group_result.transport_count), int(group_result.passenger_count), int(group_result.overflow_count), int(group_result.escort_count)]
+		notice_time = 3.2
+		return
+	var transport: Dictionary = units[transport_indices[0]]
+	if not Array(transport.get("transport_cargo", [])).is_empty():
+		notice = "أفرغ حمولة الطائرة قبل استدعائها لإخلاء فرقة أخرى"
+		notice_time = 2.4
+		return
+	if String(transport.get("transport_state", "idle")) not in ["idle", "loaded"]:
+		notice = "الطائرة مشغولة بمهمة أخرى — ألغِ المهمة أو انتظر عودتها"
+		notice_time = 2.4
+		return
+	var infantry_positions: Array[Vector2] = []
+	for infantry_index in infantry_indices:
+		infantry_positions.append(units[infantry_index].get("pos", Vector2.ZERO))
+	var rendezvous_center := Vector2.ZERO
+	for infantry_pos in infantry_positions:
+		rendezvous_center += infantry_pos
+	rendezvous_center /= float(infantry_positions.size())
+	var landing_plan := _transport_ai_plan_landing(rendezvous_center)
+	if landing_plan.is_empty():
+		notice = "لم يعثر الذكاء الاصطناعي على موقع إخلاء آمن قرب الفرقة"
+		notice_time = 2.8
+		return
+	var pickup_pos: Vector2 = landing_plan.get("pos", rendezvous_center)
+	transport["transport_target_pos"] = pickup_pos
+	transport["transport_landing_type"] = String(landing_plan.get("landing_type", "ground"))
+	if String(transport["transport_landing_type"]) == "rooftop":
+		transport["transport_target_building_kind"] = String(landing_plan.get("building_kind", ""))
+	else:
+		transport.erase("transport_target_building_kind")
+	transport["transport_ai_player_override"] = true
+	transport["transport_ai_autonomous_active"] = true
+	transport["transport_pickup_waiting"] = true
+	_transport_ai_assign_route(transport, pickup_pos)
+	transport["transport_state"] = "inbound"
+	transport["transport_drop_index"] = 0
+	transport["transport_drop_timer"] = 0.0
+	transport.erase("transport_ai_objective_pos")
+	transport.erase("transport_ai_recommendation")
+	var escort_count := _transport_ai_assign_selected_air_escorts(transport_indices)
+	notice = "انطلقت المروحية إلى موقع الفرقة — قرّب الجنود منها ثم أصدر أمر التحميل — المرافقة: %d" % escort_count
+	notice_time = 3.0
+
+func _transport_ai_nearest_friendly_airfield(from_pos: Vector2) -> Dictionary:
+	var nearest: Dictionary = {}
+	var nearest_distance := INF
+	for airfield_index in range(buildings.size()):
+		var airfield: Dictionary = buildings[airfield_index]
+		if String(airfield.get("kind", "")) != "airfield":
+			continue
+		if not _is_player_building_powered(airfield_index):
+			continue
+		var distance: float = from_pos.distance_to(airfield.pos)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = {"index": airfield_index, "pos": airfield.pos, "distance": distance}
+	return nearest
+
+
+func _transport_ai_is_friendly_airfield_at(site_pos: Vector2) -> bool:
+	for airfield_index in range(buildings.size()):
+		var airfield: Dictionary = buildings[airfield_index]
+		if String(airfield.get("kind", "")) != "airfield" or not _is_player_building_powered(airfield_index):
+			continue
+		if airfield.pos.distance_to(site_pos) <= 2.0:
+			return true
+	return false
+
+
+func _order_transport_return_to_base() -> void:
+	var transport_indices: Array[int] = []
+	var assignments: Array[Dictionary] = []
+	for index in selected:
+		if index < 0 or index >= units.size() or transport_indices.has(index):
+			continue
+		var candidate: Dictionary = units[index]
+		if String(candidate.get("team", "")) != "player" or String(candidate.get("kind", "")) != "transport_helicopter":
+			continue
+		transport_indices.append(index)
+	if transport_indices.is_empty():
+		notice = "حدد طائرة نقل واحدة أو أكثر أولاً"
+		notice_time = 2.0
+		return
+	# Validate the entire group before changing any aircraft: a failed group order is atomic.
+	for transport_index in transport_indices:
+		var transport: Dictionary = units[transport_index]
+		if Array(transport.get("transport_cargo", [])).is_empty():
+			notice = "إحدى طائرات النقل فارغة — لم تتغير أوامر المجموعة"
+			notice_time = 2.4
+			return
+		if String(transport.get("transport_state", "idle")) not in ["loaded", "pickup_waiting", "idle"]:
+			notice = "إحدى طائرات النقل مشغولة بمهمة أخرى — لم تتغير أوامر المجموعة"
+			notice_time = 2.4
+			return
+		var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+		if nearest_airfield.is_empty():
+			notice = "لا توجد قاعدة جوية صديقة صالحة لإحدى الطائرات — بقيت الحمولة كما هي"
+			notice_time = 2.8
+			return
+		assignments.append({"unit_index": transport_index, "return_pos": nearest_airfield.pos})
+	for assignment in assignments:
+		var transport: Dictionary = units[int(assignment.unit_index)]
+		var return_pos: Vector2 = assignment.return_pos
+		transport["transport_return_pos"] = return_pos
+		transport["transport_ai_player_override"] = true
+		transport["transport_ai_autonomous_active"] = true
+		transport.erase("transport_pickup_waiting")
+		transport.erase("transport_target_pos")
+		transport.erase("transport_order_pending")
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport.erase("target")
+		_transport_ai_assign_route(transport, return_pos)
+		transport["transport_state"] = "returning"
+	notice = "بدأت عودة %d طائرة نقل إلى أقرب القواعد الجوية الصديقة — جميع الحمولات محفوظة" % assignments.size()
+	notice_time = 3.0
+
+
 func _cancel_transport_order() -> void:
 	var cancelled := 0
 	for index in selected:
@@ -4215,7 +6475,15 @@ func _cancel_transport_order() -> void:
 		if state == "descending":
 			continue
 		transport.erase("transport_target_pos")
+		transport.erase("transport_return_pos")
+		transport.erase("transport_ai_route_points")
+		transport.erase("transport_ai_route_index")
+		transport.erase("transport_pickup_waiting")
 		transport.erase("transport_order_pending")
+		transport.erase("transport_ai_objective_pos")
+		transport.erase("transport_ai_recommendation")
+		transport["transport_ai_autonomous_active"] = false
+		transport["transport_ai_player_override"] = true
 		transport.erase("target")
 		transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
 		cancelled += 1
@@ -4229,22 +6497,47 @@ func _cancel_transport_order() -> void:
 
 
 func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
+	if String(transport.get("transport_state", "")) == "ai_assessing":
+		_transport_ai_process_pending_landing(transport)
 	var state := String(transport.get("transport_state", "idle"))
 	_update_transport_passenger_fire(transport, delta)
 	if state == "inbound":
+		_transport_ai_reassess_inbound(transport, delta)
+		if String(transport.get("transport_state", "")) != "inbound":
+			return
 		var landing_pos: Vector2 = transport.get("transport_target_pos", transport.pos)
-		if transport.pos.distance_to(landing_pos) > 14.0:
-			transport.pos += (landing_pos - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (landing_pos - transport.pos).angle()
-		else:
+		var route_points: Array = transport.get("transport_ai_route_points", [])
+		var route_index := int(transport.get("transport_ai_route_index", 0))
+		var flight_target: Vector2 = landing_pos
+		if bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size():
+			flight_target = route_points[route_index]
+		if transport.pos.distance_to(flight_target) > 14.0:
+			var previous_flight_pos: Vector2 = transport.pos
+			transport.pos = transport.pos.move_toward(flight_target, delta * 72.0)
+			transport["facing"] = (flight_target - previous_flight_pos).angle()
+		elif bool(transport.get("transport_ai_autonomous_active", false)) and route_index < route_points.size() - 1:
+			transport["transport_ai_route_index"] = route_index + 1
+		elif transport.pos.distance_to(landing_pos) <= 14.0:
 			transport.pos = landing_pos
 			transport["transport_state"] = "descending"
 			transport["transport_drop_timer"] = 0.0
 	elif state == "descending":
 		var cargo: Array = transport.get("transport_cargo", [])
 		if cargo.is_empty():
+			if bool(transport.get("transport_pickup_waiting", false)):
+				# Hold position for the field squad; the player confirms boarding when infantry arrive.
+				transport["transport_state"] = "pickup_waiting"
+				transport.erase("transport_target_pos")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_ai_player_override"] = true
+				return
 			transport["transport_state"] = "idle"
 			transport.erase("transport_target_pos")
+			transport.erase("transport_ai_objective_pos")
+			transport["transport_ai_autonomous_active"] = false
+			return
+		_transport_ai_reassess_descending(transport)
+		if String(transport.get("transport_state", "")) != "descending":
 			return
 		transport["transport_drop_timer"] = float(transport.get("transport_drop_timer", 0.0)) + delta
 		if float(transport["transport_drop_timer"]) >= 0.72:
@@ -4280,7 +6573,9 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			# Units without a previous player order walk into a safe squad slot after touching down.
 			var had_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
 			if not had_player_order:
-				restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
+				var doctrine_applied := _transport_ai_apply_post_drop_doctrine(restored_passenger, transport, landing_center)
+				if not doctrine_applied:
+					restored_passenger["target"] = _transport_formation_slot(landing_center, drop_index, transport, drop_pos)
 			# Resolve a fresh hostile target from its saved position after array changes.
 			if passenger.has("attack_focus_pos"):
 				var focus_pos: Vector2 = passenger["attack_focus_pos"]
@@ -4302,20 +6597,18 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 			_add_visual_effect("rope", transport.pos + Vector2(0, 8), drop_pos, Color("#e5d6b1"), 0.8, 0.0)
 			_add_visual_effect("dust", drop_pos, drop_pos, Color("#c5b28b"), 0.42, 8.0)
 			if cargo.is_empty():
+				# Escorts keep the insertion area covered while the empty transport begins extraction.
+				transport["transport_post_drop_guard_pos"] = landing_center
 				transport.erase("transport_target_pos")
-				var nearest_airfield := Vector2.ZERO
-				var airfield_found := false
-				var nearest_distance := INF
-				for airfield in buildings:
-					if String(airfield.get("kind", "")) != "airfield" or int(airfield.get("hp", 0)) <= 0 or float(airfield.get("build_progress", 1.0)) < 1.0:
-						continue
-					var airfield_distance: float = transport.pos.distance_to(airfield.pos)
-					if airfield_distance < nearest_distance:
-						nearest_distance = airfield_distance
-						nearest_airfield = airfield.pos
-						airfield_found = true
+				transport.erase("transport_ai_objective_pos")
+				transport["transport_ai_autonomous_active"] = false
+				var nearest_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+				var airfield_found := not nearest_airfield.is_empty()
 				if airfield_found:
-					transport["transport_return_pos"] = nearest_airfield
+					var nearest_airfield_pos: Vector2 = nearest_airfield.pos
+					transport["transport_return_pos"] = nearest_airfield_pos
+					_transport_ai_assign_route(transport, nearest_airfield_pos)
+					transport["transport_ai_autonomous_active"] = true
 					transport["transport_state"] = "returning"
 				else:
 					transport["transport_state"] = "idle"
@@ -4323,13 +6616,74 @@ func _update_transport_helicopter(transport: Dictionary, delta: float) -> void:
 				notice_time = 3.0
 	elif state == "returning":
 		var return_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
-		if transport.pos.distance_to(return_pos) > 14.0:
-			transport.pos += (return_pos - transport.pos).normalized() * delta * 72.0
-			transport["facing"] = (return_pos - transport.pos).angle()
-		else:
+		var destination_valid := false
+		for airfield_index in range(buildings.size()):
+			var destination_airfield: Dictionary = buildings[airfield_index]
+			if String(destination_airfield.get("kind", "")) == "airfield" and _is_player_building_powered(airfield_index) and destination_airfield.pos.distance_to(return_pos) <= 2.0:
+				destination_valid = true
+				break
+		if not destination_valid:
+			var replacement_airfield := _transport_ai_nearest_friendly_airfield(transport.pos)
+			if replacement_airfield.is_empty():
+				transport.erase("transport_return_pos")
+				transport.erase("transport_ai_route_points")
+				transport.erase("transport_ai_route_index")
+				transport["transport_ai_autonomous_active"] = false
+				transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+				notice = "تعطلت القاعدة الجوية أثناء العودة — توقفت الطائرة بأمان والحمولة محفوظة"
+				notice_time = 3.0
+				return
+			return_pos = replacement_airfield.pos
+			transport["transport_return_pos"] = return_pos
+			_transport_ai_assign_route(transport, return_pos)
+			transport["transport_ai_autonomous_active"] = true
+			transport["transport_ai_route_index"] = 0
+		var return_route: Array = transport.get("transport_ai_route_points", [])
+		var return_route_index := int(transport.get("transport_ai_route_index", 0))
+		var return_target: Vector2 = return_pos
+		if bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size():
+			return_target = return_route[return_route_index]
+		if transport.pos.distance_to(return_target) > 14.0:
+			var previous_return_pos: Vector2 = transport.pos
+			transport.pos = transport.pos.move_toward(return_target, delta * 72.0)
+			transport["facing"] = (return_target - previous_return_pos).angle()
+			# Complete the final leg in the same simulation tick when a long frame reaches it.
+			if transport.pos.distance_to(return_target) <= 14.0:
+				if bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
+					transport["transport_ai_route_index"] = return_route_index + 1
+				elif transport.pos.distance_to(return_pos) <= 14.0:
+					transport.pos = return_pos
+					transport.erase("transport_ai_route_points")
+					transport.erase("transport_ai_route_index")
+					transport["transport_ai_autonomous_active"] = false
+					transport["transport_rearm_progress"] = 0.0
+					transport["transport_state"] = "rearming"
+		elif bool(transport.get("transport_ai_autonomous_active", false)) and return_route_index < return_route.size() - 1:
+			transport["transport_ai_route_index"] = return_route_index + 1
+		elif transport.pos.distance_to(return_pos) <= 14.0:
 			transport.pos = return_pos
+			transport.erase("transport_ai_route_points")
+			transport.erase("transport_ai_route_index")
+			transport["transport_ai_autonomous_active"] = false
+			transport["transport_rearm_progress"] = 0.0
+			transport["transport_state"] = "rearming"
+	elif state == "rearming":
+		var service_pos: Vector2 = transport.get("transport_return_pos", transport.pos)
+		if not _transport_ai_is_friendly_airfield_at(service_pos):
 			transport.erase("transport_return_pos")
+			transport.erase("transport_rearm_progress")
 			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "توقفت خدمة طائرة النقل — المطار لم يعد صالحاً والحمولة محفوظة"
+			notice_time = 2.8
+			return
+		transport["transport_rearm_progress"] = float(transport.get("transport_rearm_progress", 0.0)) + delta
+		if float(transport["transport_rearm_progress"]) >= 5.0:
+			transport["hp"] = _unit_repair_max_hp(transport)
+			transport.erase("transport_return_pos")
+			transport.erase("transport_rearm_progress")
+			transport["transport_state"] = "loaded" if not Array(transport.get("transport_cargo", [])).is_empty() else "idle"
+			notice = "اكتملت صيانة طائرة النقل — أصبحت جاهزة للمهمة التالية"
+			notice_time = 2.5
 	elif transport.has("target"):
 		var move_target: Vector2 = transport.target
 		if transport.pos.distance_to(move_target) > 12.0:
@@ -4394,6 +6748,34 @@ func _find_transport_drop_position(center: Vector2, drop_index: int, transport: 
 		if not blocked:
 			return candidate
 	return null
+
+
+func _transport_ai_apply_post_drop_doctrine(passenger: Dictionary, transport: Dictionary, landing_center: Vector2) -> bool:
+	# Autonomous sorties default to a local defensive perimeter; player orders always win.
+	if _transport_ai_control_mode(transport) != "AUTONOMOUS":
+		return false
+	var has_player_order := passenger.has("target") or passenger.has("attack_target") or passenger.has("attack_focus_pos") or passenger.has("attack_building") or bool(passenger.get("attack_base", false)) or bool(passenger.get("guard_active", false)) or bool(passenger.get("attack_move_active", false))
+	if has_player_order:
+		return false
+	var doctrine := String(transport.get("transport_ai_post_drop_doctrine", "DEFEND")).to_upper()
+	# Clear only stale autonomous state after confirming the passenger has no player order.
+	for order_key in ["target", "attack_target", "attack_focus_pos", "attack_building", "attack_base", "attack_move_active", "guard_active", "guard_position", "guard_radius"]:
+		passenger.erase(order_key)
+	if doctrine == "DEFEND":
+		passenger["guard_position"] = landing_center
+		passenger["guard_radius"] = 155.0
+		passenger["guard_active"] = true
+		return true
+	if doctrine == "ATTACK_MOVE":
+		# Reuse the game's existing attack-move combat loop; objective is the sortie's saved mission point.
+		if not transport.has("transport_ai_objective_pos"):
+			return false
+		var map_size := get_viewport_rect().size
+		var objective: Vector2 = transport["transport_ai_objective_pos"]
+		passenger["target"] = Vector2(clampf(objective.x, 24.0, map_size.x - 24.0), clampf(objective.y, 24.0, map_size.y - 24.0))
+		passenger["attack_move_active"] = true
+		return true
+	return false
 
 
 func _transport_formation_slot(center: Vector2, drop_index: int, transport: Dictionary, fallback: Vector2) -> Vector2:
@@ -5372,7 +7754,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 					_add_visual_effect("targeting", threat.pos, threat.pos, Color("#ffcc70"), 0.46, 76.0)
 					_add_visual_effect("muzzle", unit.pos, unit.pos, Color("#ffd18a"), 0.20, 18.0)
 					_add_visual_effect("shell", unit.pos, threat.pos, Color("#ffb45e"), 0.42, 66.0)
-					_apply_artillery_blast(threat.pos, 76.0, _unit_damage_with_veterancy(unit, 48), "player", unit)
+					_apply_artillery_blast(threat.pos, _artillery_blast_radius_with_veterancy(unit, 76.0), _unit_damage_with_veterancy(unit, 48), "player", unit)
 					unit["attack_cd"] = 2.4
 				else:
 					var hp_before := int(threat.get("hp", 0))
@@ -5381,7 +7763,7 @@ func _update_enemy_defense_guard(unit: Dictionary, unit_index: int, delta: float
 					_award_unit_experience(unit, hp_before - int(threat["hp"]))
 					_register_unit_kill(unit, threat, hp_before)
 					_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-					unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
+					unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if String(unit.get("kind", "")) == "tank" else 1.0
 		return true
 	if unit.pos.distance_to(anchor) > 12.0:
 		var return_speed := 22.0 if String(unit.get("kind", "")) == "artillery" else (36.0 if String(unit.get("kind", "")) == "tank" else 55.0)
@@ -5453,7 +7835,7 @@ func _update_enemy_counterattack_reserve(unit: Dictionary, unit_index: int, delt
 			_award_unit_experience(unit, hp_before - int(threat["hp"]))
 			_register_unit_kill(unit, threat, hp_before)
 			_add_visual_effect("tracer" if String(unit.get("kind", "")) == "tank" else "flash", unit.pos, threat.pos, Color("#ffe0a0"), 0.18, 8.0)
-			unit["attack_cd"] = 0.75 if String(unit.get("kind", "")) == "tank" else 1.0
+			unit["attack_cd"] = _tank_reload_cooldown_with_veterancy(unit, 0.75) if String(unit.get("kind", "")) == "tank" else 1.0
 	return true
 
 
@@ -5671,7 +8053,7 @@ func _enemy_ai_turn() -> void:
 		return
 	# Once an escort destroyer is available, launch the amphibious assault before
 	# filling additional naval-counter slots; otherwise naval doctrine starves its landing force.
-	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
+	if NAVAL_SYSTEM_ENABLED and _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("landing_craft", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("landing_craft") and enemy_landing_craft < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("landing_craft", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("landing_craft")
 		var landing_dock: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
@@ -5690,17 +8072,17 @@ func _enemy_ai_turn() -> void:
 		enemy_supplies -= _unit_supply_cost("tank")
 		units.append({"pos": enemy_base + Vector2(-75.0, randf_range(-75.0, 75.0)), "team": "enemy", "kind": "tank", "faction": _enemy_faction(), "hp": 150, "target": base_pos, "attack_cd": 0.0})
 		return
-	if _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
+	if NAVAL_SYSTEM_ENABLED and _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("carrier", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("carrier") and enemy_carriers < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("carrier", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("carrier")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "carrier", "faction": _enemy_faction(), "hp": 520, "attack_cd": 0.0, "launch_cd": 8.0})
-	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
+	elif NAVAL_SYSTEM_ENABLED and _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("submarine", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("submarine") and enemy_submarines < 1 and enemy_destroyers >= 1:
 		enemy_credits -= _unit_cost("submarine", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("submarine")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
 		units.append({"pos": enemy_dock_pos, "team": "enemy", "kind": "submarine", "faction": _enemy_faction(), "hp": 210, "attack_cd": 0.0})
-	elif _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
+	elif NAVAL_SYSTEM_ENABLED and _enemy_has_powered_building("shipyard") and enemy_credits >= _unit_cost("destroyer", _enemy_faction()) and enemy_supplies >= _unit_supply_cost("destroyer") and enemy_destroyers < 2:
 		enemy_credits -= _unit_cost("destroyer", _enemy_faction())
 		enemy_supplies -= _unit_supply_cost("destroyer")
 		var enemy_dock_pos: Vector2 = Vector2(enemy_base.x - 120.0, get_viewport_rect().size.y * 0.82)
@@ -6164,6 +8546,7 @@ func _update_production_queues(delta: float) -> void:
 		active_producers.append(producer_pos)
 		var producer_exists := false
 		var producer_ready := false
+		var matched_producer_index := -1
 		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
 		var expected_producer_id := int(order.get("producer_id", -1))
 		for producer_index in range(buildings.size()):
@@ -6176,6 +8559,7 @@ func _update_production_queues(delta: float) -> void:
 				matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate.pos.distance_to(producer_pos) < 2.0
 			if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
 				producer_exists = true
+				matched_producer_index = producer_index
 				producer_ready = _is_player_building_powered(producer_index)
 				break
 		if not producer_exists:
@@ -6191,12 +8575,8 @@ func _update_production_queues(delta: float) -> void:
 			return
 		if not producer_ready:
 			continue
-		var producer_level := 1
-		for producer_index in range(buildings.size()):
-			var producer: Dictionary = buildings[producer_index]
-			if int(producer.get("production_id", -2)) == expected_producer_id and expected_producer_id >= 0:
-				producer_level = maxi(1, int(producer.get("level", 1)))
-				break
+		# Reuse the resolved producer instead of scanning the building list again.
+		var producer_level := maxi(1, int(buildings[matched_producer_index].get("level", 1))) if expected_producer_id >= 0 and matched_producer_index >= 0 else 1
 		var production_speed := 1.0 + float(producer_level - 1) * 0.15
 		order.remaining = maxf(0.0, float(order.remaining) - delta * production_speed)
 		production_orders[i] = order
@@ -6210,10 +8590,10 @@ func _update_production_queues(delta: float) -> void:
 			# Do not consume a completed order until a ground-unit exit is genuinely clear.
 			if completed_kind not in ["fighter", "helicopter"] and completed_producer_id >= 0:
 				var exit_is_clear := false
-				for producer in buildings:
-					if int(producer.get("production_id", -2)) == completed_producer_id and String(producer.get("kind", "")) == _production_building_for(completed_kind):
-						exit_is_clear = _find_clear_ground_spawn(producer.pos, completed_kind, completed_producer_id).x >= 0.0
-						break
+				if matched_producer_index >= 0 and matched_producer_index < buildings.size():
+					var completed_producer: Dictionary = buildings[matched_producer_index]
+					if int(completed_producer.get("production_id", -2)) == completed_producer_id and String(completed_producer.get("kind", "")) == _production_building_for(completed_kind):
+						exit_is_clear = _find_clear_ground_spawn(completed_producer.pos, completed_kind, completed_producer_id).x >= 0.0
 				if not exit_is_clear:
 					notice = "اكتمل الإنتاج — المخرج مزدحم، تنتظر الوحدة توفر ممر آمن"
 					notice_time = 2.0
