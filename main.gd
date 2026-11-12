@@ -227,6 +227,8 @@ func _restore_aircraft_resume_order(unit: Dictionary) -> void:
 
 func _cancel_airfield_recovery(unit: Dictionary) -> void:
 	# A fresh player command always takes priority over automatic recovery.
+	# It also invalidates any old combined-arms lane before a new order is applied.
+	unit.erase("attack_formation_offset")
 	unit.erase("airfield_returning")
 	unit.erase("airfield_landed")
 	unit.erase("airfield_recovery_id")
@@ -1136,7 +1138,16 @@ func _process(delta: float) -> void:
 				var enemy: Dictionary = units[enemy_target]
 				var distance: float = unit.pos.distance_to(enemy.pos)
 				var attack_range := 360.0 if unit.kind == "artillery" else 160.0
-				if distance <= attack_range:
+				var has_group_attack_formation := unit.has("attack_formation_offset")
+				var attack_formation_offset: Vector2 = unit.get("attack_formation_offset", Vector2.ZERO)
+				var formation_goal: Vector2 = enemy.pos + attack_formation_offset
+				var map_size := get_viewport_rect().size
+				formation_goal.x = clampf(formation_goal.x, 24.0, map_size.x - 24.0)
+				formation_goal.y = clampf(formation_goal.y, 24.0, map_size.y - 24.0)
+				var formation_distance: float = unit.pos.distance_to(formation_goal)
+				# Group-ordered artillery keeps a useful 185–330px standoff band instead of charging into close combat.
+				var artillery_outside_support_band := has_group_attack_formation and unit.kind == "artillery" and (distance < 185.0 or distance > 330.0)
+				if not artillery_outside_support_band and distance <= attack_range:
 					unit.attack_cd = unit.get("attack_cd", 0.0) - delta
 					if unit.attack_cd <= 0.0:
 						if unit.kind == "artillery":
@@ -1165,9 +1176,15 @@ func _process(delta: float) -> void:
 							if unit.kind == "tank" and String(enemy.get("kind", "")) in ["tank", "artillery"]:
 								_add_visual_effect("flash", enemy.pos, enemy.pos, Color("#fff0a8"), 0.24, 15.0)
 							unit.attack_cd = 0.75 if unit.kind == "tank" else 1.0
+					if has_group_attack_formation and formation_distance > 26.0:
+						var formation_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
+						var formation_direction := _ground_navigation_direction(unit, i, formation_goal, delta, formation_speed)
+						if formation_direction.length_squared() > 0.001:
+							unit.pos += formation_direction * delta * formation_speed
 				else:
 					var combat_speed := 22.0 if unit.kind == "artillery" else (55.0 if unit.kind == "infantry" else 36.0)
-					var combat_direction := _ground_navigation_direction(unit, i, enemy.pos, delta, combat_speed)
+					var combat_goal: Vector2 = formation_goal if has_group_attack_formation else enemy.pos
+					var combat_direction := _ground_navigation_direction(unit, i, combat_goal, delta, combat_speed)
 					unit.pos += combat_direction * delta * combat_speed
 			elif unit.has("target"):
 				var target: Vector2 = unit.target
@@ -3287,6 +3304,52 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 	return destination
 
 
+func _group_attack_formation_offsets(selected_indices: Array[int], target_pos: Vector2) -> Dictionary:
+	# Build a target-relative combined-arms line: armor forward, infantry on the flanks, artillery in the rear.
+	var ground_indices: Array[int] = []
+	var role_counts: Dictionary = {"tank": 0, "infantry": 0, "artillery": 0}
+	var group_center := Vector2.ZERO
+	for unit_index in selected_indices:
+		if unit_index < 0 or unit_index >= units.size() or ground_indices.has(unit_index):
+			continue
+		var attacker: Dictionary = units[unit_index]
+		var unit_kind := String(attacker.get("kind", ""))
+		if String(attacker.get("team", "")) != "player" or int(attacker.get("hp", 0)) <= 0 or not role_counts.has(unit_kind):
+			continue
+		ground_indices.append(unit_index)
+		group_center += attacker.pos
+		role_counts[unit_kind] = int(role_counts[unit_kind]) + 1
+	if ground_indices.is_empty():
+		return {}
+	group_center /= float(ground_indices.size())
+	var forward := target_pos - group_center
+	if forward.length_squared() <= 0.01:
+		forward = Vector2.RIGHT
+	else:
+		forward = forward.normalized()
+	var lateral := Vector2(-forward.y, forward.x)
+	var role_seen: Dictionary = {"tank": 0, "infantry": 0, "artillery": 0}
+	var offsets: Dictionary = {}
+	for unit_index in ground_indices:
+		var unit_kind := String(units[unit_index].get("kind", ""))
+		var rank := int(role_seen[unit_kind])
+		role_seen[unit_kind] = rank + 1
+		var row := int(rank / 2)
+		var side := 0.0
+		if int(role_counts[unit_kind]) > 1:
+			side = -1.0 if rank % 2 == 0 else 1.0
+		var offset := Vector2.ZERO
+		match unit_kind:
+			"tank":
+				offset = -forward * (92.0 + float(row) * 28.0) + lateral * side * (28.0 + float(row) * 14.0)
+			"infantry":
+				offset = -forward * (142.0 + float(row) * 24.0) + lateral * side * (72.0 + float(row) * 20.0)
+			"artillery":
+				offset = -forward * (250.0 + float(row) * 38.0) + lateral * side * (54.0 + float(row) * 30.0)
+		offsets[unit_index] = offset
+	return offsets
+
+
 func _issue_group_attack_order(target_index: int) -> void:
 	if target_index < 0 or target_index >= units.size():
 		return
@@ -3294,22 +3357,27 @@ func _issue_group_attack_order(target_index: int) -> void:
 	if String(target.get("team", "")) != "enemy" or int(target.get("hp", 0)) <= 0:
 		return
 	var shared_focus: Vector2 = target.pos
-	var issued_count := 0
+	var group_offsets := _group_attack_formation_offsets(selected, shared_focus)
+	var issued_indices: Array[int] = []
 	for unit_index in selected:
-		if unit_index < 0 or unit_index >= units.size():
+		if unit_index < 0 or unit_index >= units.size() or issued_indices.has(unit_index):
 			continue
 		var attacker: Dictionary = units[unit_index]
 		if String(attacker.get("team", "")) != "player" or int(attacker.get("hp", 0)) <= 0:
 			continue
+		issued_indices.append(unit_index)
 		_cancel_airfield_recovery(attacker)
 		attacker["attack_target"] = target_index
 		attacker["attack_focus_pos"] = shared_focus
+		if group_offsets.has(unit_index):
+			attacker["attack_formation_offset"] = group_offsets[unit_index]
+		else:
+			attacker.erase("attack_formation_offset")
 		# A focused attack replaces stale movement, patrol, defense, and escort orders.
 		for order_key in ["target", "air_patrol_points", "air_patrol_index", "air_patrol_resume", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset"]:
 			attacker.erase(order_key)
-		issued_count += 1
-	if issued_count > 0:
-		notice = "أمر هجوم جماعي — تركيز النيران على الهدف المحدد"
+	if not issued_indices.is_empty():
+		notice = "أمر هجوم جماعي — تموضع تكتيكي حسب دور كل وحدة مع تركيز النيران"
 		notice_time = 1.8
 
 
