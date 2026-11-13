@@ -1880,6 +1880,7 @@ func _update_landing_craft(unit: Dictionary, delta: float, landing_destination: 
 					"kind": "infantry",
 					"faction": String(unit.get("faction", faction)),
 					"hp": 100 if team == "player" else 80,
+					"max_hp": 100 if team == "player" else 80,
 					"attack_cd": 0.0,
 					"landing_assault": true
 				}
@@ -5585,10 +5586,13 @@ func _update_building_construction(delta: float) -> void:
 
 
 func _unit_display_max_hp(unit: Dictionary) -> int:
-	# Keep world health bars and the selected-force dossier on the same real unit health scale.
+	# Honor scenario-specific health first, then match each team's actual production roster.
+	var declared_max_hp := int(unit.get("max_hp", 0))
+	if declared_max_hp > 0:
+		return declared_max_hp
 	match String(unit.get("kind", "")):
 		"tank": return 150
-		"infantry": return 60
+		"infantry": return 100 if String(unit.get("team", "")) == "player" else 60
 		"builder", "landing_craft": return 220
 		"artillery": return 100
 		"fighter": return 120

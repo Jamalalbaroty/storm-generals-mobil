@@ -57,7 +57,9 @@ func _initialize() -> void:
 		return
 	var test_units: Array[Dictionary] = [
 		{"pos": Vector2(200.0, 160.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 75.0, "max_hp": 150.0},
-		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0}
+		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0},
+		{"pos": Vector2(280.0, 220.0), "team": "player", "kind": "infantry", "faction": "الأمريكي", "hp": 100.0},
+		{"pos": Vector2(760.0, 400.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 60.0}
 	]
 	var test_buildings: Array[Dictionary] = [
 		{"pos": Vector2(260.0, 220.0), "kind": "factory", "build_progress": 0.65, "hp": 500}
@@ -70,14 +72,20 @@ func _initialize() -> void:
 	game.set("enemy_buildings", test_enemy_buildings)
 	game.call("_sync_3d_gameplay_bridge")
 
-	if bridge.game_unit_nodes.size() != 2 or bridge.game_building_nodes.size() != 2:
+	if bridge.game_unit_nodes.size() != 4 or bridge.game_building_nodes.size() != 2:
 		push_error("Live gameplay bridge did not synchronize both teams' units and buildings")
 		quit(1)
 		return
 	var player_tank := bridge.game_unit_nodes.get("player|1|tank") as Node3D
 	var enemy_fighter := bridge.game_unit_nodes.get("enemy|2|fighter") as Node3D
-	if player_tank == null or enemy_fighter == null:
+	var player_infantry := bridge.game_unit_nodes.get("player|3|infantry") as Node3D
+	var enemy_infantry := bridge.game_unit_nodes.get("enemy|4|infantry") as Node3D
+	if player_tank == null or enemy_fighter == null or player_infantry == null or enemy_infantry == null:
 		push_error("Live bridge lost stable unit identity or team ownership")
+		quit(1)
+		return
+	if not is_equal_approx(float(player_infantry.get_meta("max_health", -1.0)), 100.0) or not is_equal_approx(float(enemy_infantry.get_meta("max_health", -1.0)), 60.0):
+		push_error("3D infantry health bars must use the correct player and enemy roster maxima")
 		quit(1)
 		return
 	game.call("_on_3d_gameplay_order_issued", "player|1|tank", "move", Vector3(0.0, 0.0, 0.0), "")

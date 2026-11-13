@@ -1394,9 +1394,10 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.call("_unit_upgrade_badge", {"kind": "tank", "faction": "وطن", "factory_level": 3})) == "III", "Watan composite-armor tanks should show a level-three badge")
 	_expect(String(game.call("_unit_identity_label", {"faction": "الأمريكي"})) == "الأمريكي", "Selected unit dossier should identify the American army")
 	_expect(String(game.call("_unit_identity_label", {"faction": "الجيش العربي"})) == "العربي", "Selected unit dossier should use the concise Arab army label")
-	# Infantry has 60 HP in both armies; the UI must not divide a full squad by the 100-HP artillery scale.
-	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "infantry"})) == 60, "Player infantry health bars and dossiers must use the real 60-HP maximum")
-	_expect(int(game.call("_unit_display_max_hp", {"team": "enemy", "kind": "infantry"})) == 60, "Enemy infantry health bars must use the same 60-HP maximum")
+	# The player roster fields 100-HP infantry; enemy line infantry has 60 HP, while landing squads carry explicit maxima.
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "infantry"})) == 100, "Player infantry health bars and dossiers must use the real 100-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "enemy", "kind": "infantry"})) == 60, "Enemy line infantry health bars must use the real 60-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "enemy", "kind": "infantry", "hp": 80, "max_hp": 80})) == 80, "Enemy landing marines must retain their explicit 80-HP maximum")
 	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "tank"})) == 150, "Tank health display must retain its 150-HP maximum")
 	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "artillery"})) == 100, "Artillery health display must retain its 100-HP maximum")
 	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "builder"})) == 220, "Builder health display must retain its 220-HP maximum")
