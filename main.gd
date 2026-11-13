@@ -3113,7 +3113,7 @@ func _draw() -> void:
 			draw_rect(Rect2(u.pos + Vector2(-17, -4), Vector2(13, 8)), Color("#8c9b9c"))
 			for passenger_marker in range(int(u.get("passengers", 0))):
 				draw_circle(u.pos + Vector2(-10.0 + passenger_marker * 8.0, -1.0), 2.2, Color("#e0c995"))
-		var max_hp := 520.0 if u.kind == "carrier" else (260.0 if u.kind == "destroyer" else (250.0 if u.kind == "transport_helicopter" else (220.0 if u.kind == "builder" or u.kind == "landing_craft" else (210.0 if u.kind == "submarine" else (180.0 if u.kind == "helicopter" else (120.0 if u.kind == "fighter" else (150.0 if u.kind == "tank" else (100.0 if u.kind == "artillery" or u.team == "player" else 60.0))))))))
+		var max_hp := float(_unit_display_max_hp(u))
 		var hp_ratio := clampf(float(u.get("hp", 0)) / max_hp, 0.0, 1.0)
 		var veterancy := int(u.get("veterancy", 0))
 		if u.team == "player" and veterancy > 0:
@@ -3382,7 +3382,7 @@ func _draw_hud(size: Vector2) -> void:
 			if not doctrine_label.is_empty():
 				doctrine_counts[doctrine_label] = int(doctrine_counts.get(doctrine_label, 0)) + 1
 			var selected_kind := String(selected_unit.get("kind", ""))
-			var selected_max_hp := 520.0 if selected_kind == "carrier" else (260.0 if selected_kind == "destroyer" else (250.0 if selected_kind == "transport_helicopter" else (220.0 if selected_kind == "builder" or selected_kind == "landing_craft" else (210.0 if selected_kind == "submarine" else (180.0 if selected_kind == "helicopter" else (120.0 if selected_kind == "fighter" else (150.0 if selected_kind == "tank" else (100.0 if selected_kind == "artillery" or String(selected_unit.get("team", "")) == "player" else 60.0))))))))
+			var selected_max_hp := float(_unit_display_max_hp(selected_unit))
 			var selected_hp_ratio := clampf(float(selected_unit.get("hp", 0)) / selected_max_hp, 0.0, 1.0)
 			total_hp_ratio += selected_hp_ratio
 			if selected_hp_ratio < 0.999:
@@ -5582,6 +5582,23 @@ func _update_building_construction(delta: float) -> void:
 						worker.erase("build_target")
 			notice = "اكتمل إنشاء المبنى — أصبح جاهزاً للعمل"
 			notice_time = 2.5
+
+
+func _unit_display_max_hp(unit: Dictionary) -> int:
+	# Keep world health bars and the selected-force dossier on the same real unit health scale.
+	match String(unit.get("kind", "")):
+		"tank": return 150
+		"infantry": return 60
+		"builder", "landing_craft": return 220
+		"artillery": return 100
+		"fighter": return 120
+		"helicopter": return 180
+		"transport_helicopter": return 250
+		"destroyer": return 260
+		"carrier": return 520
+		"submarine": return 210
+		_:
+			return 100 if String(unit.get("team", "")) == "player" else 60
 
 
 func _unit_repair_max_hp(unit: Dictionary) -> int:

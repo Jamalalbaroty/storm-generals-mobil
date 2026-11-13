@@ -1394,6 +1394,13 @@ func _run_gameplay_economy_smoke_test() -> void:
 	_expect(String(game.call("_unit_upgrade_badge", {"kind": "tank", "faction": "وطن", "factory_level": 3})) == "III", "Watan composite-armor tanks should show a level-three badge")
 	_expect(String(game.call("_unit_identity_label", {"faction": "الأمريكي"})) == "الأمريكي", "Selected unit dossier should identify the American army")
 	_expect(String(game.call("_unit_identity_label", {"faction": "الجيش العربي"})) == "العربي", "Selected unit dossier should use the concise Arab army label")
+	# Infantry has 60 HP in both armies; the UI must not divide a full squad by the 100-HP artillery scale.
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "infantry"})) == 60, "Player infantry health bars and dossiers must use the real 60-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "enemy", "kind": "infantry"})) == 60, "Enemy infantry health bars must use the same 60-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "tank"})) == 150, "Tank health display must retain its 150-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "artillery"})) == 100, "Artillery health display must retain its 100-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "builder"})) == 220, "Builder health display must retain its 220-HP maximum")
+	_expect(int(game.call("_unit_display_max_hp", {"team": "player", "kind": "carrier"})) == 520, "Carrier health display must retain its 520-HP maximum")
 	_expect(String(game.call("_unit_facility_upgrade_label", {"kind": "tank", "factory_level": 3})) == "مصنع III", "Level-three tank dossier should report its factory tier")
 	_expect(String(game.call("_unit_facility_upgrade_label", {"kind": "infantry", "barracks_level": 2})) == "ثكنة II", "Level-two infantry dossier should report its barracks tier")
 	_expect(String(game.call("_unit_facility_upgrade_label", {"kind": "infantry", "barracks_level": 1})) == "المستوى الأساسي", "Base-tier units should not imply a facility upgrade")
