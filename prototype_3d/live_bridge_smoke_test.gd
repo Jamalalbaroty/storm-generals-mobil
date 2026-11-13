@@ -58,7 +58,7 @@ func _initialize() -> void:
 	var test_units: Array[Dictionary] = [
 		{"pos": Vector2(200.0, 160.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 75.0, "max_hp": 150.0},
 		{"pos": Vector2(800.0, 420.0), "team": "enemy", "kind": "fighter", "faction": "الصيني", "hp": 120.0, "max_hp": 120.0},
-		{"pos": Vector2(280.0, 220.0), "team": "player", "kind": "infantry", "faction": "الأمريكي", "hp": 100.0},
+		{"pos": Vector2(120.0, 620.0), "team": "player", "kind": "infantry", "faction": "الأمريكي", "hp": 100.0},
 		{"pos": Vector2(760.0, 400.0), "team": "enemy", "kind": "infantry", "faction": "الصيني", "hp": 60.0}
 	]
 	var test_buildings: Array[Dictionary] = [
