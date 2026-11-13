@@ -207,7 +207,7 @@ func _initialize() -> void:
 		return
 	bridge.call("_handle_world_tap", enemy_screen)
 	multi_units = game.get("units")
-	if int(multi_units[0].get("attack_target", -1)) != 1 or int(multi_units[2].get("attack_target", -1)) != 1:
+	if int(multi_units[0].get("attack_target", -1)) != 1 or int(multi_units[4].get("attack_target", -1)) != 1:
 		push_error("Group attack did not issue an attack order to every selected friendly unit")
 		quit(1)
 		return
@@ -230,7 +230,7 @@ func _initialize() -> void:
 		return
 	bridge.call("_handle_world_tap", open_ground_screen)
 	multi_units = game.get("units")
-	if not multi_units[0].has("target") or not multi_units[2].has("target") or multi_units[0].target.distance_to(multi_units[2].target) < 1.0:
+	if not multi_units[0].has("target") or not multi_units[4].has("target") or multi_units[0].target.distance_to(multi_units[4].target) < 1.0:
 		push_error("Group movement did not assign distinct formation destinations to all selected units")
 		quit(1)
 		return
@@ -280,7 +280,7 @@ func _initialize() -> void:
 	bridge.set("attack_target", enemy_fighter)
 	bridge.set("has_selected_destination", true)
 	bridge.order_marker.visible = true
-	var partially_removed_units: Array[Dictionary] = [multi_units[1], multi_units[2]]
+	var partially_removed_units: Array[Dictionary] = [multi_units[1], multi_units[4]]
 	game.set("units", partially_removed_units)
 	game.call("_sync_3d_gameplay_bridge")
 	var selection_after_partial_removal: Array = bridge.get("selected_live_units")
