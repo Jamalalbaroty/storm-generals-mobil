@@ -190,7 +190,7 @@ func _initialize() -> void:
 	multi_units.append({"pos": Vector2(260.0, 220.0), "team": "player", "kind": "tank", "faction": "الأمريكي", "hp": 130.0, "max_hp": 150.0})
 	game.set("units", multi_units)
 	game.call("_sync_3d_gameplay_bridge")
-	var second_player := bridge.game_unit_nodes.get("player|3|tank") as Node3D
+	var second_player := bridge.game_unit_nodes.get("player|5|tank") as Node3D
 	if second_player == null:
 		push_error("Live bridge did not create the second friendly unit for multi-selection")
 		quit(1)
