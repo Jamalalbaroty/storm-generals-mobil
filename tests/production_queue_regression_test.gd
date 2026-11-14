@@ -197,6 +197,37 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Multiple orders tied to a destroyed producer must all refund in one update,
+	# while a surviving factory continues its own queue in that same frame.
+	game.credits = 0
+	game.supplies = 0
+	game.buildings.clear()
+	game.buildings.append({
+		"pos": Vector2(500.0, 300.0),
+		"kind": "factory",
+		"hp": 400,
+		"build_progress": 1.0,
+		"production_id": 77
+	})
+	game.production_orders.assign([
+		{"producer_pos": Vector2(300.0, 300.0), "producer_kind": "factory", "producer_id": 41, "kind": "tank", "remaining": 3.0, "duration": 3.0},
+		{"producer_pos": Vector2(300.0, 300.0), "producer_kind": "factory", "producer_id": 41, "kind": "tank", "remaining": 3.0, "duration": 3.0},
+		{"producer_pos": Vector2(500.0, 300.0), "producer_kind": "factory", "producer_id": 77, "kind": "tank", "remaining": 3.0, "duration": 3.0}
+	])
+	game._update_production_queues(1.0)
+	if game.production_orders.size() != 1:
+		push_error("All orders from a destroyed producer must be cancelled without removing the surviving factory's order")
+		quit(1)
+		return
+	if game.credits != 450 or game.supplies != 2:
+		push_error("Every cancelled tank order must refund 75% of credits and its reserved supply")
+		quit(1)
+		return
+	if not is_equal_approx(float(game.production_orders[0].remaining), 2.0):
+		push_error("A surviving factory queue must keep advancing while stale producer orders are refunded")
+		quit(1)
+		return
+
 	# Replacing a producer with a different building at the same coordinates must cancel the old queue.
 	game.credits = 0
 	game.supplies = 0

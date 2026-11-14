@@ -7366,49 +7366,56 @@ func _enqueue_unit(kind: String) -> void:
 	notice_time = 2.0
 	queue_redraw()
 
+func _production_order_producer_index(order: Dictionary) -> int:
+	var producer_pos: Vector2 = order.get("producer_pos", Vector2(-9999.0, -9999.0))
+	var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
+	var expected_producer_id := int(order.get("producer_id", -1))
+	for producer_index in range(buildings.size()):
+		var candidate: Dictionary = buildings[producer_index]
+		var matches_producer := false
+		if expected_producer_id >= 0:
+			matches_producer = int(candidate.get("production_id", -2)) == expected_producer_id
+		else:
+			# Compatibility for production orders created before producer IDs existed.
+			var candidate_pos: Vector2 = candidate.get("pos", Vector2(-9999.0, -9999.0))
+			matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate_pos.distance_to(producer_pos) < 2.0
+		if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
+			return producer_index
+	return -1
+
+
 func _update_production_queues(delta: float) -> void:
-	var active_producers: Array[Vector2] = []
+	# Cancel every order whose original producer is gone before advancing live queues.
+	# A destroyed factory with several reserved orders must not stall unrelated production.
+	var cancelled_orders := false
+	for order_index in range(production_orders.size() - 1, -1, -1):
+		var stale_order: Dictionary = production_orders[order_index]
+		if _production_order_producer_index(stale_order) >= 0:
+			continue
+		var cancelled_kind := String(stale_order.get("kind", ""))
+		var refund := int(floor(float(_unit_cost(cancelled_kind, faction)) * 0.75))
+		credits = mini(MAX_CREDITS, credits + refund)
+		supplies = mini(_player_supply_capacity(), supplies + _unit_supply_cost(cancelled_kind))
+		production_orders.remove_at(order_index)
+		cancelled_orders = true
+	if cancelled_orders:
+		notice = "دُمّر مبنى الإنتاج — أُلغيت الطلبات المتأثرة وأُعيد 75٪ من الموارد"
+		notice_time = 2.5
+		queue_redraw()
+
+	var active_producers: Array[int] = []
 	for i in range(production_orders.size()):
 		var order: Dictionary = production_orders[i]
-		var producer_pos: Vector2 = order.producer_pos
-		if active_producers.has(producer_pos):
+		var producer_index := _production_order_producer_index(order)
+		if producer_index < 0:
 			continue
-		active_producers.append(producer_pos)
-		var producer_exists := false
-		var producer_ready := false
-		var expected_producer_kind := String(order.get("producer_kind", _production_building_for(String(order.get("kind", "")))))
-		var expected_producer_id := int(order.get("producer_id", -1))
-		for producer_index in range(buildings.size()):
-			var candidate: Dictionary = buildings[producer_index]
-			var matches_producer := false
-			if expected_producer_id >= 0:
-				matches_producer = int(candidate.get("production_id", -2)) == expected_producer_id
-			else:
-				# Compatibility for production orders created before producer IDs existed.
-				matches_producer = String(candidate.get("kind", "")) == expected_producer_kind and candidate.pos.distance_to(producer_pos) < 2.0
-			if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
-				producer_exists = true
-				producer_ready = _is_player_building_powered(producer_index)
-				break
-		if not producer_exists:
-			# A destroyed production building must not leave a paid order stuck forever.
-			var cancelled_kind := String(order.get("kind", ""))
-			var refund := int(floor(float(_unit_cost(cancelled_kind, faction)) * 0.75))
-			credits = mini(MAX_CREDITS, credits + refund)
-			supplies = mini(_player_supply_capacity(), supplies + _unit_supply_cost(cancelled_kind))
-			production_orders.remove_at(i)
-			notice = "دُمّر مبنى الإنتاج — أُلغي الطلب وأُعيد 75٪ من الموارد"
-			notice_time = 2.5
-			queue_redraw()
-			return
-		if not producer_ready:
+		if active_producers.has(producer_index):
 			continue
-		var producer_level := 1
-		for producer_index in range(buildings.size()):
-			var producer: Dictionary = buildings[producer_index]
-			if int(producer.get("production_id", -2)) == expected_producer_id and expected_producer_id >= 0:
-				producer_level = maxi(1, int(producer.get("level", 1)))
-				break
+		active_producers.append(producer_index)
+		if not _is_player_building_powered(producer_index):
+			continue
+		var producer: Dictionary = buildings[producer_index]
+		var producer_level := maxi(1, int(producer.get("level", 1)))
 		var production_speed := 1.0 + float(producer_level - 1) * 0.15
 		order.remaining = maxf(0.0, float(order.remaining) - delta * production_speed)
 		production_orders[i] = order
@@ -7422,9 +7429,9 @@ func _update_production_queues(delta: float) -> void:
 			# Do not consume a completed order until a ground-unit exit is genuinely clear.
 			if completed_kind not in ["fighter", "helicopter"] and completed_producer_id >= 0:
 				var exit_is_clear := false
-				for producer in buildings:
-					if int(producer.get("production_id", -2)) == completed_producer_id and String(producer.get("kind", "")) == _production_building_for(completed_kind):
-						exit_is_clear = _find_clear_ground_spawn(producer.pos, completed_kind, completed_producer_id).x >= 0.0
+				for exit_producer in buildings:
+					if int(exit_producer.get("production_id", -2)) == completed_producer_id and String(exit_producer.get("kind", "")) == _production_building_for(completed_kind):
+						exit_is_clear = _find_clear_ground_spawn(exit_producer.pos, completed_kind, completed_producer_id).x >= 0.0
 						break
 				if not exit_is_clear:
 					notice = "اكتمل الإنتاج — المخرج مزدحم، تنتظر الوحدة توفر ممر آمن"
