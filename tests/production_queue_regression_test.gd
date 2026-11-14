@@ -298,6 +298,7 @@ func _run() -> void:
 	game.credits = 0
 	game.supplies = 0
 	game.buildings.clear()
+	game.production_orders.clear()
 	game.buildings.append({
 		"pos": Vector2(300.0, 300.0),
 		"kind": "factory",
