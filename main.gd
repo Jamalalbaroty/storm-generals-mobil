@@ -3370,10 +3370,6 @@ func _draw_hud(size: Vector2) -> void:
 		var progress_total := 0.0
 		var highest_rank := 0
 		var elite_count := 0
-		var infantry_count := 0
-		var ground_support_count := 0
-		var aircraft_count := 0
-		var naval_count := 0
 		var damaged_count := 0
 		var total_hp_ratio := 0.0
 		var kind_labels := {"infantry": "المشاة", "tank": "الدبابة", "builder": "مركبة البناء", "artillery": "المدفعية", "fighter": "المقاتلة", "helicopter": "المروحية", "transport_helicopter": "مروحية النقل", "destroyer": "المدمرة", "submarine": "الغواصة", "carrier": "حاملة الطائرات", "landing_craft": "سفينة الإنزال"}
@@ -3388,14 +3384,6 @@ func _draw_hud(size: Vector2) -> void:
 			total_hp_ratio += selected_hp_ratio
 			if selected_hp_ratio < 0.999:
 				damaged_count += 1
-			if selected_kind == "infantry":
-				infantry_count += 1
-			elif selected_kind in ["tank", "artillery", "builder"]:
-				ground_support_count += 1
-			elif selected_kind in ["fighter", "helicopter", "transport_helicopter"]:
-				aircraft_count += 1
-			elif selected_kind in ["destroyer", "submarine", "carrier", "landing_craft"]:
-				naval_count += 1
 			var unit_xp := float(selected_unit.get("combat_xp", 0.0))
 			var unit_rank := int(selected_unit.get("veterancy", 0))
 			total_xp += unit_xp
@@ -3417,7 +3405,7 @@ func _draw_hud(size: Vector2) -> void:
 		var dossier := Rect2(Vector2(10, 203), Vector2(size.x - 20, 68))
 		draw_rect(dossier, Color("#10232b", 0.96), true)
 		draw_rect(dossier, Color("#d8b75e") if highest_rank == 1 else (Color("#83d9f4") if highest_rank >= 2 else Color("#526b73")), false, 1.2)
-		var unit_label := dossier_name if selected_player_units.size() == 1 else "مجموعة: مشاة %d | أرضية %d | جوية %d | بحرية %d" % [infantry_count, ground_support_count, aircraft_count, naval_count]
+		var unit_label := dossier_name if selected_player_units.size() == 1 else _selected_group_composition_summary(selected_player_units)
 		var health_label := "سلامة %d%%" % int(round(average_health * 100.0))
 		var damage_label := " | متضررة %d" % damaged_count if damaged_count > 0 else " | سليمة"
 		var identity_summary := ""
@@ -4225,6 +4213,58 @@ func _selected_group_order_summary(selected_units: Array[Dictionary]) -> String:
 			continue
 		summaries.append("%s %d" % [order_label, count] if live_count > 1 else "الأمر: %s" % order_label)
 	return " | ".join(summaries)
+
+
+func _selected_group_composition_summary(selected_units: Array[Dictionary]) -> String:
+	# Show the actual unit mix instead of grouping tanks, artillery, and builders
+	# into one generic ground-support bucket.
+	var kind_labels := {
+		"tank": "دبابة",
+		"infantry": "مشاة",
+		"artillery": "مدفعية",
+		"builder": "بناء",
+		"fighter": "مقاتلة",
+		"helicopter": "مروحية",
+		"transport_helicopter": "نقل",
+		"destroyer": "مدمرة",
+		"submarine": "غواصة",
+		"carrier": "حاملة",
+		"landing_craft": "إنزال"
+	}
+	var kind_order := ["tank", "infantry", "artillery", "builder", "fighter", "helicopter", "transport_helicopter", "destroyer", "submarine", "carrier", "landing_craft"]
+	var kind_counts: Dictionary = {}
+	var other_count := 0
+	var live_count := 0
+	for unit in selected_units:
+		if String(unit.get("team", "")) != "player" or int(unit.get("hp", 0)) <= 0:
+			continue
+		live_count += 1
+		var kind := String(unit.get("kind", ""))
+		if kind_labels.has(kind):
+			kind_counts[kind] = int(kind_counts.get(kind, 0)) + 1
+		else:
+			other_count += 1
+	if live_count == 0:
+		return "لا توجد قوات حية"
+	if live_count == 1:
+		for kind in kind_order:
+			if int(kind_counts.get(kind, 0)) > 0:
+				return String(kind_labels[kind])
+		return "وحدة"
+	var summaries: Array[String] = []
+	var shown_types := 0
+	for kind in kind_order:
+		var count := int(kind_counts.get(kind, 0))
+		if count <= 0:
+			continue
+		if shown_types >= 4:
+			other_count += count
+			continue
+		summaries.append("%s ×%d" % [String(kind_labels[kind]), count])
+		shown_types += 1
+	if other_count > 0:
+		summaries.append("أخرى ×%d" % other_count)
+	return "مجموعة: " + " | ".join(summaries)
 
 
 func _handle_pointer(pos: Vector2, pressed: bool) -> void:

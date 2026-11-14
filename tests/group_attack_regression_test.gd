@@ -17,6 +17,7 @@ func _run() -> void:
 
 	_test_group_order_and_reacquisition(game)
 	_test_selected_group_order_summary(game)
+	_test_selected_group_composition_summary(game)
 	_test_live_combined_arms_advance(game)
 	_test_artillery_standoff(game)
 	_test_enemy_artillery_support_role(game)
@@ -118,6 +119,38 @@ func _test_selected_group_order_summary(game: Node) -> void:
 	_expect(game._selected_group_order_summary(destroyed) == "لا توجد قوات حية", "Destroyed selected units must not be reported as active forces")
 	var attack_move: Array[Dictionary] = [{"team": "player", "kind": "tank", "hp": 180, "attack_move_active": true}]
 	_expect(game._selected_group_order_summary(attack_move) == "الأمر: تقدم قتالي", "A single unit's attack-move order must be clearly distinguished from a direct attack")
+
+
+func _test_selected_group_composition_summary(game: Node) -> void:
+	var sample_units: Array[Dictionary] = [
+		{"team": "player", "kind": "tank", "hp": 180},
+		{"team": "player", "kind": "infantry", "hp": 60},
+		{"team": "player", "kind": "tank", "hp": 120},
+		{"team": "player", "kind": "artillery", "hp": 110},
+		{"team": "player", "kind": "fighter", "hp": 130},
+		{"team": "player", "kind": "tank", "hp": 0},
+		{"team": "enemy", "kind": "infantry", "hp": 60}
+	]
+	var summary: String = game._selected_group_composition_summary(sample_units)
+	_expect(summary.contains("دبابة ×2"), "Selection dossier must count tanks separately from other ground units")
+	_expect(summary.contains("مشاة ×1"), "Selection dossier must report the selected infantry count")
+	_expect(summary.contains("مدفعية ×1"), "Selection dossier must report the selected artillery count")
+	_expect(summary.contains("مقاتلة ×1"), "Selection dossier must report the selected fighter count")
+	_expect(not summary.contains("دبابة ×3"), "Destroyed units must not inflate the selected tank count")
+	_expect(not summary.contains("أخرى"), "Known selected unit types must not be collapsed into an unknown bucket")
+	var compact_units: Array[Dictionary] = [
+		{"team": "player", "kind": "tank", "hp": 180},
+		{"team": "player", "kind": "infantry", "hp": 60},
+		{"team": "player", "kind": "artillery", "hp": 110},
+		{"team": "player", "kind": "builder", "hp": 400},
+		{"team": "player", "kind": "fighter", "hp": 130}
+	]
+	var compact_summary: String = game._selected_group_composition_summary(compact_units)
+	_expect(compact_summary.contains("أخرى ×1"), "Long mixed selections must preserve the total while keeping the dossier compact")
+	var no_units: Array[Dictionary] = []
+	_expect(game._selected_group_composition_summary(no_units) == "لا توجد قوات حية", "An empty force must produce a safe composition label")
+	var single_unit: Array[Dictionary] = [{"team": "player", "kind": "artillery", "hp": 110}]
+	_expect(game._selected_group_composition_summary(single_unit) == "مدفعية", "A single selected unit must use its clear unit-type label")
 
 
 func _test_live_combined_arms_advance(game: Node) -> void:
