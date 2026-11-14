@@ -7322,7 +7322,8 @@ func _enqueue_unit(kind: String) -> void:
 	var producer_kind := _production_building_for(kind)
 	var producer_pos := Vector2(-9999, -9999)
 	var producer_id := -1
-	var shortest_queue := 2147483647
+	var shortest_queue_load := INF
+	var shortest_queue_size := 2147483647
 	for i in range(buildings.size()):
 		if String(buildings[i].get("kind", "")) != producer_kind or not _is_player_building_powered(i):
 			continue
@@ -7331,12 +7332,33 @@ func _enqueue_unit(kind: String) -> void:
 			next_building_production_id += 1
 		var candidate_id := int(buildings[i].production_id)
 		var candidate_queue_size := 0
+		var candidate_queue_load := 0.0
+		var candidate_production_speed := 1.0 + float(maxi(1, int(buildings[i].get("level", 1))) - 1) * 0.15
 		for queued_order in production_orders:
-			if int(queued_order.get("producer_id", -1)) == candidate_id:
-				candidate_queue_size += 1
-		# Spread new orders across equivalent buildings instead of overloading the first one.
-		if candidate_queue_size < shortest_queue:
-			shortest_queue = candidate_queue_size
+			var queued_producer_id := int(queued_order.get("producer_id", -1))
+			var belongs_to_candidate := queued_producer_id == candidate_id
+			if queued_producer_id < 0:
+				var queued_position: Vector2 = queued_order.get("producer_pos", Vector2(-9999.0, -9999.0))
+				var queued_producer_kind := String(queued_order.get("producer_kind", ""))
+				if queued_producer_kind.is_empty():
+					queued_producer_kind = _production_building_for(String(queued_order.get("kind", "")))
+				belongs_to_candidate = queued_producer_kind == producer_kind and queued_position.distance_to(buildings[i].pos) < 2.0
+			if not belongs_to_candidate:
+				continue
+			candidate_queue_size += 1
+			var queued_kind := String(queued_order.get("kind", ""))
+			var queued_duration := float(queued_order.get("duration", _production_duration(queued_kind) / _faction_production_speed(faction)))
+			var queued_remaining := maxf(0.0, float(queued_order.get("remaining", queued_duration)))
+			# A completed unit blocked at a busy exit still occupies this producer's queue.
+			if queued_remaining <= 0.001:
+				queued_remaining = queued_duration
+			candidate_queue_load += queued_remaining
+		candidate_queue_load /= candidate_production_speed
+		# Compare estimated wait time, then order count, so a long dozer order
+		# cannot outweigh a shorter queue merely because both have one entry.
+		if candidate_queue_load < shortest_queue_load - 0.0001 or (is_equal_approx(candidate_queue_load, shortest_queue_load) and candidate_queue_size < shortest_queue_size):
+			shortest_queue_load = candidate_queue_load
+			shortest_queue_size = candidate_queue_size
 			producer_pos = buildings[i].pos
 			producer_id = candidate_id
 	if producer_kind == "" or producer_pos.x < -9000.0:

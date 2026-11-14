@@ -276,6 +276,24 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Equivalent barracks should be balanced by estimated wait time, not just order count.
+	game.credits = 1000
+	game.supplies = 10
+	game.units.clear()
+	game.buildings.assign([
+		{"pos": Vector2(300.0, 300.0), "kind": "barracks", "hp": 400, "build_progress": 1.0, "production_id": 51, "level": 1},
+		{"pos": Vector2(500.0, 300.0), "kind": "barracks", "hp": 400, "build_progress": 1.0, "production_id": 52, "level": 1}
+	])
+	game.production_orders.assign([
+		{"producer_pos": Vector2(300.0, 300.0), "producer_kind": "barracks", "producer_id": 51, "kind": "builder", "remaining": 8.0, "duration": 8.0},
+		{"producer_pos": Vector2(500.0, 300.0), "producer_kind": "barracks", "producer_id": 52, "kind": "infantry", "remaining": 3.0, "duration": 3.0}
+	])
+	game._enqueue_unit("infantry")
+	if game.production_orders.size() != 3 or int(game.production_orders[2].get("producer_id", -1)) != 52:
+		push_error("New production should join the producer with the shortest remaining work, not merely the fewest queued orders")
+		quit(1)
+		return
+
 	# An existing but unfinished producer must pause, not cancel, its order.
 	game.credits = 0
 	game.supplies = 0
