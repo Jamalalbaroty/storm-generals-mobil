@@ -374,6 +374,59 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# The command HUD must explain whether production is building, powered, active, or waiting for delivery.
+	game.buildings.assign([
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 0.5, "production_id": 81}
+	])
+	game.production_orders.assign([{
+		"producer_pos": Vector2(400.0, 100.0),
+		"producer_kind": "factory",
+		"producer_id": 81,
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}])
+	if game._production_order_status(game.production_orders[0]) != "بانتظار البناء":
+		push_error("Production HUD should report an unfinished producer instead of implying an energy outage")
+		quit(1)
+		return
+	game.buildings.assign([
+		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(200.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(300.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},
+		{"pos": Vector2(400.0, 100.0), "kind": "factory", "hp": 400, "build_progress": 1.0, "production_id": 82}
+	])
+	game.production_orders.assign([{
+		"producer_pos": Vector2(400.0, 100.0),
+		"producer_kind": "factory",
+		"producer_id": 82,
+		"kind": "tank",
+		"remaining": 3.0,
+		"duration": 3.0
+	}])
+	if game._production_order_status(game.production_orders[0]) != "متوقف: الطاقة":
+		push_error("Production HUD should identify a factory paused by a power shortage")
+		quit(1)
+		return
+	game.buildings.append({"pos": Vector2(500.0, 100.0), "kind": "power_plant", "hp": 400, "build_progress": 1.0})
+	if game._production_order_status(game.production_orders[0]) != "قيد الإنتاج":
+		push_error("Production HUD should report active work after grid power is restored")
+		quit(1)
+		return
+	game.production_orders[0]["remaining"] = 0.0
+	game.units.clear()
+	for unit_index in range(40):
+		game.units.append({"team": "player", "kind": "infantry", "hp": 100})
+	if game._production_order_status(game.production_orders[0]) != "مكتمل: السعة ممتلئة":
+		push_error("Production HUD should identify a completed order waiting for unit capacity")
+		quit(1)
+		return
+	game.units.clear()
+	if game._production_order_status(game.production_orders[0]) != "مكتمل: بانتظار التسليم":
+		push_error("Production HUD should identify a completed order waiting to leave its producer")
+		quit(1)
+		return
+
 	# Missile silos and interception defenses must obey the same power grid.
 	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},

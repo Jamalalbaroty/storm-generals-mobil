@@ -3350,11 +3350,19 @@ func _draw_hud(size: Vector2) -> void:
 		var first_order: Dictionary = production_orders[0]
 		var duration := maxf(1.0, float(first_order.get("duration", 1.0)))
 		var progress := clampf(1.0 - float(first_order.get("remaining", duration)) / duration, 0.0, 1.0)
-		var production_text := "الإنتاج: %s  |  %d طلبات" % [String(first_order.get("kind", "وحدة")), production_orders.size()]
+		var unit_labels := {"tank": "دبابة", "infantry": "مشاة", "builder": "مركبة بناء", "artillery": "مدفعية", "fighter": "مقاتلة", "helicopter": "مروحية", "transport_helicopter": "مروحية نقل"}
+		var unit_label := String(unit_labels.get(String(first_order.get("kind", "")), "وحدة"))
+		var order_status := _production_order_status(first_order)
+		var production_text := "%s | %s | %d طلبات" % [unit_label, order_status, production_orders.size()]
 		draw_string(ThemeDB.fallback_font, production_rect.position + Vector2(9, 16), production_text, HORIZONTAL_ALIGNMENT_LEFT, size.x - 38, 12, Color("#e4eee8"))
 		var bar_rect := Rect2(production_rect.position + Vector2(9, 25), Vector2(size.x - 38, 8))
 		draw_rect(bar_rect, Color("#26383d"), true)
-		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), Color("#8bd5a0"), true)
+		var progress_color := Color("#8bd5a0")
+		if order_status.begins_with("متوقف") or order_status in ["مبنى مدمر", "مبنى غير متاح"]:
+			progress_color = Color("#e47c70")
+		elif order_status.begins_with("مكتمل") or order_status.begins_with("بانتظار"):
+			progress_color = Color("#e2bd67")
+		draw_rect(Rect2(bar_rect.position, Vector2(bar_rect.size.x * progress, bar_rect.size.y)), progress_color, true)
 	# Selected-unit field dossier: rank, accumulated combat XP and progress to the next promotion.
 	var selected_player_units: Array[Dictionary] = []
 	for selected_index in selected:
@@ -7404,6 +7412,25 @@ func _production_order_producer_index(order: Dictionary) -> int:
 		if matches_producer and String(candidate.get("kind", "")) == expected_producer_kind:
 			return producer_index
 	return -1
+
+
+func _production_order_status(order: Dictionary) -> String:
+	var producer_index := _production_order_producer_index(order)
+	if producer_index < 0:
+		return "مبنى غير متاح"
+	var producer: Dictionary = buildings[producer_index]
+	if int(producer.get("hp", 0)) <= 0:
+		return "مبنى مدمر"
+	if float(producer.get("build_progress", 1.0)) < 1.0:
+		return "بانتظار البناء"
+	if not _is_player_building_powered(producer_index):
+		return "متوقف: الطاقة"
+	if float(order.get("remaining", 0.0)) > 0.001:
+		return "قيد الإنتاج"
+	if _team_unit_count("player") >= MAX_TEAM_UNITS:
+		return "مكتمل: السعة ممتلئة"
+	# A completed order remains queued only while its unit cannot be delivered.
+	return "مكتمل: بانتظار التسليم"
 
 
 func _update_production_queues(delta: float) -> void:
