@@ -3449,7 +3449,7 @@ func _draw_hud(size: Vector2) -> void:
 	else:
 		labels[12] = "ترقية / إلغاء"
 	# The lower command deck is a visual layer only; hit rectangles remain unchanged.
-	var deck_top := size.y - 172.0
+	var deck_top := size.y - 180.0
 	draw_rect(Rect2(0, deck_top, size.x, size.y - deck_top), Color(0.025, 0.045, 0.055, 0.94), true)
 	draw_rect(Rect2(0, deck_top, size.x, 2), Color("#b89450"))
 	for tab_index in range(_command_tab_count()):
@@ -3459,7 +3459,7 @@ func _draw_hud(size: Vector2) -> void:
 		draw_rect(tab_rect, Color("#e4c477") if is_active_tab else Color("#49616b"), false, 1.5)
 		if is_active_tab:
 			draw_rect(Rect2(tab_rect.position + Vector2(7, tab_rect.size.y - 3), Vector2(tab_rect.size.x - 14, 2)), Color("#f4d77a"))
-		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 23), _command_tab_label(tab_index), HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color("#ffe6a6") if is_active_tab else Color("#d4e0df"))
+		draw_string(ThemeDB.fallback_font, tab_rect.position + Vector2(0, 27), _command_tab_label(tab_index), HORIZONTAL_ALIGNMENT_CENTER, tab_rect.size.x, _command_tab_font_size(tab_rect.size.x), Color("#ffe6a6") if is_active_tab else Color("#d4e0df"))
 	var visible_actions: Array = _command_action_ids()
 	for slot in range(visible_actions.size()):
 		var action_id := int(visible_actions[slot])
@@ -3640,7 +3640,7 @@ func _battle_pointer_target(pos: Vector2, size: Vector2) -> String:
 
 func _command_tab_rect(index: int, size: Vector2) -> Rect2:
 	var tab_width := (size.x - 44.0) / float(_command_tab_count())
-	return Rect2(Vector2(8.0 + float(index) * (tab_width + 4.0), size.y - 166.0), Vector2(tab_width, 32.0))
+	return Rect2(Vector2(8.0 + float(index) * (tab_width + 4.0), size.y - 174.0), Vector2(tab_width, 40.0))
 
 
 func _button_rect(index: int, size: Vector2) -> Rect2:

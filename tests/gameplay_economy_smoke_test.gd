@@ -131,6 +131,9 @@ func _run_gameplay_economy_smoke_test() -> void:
 			var tab_rect: Rect2 = game.call("_command_tab_rect", tab_index, command_viewport)
 			_expect(tab_rect.position.x >= 0.0 and tab_rect.position.y >= 0.0 and tab_rect.end.x <= command_viewport.x and tab_rect.end.y <= command_viewport.y, "Command tab touch target must fit viewport %s" % command_viewport)
 			_expect(int(game.call("_command_tab_font_size", tab_rect.size.x)) >= 9, "Command tab labels must retain a legible minimum font size")
+			_expect(tab_rect.size.y >= 40.0, "Command tabs must provide a larger mobile touch target")
+			var first_button_rect: Rect2 = game.call("_button_rect", 0, command_viewport)
+			_expect(tab_rect.end.y <= first_button_rect.position.y, "Expanded command tabs must remain separated from action buttons")
 			for previous_tab in tab_rects:
 				_expect(not tab_rect.intersects(previous_tab), "Command tab touch targets must not overlap")
 			tab_rects.append(tab_rect)
