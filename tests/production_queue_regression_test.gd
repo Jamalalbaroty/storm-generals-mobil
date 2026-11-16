@@ -427,6 +427,30 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# A blocked factory exit must be reported explicitly, and the queued unit
+	# must spawn once a safe lane becomes available again.
+	var factory_exit_origin := Vector2(400.0, 100.0)
+	for radius_value in [58.0, 76.0, 94.0, 112.0, 132.0, 152.0, 172.0, 192.0]:
+		for direction_index in range(32):
+			var angle := TAU * float(direction_index) / 32.0
+			var candidate := factory_exit_origin + Vector2(cos(angle), sin(angle)) * (float(radius_value) + 13.0 * 0.15)
+			game.units.append({"team": "enemy", "kind": "infantry", "hp": 100, "pos": candidate})
+	game._update_production_queues(0.1)
+	if game.production_orders.size() != 1 or not bool(game.production_orders[0].get("delivery_blocked", false)):
+		push_error("A completed ground unit must remain queued when every safe factory exit is blocked")
+		quit(1)
+		return
+	if game._production_order_status(game.production_orders[0]) != "مكتمل: المخرج مزدحم":
+		push_error("Production HUD should distinguish a congested exit from generic delivery waiting")
+		quit(1)
+		return
+	game.units.clear()
+	game._update_production_queues(0.1)
+	if not game.production_orders.is_empty() or game.units.size() != 1 or String(game.units[0].get("kind", "")) != "tank":
+		push_error("A completed unit must leave its queue and spawn after the factory exit clears")
+		quit(1)
+		return
+
 	# Missile silos and interception defenses must obey the same power grid.
 	game.buildings.assign([
 		{"pos": Vector2(100.0, 100.0), "kind": "turret", "hp": 400, "build_progress": 1.0},

@@ -7429,7 +7429,9 @@ func _production_order_status(order: Dictionary) -> String:
 		return "قيد الإنتاج"
 	if _team_unit_count("player") >= MAX_TEAM_UNITS:
 		return "مكتمل: السعة ممتلئة"
-	# A completed order remains queued only while its unit cannot be delivered.
+	if bool(order.get("delivery_blocked", false)):
+		return "مكتمل: المخرج مزدحم"
+	# Legacy orders without a producer identity keep the safe generic delivery state.
 	return "مكتمل: بانتظار التسليم"
 
 
@@ -7482,6 +7484,8 @@ func _update_production_queues(delta: float) -> void:
 					if int(exit_producer.get("production_id", -2)) == completed_producer_id and String(exit_producer.get("kind", "")) == _production_building_for(completed_kind):
 						exit_is_clear = _find_clear_ground_spawn(exit_producer.pos, completed_kind, completed_producer_id).x >= 0.0
 						break
+				order["delivery_blocked"] = not exit_is_clear
+				production_orders[i] = order
 				if not exit_is_clear:
 					notice = "اكتمل الإنتاج — المخرج مزدحم، تنتظر الوحدة توفر ممر آمن"
 					notice_time = 2.0
