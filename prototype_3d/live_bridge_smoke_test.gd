@@ -205,6 +205,37 @@ func _initialize() -> void:
 		push_error("Drag rectangle did not select both friendly live units")
 		quit(1)
 		return
+
+	# Repeated mobile group selection must reuse its 3D ring instead of
+	# creating and freeing a MeshInstance3D on every selection change.
+	var active_group_rings: Array = bridge.get("group_selection_rings")
+	if active_group_rings.size() != 1:
+		push_error("A two-unit selection must create exactly one secondary selection ring")
+		quit(1)
+		return
+	var pooled_ring_id := (active_group_rings[0] as Node).get_instance_id()
+	var single_live_selection: Array[Node3D] = [player_tank]
+	bridge.call("_set_live_selection", single_live_selection)
+	var pooled_group_rings: Array = bridge.get("group_selection_ring_pool")
+	if not (bridge.get("group_selection_rings") as Array).is_empty() or pooled_group_rings.size() != 1 or bool(pooled_group_rings[0].visible):
+		push_error("Shrinking a group selection must hide and retain its secondary ring in the reuse pool")
+		quit(1)
+		return
+	var restored_live_selection: Array[Node3D] = [player_tank, second_player]
+	bridge.call("_set_live_selection", restored_live_selection)
+	active_group_rings = bridge.get("group_selection_rings")
+	pooled_group_rings = bridge.get("group_selection_ring_pool")
+	if active_group_rings.size() != 1 or (active_group_rings[0] as Node).get_instance_id() != pooled_ring_id or not pooled_group_rings.is_empty():
+		push_error("Re-expanding a group selection must reuse the existing secondary ring instance")
+		quit(1)
+		return
+	bridge.call("_update_showcase_orders", 0.0)
+	var reused_ring := active_group_rings[0] as Node3D
+	if not reused_ring.visible or reused_ring.global_position.distance_to(second_player.global_position + Vector3.UP * 0.08) > 0.01:
+		push_error("A reused group selection ring must remain visible and follow its selected unit")
+		quit(1)
+		return
+
 	bridge.call("_handle_world_tap", enemy_screen)
 	multi_units = game.get("units")
 	if int(multi_units[0].get("attack_target", -1)) != 1 or int(multi_units[4].get("attack_target", -1)) != 1:

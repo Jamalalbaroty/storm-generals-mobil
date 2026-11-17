@@ -39,6 +39,7 @@ var selected_destination := Vector3.ZERO
 var has_selected_destination := false
 var selection_ring: MeshInstance3D
 var group_selection_rings: Array[MeshInstance3D] = []
+var group_selection_ring_pool: Array[MeshInstance3D] = []
 var selection_count_label: Label
 var order_marker: MeshInstance3D
 var order_path_instance: MeshInstance3D
@@ -4416,21 +4417,38 @@ func _update_selection_count_label() -> void:
 
 
 func _refresh_group_selection_rings() -> void:
-	for ring in group_selection_rings:
-		if is_instance_valid(ring):
-			ring.queue_free()
-	group_selection_rings.clear()
-	if selected_live_units.size() <= 1:
-		return
-	for index in range(1, selected_live_units.size()):
-		var unit := selected_live_units[index]
-		if not _is_live_player_unit(unit):
-			continue
-		var ring := selection_ring.duplicate() as MeshInstance3D
-		ring.name = "GroupSelectionRing_%d" % index
+	# Reuse hidden rings when the player changes group selection. Rapid
+	# drag-selecting on mobile should not allocate and free 3D nodes each time.
+	var desired_count := maxi(0, selected_live_units.size() - 1)
+	while group_selection_rings.size() > desired_count:
+		var unused_ring := group_selection_rings.pop_back()
+		if is_instance_valid(unused_ring):
+			unused_ring.visible = false
+			group_selection_ring_pool.append(unused_ring)
+	while group_selection_rings.size() < desired_count:
+		var ring: MeshInstance3D = null
+		while not group_selection_ring_pool.is_empty() and not is_instance_valid(ring):
+			ring = group_selection_ring_pool.pop_back()
+		if not is_instance_valid(ring):
+			ring = selection_ring.duplicate() as MeshInstance3D
+			if ring == null:
+				break
+			add_child(ring)
+		ring.name = "GroupSelectionRing_%d" % group_selection_rings.size()
 		ring.visible = true
-		add_child(ring)
 		group_selection_rings.append(ring)
+	for index in range(group_selection_rings.size()):
+		var ring := group_selection_rings[index]
+		var unit_index := index + 1
+		if not is_instance_valid(ring) or unit_index >= selected_live_units.size():
+			continue
+		var unit := selected_live_units[unit_index]
+		if not _is_live_player_unit(unit):
+			ring.visible = false
+			continue
+		ring.visible = true
+		ring.global_position = unit.global_position + Vector3.UP * 0.08
+		ring.scale = Vector3.ONE * _selection_ring_scale_for_unit(unit)
 
 
 func _selection_ring_scale_for_unit(unit: Node3D) -> float:
