@@ -4421,14 +4421,14 @@ func _refresh_group_selection_rings() -> void:
 	# drag-selecting on mobile should not allocate and free 3D nodes each time.
 	var desired_count := maxi(0, selected_live_units.size() - 1)
 	while group_selection_rings.size() > desired_count:
-		var unused_ring := group_selection_rings.pop_back()
+		var unused_ring: MeshInstance3D = group_selection_rings.pop_back() as MeshInstance3D
 		if is_instance_valid(unused_ring):
 			unused_ring.visible = false
 			group_selection_ring_pool.append(unused_ring)
 	while group_selection_rings.size() < desired_count:
 		var ring: MeshInstance3D = null
 		while not group_selection_ring_pool.is_empty() and not is_instance_valid(ring):
-			ring = group_selection_ring_pool.pop_back()
+			ring = group_selection_ring_pool.pop_back() as MeshInstance3D
 		if not is_instance_valid(ring):
 			ring = selection_ring.duplicate() as MeshInstance3D
 			if ring == null:
