@@ -207,7 +207,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var selection_count_label := battlefield.get_node_or_null("TacticalSelectionHud/SelectionCountLabel") as Label
-	if selection_count_label == null or not selection_count_label.visible or selection_count_label.text != "UNITS: 2":
+	if selection_count_label == null or not selection_count_label.visible or not selection_count_label.text.contains("القوات: 2") or not selection_count_label.text.contains("دبابة 1") or not selection_count_label.text.contains("مشاة 1"):
 		push_error("Mobile tactical HUD did not show the correct live group selection count")
 		quit(1)
 		return
@@ -332,7 +332,7 @@ func _initialize() -> void:
 	# The HUD must immediately reflect units queued for deletion, not retain a stale count.
 	group_infantry.queue_free()
 	battlefield.call("_update_showcase_orders", 0.0)
-	if selection_count_label.text != "UNITS: 1" or not selection_count_label.visible:
+	if selection_count_label.text != "دبابة" or not selection_count_label.visible:
 		push_error("Selection HUD count did not update after a selected unit was removed")
 		quit(1)
 		return

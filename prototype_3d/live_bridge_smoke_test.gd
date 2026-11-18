@@ -241,7 +241,7 @@ func _initialize() -> void:
 	var mixed_selection: Array[Node3D] = [player_tank, player_infantry, enemy_fighter]
 	bridge.call("_set_live_selection", mixed_selection)
 	var selection_label := bridge.get("selection_count_label") as Label
-	if selection_label == null or not selection_label.visible or not selection_label.text.contains("القوات: 2") or not selection_label.text.contains("دبابات 1") or not selection_label.text.contains("مشاة 1") or selection_label.text.contains("مقاتلات"):
+	if selection_label == null or not selection_label.visible or not selection_label.text.contains("القوات: 2") or not selection_label.text.contains("دبابة 1") or not selection_label.text.contains("مشاة 1") or selection_label.text.contains("مقاتلات"):
 		push_error("3D selection HUD must show the correct friendly tank/infantry composition and exclude enemy units")
 		quit(1)
 		return
