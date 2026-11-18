@@ -4441,7 +4441,7 @@ func _update_selection_count_label() -> void:
 				break
 		if composition.is_empty():
 			composition = "وحدة"
-else:
+	else:
 		var summaries: Array[String] = []
 		var shown_types := 0
 		var other_count := 0
@@ -4465,7 +4465,6 @@ else:
 		composition += "\n" + aircraft_status
 	selection_count_label.text = composition
 	selection_count_label.visible = true
-
 
 func _refresh_group_selection_rings() -> void:
 	# Reuse hidden rings when the player changes group selection. Rapid

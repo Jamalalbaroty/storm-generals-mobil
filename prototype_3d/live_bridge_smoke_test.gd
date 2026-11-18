@@ -142,26 +142,7 @@ func _initialize() -> void:
 		return
 	var enemy_screen: Vector2 = bridge.rts_camera.unproject_position(enemy_fighter.position + Vector3.UP)
 	var player_screen: Vector2 = bridge.rts_camera.unproject_position(player_tank.position + Vector3.UP)
-	# The tactical HUD must summarize mixed selections by unit type and ignore hostile contacts.
-	var mixed_selection: Array[Node3D] = [player_tank, player_infantry, enemy_fighter]
-	bridge.call("_set_live_selection", mixed_selection)
-	var selection_label := bridge.get("selection_count_label") as Label
-	if selection_label == null or not selection_label.visible or not selection_label.text.contains("القوات: 2") or not selection_label.text.contains("دبابات 1") or not selection_label.text.contains("مشاة 1") or selection_label.text.contains("مقاتلات"):
-		push_error("3D selection HUD must show the correct friendly tank/infantry composition and exclude enemy units")
-		quit(1)
-		return
-	var single_selection: Array[Node3D] = [player_tank]
-	bridge.call("_set_live_selection", single_selection)
-	if selection_label.text != "دبابة" or not selection_label.visible:
-		push_error("A single selected tank must use a compact Arabic unit label")
-		quit(1)
-		return
-	bridge.call("_set_live_selection", [])
-	if selection_label.visible:
-		push_error("An empty live selection must hide the tactical composition label")
-		quit(1)
-		return
-	bridge.call("_set_live_selection", restored_live_selection)
+
 	bridge.call("_handle_world_tap", enemy_screen)
 	bridge.call("_handle_world_tap", player_screen)
 	if bridge.get("selected_tank") != player_tank:
@@ -255,6 +236,27 @@ func _initialize() -> void:
 		push_error("A reused group selection ring must remain visible and follow its selected unit")
 		quit(1)
 		return
+
+	# The tactical HUD must summarize mixed selections by unit type and ignore hostile contacts.
+	var mixed_selection: Array[Node3D] = [player_tank, player_infantry, enemy_fighter]
+	bridge.call("_set_live_selection", mixed_selection)
+	var selection_label := bridge.get("selection_count_label") as Label
+	if selection_label == null or not selection_label.visible or not selection_label.text.contains("القوات: 2") or not selection_label.text.contains("دبابات 1") or not selection_label.text.contains("مشاة 1") or selection_label.text.contains("مقاتلات"):
+		push_error("3D selection HUD must show the correct friendly tank/infantry composition and exclude enemy units")
+		quit(1)
+		return
+	var single_selection: Array[Node3D] = [player_tank]
+	bridge.call("_set_live_selection", single_selection)
+	if selection_label.text != "دبابة" or not selection_label.visible:
+		push_error("A single selected tank must use a compact Arabic unit label")
+		quit(1)
+		return
+	bridge.call("_set_live_selection", [])
+	if selection_label.visible:
+		push_error("An empty live selection must hide the tactical composition label")
+		quit(1)
+		return
+	bridge.call("_set_live_selection", restored_live_selection)
 
 	bridge.call("_handle_world_tap", enemy_screen)
 	multi_units = game.get("units")
