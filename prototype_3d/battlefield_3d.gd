@@ -4168,7 +4168,7 @@ func _build_order_indicators() -> void:
 	selection_count_label = Label.new()
 	selection_count_label.name = "SelectionCountLabel"
 	selection_count_label.position = Vector2(22.0, 22.0)
-	selection_count_label.add_theme_font_size_override("font_size", 22)
+	selection_count_label.add_theme_font_size_override("font_size", 18)
 	selection_count_label.add_theme_color_override("font_color", Color(0.48, 0.94, 0.58))
 	selection_count_label.add_theme_color_override("font_shadow_color", Color(0.01, 0.025, 0.015, 0.96))
 	selection_count_label.add_theme_constant_override("shadow_offset_x", 2)
@@ -4400,20 +4400,71 @@ func _set_live_selection(units_to_select: Array[Node3D]) -> void:
 func _update_selection_count_label() -> void:
 	if not is_instance_valid(selection_count_label):
 		return
-	var count := selected_live_units.size()
+	var kind_labels := {
+		"tank": ["دبابة", "دبابات"],
+		"infantry": ["مشاة", "مشاة"],
+		"artillery": ["مدفعية", "مدفعية"],
+		"builder": ["مهندس", "مهندسون"],
+		"fighter": ["مقاتلة", "مقاتلات"],
+		"helicopter": ["مروحية", "مروحيات"],
+		"transport_helicopter": ["نقل", "نقل"],
+		"marine": ["بحرية", "بحرية"],
+		"destroyer": ["مدمرة", "مدمرات"],
+		"submarine": ["غواصة", "غواصات"],
+		"carrier": ["حاملة", "حاملات"],
+		"landing_craft": ["إنزال", "إنزال"]
+	}
+	var kind_order := ["tank", "infantry", "artillery", "builder", "fighter", "helicopter", "transport_helicopter", "marine", "destroyer", "submarine", "carrier", "landing_craft"]
+	var kind_counts: Dictionary = {}
+	var count := 0
 	var aircraft_status := ""
 	for selected_unit in selected_live_units:
-		if not is_instance_valid(selected_unit):
+		if not _is_live_player_unit(selected_unit):
 			continue
 		var selected_kind := str(selected_unit.get_meta("unit_type", ""))
-		if selected_kind in ["fighter", "helicopter"]:
+		kind_counts[selected_kind] = int(kind_counts.get(selected_kind, 0)) + 1
+		count += 1
+		if aircraft_status.is_empty() and selected_kind in ["fighter", "helicopter"]:
 			var ammunition := int(selected_unit.get_meta("gameplay_aircraft_ammo", 8 if selected_kind == "fighter" else 12))
 			var is_landed := bool(selected_unit.get_meta("gameplay_aircraft_landed", false))
 			var rearm_progress := float(selected_unit.get_meta("gameplay_aircraft_rearm_progress", 0.0))
-			aircraft_status = " | REARM %d%%" % roundi(rearm_progress / 4.5 * 100.0) if is_landed else " | AMMO %d" % ammunition
-			break
-	selection_count_label.text = "UNITS: %d%s" % [count, aircraft_status]
-	selection_count_label.visible = count > 0
+			aircraft_status = "إعادة التسليح: %d%%" % roundi(rearm_progress / 4.5 * 100.0) if is_landed else "ذخيرة: %d" % ammunition
+	if count == 0:
+		selection_count_label.text = "لا توجد قوات محددة"
+		selection_count_label.visible = false
+		return
+	var composition := ""
+	if count == 1:
+		for kind in kind_order:
+			if int(kind_counts.get(kind, 0)) > 0:
+				composition = String(kind_labels[kind][0])
+				break
+		if composition.is_empty():
+			composition = "وحدة"
+else:
+		var summaries: Array[String] = []
+		var shown_types := 0
+		var other_count := 0
+		for kind in kind_order:
+			var type_count := int(kind_counts.get(kind, 0))
+			if type_count <= 0:
+				continue
+			if shown_types >= 3:
+				other_count += type_count
+				continue
+			var type_label := String(kind_labels[kind][1] if type_count > 1 else kind_labels[kind][0])
+			summaries.append("%s %d" % [type_label, type_count])
+			shown_types += 1
+		for unknown_kind in kind_counts.keys():
+			if not kind_order.has(unknown_kind):
+				other_count += int(kind_counts[unknown_kind])
+		if other_count > 0:
+			summaries.append("أخرى %d" % other_count)
+		composition = "القوات: %d\n%s" % [count, " • ".join(summaries)]
+	if not aircraft_status.is_empty():
+		composition += "\n" + aircraft_status
+	selection_count_label.text = composition
+	selection_count_label.visible = true
 
 
 func _refresh_group_selection_rings() -> void:
