@@ -251,7 +251,8 @@ func _initialize() -> void:
 		push_error("A single selected tank must use a compact Arabic unit label")
 		quit(1)
 		return
-	bridge.call("_set_live_selection", [])
+	var empty_selection: Array[Node3D] = []
+	bridge.call("_set_live_selection", empty_selection)
 	if selection_label.visible:
 		push_error("An empty live selection must hide the tactical composition label")
 		quit(1)
