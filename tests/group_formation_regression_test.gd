@@ -42,8 +42,17 @@ func _run() -> void:
 	var selected_indices: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 3]
 	var slots: Array[Vector2] = []
 	print("Formation regression: validating seven live units")
+	var precomputed_slots: Dictionary = game._group_move_destinations(selected_indices, destination)
+	if precomputed_slots.size() != 7 or precomputed_slots.has(7):
+		push_error("Precomputed formation must contain only the seven living unique selected units")
+		quit(1)
+		return
 	for unit_index in range(7):
-		var slot: Vector2 = game._group_move_destination(unit_index, selected_indices, destination)
+		var slot: Vector2 = precomputed_slots.get(unit_index, destination)
+		if slot != game._group_move_destination(unit_index, selected_indices, destination):
+			push_error("Precomputed group move slots must match the single-unit compatibility helper")
+			quit(1)
+			return
 		slots.append(slot)
 		if slot.x < 24.0 or slot.y < 24.0 or slot.x > viewport_size.x - 24.0 or slot.y > viewport_size.y - 24.0:
 			push_error("Group formation slot escaped the playable viewport")
@@ -78,12 +87,13 @@ func _run() -> void:
 		return
 
 	# Dead, unselected, and single-unit commands must not inherit a multi-unit slot.
-	if game._group_move_destination(7, selected_indices, destination) != destination:
+	if game._group_move_destination(7, selected_indices, destination) != destination or precomputed_slots.has(7):
 		push_error("Dead units must not reserve a group formation slot")
 		quit(1)
 		return
 	var single_selection: Array[int] = [3]
-	if game._group_move_destination(3, single_selection, destination) != destination:
+	var single_destinations: Dictionary = game._group_move_destinations(single_selection, destination)
+	if single_destinations.get(3, Vector2.ZERO) != destination or game._group_move_destination(3, single_selection, destination) != destination:
 		push_error("A single selected unit must move directly to the commanded point")
 		quit(1)
 		return

@@ -4000,7 +4000,7 @@ func _group_formation_spacing(selected_indices: Array[int]) -> float:
 	return spacing
 
 
-func _group_move_destination(unit_index: int, selected_indices: Array[int], center: Vector2, formation_mode: String = "combined") -> Vector2:
+func _group_move_destinations(selected_indices: Array[int], center: Vector2, formation_mode: String = "combined") -> Dictionary:
 	var valid_indices: Array[int] = []
 	var group_center := Vector2.ZERO
 	for candidate_index in selected_indices:
@@ -4011,10 +4011,12 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 			continue
 		valid_indices.append(candidate_index)
 		group_center += candidate.pos
-	if not valid_indices.has(unit_index):
-		return center
-	if valid_indices.size() <= 1:
-		return center
+	var destinations: Dictionary = {}
+	if valid_indices.is_empty():
+		return destinations
+	if valid_indices.size() == 1:
+		destinations[valid_indices[0]] = center
+		return destinations
 	group_center /= float(valid_indices.size())
 	var forward := center - group_center
 	if forward.length_squared() < 0.0001:
@@ -4024,50 +4026,59 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 	var right := Vector2(-forward.y, forward.x)
 	var spacing := _group_formation_spacing_for_mode(_group_formation_spacing(valid_indices), formation_mode)
 	var role_counts: Array[int] = [0, 0, 0, 0, 0]
-	var role := _group_formation_role_for_kind(String(units[unit_index].get("kind", "tank")))
-	var role_index := 0
+	var roles: Dictionary = {}
 	for candidate_index in valid_indices:
 		var candidate_role := _group_formation_role_for_kind(String(units[candidate_index].get("kind", "tank")))
-		if candidate_index == unit_index:
-			role_index = role_counts[candidate_role]
+		roles[candidate_index] = candidate_role
 		role_counts[candidate_role] += 1
-	var preceding_rows := 0
+	var role_before_rows: Array[int] = [0, 0, 0, 0, 0]
+	var role_rows: Array[int] = [0, 0, 0, 0, 0]
 	var total_rows := 0
 	for role_index_value in range(role_counts.size()):
+		role_before_rows[role_index_value] = total_rows
 		var role_columns := _group_formation_columns(role_index_value, role_counts[role_index_value])
-		var role_rows := int(ceil(float(role_counts[role_index_value]) / float(role_columns))) if role_counts[role_index_value] > 0 else 0
-		total_rows += role_rows
-		if role_index_value < role:
-			preceding_rows += role_rows
-	var columns := _group_formation_columns(role, role_counts[role])
-	var row := int(role_index / columns)
-	var column := role_index % columns
-	var lane_row := preceding_rows + row
-	var depth := (float(lane_row) - (float(total_rows) - 1.0) * 0.5) * spacing
-	var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
-	if role == 1:
-		var flank := -1.0 if column == 0 else 1.0
-		lateral = flank * (spacing * 1.25 + float(row) * spacing * 0.55)
-	if formation_mode == "assault" and role == 2:
-		depth += spacing * 0.55
-	elif formation_mode == "defensive" and role == 0:
-		depth -= spacing * 0.35
-	elif formation_mode == "protect":
-		# Keep artillery near the protected center while armor closes the gap and infantry screens the flanks.
-		if role == 0:
-			depth += spacing * 0.08
-		elif role == 1:
-			depth -= spacing * 0.12
-			lateral *= 1.4
-		elif role == 2:
-			depth -= spacing * 0.72
-			lateral *= 0.85
-	var destination := center + forward * depth + right * lateral
+		var rows := int(ceil(float(role_counts[role_index_value]) / float(role_columns))) if role_counts[role_index_value] > 0 else 0
+		role_rows[role_index_value] = rows
+		total_rows += rows
+	var role_slot_counts: Array[int] = [0, 0, 0, 0, 0]
 	var viewport_size := get_viewport_rect().size
 	var margin := 24.0
-	destination.x = clampf(destination.x, margin, viewport_size.x - margin)
-	destination.y = clampf(destination.y, margin, viewport_size.y - margin)
-	return destination
+	for candidate_index in valid_indices:
+		var role := int(roles[candidate_index])
+		var role_index := role_slot_counts[role]
+		role_slot_counts[role] += 1
+		var columns := _group_formation_columns(role, role_counts[role])
+		var row := int(role_index / columns)
+		var column := role_index % columns
+		var lane_row := role_before_rows[role] + row
+		var depth := (float(lane_row) - (float(total_rows) - 1.0) * 0.5) * spacing
+		var lateral := (float(column) - float(columns - 1) * 0.5) * spacing
+		if role == 1:
+			var flank := -1.0 if column == 0 else 1.0
+			lateral = flank * (spacing * 1.25 + float(row) * spacing * 0.55)
+		if formation_mode == "assault" and role == 2:
+			depth += spacing * 0.55
+		elif formation_mode == "defensive" and role == 0:
+			depth -= spacing * 0.35
+		elif formation_mode == "protect":
+			# Keep artillery near the protected center while armor closes the gap and infantry screens the flanks.
+			if role == 0:
+				depth += spacing * 0.08
+			elif role == 1:
+				depth -= spacing * 0.12
+				lateral *= 1.4
+			elif role == 2:
+				depth -= spacing * 0.72
+				lateral *= 0.85
+		var destination := center + forward * depth + right * lateral
+		destination.x = clampf(destination.x, margin, viewport_size.x - margin)
+		destination.y = clampf(destination.y, margin, viewport_size.y - margin)
+		destinations[candidate_index] = destination
+	return destinations
+
+
+func _group_move_destination(unit_index: int, selected_indices: Array[int], center: Vector2, formation_mode: String = "combined") -> Vector2:
+	return _group_move_destinations(selected_indices, center, formation_mode).get(unit_index, center)
 
 
 func _group_attack_formation_offsets(selected_indices: Array[int], target_pos: Vector2) -> Dictionary:
@@ -4591,13 +4602,19 @@ func _handle_pointer(pos: Vector2, pressed: bool) -> void:
 					selected.append(found)
 			else:
 				var move_group_indices: Array[int] = selected.duplicate()
+				var destinations_by_mode: Dictionary = {}
 				for idx in move_group_indices:
-					if idx >= 0 and idx < units.size() and units[idx].team == "player":
-						_cancel_airfield_recovery(units[idx])
-						units[idx].target = _group_move_destination(idx, move_group_indices, pos, String(units[idx].get("formation_mode", selected_formation_mode)))
-						# A direct group move overrides previous combat and stance orders.
-						for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
-							units[idx].erase(order_key)
+					if idx < 0 or idx >= units.size() or String(units[idx].get("team", "")) != "player" or int(units[idx].get("hp", 0)) <= 0:
+						continue
+					var formation_mode := String(units[idx].get("formation_mode", selected_formation_mode))
+					if not destinations_by_mode.has(formation_mode):
+						destinations_by_mode[formation_mode] = _group_move_destinations(move_group_indices, pos, formation_mode)
+					_cancel_airfield_recovery(units[idx])
+					var group_destinations: Dictionary = destinations_by_mode[formation_mode]
+					units[idx].target = group_destinations.get(idx, pos)
+					# A direct group move overrides previous combat and stance orders.
+					for order_key in ["attack_target", "attack_focus_pos", "attack_base", "attack_building", "attack_move_active", "guard_active", "guard_position", "guard_radius", "escort_active", "escort_target_id", "escort_offset", "air_patrol_points", "air_patrol_index", "air_patrol_resume"]:
+						units[idx].erase(order_key)
 	queue_redraw()
 
 func _initialize_supply_points(size: Vector2) -> void:
