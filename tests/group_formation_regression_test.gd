@@ -59,6 +59,17 @@ func _run() -> void:
 			quit(1)
 			return
 
+	# Repeated and invalid selections must remain cheap and produce the same unique living slots.
+	var duplicate_heavy_selection: Array[int] = []
+	for repeat_index in range(100):
+		for selected_index in selected_indices:
+			duplicate_heavy_selection.append(selected_index)
+	var duplicate_heavy_slots: Dictionary = game._group_move_destinations(duplicate_heavy_selection, destination)
+	if duplicate_heavy_slots != precomputed_slots:
+		push_error("Duplicate-heavy group selections must preserve the same unique living formation")
+		quit(1)
+		return
+
 	print("Formation regression: slots generated")
 	# Every living selected unit gets a distinct slot, even with duplicate/dead indices in the selection.
 	for first_index in range(slots.size()):

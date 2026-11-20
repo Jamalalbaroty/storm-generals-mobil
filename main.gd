@@ -4002,10 +4002,12 @@ func _group_formation_spacing(selected_indices: Array[int]) -> float:
 
 func _group_move_destinations(selected_indices: Array[int], center: Vector2, formation_mode: String = "combined") -> Dictionary:
 	var valid_indices: Array[int] = []
+	var seen_indices: Dictionary = {}
 	var group_center := Vector2.ZERO
 	for candidate_index in selected_indices:
-		if candidate_index < 0 or candidate_index >= units.size() or valid_indices.has(candidate_index):
+		if candidate_index < 0 or candidate_index >= units.size() or seen_indices.has(candidate_index):
 			continue
+		seen_indices[candidate_index] = true
 		var candidate: Dictionary = units[candidate_index]
 		if String(candidate.get("team", "")) != "player" or int(candidate.get("hp", 0)) <= 0:
 			continue
