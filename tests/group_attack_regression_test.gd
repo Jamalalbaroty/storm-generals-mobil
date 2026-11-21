@@ -16,6 +16,7 @@ func _run() -> void:
 	_cleanup_audio(game)
 
 	_test_group_order_and_reacquisition(game)
+	_test_duplicate_heavy_group_attack_selection(game)
 	_test_selected_group_order_summary(game)
 	_test_selected_group_composition_summary(game)
 	_test_live_combined_arms_advance(game)
@@ -96,6 +97,33 @@ func _test_group_order_and_reacquisition(game: Node) -> void:
 	game._issue_group_attack_order(99)
 	game._issue_group_attack_order(4)
 	_expect(int(game.units[0].get("attack_target", -1)) == 4, "Invalid target orders must not mutate an existing attack assignment")
+
+
+func _test_duplicate_heavy_group_attack_selection(game: Node) -> void:
+	game.units.assign([
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(140.0, 220.0)},
+		{"team": "player", "kind": "infantry", "hp": 60, "pos": Vector2(150.0, 240.0)},
+		{"team": "player", "kind": "artillery", "hp": 110, "pos": Vector2(160.0, 260.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(170.0, 280.0)},
+		{"team": "player", "kind": "tank", "hp": 0, "pos": Vector2(180.0, 300.0)},
+		{"team": "enemy", "kind": "tank", "hp": 500, "pos": Vector2(520.0, 330.0)}
+	])
+	var repeated_selection: Array[int] = []
+	for repeat_index in range(100):
+		for selected_index in [0, 1, 2, 3, 4, 0, 99]:
+			repeated_selection.append(selected_index)
+	game.selected = repeated_selection
+	game._issue_group_attack_order(5)
+	var offsets: Dictionary = game._group_attack_formation_offsets(repeated_selection, game.units[5].pos)
+	_expect(offsets.size() == 4, "Duplicate-heavy group attack must create offsets only for unique living ground units")
+	for unit_index in [0, 1, 2, 3]:
+		_expect(int(game.units[unit_index].get("attack_target", -1)) == 5, "Duplicate-heavy attack orders must still assign focus fire to each living unit")
+		_expect(offsets.has(unit_index), "Duplicate-heavy formation must preserve each living unit's role slot")
+	_expect(not offsets.has(4) and not game.units[4].has("attack_target"), "Destroyed units must not receive attack slots or orders")
+	var offset_values: Array = offsets.values()
+	for first_index in range(offset_values.size()):
+		for second_index in range(first_index + 1, offset_values.size()):
+			_expect((offset_values[first_index] as Vector2).distance_to(offset_values[second_index]) > 0.1, "Duplicate-heavy combined-arms attack must retain distinct formation lanes")
 
 
 func _test_selected_group_order_summary(game: Node) -> void:

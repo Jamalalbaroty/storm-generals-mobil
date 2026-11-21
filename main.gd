@@ -4086,11 +4086,13 @@ func _group_move_destination(unit_index: int, selected_indices: Array[int], cent
 func _group_attack_formation_offsets(selected_indices: Array[int], target_pos: Vector2) -> Dictionary:
 	# Build a target-relative combined-arms line: armor forward, infantry on the flanks, artillery in the rear.
 	var ground_indices: Array[int] = []
+	var seen_indices: Dictionary = {}
 	var role_counts: Dictionary = {"tank": 0, "infantry": 0, "artillery": 0}
 	var group_center := Vector2.ZERO
 	for unit_index in selected_indices:
-		if unit_index < 0 or unit_index >= units.size() or ground_indices.has(unit_index):
+		if unit_index < 0 or unit_index >= units.size() or seen_indices.has(unit_index):
 			continue
+		seen_indices[unit_index] = true
 		var attacker: Dictionary = units[unit_index]
 		var unit_kind := String(attacker.get("kind", ""))
 		if String(attacker.get("team", "")) != "player" or int(attacker.get("hp", 0)) <= 0 or not role_counts.has(unit_kind):
@@ -4138,9 +4140,11 @@ func _issue_group_attack_order(target_index: int) -> void:
 	var shared_focus: Vector2 = target.pos
 	var group_offsets := _group_attack_formation_offsets(selected, shared_focus)
 	var issued_indices: Array[int] = []
+	var seen_indices: Dictionary = {}
 	for unit_index in selected:
-		if unit_index < 0 or unit_index >= units.size() or issued_indices.has(unit_index):
+		if unit_index < 0 or unit_index >= units.size() or seen_indices.has(unit_index):
 			continue
+		seen_indices[unit_index] = true
 		var attacker: Dictionary = units[unit_index]
 		if String(attacker.get("team", "")) != "player" or int(attacker.get("hp", 0)) <= 0:
 			continue
