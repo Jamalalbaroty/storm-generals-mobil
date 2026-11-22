@@ -17,6 +17,7 @@ func _run() -> void:
 
 	_test_group_order_and_reacquisition(game)
 	_test_duplicate_heavy_group_attack_selection(game)
+	_test_balanced_large_tank_lanes(game)
 	_test_selected_group_order_summary(game)
 	_test_selected_group_composition_summary(game)
 	_test_live_combined_arms_advance(game)
@@ -124,6 +125,45 @@ func _test_duplicate_heavy_group_attack_selection(game: Node) -> void:
 	for first_index in range(offset_values.size()):
 		for second_index in range(first_index + 1, offset_values.size()):
 			_expect((offset_values[first_index] as Vector2).distance_to(offset_values[second_index]) > 0.1, "Duplicate-heavy combined-arms attack must retain distinct formation lanes")
+
+
+func _test_balanced_large_tank_lanes(game: Node) -> void:
+	game.units.assign([
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(120.0, 220.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(140.0, 230.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(160.0, 240.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(180.0, 250.0)},
+		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(200.0, 260.0)},
+		{"team": "enemy", "kind": "tank", "hp": 900, "pos": Vector2(620.0, 360.0)}
+	])
+	game.selected = [0, 1, 2, 3, 4]
+	game._issue_group_attack_order(5)
+	var offsets: Dictionary = {}
+	for unit_index in range(5):
+		var offset: Vector2 = game.units[unit_index].get("attack_formation_offset", Vector2.ZERO)
+		offsets[unit_index] = offset
+		_expect(int(game.units[unit_index].get("attack_target", -1)) == 5, "Large armor formations must retain a shared focus-fire target")
+	_expect(offsets.size() == 5, "Large tank formations must allocate one lane per selected unit")
+	var offset_values: Array = offsets.values()
+	for first_index in range(offset_values.size()):
+		for second_index in range(first_index + 1, offset_values.size()):
+			_expect((offset_values[first_index] as Vector2).distance_to(offset_values[second_index]) > 0.1, "Large armor formations must keep distinct lanes")
+	var group_center := Vector2.ZERO
+	for unit_index in range(5):
+		group_center += game.units[unit_index].pos
+	group_center /= 5.0
+	var forward := (game.units[5].pos - group_center).normalized()
+	var right := Vector2(-forward.y, forward.x)
+	var front_lanes: Array[float] = []
+	var rear_lanes: Array[float] = []
+	for unit_index in [0, 1, 2]:
+		front_lanes.append((offsets[unit_index] as Vector2).dot(right))
+	for unit_index in [3, 4]:
+		rear_lanes.append((offsets[unit_index] as Vector2).dot(right))
+	front_lanes.sort()
+	rear_lanes.sort()
+	_expect(absf(front_lanes[1]) < 0.1 and front_lanes[0] < -40.0 and front_lanes[2] > 40.0, "Three-unit front rows must center the middle tank and spread both flanks")
+	_expect(rear_lanes[0] < -10.0 and rear_lanes[1] > 10.0, "Trailing armor rows must remain symmetrically spaced behind the front line")
 
 
 func _test_selected_group_order_summary(game: Node) -> void:

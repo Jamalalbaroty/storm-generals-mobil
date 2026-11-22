@@ -4115,18 +4115,24 @@ func _group_attack_formation_offsets(selected_indices: Array[int], target_pos: V
 		var unit_kind := String(units[unit_index].get("kind", ""))
 		var rank := int(role_seen[unit_kind])
 		role_seen[unit_kind] = rank + 1
-		var row := int(rank / 2)
-		var side := 0.0
-		if int(role_counts[unit_kind]) > 1:
-			side = -1.0 if rank % 2 == 0 else 1.0
-		var offset := Vector2.ZERO
+		var columns := mini(3, int(role_counts[unit_kind]))
+		var row := int(rank / columns)
+		var column := rank % columns
+		var row_count := mini(columns, int(role_counts[unit_kind]) - row * columns)
+		var lane_spacing := 56.0
+		var base_depth := 92.0
+		var row_spacing := 28.0
 		match unit_kind:
-			"tank":
-				offset = -forward * (92.0 + float(row) * 28.0) + lateral * side * (28.0 + float(row) * 14.0)
 			"infantry":
-				offset = -forward * (142.0 + float(row) * 24.0) + lateral * side * (72.0 + float(row) * 20.0)
+				lane_spacing = 144.0
+				base_depth = 142.0
+				row_spacing = 24.0
 			"artillery":
-				offset = -forward * (250.0 + float(row) * 38.0) + lateral * side * (54.0 + float(row) * 30.0)
+				lane_spacing = 108.0
+				base_depth = 250.0
+				row_spacing = 38.0
+		var lateral_slot := (float(column) - (float(row_count - 1) * 0.5)) * lane_spacing
+		var offset := -forward * (base_depth + float(row) * row_spacing) + lateral * lateral_slot
 		offsets[unit_index] = offset
 	return offsets
 
