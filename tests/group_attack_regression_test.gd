@@ -66,7 +66,7 @@ func _test_group_order_and_reacquisition(game: Node) -> void:
 		for stale_order in ["target", "attack_move_active", "guard_active", "air_patrol_points", "escort_active"]:
 			_expect(not attacker.has(stale_order), "A focused group attack must clear stale order: " + stale_order)
 
-	var forward := (focus - Vector2(165.0, 272.5)).normalized()
+	var forward: Vector2 = (focus - Vector2(165.0, 272.5)).normalized()
 	var right := Vector2(-forward.y, forward.x)
 	var tank_offset: Vector2 = game.units[0].get("attack_formation_offset", Vector2.ZERO)
 	var artillery_offset: Vector2 = game.units[1].get("attack_formation_offset", Vector2.ZERO)
@@ -152,7 +152,7 @@ func _test_balanced_large_tank_lanes(game: Node) -> void:
 	for unit_index in range(5):
 		group_center += game.units[unit_index].pos
 	group_center /= 5.0
-	var forward := (game.units[5].pos - group_center).normalized()
+	var forward: Vector2 = (game.units[5].pos - group_center).normalized()
 	var right := Vector2(-forward.y, forward.x)
 	var front_lanes: Array[float] = []
 	var rear_lanes: Array[float] = []
