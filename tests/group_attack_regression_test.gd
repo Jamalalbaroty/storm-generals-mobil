@@ -18,6 +18,7 @@ func _run() -> void:
 	_test_group_order_and_reacquisition(game)
 	_test_duplicate_heavy_group_attack_selection(game)
 	_test_balanced_large_tank_lanes(game)
+	_test_large_artillery_support_ring(game)
 	_test_selected_group_order_summary(game)
 	_test_selected_group_composition_summary(game)
 	_test_live_combined_arms_advance(game)
@@ -165,6 +166,33 @@ func _test_balanced_large_tank_lanes(game: Node) -> void:
 	_expect(absf(front_lanes[1]) < 0.1 and front_lanes[0] < -40.0 and front_lanes[2] > 40.0, "Three-unit front rows must center the middle tank and spread both flanks")
 	_expect(rear_lanes[0] < -10.0 and rear_lanes[1] > 10.0, "Trailing armor rows must remain symmetrically spaced behind the front line")
 
+
+func _test_large_artillery_support_ring(game: Node) -> void:
+	var target_pos := Vector2(850.0, 500.0)
+	var artillery_units: Array[Dictionary] = []
+	var selected_indices: Array[int] = []
+	var group_center := Vector2.ZERO
+	for unit_index in range(40):
+		var artillery_pos := Vector2(300.0 + float(unit_index) * 1.5, 280.0 + float(unit_index) * 0.6)
+		artillery_units.append({"team": "player", "kind": "artillery", "hp": 110, "pos": artillery_pos})
+		selected_indices.append(unit_index)
+		group_center += artillery_pos
+	artillery_units.append({"team": "enemy", "kind": "tank", "hp": 900, "pos": target_pos})
+	game.units.assign(artillery_units)
+	group_center /= 40.0
+	var forward: Vector2 = (target_pos - group_center).normalized()
+	var offsets: Dictionary = game._group_attack_formation_offsets(selected_indices, target_pos)
+	_expect(offsets.size() == 40, "A forty-unit artillery group must receive a complete support layout")
+	var offset_values: Array[Vector2] = []
+	for unit_index in range(40):
+		var offset: Vector2 = offsets.get(unit_index, Vector2.ZERO)
+		var support_distance := offset.length()
+		_expect(support_distance >= 250.0 and support_distance <= 315.0, "Large artillery groups must stay inside the reachable support ring")
+		_expect(offset.dot(forward) < -35.0, "Large artillery groups must remain behind the advancing armor")
+		offset_values.append(offset)
+	for first_index in range(offset_values.size()):
+		for second_index in range(first_index + 1, offset_values.size()):
+			_expect(offset_values[first_index].distance_to(offset_values[second_index]) > 25.0, "Large artillery support slots must not overlap")
 
 func _test_selected_group_order_summary(game: Node) -> void:
 	var sample_units: Array[Dictionary] = [

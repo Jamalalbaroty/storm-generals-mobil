@@ -4119,20 +4119,30 @@ func _group_attack_formation_offsets(selected_indices: Array[int], target_pos: V
 		var row := int(rank / columns)
 		var column := rank % columns
 		var row_count := mini(columns, int(role_counts[unit_kind]) - row * columns)
-		var lane_spacing := 56.0
-		var base_depth := 92.0
-		var row_spacing := 28.0
-		match unit_kind:
-			"infantry":
+		var offset: Vector2
+		if unit_kind == "artillery":
+			# Keep large artillery groups inside a rear support arc so outer ranks
+			# never settle beyond the 185–330px firing band and stop advancing.
+			var artillery_count := int(role_counts["artillery"])
+			var ring_index := rank % 2
+			var ring_rank := int(rank / 2)
+			var ring_count := int((artillery_count + 1) / 2) if ring_index == 0 else int(artillery_count / 2)
+			var half_angle := minf(80.0, 30.0 + float(maxi(0, artillery_count - 4)) * 1.3889)
+			var angular_position := 0.0
+			if ring_count > 1:
+				angular_position = lerpf(-half_angle, half_angle, float(ring_rank) / float(ring_count - 1))
+			var support_radius := 260.0 if ring_index == 0 else 310.0
+			offset = (-forward).rotated(deg_to_rad(angular_position)) * support_radius
+		else:
+			var lane_spacing := 56.0
+			var base_depth := 92.0
+			var row_spacing := 28.0
+			if unit_kind == "infantry":
 				lane_spacing = 144.0
 				base_depth = 142.0
 				row_spacing = 24.0
-			"artillery":
-				lane_spacing = 108.0
-				base_depth = 250.0
-				row_spacing = 38.0
-		var lateral_slot := (float(column) - (float(row_count - 1) * 0.5)) * lane_spacing
-		var offset := -forward * (base_depth + float(row) * row_spacing) + lateral * lateral_slot
+			var lateral_slot := (float(column) - (float(row_count - 1) * 0.5)) * lane_spacing
+			offset = -forward * (base_depth + float(row) * row_spacing) + lateral * lateral_slot
 		offsets[unit_index] = offset
 	return offsets
 
