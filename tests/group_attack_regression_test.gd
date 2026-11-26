@@ -137,7 +137,7 @@ func _test_balanced_large_tank_lanes(game: Node) -> void:
 		{"team": "player", "kind": "tank", "hp": 180, "pos": Vector2(200.0, 260.0)},
 		{"team": "enemy", "kind": "tank", "hp": 900, "pos": Vector2(620.0, 360.0)}
 	])
-	game.selected = [0, 1, 2, 3, 4]
+	game.selected.assign([0, 1, 2, 3, 4])
 	game._issue_group_attack_order(5)
 	var offsets: Dictionary = {}
 	for unit_index in range(5):
