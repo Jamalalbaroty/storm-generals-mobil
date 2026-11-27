@@ -7493,16 +7493,22 @@ func _update_production_queues(delta: float) -> void:
 		notice_time = 2.5
 		queue_redraw()
 
+	# Snapshot the first queued order for each live producer, then process the snapshot
+	# backwards so delivering one unit cannot skip another factory's order this frame.
+	var active_order_indices: Array[int] = []
 	var active_producers: Array[int] = []
-	for i in range(production_orders.size()):
-		var order: Dictionary = production_orders[i]
-		var producer_index := _production_order_producer_index(order)
-		if producer_index < 0:
-			continue
-		if active_producers.has(producer_index):
+	for order_index in range(production_orders.size()):
+		var queued_order: Dictionary = production_orders[order_index]
+		var producer_index := _production_order_producer_index(queued_order)
+		if producer_index < 0 or active_producers.has(producer_index):
 			continue
 		active_producers.append(producer_index)
-		if not _is_player_building_powered(producer_index):
+		active_order_indices.append(order_index)
+	for snapshot_index in range(active_order_indices.size() - 1, -1, -1):
+		var i := int(active_order_indices[snapshot_index])
+		var order: Dictionary = production_orders[i]
+		var producer_index := _production_order_producer_index(order)
+		if producer_index < 0 or not _is_player_building_powered(producer_index):
 			continue
 		var producer: Dictionary = buildings[producer_index]
 		var producer_level := maxi(1, int(producer.get("level", 1)))
@@ -7534,7 +7540,6 @@ func _update_production_queues(delta: float) -> void:
 			if notice.begins_with("تم إنتاج"):
 				notice = "اكتمل إنتاج الوحدة — أُضيفت إلى ساحة المعركة"
 			queue_redraw()
-			return
 
 func _is_ground_spawn_position_clear(candidate: Vector2, unit_kind: String, producer_id: int, ignored_unit_index: int = -1) -> bool:
 	var unit_radius := 13.0 if unit_kind in ["tank", "artillery"] else 10.0

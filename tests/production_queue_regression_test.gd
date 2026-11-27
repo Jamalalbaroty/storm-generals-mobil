@@ -294,6 +294,24 @@ func _run() -> void:
 		quit(1)
 		return
 
+	# Independent producer queues must both advance and deliver on the same tick.
+	game.credits = 1000
+	game.supplies = 10
+	game.units.clear()
+	game.buildings.assign([
+		{"pos": Vector2(300.0, 300.0), "kind": "barracks", "hp": 400, "build_progress": 1.0, "production_id": 61, "level": 1},
+		{"pos": Vector2(500.0, 300.0), "kind": "barracks", "hp": 400, "build_progress": 1.0, "production_id": 62, "level": 1}
+	])
+	game.production_orders.assign([
+		{"producer_pos": Vector2(300.0, 300.0), "producer_kind": "barracks", "producer_id": 61, "kind": "infantry", "remaining": 1.0, "duration": 1.0},
+		{"producer_pos": Vector2(500.0, 300.0), "producer_kind": "barracks", "producer_id": 62, "kind": "infantry", "remaining": 1.0, "duration": 1.0}
+	])
+	game._update_production_queues(1.0)
+	if not game.production_orders.is_empty() or game.units.size() != 2:
+		push_error("Two powered producers must finish and deliver independently on the same tick")
+		quit(1)
+		return
+
 	# An existing but unfinished producer must pause, not cancel, its order.
 	game.credits = 0
 	game.supplies = 0
